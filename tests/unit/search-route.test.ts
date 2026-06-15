@@ -9,6 +9,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
+const routingOverrides = await import("../../src/lib/routing/routingOverrides.ts");
 const searchRoute = await import("../../src/app/api/v1/search/route.ts");
 
 async function resetStorage() {
@@ -690,6 +691,76 @@ test("v1 search POST auto-select uses configured order and skips missing credent
       "Bearer tavily-key"
     );
     assert.equal(body.provider, "tavily-search");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST skips disabled auto provider but still allows it explicitly", async () => {
+  await seedConnection("brave-search", { apiKey: "brave-key" });
+  await seedConnection("tavily-search", { apiKey: "tavily-key" });
+  await routingOverrides.saveRoutingOverride({
+    endpoint: "search",
+    order: ["brave-search", "tavily-search"],
+    disabled: ["brave-search"],
+  });
+
+  const originalFetch = globalThis.fetch;
+  const capturedUrls: string[] = [];
+
+  globalThis.fetch = async (url) => {
+    capturedUrls.push(String(url));
+    if (String(url).includes("api.tavily.com")) {
+      return new Response(
+        JSON.stringify({
+          results: [{ title: "Tavily result", url: "https://example.com/tavily" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        web: { results: [{ title: "Brave result", url: "https://example.com/brave" }] },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const autoResponse = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute disabled auto",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+    const autoBody = (await autoResponse.json()) as any;
+
+    assert.equal(autoResponse.status, 200);
+    assert.equal(autoBody.provider, "tavily-search");
+    assert.equal(capturedUrls[0], "https://api.tavily.com/search");
+
+    const explicitResponse = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute explicit disabled",
+          provider: "brave-search",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+    const explicitBody = (await explicitResponse.json()) as any;
+
+    assert.equal(explicitResponse.status, 200);
+    assert.equal(explicitBody.provider, "brave-search");
+    assert.equal(capturedUrls[1].startsWith("https://api.search.brave.com/"), true);
   } finally {
     globalThis.fetch = originalFetch;
   }

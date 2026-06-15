@@ -14,6 +14,7 @@ import { firecrawlFetch } from "../executors/firecrawl-fetch.ts";
 import { jinaReaderFetch } from "../executors/jina-reader-fetch.ts";
 import { mdreamFetch } from "../executors/mdream-fetch.ts";
 import { parallelExtractFetch } from "../executors/parallel-extract.ts";
+import { resolveEffectiveProviderOrder } from "@/lib/routing/routingOverrides";
 import type {
   WebFetchCredentials,
   WebFetchFormat,
@@ -32,7 +33,10 @@ export async function runWebFetchChain(
 ): Promise<WebFetchResult> {
   const format: WebFetchFormat = req.format ?? "markdown";
   const includeMetadata = req.include_metadata ?? false;
-  const providerChain = buildProviderChain(resolvedProvider ?? req.provider, req.fallback ?? false);
+  const providerChain = await buildProviderChain(
+    resolvedProvider ?? req.provider,
+    req.fallback ?? false
+  );
   const compatibleProviders = providerChain.filter((provider) =>
     isProviderCompatible(provider, req)
   );
@@ -66,18 +70,22 @@ export async function runWebFetchChain(
   );
 }
 
-function buildProviderChain(
+async function buildProviderChain(
   explicitProvider: WebFetchProviderId | undefined,
   fallback: boolean
-): WebFetchProviderId[] {
-  if (!explicitProvider) return [...WEB_FETCH_PROVIDER_ORDER];
+): Promise<WebFetchProviderId[]> {
+  const effectiveOrder = (await resolveEffectiveProviderOrder(
+    "fetch",
+    WEB_FETCH_PROVIDER_ORDER
+  )) as WebFetchProviderId[];
+  if (!explicitProvider) return effectiveOrder;
   if (!fallback) return [explicitProvider];
 
-  const startIndex = WEB_FETCH_PROVIDER_ORDER.indexOf(explicitProvider);
+  const startIndex = effectiveOrder.indexOf(explicitProvider);
   const afterExplicit =
     startIndex >= 0
-      ? WEB_FETCH_PROVIDER_ORDER.slice(startIndex + 1)
-      : WEB_FETCH_PROVIDER_ORDER.filter((provider) => provider !== explicitProvider);
+      ? effectiveOrder.slice(startIndex + 1)
+      : effectiveOrder.filter((provider) => provider !== explicitProvider);
   return [explicitProvider, ...afterExplicit.filter((provider) => provider !== explicitProvider)];
 }
 

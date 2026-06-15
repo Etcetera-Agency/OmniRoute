@@ -20,7 +20,6 @@ RoutingOverride {
   endpoint: "search" | "fetch"
   order: string[]                 // provider IDs in operator-chosen priority
   disabled: string[]              // provider IDs excluded from automatic routing
-  defaultFallback: boolean        // default fallback when request omits the flag
   updatedAt: ISO8601
 }
 ```
@@ -51,23 +50,11 @@ effectiveOrder(endpoint, registryDefaultOrder):
 `add-mdream-web-fetch-fallback` change). Disabling does not affect explicit
 `provider:` selection — only automatic routing.
 
-## Default Fallback Resolution
-
-```text
-effectiveFallback(endpoint, request):
-  if request.fallback is set:
-    return request.fallback
-  return loadRoutingOverride(endpoint)?.defaultFallback ?? builtInDefault
-```
-
-The `fallback` request flag keeps the same name/semantics across `/v1/search`
-and `/v1/web/fetch` (defined by the routing slices).
-
 ## Write Endpoint
 
 ```text
 PUT /api/search/providers   (management auth)
-body: { endpoint: "search" | "fetch", order: string[], disabled?: string[], defaultFallback?: boolean }
+body: { endpoint: "search" | "fetch", order: string[], disabled?: string[] }
 ```
 
 Validation:
@@ -75,7 +62,7 @@ Validation:
 ```text
 reject unknown provider IDs (not in the endpoint's registry)
 reject if order/disabled reference the wrong kind for the endpoint
-if every compatible provider would be disabled -> reject OR treat as "use built-in default"
+reject if every compatible provider would be disabled
 ```
 
 GET stays the catalog/status read path; the write path returns the normalized
@@ -89,7 +76,6 @@ Extend `SearchToolsConfigPane.tsx`, reusing its existing
 ```text
 - Reorder control (drag handle or up/down) over the active endpoint's providers
 - Per-provider enable/disable toggle (disabled = excluded from auto routing, creds kept)
-- Endpoint-level "default fallback" toggle
 - "Reset to default order" action (clears the override)
 - Missing-credential providers stay visible but are not draggable into an enabled-but-unusable state
 ```

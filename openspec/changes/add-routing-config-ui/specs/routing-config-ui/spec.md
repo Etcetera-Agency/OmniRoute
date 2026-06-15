@@ -41,21 +41,6 @@ GIVEN `exa-search` is disabled for automatic routing
 WHEN a `/v1/search` request sets `provider: "exa-search"`
 THEN the system executes `exa-search`
 
-### Requirement: Default Fallback Configuration
-The system SHALL let an operator set the default `fallback` behavior per endpoint, applied only when a request omits the `fallback` flag.
-
-#### Scenario: Endpoint Default Fallback Applied
-GIVEN an operator sets default fallback to `true` for the search endpoint
-AND a `/v1/search` request sets explicit `provider` and omits `fallback`
-WHEN the explicit provider returns a retryable error
-THEN the system continues with the remaining configured providers
-
-#### Scenario: Request Flag Overrides Default
-GIVEN an operator sets default fallback to `true` for the search endpoint
-AND a `/v1/search` request sets explicit `provider` and `fallback: false`
-WHEN the explicit provider returns a retryable error
-THEN the system returns the provider error without continuing
-
 ### Requirement: Routing Override Reset
 The system SHALL let an operator clear a routing override and revert the endpoint to its built-in default order.
 

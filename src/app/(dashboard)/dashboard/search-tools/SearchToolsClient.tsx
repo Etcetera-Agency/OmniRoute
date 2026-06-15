@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { SearchProviderCatalogItem } from "@/shared/schemas/searchTools";
 import type { PlaygroundState } from "@/lib/playground/codeExport";
 
@@ -39,7 +39,7 @@ export default function SearchToolsClient() {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [costUsd, setCostUsd] = useState<number | null>(null);
 
-  useEffect(() => {
+  const refreshProviders = useCallback(() => {
     globalThis
       .fetch("/api/search/providers")
       .then((res) => res.json())
@@ -59,6 +59,10 @@ export default function SearchToolsClient() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshProviders();
+  }, [refreshProviders]);
 
   const handleConfigChange = (patch: Partial<ConfigState>) => {
     setConfigState((prev) => ({ ...prev, ...patch }));
@@ -130,6 +134,7 @@ export default function SearchToolsClient() {
           onConfigChange={handleConfigChange}
           providers={catalogProviders}
           activeTab={activeTab}
+          onProvidersRefresh={refreshProviders}
         />
       </div>
     </div>

@@ -22,6 +22,7 @@ import {
   isAllRateLimitedCredentials,
   type RateLimitedCredentials,
 } from "@/app/api/v1/_shared/rateLimit";
+import { resolveEffectiveProviderOrder } from "@/lib/routing/routingOverrides";
 
 type SearchCredentials = Record<string, any>;
 type SearchCredentialLookup = SearchCredentials | RateLimitedCredentials | null;
@@ -66,9 +67,17 @@ export function isFallbackableSearchStatus(status: number | undefined): boolean 
   return FALLBACKABLE_SEARCH_STATUSES.has(status) || status >= 500;
 }
 
-function buildSearchProviderChain(provider: string | undefined, searchType: string): string[] {
-  const orderedIds = getAutoSearchProviders(searchType).map((p) => p.id);
-  if (!provider) return orderedIds;
+async function buildSearchProviderChain(
+  provider: string | undefined,
+  searchType: string
+): Promise<string[]> {
+  if (!provider) {
+    return await resolveEffectiveProviderOrder(
+      "search",
+      getAutoSearchProviders().map((p) => p.id),
+      (id) => supportsSearchType(id, searchType)
+    );
+  }
   return [provider];
 }
 
@@ -145,7 +154,7 @@ export async function buildSearchAttempts(
     }
   }
 
-  const providerChain = buildSearchProviderChain(body.provider, body.search_type);
+  const providerChain = await buildSearchProviderChain(body.provider, body.search_type);
   if (providerChain.length === 0) {
     return { errorStatus: 400, errorMessage: "No search providers available" };
   }

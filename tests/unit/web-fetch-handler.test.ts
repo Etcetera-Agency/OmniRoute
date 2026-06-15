@@ -1,9 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-web-fetch-handler-"));
+process.env.DATA_DIR = TEST_DATA_DIR;
+
+const core = await import("../../src/lib/db/core.ts");
 const { handleWebFetch } = await import("../../open-sse/handlers/webFetch.ts");
+const routingOverrides = await import("../../src/lib/routing/routingOverrides.ts");
 const mdream = await import("../../open-sse/executors/mdream-fetch.ts");
 const parallel = await import("../../open-sse/executors/parallel-extract.ts");
+
+test.beforeEach(() => {
+  core.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+});
+
+test.after(() => {
+  core.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+});
 
 // ── handleWebFetch — basic routing ───────────────────────────────────────────
 
@@ -279,6 +298,56 @@ test("handleWebFetch auto fallback tries mdream then parallel-extract", async ()
     assert.equal(urls[1], "https://api.parallel.ai/v1/extract");
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("handleWebFetch skips disabled auto provider but still allows it explicitly", async () => {
+  await routingOverrides.saveRoutingOverride({
+    endpoint: "fetch",
+    order: ["mdream", "parallel-extract"],
+    disabled: ["mdream"],
+  });
+
+  const originalFetch = globalThis.fetch;
+  const urls: string[] = [];
+
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).startsWith("https://api.parallel.ai/")) {
+      return new Response(
+        JSON.stringify({
+          results: [{ url: "https://example.com", excerpts: ["Parallel content"] }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    return new Response("# Mdream content", {
+      status: 200,
+      headers: { "content-type": "text/markdown" },
+    });
+  };
+
+  try {
+    const autoResult = await handleWebFetch(
+      { url: "https://example.com", format: "markdown" },
+      { providerCredentials: { "parallel-extract": { apiKey: "parallel-key" } } }
+    );
+
+    assert.equal(autoResult.success, true);
+    assert.equal(autoResult.data?.provider, "parallel-extract");
+    assert.equal(urls[0], "https://api.parallel.ai/v1/extract");
+
+    const explicitResult = await handleWebFetch(
+      { url: "https://example.com", provider: "mdream", format: "markdown" },
+      { providerCredentials: { "parallel-extract": { apiKey: "parallel-key" } } }
+    );
+
+    assert.equal(explicitResult.success, true);
+    assert.equal(explicitResult.data?.provider, "mdream");
+    assert.ok(urls[1].startsWith("https://mdream.dev/"));
+  } finally {
+    globalThis.fetch = originalFetch;
+    await routingOverrides.resetRoutingOverride("fetch");
   }
 });
 
