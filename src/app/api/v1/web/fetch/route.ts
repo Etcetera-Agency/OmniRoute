@@ -10,17 +10,13 @@
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { handleWebFetch } from "@omniroute/open-sse/handlers/webFetch.ts";
-import {
-  WEB_FETCH_PROVIDER_ORDER,
-  getWebFetchProvider,
-  type WebFetchProviderId,
-} from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import * as log from "@/sse/utils/logger";
-import { extractApiKey, isValidApiKey, getProviderCredentials } from "@/sse/services/auth";
+import { extractApiKey, isValidApiKey } from "@/sse/services/auth";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
 import { isRequireApiKeyEnabled } from "@/shared/utils/featureFlags";
 import { v1WebFetchSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { resolveWebFetchExecution } from "@/lib/webfetch/webFetchCredentials";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -29,44 +25,6 @@ const CORS_HEADERS = {
 
 export async function OPTIONS() {
   return new Response(null, { headers: CORS_HEADERS });
-}
-
-/**
- * Resolve credentials for a web-fetch provider. Tries each known provider in
- * priority order when no explicit provider is requested.
- */
-async function resolveCredentials(
-  providerId: WebFetchProviderId
-): Promise<{ apiKey?: string } | null> {
-  if (providerId === "mdream") return {};
-
-  try {
-    const credentialProviderId = providerId === "parallel-extract" ? "parallel" : providerId;
-    const creds = await getProviderCredentials(credentialProviderId);
-    if (creds) return creds;
-    if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
-      return { apiKey: process.env.PARALLEL_API_KEY };
-    }
-    return null;
-  } catch {
-    if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
-      return { apiKey: process.env.PARALLEL_API_KEY };
-    }
-    return null;
-  }
-}
-
-async function resolveProviderCredentialMap(): Promise<
-  Partial<Record<WebFetchProviderId, { apiKey?: string }>>
-> {
-  const entries = await Promise.all(
-    WEB_FETCH_PROVIDER_ORDER.map(
-      async (providerId) => [providerId, await resolveCredentials(providerId)] as const
-    )
-  );
-  return Object.fromEntries(entries.filter(([, credentials]) => credentials)) as Partial<
-    Record<WebFetchProviderId, { apiKey?: string }>
-  >;
 }
 
 export async function POST(request: Request) {
@@ -97,35 +55,15 @@ export async function POST(request: Request) {
   const policy = await enforceApiKeyPolicy(request, "web-fetch");
   if (policy.rejection) return policy.rejection;
 
-  // Resolve provider + credentials
-  let resolvedProvider: WebFetchProviderId | undefined;
-  let credentials: {
-    apiKey?: string;
-    providerCredentials?: Partial<Record<WebFetchProviderId, { apiKey?: string }>>;
-  } = {};
-
-  if (body.provider) {
-    resolvedProvider = body.provider as WebFetchProviderId;
-    const provider = getWebFetchProvider(resolvedProvider);
-    const creds = await resolveCredentials(resolvedProvider);
-    if (!creds && provider?.authType !== "none") {
-      return errorResponse(
-        HTTP_STATUS.BAD_REQUEST,
-        `No credentials configured for web-fetch provider: ${resolvedProvider}. ` +
-          `Add an API key for "${resolvedProvider}" in the dashboard.`
-      );
-    }
-    credentials = {
-      ...(creds ?? {}),
-      providerCredentials: body.fallback ? await resolveProviderCredentialMap() : undefined,
-    };
-  } else {
-    credentials = { providerCredentials: await resolveProviderCredentialMap() };
+  // Resolve provider + credentials (fork-specific, in webFetchCredentials).
+  const plan = await resolveWebFetchExecution(body);
+  if (plan.errorMessage) {
+    return errorResponse(plan.errorStatus ?? HTTP_STATUS.BAD_REQUEST, plan.errorMessage);
   }
 
   log.info(
     "WEB_FETCH",
-    `${resolvedProvider ?? "auto"} | ${getUrlHost(body.url)} | format=${body.format}`
+    `${plan.resolvedProvider ?? "auto"} | ${getUrlHost(body.url)} | format=${body.format}`
   );
 
   const result = await handleWebFetch(
@@ -139,8 +77,8 @@ export async function POST(request: Request) {
       headers: request.headers,
       log,
     },
-    credentials,
-    resolvedProvider
+    plan.credentials,
+    plan.resolvedProvider
   );
 
   if (!result.success) {
