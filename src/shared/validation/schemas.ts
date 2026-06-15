@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WEB_FETCH_PROVIDER_ORDER } from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import {
   ACCOUNT_FALLBACK_STRATEGY_VALUES,
   ROUTING_STRATEGY_VALUES,
@@ -2344,6 +2345,9 @@ export const v1SearchSchema = z
         "youcom-search",
         "searxng-search",
         "zai-search",
+        "parallel-search",
+        "firecrawl-search",
+        "gemini-grounded-search",
       ])
       .optional(),
     max_results: z.coerce.number().int().min(1).max(100).default(5),
@@ -2500,11 +2504,13 @@ export const v1BatchCreateSchema = z.object({
 
 export const v1WebFetchSchema = z.object({
   url: z.string().url("url must be a valid URL (http/https)"),
-  provider: z.enum(["firecrawl", "jina-reader", "tavily-search"]).optional(),
+  // Derived from the registry so adding a provider only touches webFetchRegistry.
+  provider: z.enum(WEB_FETCH_PROVIDER_ORDER).optional(),
   format: z.enum(["markdown", "html", "links", "screenshot"]).default("markdown"),
   depth: z.union([z.literal(0), z.literal(1), z.literal(2)]).default(0),
   wait_for_selector: z.string().max(256).optional(),
   include_metadata: z.boolean().default(false),
+  fallback: z.boolean().default(false),
 });
 
 // ── Zed Credential Import Flow ──────────────────────────────────────────────────

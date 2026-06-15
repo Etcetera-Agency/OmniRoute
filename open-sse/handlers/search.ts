@@ -3,9 +3,10 @@ import { randomUUID } from "crypto";
  * Search Handler
  *
  * Handles POST /v1/search requests.
- * Routes to 11 search providers with automatic failover:
+ * Routes to configured search providers with automatic failover:
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
- *   google-pse-search, linkup-search, searchapi-search, youcom-search, searxng-search, ollama-search, zai-search
+ *   google-pse-search, linkup-search, searchapi-search, youcom-search, searxng-search,
+ *   ollama-search, zai-search, parallel-search, firecrawl-search, gemini-grounded-search
  *
  * Request format:
  * {
@@ -99,6 +100,7 @@ interface SearchHandlerOptions {
 // ── Constants ────────────────────────────────────────────────────────────
 
 const GLOBAL_TIMEOUT_MS = 15_000;
+const DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL = "gemini-2.5-flash";
 
 // Non-retriable HTTP status codes — fail immediately, don't try alternate
 const NON_RETRIABLE = new Set([400, 401, 403, 404]);
@@ -161,6 +163,30 @@ function makeResult(
     citation: { provider: providerId, retrieved_at: now, rank: idx + 1 },
     provider_raw: null,
   };
+}
+
+function isValidResultUrl(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function joinStringArray(value: unknown): string {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim()).join("\n\n")
+    : "";
+}
+
+function normalizeUrlForDedupe(url: string): string {
+  const parsed = new URL(url);
+  parsed.hash = "";
+  parsed.protocol = parsed.protocol.toLowerCase();
+  parsed.hostname = parsed.hostname.toLowerCase();
+  return parsed.href;
 }
 
 function normalizeSerperResponse(
@@ -262,6 +288,27 @@ function resolveSearchBaseUrl(config: SearchProviderConfig, params: SearchReques
 function toSearchPageNumber(offset: number | undefined, maxResults: number): number | undefined {
   if (typeof offset !== "number" || offset <= 0 || maxResults <= 0) return undefined;
   return Math.floor(offset / maxResults) + 1;
+}
+
+function getGeminiGroundedSearchModel(params: SearchRequestParams): string {
+  return (
+    getProviderSettingString(params, "model") ||
+    process.env.GEMINI_GROUNDED_SEARCH_MODEL ||
+    DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL
+  );
+}
+
+function buildGeminiGroundedSearchPrompt(params: SearchRequestParams): string {
+  const lines = [
+    `Search the web for: ${params.query}`,
+    "Use Google Search grounding. Return a concise answer based only on grounded sources.",
+  ];
+  if (params.country) lines.push(`Prefer sources relevant to country: ${params.country}.`);
+  if (params.language) lines.push(`Prefer language: ${params.language}.`);
+  if (params.timeRange && params.timeRange !== "any") {
+    lines.push(`Prefer information from the last ${params.timeRange}.`);
+  }
+  return lines.join("\n");
 }
 
 // ── Provider Request Builders ───────────────────────────────────────────
@@ -607,10 +654,125 @@ function buildOllamaRequest(
   };
 }
 
-function buildRequest(
+export function buildParallelSearchRequest(
   config: SearchProviderConfig,
   params: SearchRequestParams
 ): { url: string; init: RequestInit } {
+  const apiKey = params.token;
+  if (!apiKey) {
+    throw new Error("Parallel Search requires an API key");
+  }
+
+  return {
+    url: resolveSearchBaseUrl(config, params),
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        objective: params.query,
+        search_queries: [params.query],
+        max_results: params.maxResults,
+      }),
+    },
+  };
+}
+
+function toFirecrawlTbs(timeRange?: string): string | undefined {
+  if (!timeRange || timeRange === "any") return undefined;
+  const map: Record<string, string> = {
+    day: "qdr:d",
+    week: "qdr:w",
+    month: "qdr:m",
+    year: "qdr:y",
+  };
+  return map[timeRange];
+}
+
+export function buildFirecrawlSearchRequest(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): { url: string; init: RequestInit } {
+  const apiKey = params.token;
+  if (!apiKey) {
+    throw new Error("Firecrawl Search requires an API key");
+  }
+
+  const { includes, excludes } = parseDomainFilter(params.domainFilter);
+  const body: Record<string, unknown> = {
+    query: params.query,
+    limit: params.maxResults,
+    sources: [params.searchType === "news" ? "news" : "web"],
+    ignoreInvalidURLs: true,
+  };
+
+  if (includes.length) body.includeDomains = includes;
+  if (excludes.length) body.excludeDomains = excludes;
+  if (params.country) body.country = params.country.toUpperCase();
+  const tbs = toFirecrawlTbs(params.timeRange);
+  if (tbs) body.tbs = tbs;
+  if (params.contentOptions?.full_page) {
+    body.scrapeOptions = {
+      formats: [{ type: params.contentOptions.format === "markdown" ? "markdown" : "html" }],
+    };
+  }
+
+  return {
+    url: resolveSearchBaseUrl(config, params),
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+  };
+}
+
+export function buildGeminiGroundedSearchRequest(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): { url: string; init: RequestInit; model: string } {
+  const apiKey = params.token;
+  if (!apiKey) {
+    throw new Error("Gemini Grounded Search requires an API key");
+  }
+
+  const model = getGeminiGroundedSearchModel(params);
+  const baseUrl = resolveSearchBaseUrl(config, params);
+  const body = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: buildGeminiGroundedSearchPrompt(params) }],
+      },
+    ],
+    tools: [{ googleSearch: {} }],
+    generationConfig: {
+      temperature: 0.2,
+    },
+  };
+
+  return {
+    url: `${baseUrl}/${encodeURIComponent(model)}:generateContent`,
+    model,
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify(body),
+    },
+  };
+}
+
+type BuiltSearchRequest = { url: string; init: RequestInit; model?: string };
+
+function buildRequest(config: SearchProviderConfig, params: SearchRequestParams): BuiltSearchRequest {
   if (config.id === "serper-search") return buildSerperRequest(config, params);
   if (config.id === "brave-search") return buildBraveRequest(config, params);
   if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
@@ -622,6 +784,10 @@ function buildRequest(
   if (config.id === "youcom-search") return buildYouComRequest(config, params);
   if (config.id === "searxng-search") return buildSearxngRequest(config, params);
   if (config.id === "ollama-search") return buildOllamaRequest(config, params);
+  if (config.id === "parallel-search") return buildParallelSearchRequest(config, params);
+  if (config.id === "firecrawl-search") return buildFirecrawlSearchRequest(config, params);
+  if (config.id === "gemini-grounded-search")
+    return buildGeminiGroundedSearchRequest(config, params);
   // Fallback for future providers: POST with bearer auth
   return {
     url: resolveSearchBaseUrl(config, params),
@@ -933,6 +1099,133 @@ function normalizeOllamaResponse(
   return { results, totalResults: results.length };
 }
 
+export function normalizeParallelSearchResponse(
+  data: any,
+  _query: string,
+  _searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const items = Array.isArray(data?.results) ? data.results : [];
+
+  const results = items
+    .filter((item: any) => isValidResultUrl(item?.url))
+    .map((item: any, idx: number) => {
+      const excerpts = joinStringArray(item.excerpts);
+      return makeResult(
+        "parallel-search",
+        {
+          title: item.title,
+          url: item.url,
+          snippet: excerpts || item.snippet || "",
+          published_at: item.publish_date,
+          full_text: excerpts || undefined,
+          text_format: "text",
+        },
+        idx,
+        now
+      );
+    });
+
+  return { results, totalResults: results.length };
+}
+
+export function normalizeFirecrawlSearchResponse(
+  data: any,
+  _query: string,
+  searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const source = searchType === "news" ? data?.data?.news : data?.data?.web;
+  const items = Array.isArray(source) ? source : [];
+
+  const results = items
+    .filter((item: any) => isValidResultUrl(item?.url))
+    .map((item: any, idx: number) =>
+      makeResult(
+        "firecrawl-search",
+        {
+          title: item.title,
+          url: item.url,
+          snippet: item.description || item.snippet || "",
+          published_at: item.date,
+          image_url: item.imageUrl,
+          source_type: item.category || searchType,
+          full_text: item.markdown || item.html,
+          text_format: item.markdown ? "markdown" : "html",
+        },
+        idx,
+        now
+      )
+    );
+
+  return { results, totalResults: results.length };
+}
+
+function extractGeminiAnswerText(data: any): string {
+  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+  return candidates
+    .flatMap((candidate: any) =>
+      Array.isArray(candidate?.content?.parts) ? candidate.content.parts : []
+    )
+    .map((part: any) => (typeof part?.text === "string" ? part.text.trim() : ""))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function extractGeminiGroundingChunks(data: any): any[] {
+  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+  return candidates.flatMap((candidate: any) =>
+    Array.isArray(candidate?.groundingMetadata?.groundingChunks)
+      ? candidate.groundingMetadata.groundingChunks
+      : []
+  );
+}
+
+export function normalizeGeminiGroundedSearchResponse(
+  data: any,
+  _query: string,
+  _searchType: string,
+  model = DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL
+): {
+  results: SearchResult[];
+  totalResults: number | null;
+  answer: SearchResponse["answer"];
+} {
+  const now = new Date().toISOString();
+  const answerText = extractGeminiAnswerText(data);
+  const seen = new Set<string>();
+  const results: SearchResult[] = [];
+
+  for (const chunk of extractGeminiGroundingChunks(data)) {
+    const uri = chunk?.web?.uri;
+    if (!isValidResultUrl(uri)) continue;
+
+    const dedupeKey = normalizeUrlForDedupe(uri);
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    results.push(
+      makeResult(
+        "gemini-grounded-search",
+        {
+          title: chunk.web.title || uri,
+          url: uri,
+          snippet: answerText,
+          source_type: "web",
+        },
+        results.length,
+        now
+      )
+    );
+  }
+
+  return {
+    results,
+    totalResults: results.length,
+    answer: answerText ? { source: "gemini-grounded-search", text: answerText, model } : null,
+  };
+}
+
 // ── Z.AI Coding Plan Search MCP Execution ───────────────────────────
 
 // Schema for the Z.AI MCP web_search_prime tool result. Z.AI double-encodes
@@ -1174,8 +1467,9 @@ function normalizeResponse(
   providerId: string,
   data: any,
   query: string,
-  searchType: string
-): { results: SearchResult[]; totalResults: number | null } {
+  searchType: string,
+  model?: string
+): { results: SearchResult[]; totalResults: number | null; answer?: SearchResponse["answer"] } {
   if (providerId === "serper-search") return normalizeSerperResponse(data, query, searchType);
   if (providerId === "brave-search") return normalizeBraveResponse(data, query, searchType);
   if (providerId === "perplexity-search")
@@ -1189,6 +1483,12 @@ function normalizeResponse(
   if (providerId === "youcom-search") return normalizeYouComResponse(data, query, searchType);
   if (providerId === "searxng-search") return normalizeSearxngResponse(data, query, searchType);
   if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
+  if (providerId === "parallel-search")
+    return normalizeParallelSearchResponse(data, query, searchType);
+  if (providerId === "firecrawl-search")
+    return normalizeFirecrawlSearchResponse(data, query, searchType);
+  if (providerId === "gemini-grounded-search")
+    return normalizeGeminiGroundedSearchResponse(data, query, searchType, model);
   return { results: [], totalResults: null };
 }
 
@@ -1249,20 +1549,18 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   // 4. Try primary provider
   const result = await tryProvider(primaryConfig, requestParams, credentials, startTime, log);
 
-  if (result.success) return result;
+  if (result.success && (result.data?.results.length || !alternateConfig)) return result;
 
   // 5. Failover to alternate (only for retriable errors and auto-select mode)
   if (
     alternateConfig &&
     alternateCredentials &&
-    !NON_RETRIABLE.has(result.status || 0) &&
+    (result.success || !NON_RETRIABLE.has(result.status || 0)) &&
     Date.now() - startTime < GLOBAL_TIMEOUT_MS
   ) {
     if (log) {
-      log.warn(
-        "SEARCH",
-        `${primaryConfig.id} failed (${result.status}), trying ${alternateConfig.id}`
-      );
+      const reason = result.success ? "returned no usable results" : `failed (${result.status})`;
+      log.warn("SEARCH", `${primaryConfig.id} ${reason}, trying ${alternateConfig.id}`);
     }
 
     const fallbackResult = await tryProvider(
@@ -1317,8 +1615,12 @@ async function tryProvider(
 
   let url = "";
   let init: RequestInit = {};
+  let requestModel: string | undefined;
   try {
-    ({ url, init } = buildRequest(config, { ...params, token, providerSpecificData }));
+    const builtRequest = buildRequest(config, { ...params, token, providerSpecificData });
+    url = builtRequest.url;
+    init = builtRequest.init;
+    requestModel = "model" in builtRequest ? builtRequest.model : undefined;
   } catch (err: any) {
     return {
       success: false,
@@ -1373,7 +1675,7 @@ async function tryProvider(
     }
 
     const data = await response.json();
-    const normalized = normalizeResponse(config.id, data, query, searchType);
+    const normalized = normalizeResponse(config.id, data, query, searchType, requestModel);
     // Enforce max_results — some providers return more than requested
     const results = normalized.results.slice(0, maxResults);
     const totalResults = normalized.totalResults;
@@ -1400,7 +1702,7 @@ async function tryProvider(
         provider: config.id,
         query,
         results,
-        answer: null,
+        answer: normalized.answer ?? null,
         usage: { queries_used: 1, search_cost_usd: config.costPerQuery },
         metrics: {
           response_time_ms: duration,

@@ -10,6 +10,7 @@ const {
   SEARCH_PROVIDERS,
   getSearchProvider,
   getAllSearchProviders,
+  getAutoSearchProviders,
   selectProvider,
   supportsSearchType,
 } = await import("../../open-sse/config/searchRegistry.ts");
@@ -19,7 +20,7 @@ const { computeCacheKey, getOrCoalesce, getCacheStats, SEARCH_CACHE_DEFAULT_TTL_
 
 // ─── Registry Tests ──────────────────────────────────────────
 
-test("SEARCH_PROVIDERS has all 11 providers", () => {
+test("SEARCH_PROVIDERS has all 15 providers", () => {
   assert.ok(SEARCH_PROVIDERS["serper-search"], "serper should exist");
   assert.ok(SEARCH_PROVIDERS["brave-search"], "brave should exist");
   assert.ok(SEARCH_PROVIDERS["perplexity-search"], "perplexity-search should exist");
@@ -32,7 +33,10 @@ test("SEARCH_PROVIDERS has all 11 providers", () => {
   assert.ok(SEARCH_PROVIDERS["searxng-search"], "searxng should exist");
   assert.ok(SEARCH_PROVIDERS["ollama-search"], "ollama-search should exist");
   assert.ok(SEARCH_PROVIDERS["zai-search"], "zai should exist");
-  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 12);
+  assert.ok(SEARCH_PROVIDERS["parallel-search"], "parallel-search should exist");
+  assert.ok(SEARCH_PROVIDERS["firecrawl-search"], "firecrawl-search should exist");
+  assert.ok(SEARCH_PROVIDERS["gemini-grounded-search"], "gemini-grounded-search should exist");
+  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 15);
 });
 
 test("serper-search config is correct", () => {
@@ -152,9 +156,50 @@ test("zai-search config is correct", () => {
   assert.deepEqual(z.searchTypes, ["web"]);
 });
 
+test("parallel-search and firecrawl-search config is correct", () => {
+  const parallel = SEARCH_PROVIDERS["parallel-search"];
+  assert.equal(parallel.id, "parallel-search");
+  assert.equal(parallel.baseUrl, "https://api.parallel.ai/v1/search");
+  assert.equal(parallel.method, "POST");
+  assert.equal(parallel.authHeader, "x-api-key");
+  assert.deepEqual(parallel.searchTypes, ["web", "news"]);
+
+  const firecrawl = SEARCH_PROVIDERS["firecrawl-search"];
+  assert.equal(firecrawl.id, "firecrawl-search");
+  assert.equal(firecrawl.baseUrl, "https://api.firecrawl.dev/v2/search");
+  assert.equal(firecrawl.method, "POST");
+  assert.equal(firecrawl.authHeader, "bearer");
+  assert.deepEqual(firecrawl.searchTypes, ["web", "news"]);
+});
+
+test("gemini-grounded-search config is correct", () => {
+  const gemini = SEARCH_PROVIDERS["gemini-grounded-search"];
+  assert.equal(gemini.id, "gemini-grounded-search");
+  assert.equal(gemini.baseUrl, "https://generativelanguage.googleapis.com/v1beta/models");
+  assert.equal(gemini.method, "POST");
+  assert.equal(gemini.authHeader, "x-goog-api-key");
+  assert.equal(gemini.costPerQuery, 0);
+  assert.deepEqual(gemini.searchTypes, ["web"]);
+});
+
+test("excluded provider candidates are not registered", () => {
+  for (const provider of [
+    "unisearch",
+    "serpapi-search",
+    "jina-search",
+    "kagi-search",
+    "xai-search",
+    "duckduckgo-search",
+    "bing-search",
+    "searcharvester-search",
+  ]) {
+    assert.equal(SEARCH_PROVIDERS[provider], undefined, `${provider} should not be registered`);
+  }
+});
+
 test("getAllSearchProviders returns flat list", () => {
   const all = getAllSearchProviders();
-  assert.equal(all.length, 12);
+  assert.equal(all.length, 15);
   assert.ok(all.some((p) => p.id === "serper-search"));
   assert.ok(all.some((p) => p.id === "brave-search"));
   assert.ok(all.some((p) => p.id === "perplexity-search"));
@@ -167,12 +212,27 @@ test("getAllSearchProviders returns flat list", () => {
   assert.ok(all.some((p) => p.id === "searxng-search"));
   assert.ok(all.some((p) => p.id === "ollama-search"));
   assert.ok(all.some((p) => p.id === "zai-search"));
+  assert.ok(all.some((p) => p.id === "parallel-search"));
+  assert.ok(all.some((p) => p.id === "firecrawl-search"));
+  assert.ok(all.some((p) => p.id === "gemini-grounded-search"));
   // Each entry should have id, name, searchTypes
   for (const p of all) {
     assert.ok(p.id);
     assert.ok(p.name);
     assert.ok(Array.isArray(p.searchTypes));
   }
+});
+
+test("getAutoSearchProviders keeps Gemini grounded search as final web fallback", () => {
+  const webProviders = getAutoSearchProviders("web");
+  assert.equal(webProviders[0]?.id, "brave-search");
+  assert.equal(webProviders[1]?.id, "tavily-search");
+  assert.equal(webProviders.at(-1)?.id, "gemini-grounded-search");
+  assert.equal(webProviders.at(-2)?.id, "perplexity-search");
+  assert.equal(
+    getAutoSearchProviders("news").some((provider) => provider.id === "gemini-grounded-search"),
+    false
+  );
 });
 
 test("selectProvider with explicit provider returns that provider", () => {
@@ -185,16 +245,16 @@ test("selectProvider with unknown provider returns null", () => {
   assert.equal(selectProvider("unknown"), null);
 });
 
-test("selectProvider without argument returns cheapest provider", () => {
+test("selectProvider without argument returns first configured auto provider", () => {
   const config = selectProvider();
   assert.ok(config);
-  assert.equal(config.id, "searxng-search");
+  assert.equal(config.id, "brave-search");
 });
 
 test("selectProvider filters by search type support", () => {
   const config = selectProvider(undefined, "news");
   assert.ok(config);
-  assert.equal(config.id, "searxng-search");
+  assert.equal(config.id, "brave-search");
   assert.equal(selectProvider("linkup-search", "news"), null);
 });
 
@@ -364,11 +424,23 @@ test("v1SearchSchema accepts new search providers", async () => {
     "youcom-search",
     "searxng-search",
     "ollama-search",
+    "parallel-search",
+    "firecrawl-search",
+    "gemini-grounded-search",
   ] as const;
 
   for (const provider of providers) {
     const result = v1SearchSchema.safeParse({ query: "test", provider });
     assert.equal(result.success, true, `${provider} should be accepted`);
+  }
+});
+
+test("v1SearchSchema rejects excluded search providers", async () => {
+  const { v1SearchSchema } = await import("../../src/shared/validation/schemas.ts");
+
+  for (const provider of ["unisearch", "serpapi-search", "jina-search", "kagi-search"] as const) {
+    const result = v1SearchSchema.safeParse({ query: "test", provider });
+    assert.equal(result.success, false, `${provider} should be rejected`);
   }
 });
 
@@ -438,4 +510,18 @@ test("v1SearchSchema allows unknown fields (forward compat)", async () => {
     future_field: true,
   });
   assert.ok(result.success);
+});
+
+test("v1WebFetchSchema accepts mdream, parallel-extract, and fallback flag", async () => {
+  const { v1WebFetchSchema } = await import("../../src/shared/validation/schemas.ts");
+
+  for (const provider of ["mdream", "parallel-extract"] as const) {
+    const result = v1WebFetchSchema.safeParse({
+      url: "https://example.com",
+      provider,
+      fallback: true,
+    });
+    assert.equal(result.success, true, `${provider} should be accepted`);
+    assert.equal(result.data?.fallback, true);
+  }
 });

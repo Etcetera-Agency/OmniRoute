@@ -2,14 +2,12 @@
  * Integration tests for GET /api/search/providers — extended catalog (F4).
  *
  * Tests:
- * - Returns 15 items total (12 search + 3 fetch providers).
+ * - Returns 20 items total (15 search + 5 fetch providers).
  * - Each item carries the correct `kind` field.
  * - Status reflects actual DB credential state:
  *   - "configured"  when an active, non-rate-limited connection exists.
  *   - "missing"     when no connection exists for the provider.
  *   - "rate_limited" when all connections are rate-limited (rateLimitedUntil in future).
- * - Back-compat: `data` field is present and uses legacy shape
- *   {id, object, created, name, search_types}.
  * - Unauthenticated requests receive 401.
  * - Error responses do not leak stack traces (Hard Rule #12).
  */
@@ -27,21 +25,21 @@ import {
 // ---------------------------------------------------------------------------
 // Isolated temp DB for this test suite
 // ---------------------------------------------------------------------------
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-search-providers-catalog-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-search-providers-catalog-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = "test-api-key-secret-search-catalog";
 // Disable dashboard password requirement by default
 process.env.INITIAL_PASSWORD = "";
 process.env.DASHBOARD_PASSWORD = "";
 process.env.JWT_SECRET = TEST_MANAGEMENT_JWT_SECRET;
+delete process.env.PARALLEL_API_KEY;
 
 // ---------------------------------------------------------------------------
 // Module imports (after env setup so DB initialises in the right dir)
 // ---------------------------------------------------------------------------
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
+const searchRegistry = await import("../../open-sse/config/searchRegistry.ts");
 
 // Import route AFTER env is configured
 const route = await import("../../src/app/api/search/providers/route.ts");
@@ -50,8 +48,8 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // Constants
 // ---------------------------------------------------------------------------
 
-const EXPECTED_SEARCH_COUNT = 12;
-const EXPECTED_FETCH_COUNT = 3;
+const EXPECTED_SEARCH_COUNT = 15;
+const EXPECTED_FETCH_COUNT = 5;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 
 // ---------------------------------------------------------------------------
@@ -67,6 +65,16 @@ async function buildAuthRequest(url = "http://localhost/api/search/providers"): 
 /** Build an unauthenticated request. */
 function buildUnauthRequest(url = "http://localhost/api/search/providers"): Request {
   return new Request(url, { method: "GET" });
+}
+
+function buildPutRequest(body: Record<string, unknown>, headers?: HeadersInit): Request {
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Content-Type", "application/json");
+  return new Request("http://localhost/api/search/providers", {
+    method: "PUT",
+    headers: requestHeaders,
+    body: JSON.stringify(body),
+  });
 }
 
 /** Seed an active provider connection. */
@@ -137,7 +145,7 @@ test("search-providers-catalog: returns 401 for unauthenticated requests when au
   assert.ok(!bodyStr.includes(" at /"), "error body must not contain stack trace");
 });
 
-test("search-providers-catalog: returns 15 providers (12 search + 3 fetch)", async () => {
+test("search-providers-catalog: returns 20 providers (15 search + 5 fetch)", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
 
@@ -172,6 +180,25 @@ test("search-providers-catalog: correct count of search and fetch kinds", async 
   );
 });
 
+test("search-providers-catalog: search items expose configured routing order", async () => {
+  const req = await buildAuthRequest();
+  const res = await route.GET(req);
+  const body = await res.json();
+
+  const brave = body.providers.find((p: { id: string }) => p.id === "brave-search");
+  const tavily = body.providers.find(
+    (p: { id: string; kind: string }) => p.id === "tavily-search" && p.kind === "search"
+  );
+  const gemini = body.providers.find((p: { id: string }) => p.id === "gemini-grounded-search");
+  const mdream = body.providers.find((p: { id: string }) => p.id === "mdream");
+
+  assert.equal(brave?.order, 1);
+  assert.equal(tavily?.order, 2);
+  assert.equal(gemini?.order, 14);
+  assert.equal(brave?.routingStatus, brave?.status);
+  assert.equal(mdream?.order, 1);
+});
+
 test("search-providers-catalog: every item has a valid kind value", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
@@ -186,12 +213,16 @@ test("search-providers-catalog: every item has a valid kind value", async () => 
 });
 
 test("search-providers-catalog: status=missing when no DB credentials exist", async () => {
-  // No connections seeded — all providers should be "missing"
+  // No connections seeded — keyed providers should be "missing"; no-auth Mdream is ready.
   const req = await buildAuthRequest();
   const res = await route.GET(req);
   const body = await res.json();
 
   for (const item of body.providers) {
+    if (item.id === "mdream") {
+      assert.equal(item.status, "configured", "mdream should be configured without credentials");
+      continue;
+    }
     assert.equal(
       item.status,
       "missing",
@@ -218,7 +249,8 @@ test("search-providers-catalog: status=configured when active credentials seeded
 
   // Other providers (no creds) should still be "missing"
   const missingItems = body.providers.filter(
-    (p: { id: string; status: string }) => p.id !== "serper-search" && p.id !== "perplexity-search"
+    (p: { id: string; status: string }) =>
+      p.id !== "serper-search" && p.id !== "perplexity-search" && p.id !== "mdream"
   );
   for (const item of missingItems) {
     assert.equal(item.status, "missing", `${item.id} should be 'missing'`);
@@ -261,26 +293,12 @@ test("search-providers-catalog: mixed status across providers", async () => {
   assert.equal(exa?.status, "missing", "exa-search should be missing");
 });
 
-test("search-providers-catalog: back-compat data field has legacy shape", async () => {
+test("search-providers-catalog: response omits legacy data field", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
   const body = await res.json();
 
-  // Legacy shape: { id, object, created, name, search_types }
-  assert.ok(Array.isArray(body.data), "`data` array must be present for back-compat");
-  assert.equal(
-    body.data.length,
-    EXPECTED_TOTAL,
-    "data array should have same length as providers"
-  );
-
-  for (const item of body.data) {
-    assert.ok(typeof item.id === "string", "data item must have id");
-    assert.equal(item.object, "search_provider", "data item object must be 'search_provider'");
-    assert.ok(typeof item.created === "number", "data item must have numeric created timestamp");
-    assert.ok(typeof item.name === "string", "data item must have name");
-    assert.ok(Array.isArray(item.search_types), "data item must have search_types array");
-  }
+  assert.equal(body.data, undefined);
 });
 
 test("search-providers-catalog: fetch providers have correct metadata", async () => {
@@ -291,6 +309,8 @@ test("search-providers-catalog: fetch providers have correct metadata", async ()
   const fetchProviders = body.providers.filter((p: { kind: string }) => p.kind === "fetch");
   const ids = fetchProviders.map((p: { id: string }) => p.id);
   assert.ok(ids.includes("firecrawl"), "firecrawl must be present");
+  assert.ok(ids.includes("mdream"), "mdream must be present");
+  assert.ok(ids.includes("parallel-extract"), "parallel-extract must be present");
   assert.ok(ids.includes("jina-reader"), "jina-reader must be present");
   assert.ok(ids.includes("tavily-search"), "tavily-search must be present");
 
@@ -328,10 +348,7 @@ test("search-providers-catalog: search providers have correct fields", async () 
     assert.ok(typeof item.id === "string", "search item must have id");
     assert.ok(typeof item.name === "string", "search item must have name");
     assert.ok(typeof item.costPerQuery === "number", "search item must have costPerQuery");
-    assert.ok(
-      typeof item.freeMonthlyQuota === "number",
-      "search item must have freeMonthlyQuota"
-    );
+    assert.ok(typeof item.freeMonthlyQuota === "number", "search item must have freeMonthlyQuota");
     assert.ok(Array.isArray(item.searchTypes), "search item must have searchTypes array");
     assert.equal(
       item.configureHref,
@@ -352,15 +369,116 @@ test("search-providers-catalog: response validates against SearchProviderCatalog
   const res = await route.GET(req);
   const body = await res.json();
 
-  const { SearchProviderCatalogResponseSchema } = await import(
-    "../../src/shared/schemas/searchTools.ts"
-  );
+  const { SearchProviderCatalogResponseSchema } =
+    await import("../../src/shared/schemas/searchTools.ts");
 
-  const result = SearchProviderCatalogResponseSchema.safeParse({ providers: body.providers });
+  const result = SearchProviderCatalogResponseSchema.safeParse(body);
   assert.ok(
     result.success,
     `Schema validation failed: ${(result as { error?: { message: string } }).error?.message ?? "unknown"}`
   );
+});
+
+test("search-providers-catalog: PUT rejects unauthenticated routing override writes", async () => {
+  const settingsDb = await import("../../src/lib/db/settings.ts");
+  await settingsDb.updateSettings({ requireLogin: true, password: "hashed-pw-test" });
+
+  const res = await route.PUT(
+    buildPutRequest({
+      endpoint: "search",
+      order: ["tavily-search", "brave-search"],
+      disabled: [],
+    })
+  );
+
+  assert.equal(res.status, 401);
+});
+
+test("search-providers-catalog: PUT saves search routing override and GET exposes effective order", async () => {
+  await seedActiveConnection("tavily-search");
+  await seedActiveConnection("brave-search");
+  const disabled = searchRegistry.SEARCH_AUTO_PROVIDER_ORDER.filter(
+    (id) => id !== "tavily-search" && id !== "brave-search"
+  );
+  const headers = await createManagementSessionHeaders();
+
+  const putRes = await route.PUT(
+    buildPutRequest(
+      {
+        endpoint: "search",
+        order: ["tavily-search", "brave-search"],
+        disabled,
+      },
+      headers
+    )
+  );
+  const putBody = await putRes.json();
+
+  assert.equal(putRes.status, 200);
+  assert.deepEqual(putBody.routing.order, ["tavily-search", "brave-search"]);
+
+  const getRes = await route.GET(await buildAuthRequest());
+  const getBody = await getRes.json();
+  const tavily = getBody.providers.find(
+    (p: { id: string; kind: string }) => p.kind === "search" && p.id === "tavily-search"
+  );
+  const brave = getBody.providers.find(
+    (p: { id: string; kind: string }) => p.kind === "search" && p.id === "brave-search"
+  );
+  const exa = getBody.providers.find(
+    (p: { id: string; kind: string }) => p.kind === "search" && p.id === "exa-search"
+  );
+
+  assert.equal(tavily?.order, 1);
+  assert.equal(brave?.order, 2);
+  assert.equal(exa?.enabledForAuto, false);
+});
+
+test("search-providers-catalog: PUT rejects unknown routing provider IDs", async () => {
+  const headers = await createManagementSessionHeaders();
+  const res = await route.PUT(
+    buildPutRequest(
+      {
+        endpoint: "search",
+        order: ["not-a-provider"],
+        disabled: searchRegistry.SEARCH_AUTO_PROVIDER_ORDER,
+      },
+      headers
+    )
+  );
+  const body = await res.json();
+
+  assert.equal(res.status, 400);
+  assert.match(JSON.stringify(body), /Unknown search provider: not-a-provider/);
+});
+
+test("search-providers-catalog: PUT reset clears routing override", async () => {
+  await seedActiveConnection("tavily-search");
+  await seedActiveConnection("brave-search");
+  const disabled = searchRegistry.SEARCH_AUTO_PROVIDER_ORDER.filter(
+    (id) => id !== "tavily-search" && id !== "brave-search"
+  );
+  const headers = await createManagementSessionHeaders();
+
+  await route.PUT(
+    buildPutRequest(
+      {
+        endpoint: "search",
+        order: ["tavily-search", "brave-search"],
+        disabled,
+      },
+      headers
+    )
+  );
+
+  const resetRes = await route.PUT(
+    buildPutRequest({ endpoint: "search", order: [], disabled: [], reset: true }, headers)
+  );
+  const body = await resetRes.json();
+
+  assert.equal(resetRes.status, 200);
+  assert.equal(body.routing.override, false);
+  assert.equal(body.routing.order[0], "brave-search");
 });
 
 test("search-providers-catalog: fetch providers have configureHref set", async () => {

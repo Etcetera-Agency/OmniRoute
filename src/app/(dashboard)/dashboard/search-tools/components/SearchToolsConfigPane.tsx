@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { Select } from "@/shared/components";
 import type { SearchProviderCatalogItem } from "@/shared/schemas/searchTools";
 import type { ActiveTab } from "./SearchToolsTopBar";
@@ -19,6 +20,7 @@ interface SearchToolsConfigPaneProps {
   providers: SearchProviderCatalogItem[];
   activeTab: ActiveTab;
   rerankModels?: { value: string; label: string }[];
+  onProvidersRefresh?: () => void;
 }
 
 export default function SearchToolsConfigPane({
@@ -27,14 +29,82 @@ export default function SearchToolsConfigPane({
   providers,
   activeTab,
   rerankModels = [],
+  onProvidersRefresh,
 }: SearchToolsConfigPaneProps) {
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [routingSaving, setRoutingSaving] = useState(false);
 
   const searchProviders = providers.filter((p) => p.kind === "search" && p.status !== "missing");
   const fetchProviders = providers.filter((p) => p.kind === "fetch" && p.status !== "missing");
   const relevantProviders = activeTab === "scrape" ? fetchProviders : searchProviders;
+  const routingEndpoint = activeTab === "scrape" ? "fetch" : "search";
+  const routingProviders = useMemo(
+    () =>
+      providers
+        .filter((p) => p.kind === routingEndpoint && p.order != null)
+        .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)),
+    [providers, routingEndpoint]
+  );
+  const disabledProviderIds = useMemo(
+    () =>
+      routingProviders
+        .filter((p) => p.status === "missing" || p.enabledForAuto === false)
+        .map((p) => p.id),
+    [routingProviders]
+  );
 
   const selectedProvider = providers.find((p) => p.id === config.provider);
+  const canEditRouting = activeTab === "search" || activeTab === "scrape";
+
+  async function saveRouting(order: string[], disabled: string[]) {
+    setRoutingSaving(true);
+    try {
+      const response = await globalThis.fetch("/api/search/providers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: routingEndpoint, order, disabled }),
+      });
+      if (!response.ok) return;
+      onProvidersRefresh?.();
+    } finally {
+      setRoutingSaving(false);
+    }
+  }
+
+  async function resetRouting() {
+    setRoutingSaving(true);
+    try {
+      const response = await globalThis.fetch("/api/search/providers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: routingEndpoint, order: [], disabled: [], reset: true }),
+      });
+      if (!response.ok) return;
+      onProvidersRefresh?.();
+    } finally {
+      setRoutingSaving(false);
+    }
+  }
+
+  function moveProvider(providerId: string, direction: -1 | 1) {
+    const order = routingProviders.map((p) => p.id);
+    const index = order.indexOf(providerId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
+    [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
+    void saveRouting(order, disabledProviderIds);
+  }
+
+  function toggleProvider(provider: SearchProviderCatalogItem, enabled: boolean) {
+    if (provider.status === "missing") return;
+    const disabled = new Set(disabledProviderIds);
+    if (enabled) disabled.delete(provider.id);
+    else disabled.add(provider.id);
+    void saveRouting(
+      routingProviders.map((p) => p.id),
+      [...disabled]
+    );
+  }
 
   return (
     <aside
@@ -183,6 +253,70 @@ export default function SearchToolsConfigPane({
             ]}
             className="w-full"
           />
+        </div>
+      )}
+
+      {canEditRouting && (
+        <div className="p-3 border-b border-border space-y-2" data-testid="routing-config">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-text-muted uppercase tracking-wider">
+              Routing
+            </span>
+            <button
+              type="button"
+              onClick={() => void resetRouting()}
+              disabled={routingSaving}
+              className="inline-flex h-7 w-7 items-center justify-center rounded border border-border text-text-muted hover:text-text-main disabled:opacity-50"
+              aria-label="Reset routing order"
+              title="Reset routing order"
+            >
+              <RotateCcw size={14} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="space-y-1">
+            {routingProviders.map((provider, index) => {
+              const enabled = provider.status !== "missing" && provider.enabledForAuto !== false;
+              return (
+                <div
+                  key={`${provider.kind}:${provider.id}`}
+                  className="flex items-center gap-1 rounded border border-border/50 bg-bg-subtle px-2 py-1"
+                >
+                  <label className="flex min-w-0 flex-1 items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      disabled={routingSaving || provider.status === "missing"}
+                      onChange={(e) => toggleProvider(provider, e.target.checked)}
+                      aria-label={`${provider.name} automatic routing`}
+                    />
+                    <span className="min-w-0 truncate text-xs text-text-main">
+                      {provider.name}
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={routingSaving || index === 0}
+                    onClick={() => moveProvider(provider.id, -1)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded border border-border text-text-muted hover:text-text-main disabled:opacity-40"
+                    aria-label={`Move ${provider.name} up`}
+                    title="Move up"
+                  >
+                    <ChevronUp size={13} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={routingSaving || index === routingProviders.length - 1}
+                    onClick={() => moveProvider(provider.id, 1)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded border border-border text-text-muted hover:text-text-main disabled:opacity-40"
+                    aria-label={`Move ${provider.name} down`}
+                    title="Move down"
+                  >
+                    <ChevronDown size={13} aria-hidden="true" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

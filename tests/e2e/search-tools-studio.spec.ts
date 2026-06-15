@@ -3,35 +3,109 @@ import { gotoDashboardRoute } from "./helpers/dashboardAuth";
 
 test.describe("Search Tools Studio", () => {
   test.beforeEach(async ({ page }) => {
+    let providers = [
+      {
+        id: "brave-search",
+        name: "Brave Search",
+        kind: "search",
+        costPerQuery: 0.005,
+        freeMonthlyQuota: 1000,
+        searchTypes: ["web", "news"],
+        status: "configured",
+        order: 1,
+        enabledForAuto: true,
+        configureHref: "/dashboard/providers",
+      },
+      {
+        id: "tavily-search",
+        name: "Tavily Search",
+        kind: "search",
+        costPerQuery: 0.008,
+        freeMonthlyQuota: 1000,
+        searchTypes: ["web", "news"],
+        status: "configured",
+        order: 2,
+        enabledForAuto: true,
+        configureHref: "/dashboard/providers",
+      },
+      {
+        id: "exa-search",
+        name: "Exa Search",
+        kind: "search",
+        costPerQuery: 0.007,
+        freeMonthlyQuota: 1000,
+        searchTypes: ["web"],
+        status: "missing",
+        order: null,
+        enabledForAuto: false,
+        configureHref: "/dashboard/providers",
+      },
+      {
+        id: "mdream",
+        name: "Mdream",
+        kind: "fetch",
+        costPerQuery: 0,
+        freeMonthlyQuota: 999999,
+        fetchFormats: ["markdown"],
+        status: "configured",
+        order: 1,
+        enabledForAuto: true,
+        configureHref: "/dashboard/providers",
+      },
+      {
+        id: "firecrawl",
+        name: "Firecrawl",
+        kind: "fetch",
+        costPerQuery: 0.002,
+        freeMonthlyQuota: 0,
+        fetchFormats: ["markdown", "html", "links"],
+        status: "configured",
+        order: 2,
+        enabledForAuto: true,
+        configureHref: "/dashboard/providers",
+      },
+    ];
+
     // Mock the search providers catalog API
     await page.route("**/api/search/providers", async (route) => {
+      if (route.request().method() === "PUT") {
+        const body = route.request().postDataJSON() as {
+          endpoint: "search" | "fetch";
+          order: string[];
+          disabled: string[];
+          reset?: boolean;
+        };
+        const kind = body.endpoint === "fetch" ? "fetch" : "search";
+        if (body.reset) {
+          let order = 0;
+          providers = providers.map((provider) =>
+            provider.kind === kind
+              ? { ...provider, order: ++order, enabledForAuto: provider.status !== "missing" }
+              : provider
+          );
+        } else {
+          providers = providers.map((provider) => {
+            if (provider.kind !== kind) return provider;
+            return {
+              ...provider,
+              order: body.order.indexOf(provider.id) + 1 || null,
+              enabledForAuto:
+                provider.status !== "missing" && !body.disabled.includes(provider.id),
+            };
+          });
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ routing: { endpoint: body.endpoint, order: body.order } }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          providers: [
-            {
-              id: "serper",
-              name: "Serper",
-              kind: "search",
-              costPerQuery: 0.001,
-              freeMonthlyQuota: 100,
-              searchTypes: ["web", "news"],
-              status: "configured",
-              configureHref: "/dashboard/providers",
-            },
-            {
-              id: "firecrawl",
-              name: "Firecrawl",
-              kind: "fetch",
-              costPerQuery: 0.002,
-              freeMonthlyQuota: 0,
-              fetchFormats: ["markdown", "html", "links"],
-              status: "configured",
-              configureHref: "/dashboard/providers",
-            },
-          ],
-        }),
+        body: JSON.stringify({ providers }),
       });
     });
 
@@ -129,5 +203,20 @@ test.describe("Search Tools Studio", () => {
 
     // Search tab should be selected by default
     await expect(searchTab).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("edits routing order, toggles provider, and resets", async ({ page }) => {
+    await gotoDashboardRoute(page, "/dashboard/search-tools");
+
+    await expect(page.getByTestId("routing-config")).toBeVisible({ timeout: 15000 });
+    await page.getByLabel("Move Tavily Search up").click();
+    await expect(page.getByLabel("Move Tavily Search up")).toBeDisabled();
+
+    const braveToggle = page.getByLabel("Brave Search automatic routing");
+    await braveToggle.click();
+    await expect(braveToggle).not.toBeChecked();
+
+    await page.getByLabel("Reset routing order").click();
+    await expect(page.getByLabel("Move Brave Search up")).toBeDisabled();
   });
 });

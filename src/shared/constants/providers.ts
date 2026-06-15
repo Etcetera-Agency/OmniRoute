@@ -2567,6 +2567,42 @@ export const LOCAL_PROVIDERS = {
 
 // Search Providers
 export const SEARCH_PROVIDERS = {
+  parallel: {
+    id: "parallel",
+    alias: "parallel",
+    name: "Parallel",
+    icon: "hub",
+    color: "#111827",
+    textIcon: "PL",
+    website: "https://platform.parallel.ai",
+    hasFree: true,
+    authHint: "API key from the Parallel platform. Used by Parallel Search and Parallel Extract.",
+    serviceKinds: ["webSearch", "webFetch"],
+  },
+  "parallel-search": {
+    id: "parallel-search",
+    alias: "parallel-search",
+    name: "Parallel Search",
+    icon: "hub",
+    color: "#111827",
+    textIcon: "PS",
+    website: "https://docs.parallel.ai/search/search-quickstart",
+    hasFree: true,
+    authHint: "Uses the shared Parallel API key configured as provider `parallel`.",
+    serviceKinds: ["webSearch"],
+  },
+  "firecrawl-search": {
+    id: "firecrawl-search",
+    alias: "firecrawl-search",
+    name: "Firecrawl Search",
+    icon: "manage_search",
+    color: "#E25822",
+    textIcon: "FS",
+    website: "https://docs.firecrawl.dev/api-reference/endpoint/search",
+    hasFree: true,
+    authHint: "Uses the same API key as Firecrawl web fetch.",
+    serviceKinds: ["webSearch"],
+  },
   "perplexity-search": {
     id: "perplexity-search",
     alias: "pplx-search",
