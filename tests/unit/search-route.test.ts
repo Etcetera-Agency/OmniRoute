@@ -45,14 +45,14 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("v1 search GET lists all 14 search providers", async () => {
+test("v1 search GET lists all 15 search providers", async () => {
   const response = await searchRoute.GET();
   const body = (await response.json()) as any;
   const ids = body.data.map((item: { id: string }) => item.id);
 
   assert.equal(response.status, 200);
   assert.equal(body.object, "list");
-  assert.equal(body.data.length, 14);
+  assert.equal(body.data.length, 15);
   assert.deepEqual(ids, [
     "serper-search",
     "brave-search",
@@ -68,6 +68,7 @@ test("v1 search GET lists all 14 search providers", async () => {
     "zai-search",
     "parallel-search",
     "firecrawl-search",
+    "gemini-grounded-search",
   ]);
 });
 
@@ -259,6 +260,73 @@ test("v1 search POST uses Firecrawl credentials and returns normalized news resu
     assert.equal(body.results[0].title, "Firecrawl news");
     assert.equal(body.results[0].content.format, "markdown");
     assert.equal(body.results[0].citation.provider, "firecrawl-search");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST uses Gemini credentials and returns grounded results", async () => {
+  await seedConnection("gemini", {
+    apiKey: "gemini-key",
+    providerSpecificData: { model: "gemini-test-model" },
+  });
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+
+  globalThis.fetch = async (url, init = {}) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        candidates: [
+          {
+            content: { parts: [{ text: "Grounded answer" }] },
+            groundingMetadata: {
+              groundingChunks: [
+                { web: { uri: "https://example.com/gemini", title: "Gemini source" } },
+                { web: { uri: "https://example.com/gemini#duplicate", title: "Duplicate" } },
+                { web: { uri: "not-a-url", title: "Drop" } },
+              ],
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "OpenAI official website",
+          provider: "gemini-grounded-search",
+          max_results: 5,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as any;
+    const requestBody = JSON.parse(String(capturedInit?.body));
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      capturedUrl,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-test-model:generateContent"
+    );
+    assert.equal((capturedInit?.headers as Record<string, string>)["x-goog-api-key"], "gemini-key");
+    assert.deepEqual(requestBody.tools, [{ googleSearch: {} }]);
+    assert.equal(body.provider, "gemini-grounded-search");
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].title, "Gemini source");
+    assert.equal(body.results[0].citation.provider, "gemini-grounded-search");
+    assert.equal(body.answer.text, "Grounded answer");
+    assert.equal(body.answer.model, "gemini-test-model");
   } finally {
     globalThis.fetch = originalFetch;
   }

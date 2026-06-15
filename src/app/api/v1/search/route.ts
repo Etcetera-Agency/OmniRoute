@@ -2,6 +2,7 @@ import { handleSearch } from "@omniroute/open-sse/handlers/search.ts";
 import { getProviderCredentials, extractApiKey, isValidApiKey } from "@/sse/services/auth";
 import {
   getAllSearchProviders,
+  getAutoSearchProviders,
   getSearchProvider,
   selectProvider,
   supportsSearchType,
@@ -181,11 +182,7 @@ async function postHandler(request: Request, context: unknown) {
     }
 
     if (!credentials) {
-      // Sort by cost to find cheapest with credentials
-      const sortedIds = Object.values(SEARCH_PROVIDERS)
-        .filter((provider) => supportsSearchType(provider, body.search_type))
-        .sort((a, b) => a.costPerQuery - b.costPerQuery)
-        .map((p) => p.id);
+      const sortedIds = getAutoSearchProviders(body.search_type).map((p) => p.id);
 
       for (const pid of sortedIds) {
         if (pid === providerConfig.id) continue;
@@ -217,9 +214,7 @@ async function postHandler(request: Request, context: unknown) {
     }
 
     // Find alternate for failover — must bind credentials to the matched provider
-    const otherIds = Object.values(SEARCH_PROVIDERS)
-      .filter((provider) => supportsSearchType(provider, body.search_type))
-      .sort((a, b) => a.costPerQuery - b.costPerQuery)
+    const otherIds = getAutoSearchProviders(body.search_type)
       .map((p) => p.id)
       .filter((id) => id !== providerConfig.id);
 

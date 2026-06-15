@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   buildFirecrawlSearchRequest,
+  buildGeminiGroundedSearchRequest,
   buildParallelSearchRequest,
   normalizeFirecrawlSearchResponse,
+  normalizeGeminiGroundedSearchResponse,
   normalizeParallelSearchResponse,
 } from "../../open-sse/handlers/search.ts";
 import { SEARCH_PROVIDERS } from "../../open-sse/config/searchRegistry.ts";
@@ -54,6 +56,26 @@ test("firecrawl-search request builder sends v2 search shape", () => {
     country: "US",
     tbs: "qdr:d",
   });
+});
+
+test("gemini-grounded-search request builder enables Google Search grounding", () => {
+  const request = buildGeminiGroundedSearchRequest(SEARCH_PROVIDERS["gemini-grounded-search"], {
+    query: "OpenAI official website",
+    searchType: "web",
+    maxResults: 3,
+    token: "gemini-key",
+    providerOptions: { model: "gemini-test-model" },
+  });
+  const body = JSON.parse(String(request.init.body));
+
+  assert.equal(
+    request.url,
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-test-model:generateContent"
+  );
+  assert.equal(request.model, "gemini-test-model");
+  assert.equal((request.init.headers as Record<string, string>)["x-goog-api-key"], "gemini-key");
+  assert.deepEqual(body.tools, [{ googleSearch: {} }]);
+  assert.match(body.contents[0].parts[0].text, /OpenAI official website/);
 });
 
 test("parallel-search normalizer drops invalid URL results", () => {
@@ -120,4 +142,38 @@ test("firecrawl-search normalizer handles web and news arrays", () => {
   assert.equal(news.results.length, 1);
   assert.equal(news.results[0].published_at, "2026-06-01");
   assert.equal(news.results[0].citation.provider, "firecrawl-search");
+});
+
+test("gemini-grounded-search normalizer maps answer and deduped grounding chunks", () => {
+  const normalized = normalizeGeminiGroundedSearchResponse(
+    {
+      candidates: [
+        {
+          content: { parts: [{ text: "Gemini answer text" }] },
+          groundingMetadata: {
+            groundingChunks: [
+              { web: { uri: "https://example.com/path#section", title: "Example" } },
+              { web: { uri: "https://example.com/path", title: "Duplicate" } },
+              { web: { uri: "ftp://example.com/file", title: "Invalid" } },
+              { web: { title: "Missing URL" } },
+            ],
+          },
+        },
+      ],
+    },
+    "query",
+    "web",
+    "gemini-test-model"
+  );
+
+  assert.equal(normalized.results.length, 1);
+  assert.equal(normalized.results[0].title, "Example");
+  assert.equal(normalized.results[0].url, "https://example.com/path#section");
+  assert.equal(normalized.results[0].snippet, "Gemini answer text");
+  assert.equal(normalized.results[0].citation.provider, "gemini-grounded-search");
+  assert.deepEqual(normalized.answer, {
+    source: "gemini-grounded-search",
+    text: "Gemini answer text",
+    model: "gemini-test-model",
+  });
 });

@@ -10,6 +10,7 @@ const {
   SEARCH_PROVIDERS,
   getSearchProvider,
   getAllSearchProviders,
+  getAutoSearchProviders,
   selectProvider,
   supportsSearchType,
 } = await import("../../open-sse/config/searchRegistry.ts");
@@ -19,7 +20,7 @@ const { computeCacheKey, getOrCoalesce, getCacheStats, SEARCH_CACHE_DEFAULT_TTL_
 
 // ─── Registry Tests ──────────────────────────────────────────
 
-test("SEARCH_PROVIDERS has all 14 providers", () => {
+test("SEARCH_PROVIDERS has all 15 providers", () => {
   assert.ok(SEARCH_PROVIDERS["serper-search"], "serper should exist");
   assert.ok(SEARCH_PROVIDERS["brave-search"], "brave should exist");
   assert.ok(SEARCH_PROVIDERS["perplexity-search"], "perplexity-search should exist");
@@ -34,7 +35,8 @@ test("SEARCH_PROVIDERS has all 14 providers", () => {
   assert.ok(SEARCH_PROVIDERS["zai-search"], "zai should exist");
   assert.ok(SEARCH_PROVIDERS["parallel-search"], "parallel-search should exist");
   assert.ok(SEARCH_PROVIDERS["firecrawl-search"], "firecrawl-search should exist");
-  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 14);
+  assert.ok(SEARCH_PROVIDERS["gemini-grounded-search"], "gemini-grounded-search should exist");
+  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 15);
 });
 
 test("serper-search config is correct", () => {
@@ -170,6 +172,16 @@ test("parallel-search and firecrawl-search config is correct", () => {
   assert.deepEqual(firecrawl.searchTypes, ["web", "news"]);
 });
 
+test("gemini-grounded-search config is correct", () => {
+  const gemini = SEARCH_PROVIDERS["gemini-grounded-search"];
+  assert.equal(gemini.id, "gemini-grounded-search");
+  assert.equal(gemini.baseUrl, "https://generativelanguage.googleapis.com/v1beta/models");
+  assert.equal(gemini.method, "POST");
+  assert.equal(gemini.authHeader, "x-goog-api-key");
+  assert.equal(gemini.costPerQuery, 0);
+  assert.deepEqual(gemini.searchTypes, ["web"]);
+});
+
 test("excluded provider candidates are not registered", () => {
   for (const provider of [
     "unisearch",
@@ -187,7 +199,7 @@ test("excluded provider candidates are not registered", () => {
 
 test("getAllSearchProviders returns flat list", () => {
   const all = getAllSearchProviders();
-  assert.equal(all.length, 14);
+  assert.equal(all.length, 15);
   assert.ok(all.some((p) => p.id === "serper-search"));
   assert.ok(all.some((p) => p.id === "brave-search"));
   assert.ok(all.some((p) => p.id === "perplexity-search"));
@@ -202,12 +214,23 @@ test("getAllSearchProviders returns flat list", () => {
   assert.ok(all.some((p) => p.id === "zai-search"));
   assert.ok(all.some((p) => p.id === "parallel-search"));
   assert.ok(all.some((p) => p.id === "firecrawl-search"));
+  assert.ok(all.some((p) => p.id === "gemini-grounded-search"));
   // Each entry should have id, name, searchTypes
   for (const p of all) {
     assert.ok(p.id);
     assert.ok(p.name);
     assert.ok(Array.isArray(p.searchTypes));
   }
+});
+
+test("getAutoSearchProviders keeps Gemini grounded search as final web fallback", () => {
+  const webProviders = getAutoSearchProviders("web");
+  assert.equal(webProviders.at(-1)?.id, "gemini-grounded-search");
+  assert.equal(webProviders.at(-2)?.id, "perplexity-search");
+  assert.equal(
+    getAutoSearchProviders("news").some((provider) => provider.id === "gemini-grounded-search"),
+    false
+  );
 });
 
 test("selectProvider with explicit provider returns that provider", () => {
@@ -220,7 +243,7 @@ test("selectProvider with unknown provider returns null", () => {
   assert.equal(selectProvider("unknown"), null);
 });
 
-test("selectProvider without argument returns cheapest provider", () => {
+test("selectProvider without argument returns first configured auto provider", () => {
   const config = selectProvider();
   assert.ok(config);
   assert.equal(config.id, "searxng-search");
@@ -401,6 +424,7 @@ test("v1SearchSchema accepts new search providers", async () => {
     "ollama-search",
     "parallel-search",
     "firecrawl-search",
+    "gemini-grounded-search",
   ] as const;
 
   for (const provider of providers) {

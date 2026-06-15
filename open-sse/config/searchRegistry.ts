@@ -251,6 +251,22 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     timeoutMs: 60_000,
     cacheTTLMs: 5 * 60 * 1000,
   },
+
+  "gemini-grounded-search": {
+    id: "gemini-grounded-search",
+    name: "Gemini Grounded Search",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/models",
+    method: "POST",
+    authType: "apikey",
+    authHeader: "x-goog-api-key",
+    costPerQuery: 0,
+    freeMonthlyQuota: 0,
+    searchTypes: ["web"],
+    defaultMaxResults: 5,
+    maxMaxResults: 20,
+    timeoutMs: 15_000,
+    cacheTTLMs: 5 * 60 * 1000,
+  },
 };
 
 /**
@@ -263,7 +279,32 @@ export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
   "zai-search": "zai",
   "parallel-search": "parallel",
   "firecrawl-search": "firecrawl",
+  "gemini-grounded-search": "gemini",
 };
+
+export const SEARCH_AUTO_PROVIDER_ORDER = [
+  "searxng-search",
+  "serper-search",
+  "brave-search",
+  "exa-search",
+  "tavily-search",
+  "google-pse-search",
+  "linkup-search",
+  "searchapi-search",
+  "youcom-search",
+  "ollama-search",
+  "zai-search",
+  "parallel-search",
+  "firecrawl-search",
+  "perplexity-search",
+  "gemini-grounded-search",
+] as const;
+
+export function getAutoSearchProviders(searchType?: string): SearchProviderConfig[] {
+  return SEARCH_AUTO_PROVIDER_ORDER.map((id) => SEARCH_PROVIDERS[id])
+    .filter((provider): provider is SearchProviderConfig => Boolean(provider))
+    .filter((provider) => (searchType ? supportsSearchType(provider, searchType) : true));
+}
 
 /**
  * Get search provider config by ID
@@ -298,9 +339,7 @@ export function getAllSearchProviders(): Array<{
 }
 
 /**
- * Select the cheapest available provider.
- * If an explicit provider is given, validate and return it.
- * Otherwise, return the cheapest by costPerQuery.
+ * Select a provider from explicit input or the configured automatic order.
  */
 export function selectProvider(
   explicitProvider?: string,
@@ -313,10 +352,5 @@ export function selectProvider(
     return provider;
   }
 
-  const providers = Object.values(SEARCH_PROVIDERS).filter((provider) =>
-    searchType ? supportsSearchType(provider, searchType) : true
-  );
-  if (providers.length === 0) return null;
-
-  return providers.reduce((cheapest, p) => (p.costPerQuery < cheapest.costPerQuery ? p : cheapest));
+  return getAutoSearchProviders(searchType)[0] || null;
 }
