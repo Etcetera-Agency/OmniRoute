@@ -93,7 +93,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    const timestamp = Math.floor(Date.now() / 1000);
     const searchOrder = new Map(SEARCH_AUTO_PROVIDER_ORDER.map((id, index) => [id, index + 1]));
 
     // -----------------------------------------------------------------------
@@ -157,19 +156,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // -----------------------------------------------------------------------
-    // 5. Back-compat: include legacy `data` array for callers using old shape
-    //    Old shape: { id, object, created, name, search_types }
-    // -----------------------------------------------------------------------
-    const data = providers.map((p) => ({
-      id: p.id,
-      object: "search_provider",
-      created: timestamp,
-      name: p.name,
-      search_types: p.searchTypes ?? [],
-    }));
-
-    return NextResponse.json({ providers, data });
+    return NextResponse.json({ providers });
   } catch (error) {
     log.error("SEARCH_PROVIDERS", "Failed to list providers", error);
     return NextResponse.json(buildErrorBody(500, "Failed to list providers"), { status: 500 });

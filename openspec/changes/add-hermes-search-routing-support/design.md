@@ -13,7 +13,12 @@ searchapi-search
 linkup-search
 searxng-search
 youcom-search
+ollama-search
+zai-search
+parallel-search
+firecrawl-search
 perplexity-search
+gemini-grounded-search
 ```
 
 The order uses providers already present in `open-sse/config/searchRegistry.ts`.

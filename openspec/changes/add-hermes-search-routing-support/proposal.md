@@ -32,10 +32,10 @@ Hermes uses OmniRoute as its search gateway through `/v1/search` or the OmniRout
 ### Affected Code
 
 - `src/app/api/v1/search/route.ts` - Auto provider selection and fallback order.
-- `open-sse/handlers/search.ts` - Provider fallback execution and error classification.
+- `src/lib/search/searchChain.ts` - Provider chain construction, health skip, fallback execution, and error classification.
 - `open-sse/config/searchRegistry.ts` - Provider metadata and configured order support.
 - `src/app/api/search/providers/route.ts` - Expose provider order/status.
-- `src/shared/validation/schemas.ts` - No search request schema change is needed for explicit fallback; explicit provider remains single-provider.
+- `src/shared/schemas/searchTools.ts` - Catalog response schema includes search routing order/status.
 - Tests under `tests/unit` and/or `tests/integration`.
 
 ### User Impact

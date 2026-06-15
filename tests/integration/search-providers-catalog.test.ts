@@ -8,8 +8,6 @@
  *   - "configured"  when an active, non-rate-limited connection exists.
  *   - "missing"     when no connection exists for the provider.
  *   - "rate_limited" when all connections are rate-limited (rateLimitedUntil in future).
- * - Back-compat: `data` field is present and uses legacy shape
- *   {id, object, created, name, search_types}.
  * - Unauthenticated requests receive 401.
  * - Error responses do not leak stack traces (Hard Rule #12).
  */
@@ -284,22 +282,12 @@ test("search-providers-catalog: mixed status across providers", async () => {
   assert.equal(exa?.status, "missing", "exa-search should be missing");
 });
 
-test("search-providers-catalog: back-compat data field has legacy shape", async () => {
+test("search-providers-catalog: response omits legacy data field", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
   const body = await res.json();
 
-  // Legacy shape: { id, object, created, name, search_types }
-  assert.ok(Array.isArray(body.data), "`data` array must be present for back-compat");
-  assert.equal(body.data.length, EXPECTED_TOTAL, "data array should have same length as providers");
-
-  for (const item of body.data) {
-    assert.ok(typeof item.id === "string", "data item must have id");
-    assert.equal(item.object, "search_provider", "data item object must be 'search_provider'");
-    assert.ok(typeof item.created === "number", "data item must have numeric created timestamp");
-    assert.ok(typeof item.name === "string", "data item must have name");
-    assert.ok(Array.isArray(item.search_types), "data item must have search_types array");
-  }
+  assert.equal(body.data, undefined);
 });
 
 test("search-providers-catalog: fetch providers have correct metadata", async () => {
