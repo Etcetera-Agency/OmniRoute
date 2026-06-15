@@ -2,7 +2,7 @@
  * Integration tests for GET /api/search/providers — extended catalog (F4).
  *
  * Tests:
- * - Returns 17 items total (12 search + 5 fetch providers).
+ * - Returns 19 items total (14 search + 5 fetch providers).
  * - Each item carries the correct `kind` field.
  * - Status reflects actual DB credential state:
  *   - "configured"  when an active, non-rate-limited connection exists.
@@ -34,6 +34,7 @@ process.env.API_KEY_SECRET = "test-api-key-secret-search-catalog";
 process.env.INITIAL_PASSWORD = "";
 process.env.DASHBOARD_PASSWORD = "";
 process.env.JWT_SECRET = TEST_MANAGEMENT_JWT_SECRET;
+delete process.env.PARALLEL_API_KEY;
 
 // ---------------------------------------------------------------------------
 // Module imports (after env setup so DB initialises in the right dir)
@@ -48,7 +49,7 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // Constants
 // ---------------------------------------------------------------------------
 
-const EXPECTED_SEARCH_COUNT = 12;
+const EXPECTED_SEARCH_COUNT = 14;
 const EXPECTED_FETCH_COUNT = 5;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 
@@ -135,7 +136,7 @@ test("search-providers-catalog: returns 401 for unauthenticated requests when au
   assert.ok(!bodyStr.includes(" at /"), "error body must not contain stack trace");
 });
 
-test("search-providers-catalog: returns 17 providers (12 search + 5 fetch)", async () => {
+test("search-providers-catalog: returns 19 providers (14 search + 5 fetch)", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
 

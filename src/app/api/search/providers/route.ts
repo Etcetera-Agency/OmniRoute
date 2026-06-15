@@ -37,6 +37,7 @@ async function resolveProviderStatus(
   useCredentialFallback = true
 ): Promise<ProviderStatus> {
   if (providerId === "mdream") return "configured";
+  if (providerId === "parallel-search" && process.env.PARALLEL_API_KEY) return "configured";
 
   try {
     const credentialProviderId = providerId === "parallel-extract" ? "parallel" : providerId;

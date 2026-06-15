@@ -45,14 +45,14 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("v1 search GET lists all 12 search providers", async () => {
+test("v1 search GET lists all 14 search providers", async () => {
   const response = await searchRoute.GET();
   const body = (await response.json()) as any;
   const ids = body.data.map((item: { id: string }) => item.id);
 
   assert.equal(response.status, 200);
   assert.equal(body.object, "list");
-  assert.equal(body.data.length, 12);
+  assert.equal(body.data.length, 14);
   assert.deepEqual(ids, [
     "serper-search",
     "brave-search",
@@ -66,6 +66,8 @@ test("v1 search GET lists all 12 search providers", async () => {
     "searxng-search",
     "ollama-search",
     "zai-search",
+    "parallel-search",
+    "firecrawl-search",
   ]);
 });
 
@@ -124,6 +126,139 @@ test("v1 search POST uses stored Linkup credentials and returns normalized resul
     assert.equal(body.results[0].citation.provider, "linkup-search");
     assert.equal(body.cached, false);
     assert.equal(body.usage.queries_used, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST uses shared Parallel credentials and returns normalized results", async () => {
+  await seedConnection("parallel", { apiKey: "parallel-key" });
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+
+  globalThis.fetch = async (url, init = {}) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        results: [
+          {
+            title: "Parallel result",
+            url: "https://example.com/parallel",
+            publish_date: "2026-06-01",
+            excerpts: ["Parallel snippet", "Parallel excerpt body"],
+          },
+          { title: "Missing URL", excerpts: ["drop me"] },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute parallel",
+          provider: "parallel-search",
+          max_results: 2,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as any;
+    const requestBody = JSON.parse(String(capturedInit?.body));
+
+    assert.equal(response.status, 200);
+    assert.equal(capturedUrl, "https://api.parallel.ai/v1/search");
+    assert.equal((capturedInit?.headers as Record<string, string>)["x-api-key"], "parallel-key");
+    assert.deepEqual(requestBody.search_queries, ["omniroute parallel"]);
+    assert.equal(requestBody.objective, "omniroute parallel");
+    assert.equal(body.provider, "parallel-search");
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].title, "Parallel result");
+    assert.equal(body.results[0].snippet, "Parallel snippet\n\nParallel excerpt body");
+    assert.equal(body.results[0].citation.provider, "parallel-search");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST uses Firecrawl credentials and returns normalized news results", async () => {
+  await seedConnection("firecrawl", { apiKey: "firecrawl-key" });
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+
+  globalThis.fetch = async (url, init = {}) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          news: [
+            {
+              title: "Firecrawl news",
+              snippet: "Firecrawl snippet",
+              url: "https://news.example.com/firecrawl",
+              date: "2026-06-15",
+              imageUrl: "https://news.example.com/image.png",
+              markdown: "# Firecrawl news",
+            },
+            { title: "Missing URL", snippet: "drop me" },
+          ],
+        },
+        creditsUsed: 2,
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute firecrawl",
+          provider: "firecrawl-search",
+          max_results: 2,
+          search_type: "news",
+          time_range: "week",
+          country: "us",
+          content: { full_page: true, format: "markdown" },
+          filters: { include_domains: ["news.example.com"] },
+        }),
+      })
+    );
+    const body = (await response.json()) as any;
+    const requestBody = JSON.parse(String(capturedInit?.body));
+
+    assert.equal(response.status, 200);
+    assert.equal(capturedUrl, "https://api.firecrawl.dev/v2/search");
+    assert.equal(
+      (capturedInit?.headers as Record<string, string>).Authorization,
+      "Bearer firecrawl-key"
+    );
+    assert.equal(requestBody.query, "omniroute firecrawl");
+    assert.equal(requestBody.limit, 2);
+    assert.deepEqual(requestBody.sources, ["news"]);
+    assert.deepEqual(requestBody.includeDomains, ["news.example.com"]);
+    assert.equal(requestBody.tbs, "qdr:w");
+    assert.deepEqual(requestBody.scrapeOptions, { formats: [{ type: "markdown" }] });
+    assert.equal(body.provider, "firecrawl-search");
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].title, "Firecrawl news");
+    assert.equal(body.results[0].content.format, "markdown");
+    assert.equal(body.results[0].citation.provider, "firecrawl-search");
   } finally {
     globalThis.fetch = originalFetch;
   }

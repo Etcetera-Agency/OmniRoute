@@ -3,9 +3,10 @@ import { randomUUID } from "crypto";
  * Search Handler
  *
  * Handles POST /v1/search requests.
- * Routes to 11 search providers with automatic failover:
+ * Routes to configured search providers with automatic failover:
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
- *   google-pse-search, linkup-search, searchapi-search, youcom-search, searxng-search, ollama-search, zai-search
+ *   google-pse-search, linkup-search, searchapi-search, youcom-search, searxng-search,
+ *   ollama-search, zai-search, parallel-search, firecrawl-search
  *
  * Request format:
  * {
@@ -161,6 +162,22 @@ function makeResult(
     citation: { provider: providerId, retrieved_at: now, rank: idx + 1 },
     provider_raw: null,
   };
+}
+
+function isValidResultUrl(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function joinStringArray(value: unknown): string {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim()).join("\n\n")
+    : "";
 }
 
 function normalizeSerperResponse(
@@ -607,6 +624,84 @@ function buildOllamaRequest(
   };
 }
 
+export function buildParallelSearchRequest(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): { url: string; init: RequestInit } {
+  const apiKey = params.token;
+  if (!apiKey) {
+    throw new Error("Parallel Search requires an API key");
+  }
+
+  return {
+    url: resolveSearchBaseUrl(config, params),
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        objective: params.query,
+        search_queries: [params.query],
+        max_results: params.maxResults,
+      }),
+    },
+  };
+}
+
+function toFirecrawlTbs(timeRange?: string): string | undefined {
+  if (!timeRange || timeRange === "any") return undefined;
+  const map: Record<string, string> = {
+    day: "qdr:d",
+    week: "qdr:w",
+    month: "qdr:m",
+    year: "qdr:y",
+  };
+  return map[timeRange];
+}
+
+export function buildFirecrawlSearchRequest(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): { url: string; init: RequestInit } {
+  const apiKey = params.token;
+  if (!apiKey) {
+    throw new Error("Firecrawl Search requires an API key");
+  }
+
+  const { includes, excludes } = parseDomainFilter(params.domainFilter);
+  const body: Record<string, unknown> = {
+    query: params.query,
+    limit: params.maxResults,
+    sources: [params.searchType === "news" ? "news" : "web"],
+    ignoreInvalidURLs: true,
+  };
+
+  if (includes.length) body.includeDomains = includes;
+  if (excludes.length) body.excludeDomains = excludes;
+  if (params.country) body.country = params.country.toUpperCase();
+  const tbs = toFirecrawlTbs(params.timeRange);
+  if (tbs) body.tbs = tbs;
+  if (params.contentOptions?.full_page) {
+    body.scrapeOptions = {
+      formats: [{ type: params.contentOptions.format === "markdown" ? "markdown" : "html" }],
+    };
+  }
+
+  return {
+    url: resolveSearchBaseUrl(config, params),
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+  };
+}
+
 function buildRequest(
   config: SearchProviderConfig,
   params: SearchRequestParams
@@ -622,6 +717,8 @@ function buildRequest(
   if (config.id === "youcom-search") return buildYouComRequest(config, params);
   if (config.id === "searxng-search") return buildSearxngRequest(config, params);
   if (config.id === "ollama-search") return buildOllamaRequest(config, params);
+  if (config.id === "parallel-search") return buildParallelSearchRequest(config, params);
+  if (config.id === "firecrawl-search") return buildFirecrawlSearchRequest(config, params);
   // Fallback for future providers: POST with bearer auth
   return {
     url: resolveSearchBaseUrl(config, params),
@@ -933,6 +1030,68 @@ function normalizeOllamaResponse(
   return { results, totalResults: results.length };
 }
 
+export function normalizeParallelSearchResponse(
+  data: any,
+  _query: string,
+  _searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const items = Array.isArray(data?.results) ? data.results : [];
+
+  const results = items
+    .filter((item: any) => isValidResultUrl(item?.url))
+    .map((item: any, idx: number) => {
+      const excerpts = joinStringArray(item.excerpts);
+      return makeResult(
+        "parallel-search",
+        {
+          title: item.title,
+          url: item.url,
+          snippet: excerpts || item.snippet || "",
+          published_at: item.publish_date,
+          full_text: excerpts || undefined,
+          text_format: "text",
+        },
+        idx,
+        now
+      );
+    });
+
+  return { results, totalResults: results.length };
+}
+
+export function normalizeFirecrawlSearchResponse(
+  data: any,
+  _query: string,
+  searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const source = searchType === "news" ? data?.data?.news : data?.data?.web;
+  const items = Array.isArray(source) ? source : [];
+
+  const results = items
+    .filter((item: any) => isValidResultUrl(item?.url))
+    .map((item: any, idx: number) =>
+      makeResult(
+        "firecrawl-search",
+        {
+          title: item.title,
+          url: item.url,
+          snippet: item.description || item.snippet || "",
+          published_at: item.date,
+          image_url: item.imageUrl,
+          source_type: item.category || searchType,
+          full_text: item.markdown || item.html,
+          text_format: item.markdown ? "markdown" : "html",
+        },
+        idx,
+        now
+      )
+    );
+
+  return { results, totalResults: results.length };
+}
+
 // ── Z.AI Coding Plan Search MCP Execution ───────────────────────────
 
 // Schema for the Z.AI MCP web_search_prime tool result. Z.AI double-encodes
@@ -1189,6 +1348,10 @@ function normalizeResponse(
   if (providerId === "youcom-search") return normalizeYouComResponse(data, query, searchType);
   if (providerId === "searxng-search") return normalizeSearxngResponse(data, query, searchType);
   if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
+  if (providerId === "parallel-search")
+    return normalizeParallelSearchResponse(data, query, searchType);
+  if (providerId === "firecrawl-search")
+    return normalizeFirecrawlSearchResponse(data, query, searchType);
   return { results: [], totalResults: null };
 }
 

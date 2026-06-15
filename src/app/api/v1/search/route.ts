@@ -75,6 +75,10 @@ async function resolveSearchCredentials(providerId: string): Promise<SearchCrede
     return fallbackCredentials;
   }
 
+  if (providerId === "parallel-search" && process.env.PARALLEL_API_KEY) {
+    return { apiKey: process.env.PARALLEL_API_KEY };
+  }
+
   return fallbackCredentials || credentials;
 }
 

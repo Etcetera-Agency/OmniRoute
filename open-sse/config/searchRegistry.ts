@@ -7,7 +7,8 @@
  *
  * API keys are stored in the same provider credentials system,
  * keyed by provider ID (e.g. "serper-search", "brave-search").
- * perplexity-search reuses credentials from the "perplexity" chat provider.
+ * Some providers reuse credentials from a related provider via
+ * SEARCH_CREDENTIAL_FALLBACKS.
  */
 
 export interface SearchProviderConfig {
@@ -218,6 +219,38 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     timeoutMs: 10_000,
     cacheTTLMs: 5 * 60 * 1000,
   },
+
+  "parallel-search": {
+    id: "parallel-search",
+    name: "Parallel Search",
+    baseUrl: "https://api.parallel.ai/v1/search",
+    method: "POST",
+    authType: "apikey",
+    authHeader: "x-api-key",
+    costPerQuery: 0.005,
+    freeMonthlyQuota: 16000,
+    searchTypes: ["web", "news"],
+    defaultMaxResults: 5,
+    maxMaxResults: 100,
+    timeoutMs: 20_000,
+    cacheTTLMs: 5 * 60 * 1000,
+  },
+
+  "firecrawl-search": {
+    id: "firecrawl-search",
+    name: "Firecrawl Search",
+    baseUrl: "https://api.firecrawl.dev/v2/search",
+    method: "POST",
+    authType: "apikey",
+    authHeader: "bearer",
+    costPerQuery: 0.002,
+    freeMonthlyQuota: 500,
+    searchTypes: ["web", "news"],
+    defaultMaxResults: 5,
+    maxMaxResults: 100,
+    timeoutMs: 60_000,
+    cacheTTLMs: 5 * 60 * 1000,
+  },
 };
 
 /**
@@ -228,6 +261,8 @@ export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
   "perplexity-search": "perplexity",
   "ollama-search": "ollama-cloud",
   "zai-search": "zai",
+  "parallel-search": "parallel",
+  "firecrawl-search": "firecrawl",
 };
 
 /**
