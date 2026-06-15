@@ -2,7 +2,7 @@
 import React from "react";
 import { type ConnectionRowConnection } from "./ConnectionRow";
 import ConnectionRow from "./ConnectionRow";
-import { Button } from "@/shared/components";
+import { Button, DistributeProxiesButton } from "@/shared/components";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import { readBooleanToggle, providerCountText } from "../providerPageHelpers";
 import { compareTr } from "@/shared/utils/turkishText";
@@ -201,9 +201,7 @@ export default function ConnectionsListPanel({
           if (healthFilter === "active") return isHealthy(c);
           if (healthFilter === "error")
             return (
-              !isHealthy(c) &&
-              c.testStatus !== "banned" &&
-              c.testStatus !== "credits_exhausted"
+              !isHealthy(c) && c.testStatus !== "banned" && c.testStatus !== "credits_exhausted"
             );
           return c.testStatus === healthFilter;
         });
@@ -348,9 +346,7 @@ export default function ConnectionsListPanel({
                 isGeminiCli={providerId === "gemini-cli"}
                 isCcCompatible={isCcCompatible}
                 cliproxyapiEnabled={cpaProviderEnabled}
-                onToggleCliproxyapiMode={(enabled) =>
-                  handleToggleCliproxyapiMode(conn.id, enabled)
-                }
+                onToggleCliproxyapiMode={(enabled) => handleToggleCliproxyapiMode(conn.id, enabled)}
                 onToggleCodex5h={(enabled) => handleToggleCodexLimit(conn.id, "use5h", enabled)}
                 onToggleCodexWeekly={(enabled) =>
                   handleToggleCodexLimit(conn.id, "useWeekly", enabled)
@@ -385,15 +381,11 @@ export default function ConnectionsListPanel({
                 }
                 isExportingClaudeAuthFile={exportingClaudeAuthId === conn.id}
                 onApplyGeminiAuthLocal={
-                  providerId === "gemini-cli"
-                    ? () => onOpenApplyGeminiModal(conn.id)
-                    : undefined
+                  providerId === "gemini-cli" ? () => onOpenApplyGeminiModal(conn.id) : undefined
                 }
                 isApplyingGeminiAuthLocal={applyingGeminiAuthId === conn.id}
                 onExportGeminiAuthFile={
-                  providerId === "gemini-cli"
-                    ? () => onExportGeminiAuthFile(conn.id)
-                    : undefined
+                  providerId === "gemini-cli" ? () => onExportGeminiAuthFile(conn.id) : undefined
                 }
                 isExportingGeminiAuthFile={exportingGeminiAuthId === conn.id}
                 onProxy={() =>
@@ -485,9 +477,7 @@ export default function ConnectionsListPanel({
             <div
               key={tag || "__untagged__"}
               className={
-                gi > 0
-                  ? "border-t border-black/[0.06] dark:border-white/[0.06] mt-1 pt-1"
-                  : ""
+                gi > 0 ? "border-t border-black/[0.06] dark:border-white/[0.06] mt-1 pt-1" : ""
               }
             >
               {tag && (
@@ -499,15 +489,13 @@ export default function ConnectionsListPanel({
                     {tag}
                   </span>
                   <div className="flex-1 h-px bg-black/[0.04] dark:bg-white/[0.04]" />
-                  <Button
-                    variant="ghost"
+                  <DistributeProxiesButton
+                    onDistribute={async () => {
+                      await handleDistributeProxies(tag);
+                    }}
+                    disabled={batchTesting || !!retestingId}
                     size="sm"
-                    icon="shield"
-                    loading={distributingProxies}
-                    onClick={() => handleDistributeProxies(tag)}
-                  >
-                    Distribute Proxies
-                  </Button>
+                  />
                   <span className="text-[10px] text-text-muted/40">{groupConns.length}</span>
                 </div>
               )}
@@ -523,15 +511,9 @@ export default function ConnectionsListPanel({
                     isLast={gi === groupKeys.length - 1 && index === groupConns.length - 1}
                     isSelected={selectedIds.has(conn.id)}
                     onToggleSelect={() => handleToggleSelectOne(conn.id)}
-                    onMoveUp={() =>
-                      handleSwapPriority(conn, sorted[sorted.indexOf(conn) - 1])
-                    }
-                    onMoveDown={() =>
-                      handleSwapPriority(conn, sorted[sorted.indexOf(conn) + 1])
-                    }
-                    onToggleActive={(isActive) =>
-                      handleUpdateConnectionStatus(conn.id, isActive)
-                    }
+                    onMoveUp={() => handleSwapPriority(conn, sorted[sorted.indexOf(conn) - 1])}
+                    onMoveDown={() => handleSwapPriority(conn, sorted[sorted.indexOf(conn) + 1])}
+                    onToggleActive={(isActive) => handleUpdateConnectionStatus(conn.id, isActive)}
                     onToggleRateLimit={(enabled) => handleToggleRateLimit(conn.id, enabled)}
                     onToggleClaudeExtraUsage={(enabled) =>
                       handleToggleClaudeExtraUsage(conn.id, enabled)
@@ -543,9 +525,7 @@ export default function ConnectionsListPanel({
                     onToggleCliproxyapiMode={(enabled) =>
                       handleToggleCliproxyapiMode(conn.id, enabled)
                     }
-                    onToggleCodex5h={(enabled) =>
-                      handleToggleCodexLimit(conn.id, "use5h", enabled)
-                    }
+                    onToggleCodex5h={(enabled) => handleToggleCodexLimit(conn.id, "use5h", enabled)}
                     onToggleCodexWeekly={(enabled) =>
                       handleToggleCodexLimit(conn.id, "useWeekly", enabled)
                     }
@@ -559,33 +539,23 @@ export default function ConnectionsListPanel({
                         : undefined
                     }
                     onRefreshToken={
-                      conn.authType === "oauth"
-                        ? () => handleRefreshToken(conn.id)
-                        : undefined
+                      conn.authType === "oauth" ? () => handleRefreshToken(conn.id) : undefined
                     }
                     isRefreshing={refreshingId === conn.id}
                     onApplyCodexAuthLocal={
-                      providerId === "codex"
-                        ? () => onOpenApplyCodexModal(conn.id)
-                        : undefined
+                      providerId === "codex" ? () => onOpenApplyCodexModal(conn.id) : undefined
                     }
                     isApplyingCodexAuthLocal={applyingCodexAuthId === conn.id}
                     onExportCodexAuthFile={
-                      providerId === "codex"
-                        ? () => onExportCodexAuthFile(conn.id)
-                        : undefined
+                      providerId === "codex" ? () => onExportCodexAuthFile(conn.id) : undefined
                     }
                     isExportingCodexAuthFile={exportingCodexAuthId === conn.id}
                     onApplyClaudeAuthLocal={
-                      providerId === "claude"
-                        ? () => onOpenApplyClaudeModal(conn.id)
-                        : undefined
+                      providerId === "claude" ? () => onOpenApplyClaudeModal(conn.id) : undefined
                     }
                     isApplyingClaudeAuthLocal={applyingClaudeAuthId === conn.id}
                     onExportClaudeAuthFile={
-                      providerId === "claude"
-                        ? () => onExportClaudeAuthFile(conn.id)
-                        : undefined
+                      providerId === "claude" ? () => onExportClaudeAuthFile(conn.id) : undefined
                     }
                     isExportingClaudeAuthFile={exportingClaudeAuthId === conn.id}
                     onApplyGeminiAuthLocal={
@@ -611,9 +581,7 @@ export default function ConnectionsListPanel({
                     proxySource={connProxyMap[conn.id]?.level || null}
                     proxyHost={connProxyMap[conn.id]?.proxy?.host || null}
                     proxyEnabled={readBooleanToggle(conn.proxyEnabled, true)}
-                    onToggleProxyEnabled={(enabled) =>
-                      handleToggleProxyEnabled(conn.id, enabled)
-                    }
+                    onToggleProxyEnabled={(enabled) => handleToggleProxyEnabled(conn.id, enabled)}
                     perKeyProxyEnabled={readBooleanToggle(conn.perKeyProxyEnabled, false)}
                     onTogglePerKeyProxyEnabled={(enabled) =>
                       handleTogglePerKeyProxyEnabled(conn.id, enabled)
