@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   SEARCH_PROVIDERS,
   SEARCH_CREDENTIAL_FALLBACKS,
+  SEARCH_AUTO_PROVIDER_ORDER,
 } from "@omniroute/open-sse/config/searchRegistry.ts";
 import { WEB_FETCH_PROVIDERS } from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
@@ -93,6 +94,7 @@ export async function GET(request: Request) {
 
   try {
     const timestamp = Math.floor(Date.now() / 1000);
+    const searchOrder = new Map(SEARCH_AUTO_PROVIDER_ORDER.map((id, index) => [id, index + 1]));
 
     // -----------------------------------------------------------------------
     // 1. Build search providers (12 from registry)
@@ -112,6 +114,8 @@ export async function GET(request: Request) {
         freeMonthlyQuota: p.freeMonthlyQuota,
         searchTypes: p.searchTypes,
         status,
+        order: searchOrder.get(p.id) ?? null,
+        routingStatus: status,
         configureHref: "/dashboard/providers",
       })
     );

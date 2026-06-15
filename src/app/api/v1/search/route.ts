@@ -1,14 +1,4 @@
-import { handleSearch } from "@omniroute/open-sse/handlers/search.ts";
-import { getProviderCredentials, extractApiKey, isValidApiKey } from "@/sse/services/auth";
-import {
-  getAllSearchProviders,
-  getAutoSearchProviders,
-  getSearchProvider,
-  selectProvider,
-  supportsSearchType,
-  SEARCH_PROVIDERS,
-  SEARCH_CREDENTIAL_FALLBACKS,
-} from "@omniroute/open-sse/config/searchRegistry.ts";
+import { getAllSearchProviders } from "@omniroute/open-sse/config/searchRegistry.ts";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import * as log from "@/sse/utils/logger";
@@ -22,12 +12,9 @@ import {
   getOrCoalesce,
   SEARCH_CACHE_DEFAULT_TTL_MS,
 } from "@omniroute/open-sse/services/searchCache.ts";
-import {
-  isAllRateLimitedCredentials,
-  rateLimitedProviderResponse,
-  type RateLimitedCredentials,
-} from "@/app/api/v1/_shared/rateLimit";
+import { rateLimitedProviderResponse } from "@/app/api/v1/_shared/rateLimit";
 import { withInjectionGuard } from "@/middleware/promptInjectionGuard";
+import { buildSearchAttempts, runSearchChain, SearchError } from "@/lib/search/searchChain";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -61,49 +48,6 @@ export async function GET() {
   });
 }
 
-type SearchCredentials = Record<string, any>;
-type SearchCredentialLookup = SearchCredentials | RateLimitedCredentials | null;
-
-async function resolveSearchCredentials(providerId: string): Promise<SearchCredentialLookup> {
-  const credentials = await getProviderCredentials(providerId).catch(() => null);
-  if (credentials && !isAllRateLimitedCredentials(credentials)) return credentials;
-
-  const fallbackId = SEARCH_CREDENTIAL_FALLBACKS[providerId];
-  if (!fallbackId) return credentials;
-
-  const fallbackCredentials = await getProviderCredentials(fallbackId).catch(() => null);
-  if (fallbackCredentials && !isAllRateLimitedCredentials(fallbackCredentials)) {
-    return fallbackCredentials;
-  }
-
-  if (providerId === "parallel-search" && process.env.PARALLEL_API_KEY) {
-    return { apiKey: process.env.PARALLEL_API_KEY };
-  }
-
-  return fallbackCredentials || credentials;
-}
-
-async function resolveSearchExecutionCredentials(providerConfig: {
-  id: string;
-  authType: string;
-}): Promise<SearchCredentialLookup> {
-  const credentials = await resolveSearchCredentials(providerConfig.id);
-  if (credentials) return credentials;
-  return providerConfig.authType === "none" ? {} : null;
-}
-
-// Helper: build domain filter array from filters object
-function buildDomainFilter(filters?: {
-  include_domains?: string[];
-  exclude_domains?: string[];
-}): string[] | undefined {
-  if (!filters) return undefined;
-  const parts: string[] = [];
-  if (filters.include_domains?.length) parts.push(...filters.include_domains);
-  if (filters.exclude_domains?.length) parts.push(...filters.exclude_domains.map((d) => `-${d}`));
-  return parts.length > 0 ? parts : undefined;
-}
-
 /**
  * POST /v1/search — execute a web search
  */
@@ -126,153 +70,42 @@ async function postHandler(request: Request, context: unknown) {
   const policy = await enforceApiKeyPolicy(request, "search");
   if (policy.rejection) return policy.rejection;
 
-  // Resolve provider and credentials
-  if (body.provider) {
-    const explicitProvider = getSearchProvider(body.provider);
-    if (!explicitProvider) {
-      return errorResponse(HTTP_STATUS.BAD_REQUEST, `Unknown search provider: ${body.provider}`);
-    }
-    if (!supportsSearchType(explicitProvider, body.search_type)) {
-      return errorResponse(
-        HTTP_STATUS.BAD_REQUEST,
-        `Search provider ${body.provider} does not support search_type: ${body.search_type}`
-      );
-    }
-  }
-
-  let providerConfig = selectProvider(body.provider, body.search_type);
-  if (!providerConfig) {
-    return errorResponse(
-      HTTP_STATUS.BAD_REQUEST,
-      body.provider ? `Unknown search provider: ${body.provider}` : "No search providers available"
+  // Resolve the ordered provider attempts (configured order or explicit provider).
+  const attemptsResult = await buildSearchAttempts(body);
+  if (attemptsResult.rateLimited) {
+    return rateLimitedProviderResponse(
+      attemptsResult.rateLimited.providerId,
+      attemptsResult.rateLimited.credentials
     );
   }
-
-  let credentials: Record<string, any> | null = null;
-  let alternateProviderId: string | undefined;
-  let alternateCredentials: Record<string, any> | null = null;
-  let firstRateLimitedCredentials: {
-    providerId: string;
-    credentials: RateLimitedCredentials;
-  } | null = null;
-
-  if (body.provider) {
-    // Explicit provider — single credential lookup (with fallback)
-    const explicitCredentials = await resolveSearchExecutionCredentials(providerConfig);
-    if (isAllRateLimitedCredentials(explicitCredentials)) {
-      return rateLimitedProviderResponse(providerConfig.id, explicitCredentials);
-    }
-    credentials = explicitCredentials;
-    if (!credentials) {
-      return errorResponse(
-        HTTP_STATUS.BAD_REQUEST,
-        `No credentials configured for search provider: ${providerConfig.id}. Add an API key for "${providerConfig.id}" in the dashboard.`
-      );
-    }
-  } else {
-    // Auto-select — try the resolved provider first, then iterate others by cost
-    const selectedCredentials = await resolveSearchExecutionCredentials(providerConfig);
-    if (isAllRateLimitedCredentials(selectedCredentials)) {
-      firstRateLimitedCredentials = {
-        providerId: providerConfig.id,
-        credentials: selectedCredentials,
-      };
-    } else {
-      credentials = selectedCredentials;
-    }
-
-    if (!credentials) {
-      const sortedIds = getAutoSearchProviders(body.search_type).map((p) => p.id);
-
-      for (const pid of sortedIds) {
-        if (pid === providerConfig.id) continue;
-        const altConfig = getSearchProvider(pid);
-        const altCreds = altConfig ? await resolveSearchExecutionCredentials(altConfig) : null;
-        if (isAllRateLimitedCredentials(altCreds)) {
-          firstRateLimitedCredentials ??= { providerId: pid, credentials: altCreds };
-          continue;
-        }
-        if (altConfig && altCreds) {
-          providerConfig = altConfig;
-          credentials = altCreds;
-          break;
-        }
-      }
-    }
-
-    if (!credentials) {
-      if (firstRateLimitedCredentials) {
-        return rateLimitedProviderResponse(
-          firstRateLimitedCredentials.providerId,
-          firstRateLimitedCredentials.credentials
-        );
-      }
-      return errorResponse(
-        HTTP_STATUS.BAD_REQUEST,
-        `No credentials configured for any search provider. Add an API key for a search provider (${Object.keys(SEARCH_PROVIDERS).join(", ")}) in the dashboard.`
-      );
-    }
-
-    // Find alternate for failover — must bind credentials to the matched provider
-    const otherIds = getAutoSearchProviders(body.search_type)
-      .map((p) => p.id)
-      .filter((id) => id !== providerConfig.id);
-
-    for (const pid of otherIds) {
-      const altConfig = getSearchProvider(pid);
-      const creds = altConfig ? await resolveSearchExecutionCredentials(altConfig) : null;
-      if (isAllRateLimitedCredentials(creds)) continue;
-      if (creds) {
-        alternateProviderId = pid;
-        alternateCredentials = creds;
-        break;
-      }
-    }
+  if (attemptsResult.errorMessage || !attemptsResult.attempts) {
+    return errorResponse(
+      attemptsResult.errorStatus ?? HTTP_STATUS.BAD_REQUEST,
+      attemptsResult.errorMessage ?? "No search providers available"
+    );
   }
+  const attempts = attemptsResult.attempts;
 
-  // Clamp max_results to provider limit
-  const clampedMaxResults = Math.min(body.max_results, providerConfig.maxMaxResults);
+  const primaryProviderId = attempts[0].config.id;
+  const primaryMaxResults = Math.min(body.max_results, attempts[0].config.maxMaxResults);
 
   // Cache key — includes all fields that affect results
   const cacheKey = computeCacheKey(
     body.query,
-    providerConfig.id,
+    primaryProviderId,
     body.search_type,
-    clampedMaxResults,
+    primaryMaxResults,
     body.country,
     body.language,
     { filters: body.filters, offset: body.offset, time_range: body.time_range }
   );
 
-  const ttl = providerConfig.cacheTTLMs ?? SEARCH_CACHE_DEFAULT_TTL_MS;
+  const ttl = attempts[0].config.cacheTTLMs ?? SEARCH_CACHE_DEFAULT_TTL_MS;
 
   try {
-    const { data: searchResult, cached } = await getOrCoalesce(cacheKey, ttl, async () => {
-      const result = await handleSearch({
-        query: body.query,
-        provider: providerConfig.id,
-        maxResults: clampedMaxResults,
-        searchType: body.search_type,
-        country: body.country,
-        language: body.language,
-        timeRange: body.time_range,
-        offset: body.offset,
-        domainFilter: buildDomainFilter(body.filters),
-        contentOptions: body.content,
-        strictFilters: body.strict_filters,
-        providerOptions: body.provider_options,
-        credentials,
-        alternateProvider: alternateProviderId,
-        alternateCredentials,
-        log,
-      });
-
-      if (!result.success) {
-        throw new SearchError(result.error || "Search failed", result.status || 502);
-      }
-
-      return result.data!;
-    });
+    const { data: searchResult, cached } = await getOrCoalesce(cacheKey, ttl, () =>
+      runSearchChain(attempts, body, log)
+    );
 
     // Record cost for budget tracking (skip cache hits — no provider cost)
     if (!cached && policy.apiKeyInfo?.id && searchResult.usage?.search_cost_usd > 0) {
@@ -309,14 +142,6 @@ async function postHandler(request: Request, context: unknown) {
       status: 500,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
-  }
-}
-
-class SearchError extends Error {
-  statusCode: number;
-  constructor(message: string, statusCode: number) {
-    super(message);
-    this.statusCode = statusCode;
   }
 }
 

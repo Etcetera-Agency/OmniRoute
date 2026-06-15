@@ -13,6 +13,9 @@ export const SearchProviderCatalogItemSchema = z.object({
   fetchFormats: z.array(z.string()).optional(), // só fetch
   /** "configured" = creds presentes; "missing" = sem creds; "rate_limited" = todas as keys em cooldown. */
   status: z.enum(["configured", "missing", "rate_limited"]),
+  /** 1-based automatic routing priority for search providers; null for fetch providers. */
+  order: z.number().int().positive().nullable().optional(),
+  routingStatus: z.enum(["configured", "missing", "rate_limited"]).optional(),
   /** Link para configurar provider. */
   configureHref: z.string().default("/dashboard/providers"),
 });

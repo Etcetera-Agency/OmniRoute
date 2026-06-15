@@ -36,6 +36,19 @@ async function seedConnection(
   });
 }
 
+async function seedRateLimitedConnection(provider: string) {
+  return providersDb.createProviderConnection({
+    provider,
+    authType: "apikey",
+    name: `${provider}-limited-${Math.random().toString(16).slice(2, 8)}`,
+    apiKey: "rate-limited-key",
+    isActive: false,
+    testStatus: "unavailable",
+    rateLimitedUntil: new Date(Date.now() + 60_000).toISOString(),
+    providerSpecificData: {},
+  });
+}
+
 test.beforeEach(async () => {
   await resetStorage();
 });
@@ -127,6 +140,45 @@ test("v1 search POST uses stored Linkup credentials and returns normalized resul
     assert.equal(body.results[0].citation.provider, "linkup-search");
     assert.equal(body.cached, false);
     assert.equal(body.usage.queries_used, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST explicit provider does not fallback by default", async () => {
+  await seedConnection("exa-search", { apiKey: "exa-key" });
+  await seedConnection("brave-search", { apiKey: "brave-key" });
+
+  const originalFetch = globalThis.fetch;
+  const capturedUrls: string[] = [];
+
+  globalThis.fetch = async (url) => {
+    capturedUrls.push(String(url));
+    return new Response(JSON.stringify({ error: "temporary exa failure" }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute explicit no fallback",
+          provider: "exa-search",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as any;
+
+    assert.equal(response.status, 503);
+    assert.equal(capturedUrls.length, 1);
+    assert.equal(capturedUrls[0], "https://api.exa.ai/search");
+    assert.match(JSON.stringify(body), /exa-search returned 503/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -593,6 +645,90 @@ test("v1 search POST auto-select uses authless SearXNG when no API-key providers
     );
     assert.equal(body.provider, "searxng-search");
     assert.equal(body.results[0].title, "Auto-selected SearXNG result");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST auto-select uses configured order and skips missing credentials", async () => {
+  await seedConnection("tavily-search", { apiKey: "tavily-key" });
+  await seedConnection("exa-search", { apiKey: "exa-key" });
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+
+  globalThis.fetch = async (url, init = {}) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+    return new Response(
+      JSON.stringify({
+        results: [{ title: "Tavily first configured", url: "https://example.com/tavily" }],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute configured order",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as any;
+
+    assert.equal(response.status, 200);
+    assert.equal(capturedUrl, "https://api.tavily.com/search");
+    assert.equal(
+      (capturedInit?.headers as Record<string, string>).Authorization,
+      "Bearer tavily-key"
+    );
+    assert.equal(body.provider, "tavily-search");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST auto-select skips rate-limited first provider", async () => {
+  await seedRateLimitedConnection("brave-search");
+  await seedConnection("tavily-search", { apiKey: "tavily-key" });
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+
+  globalThis.fetch = async (url) => {
+    capturedUrl = String(url);
+    return new Response(
+      JSON.stringify({
+        results: [{ title: "Tavily after cooldown", url: "https://example.com/tavily-cooldown" }],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute cooldown skip",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as any;
+
+    assert.equal(response.status, 200);
+    assert.equal(capturedUrl, "https://api.tavily.com/search");
+    assert.equal(body.provider, "tavily-search");
   } finally {
     globalThis.fetch = originalFetch;
   }

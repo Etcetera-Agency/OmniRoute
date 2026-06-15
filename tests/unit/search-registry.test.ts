@@ -225,6 +225,8 @@ test("getAllSearchProviders returns flat list", () => {
 
 test("getAutoSearchProviders keeps Gemini grounded search as final web fallback", () => {
   const webProviders = getAutoSearchProviders("web");
+  assert.equal(webProviders[0]?.id, "brave-search");
+  assert.equal(webProviders[1]?.id, "tavily-search");
   assert.equal(webProviders.at(-1)?.id, "gemini-grounded-search");
   assert.equal(webProviders.at(-2)?.id, "perplexity-search");
   assert.equal(
@@ -246,13 +248,13 @@ test("selectProvider with unknown provider returns null", () => {
 test("selectProvider without argument returns first configured auto provider", () => {
   const config = selectProvider();
   assert.ok(config);
-  assert.equal(config.id, "searxng-search");
+  assert.equal(config.id, "brave-search");
 });
 
 test("selectProvider filters by search type support", () => {
   const config = selectProvider(undefined, "news");
   assert.ok(config);
-  assert.equal(config.id, "searxng-search");
+  assert.equal(config.id, "brave-search");
   assert.equal(selectProvider("linkup-search", "news"), null);
 });
 

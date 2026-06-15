@@ -171,6 +171,25 @@ test("search-providers-catalog: correct count of search and fetch kinds", async 
   );
 });
 
+test("search-providers-catalog: search items expose configured routing order", async () => {
+  const req = await buildAuthRequest();
+  const res = await route.GET(req);
+  const body = await res.json();
+
+  const brave = body.providers.find((p: { id: string }) => p.id === "brave-search");
+  const tavily = body.providers.find(
+    (p: { id: string; kind: string }) => p.id === "tavily-search" && p.kind === "search"
+  );
+  const gemini = body.providers.find((p: { id: string }) => p.id === "gemini-grounded-search");
+  const mdream = body.providers.find((p: { id: string }) => p.id === "mdream");
+
+  assert.equal(brave?.order, 1);
+  assert.equal(tavily?.order, 2);
+  assert.equal(gemini?.order, 14);
+  assert.equal(brave?.routingStatus, brave?.status);
+  assert.equal(mdream?.order, undefined);
+});
+
 test("search-providers-catalog: every item has a valid kind value", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);

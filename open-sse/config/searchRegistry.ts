@@ -283,14 +283,13 @@ export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
 };
 
 export const SEARCH_AUTO_PROVIDER_ORDER = [
-  "searxng-search",
-  "serper-search",
   "brave-search",
-  "exa-search",
   "tavily-search",
-  "google-pse-search",
-  "linkup-search",
+  "exa-search",
+  "serper-search",
   "searchapi-search",
+  "linkup-search",
+  "searxng-search",
   "youcom-search",
   "ollama-search",
   "zai-search",
