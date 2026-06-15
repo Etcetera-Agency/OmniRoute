@@ -2,15 +2,19 @@
  * POST /v1/web/fetch
  *
  * Extract content from a URL using a configured web-fetch provider.
- * Supports Firecrawl, Jina Reader, and Tavily Extract.
  *
- * Request: { url, provider?, format?, depth?, wait_for_selector?, include_metadata? }
+ * Request: { url, provider?, format?, depth?, wait_for_selector?, include_metadata?, fallback? }
  * Response: { provider, url, content, links, metadata, screenshot_url }
  */
 
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { handleWebFetch } from "@omniroute/open-sse/handlers/webFetch.ts";
+import {
+  WEB_FETCH_PROVIDER_ORDER,
+  getWebFetchProvider,
+  type WebFetchProviderId,
+} from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import * as log from "@/sse/utils/logger";
 import { extractApiKey, isValidApiKey, getProviderCredentials } from "@/sse/services/auth";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
@@ -23,9 +27,6 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "*",
 };
 
-const WEB_FETCH_PROVIDERS = ["firecrawl", "jina-reader", "tavily-search"] as const;
-type WebFetchProviderId = (typeof WEB_FETCH_PROVIDERS)[number];
-
 export async function OPTIONS() {
   return new Response(null, { headers: CORS_HEADERS });
 }
@@ -37,12 +38,35 @@ export async function OPTIONS() {
 async function resolveCredentials(
   providerId: WebFetchProviderId
 ): Promise<{ apiKey?: string } | null> {
+  if (providerId === "mdream") return {};
+
   try {
-    const creds = await getProviderCredentials(providerId);
-    return creds ?? null;
+    const credentialProviderId = providerId === "parallel-extract" ? "parallel" : providerId;
+    const creds = await getProviderCredentials(credentialProviderId);
+    if (creds) return creds;
+    if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
+      return { apiKey: process.env.PARALLEL_API_KEY };
+    }
+    return null;
   } catch {
+    if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
+      return { apiKey: process.env.PARALLEL_API_KEY };
+    }
     return null;
   }
+}
+
+async function resolveProviderCredentialMap(): Promise<
+  Partial<Record<WebFetchProviderId, { apiKey?: string }>>
+> {
+  const entries = await Promise.all(
+    WEB_FETCH_PROVIDER_ORDER.map(
+      async (providerId) => [providerId, await resolveCredentials(providerId)] as const
+    )
+  );
+  return Object.fromEntries(entries.filter(([, credentials]) => credentials)) as Partial<
+    Record<WebFetchProviderId, { apiKey?: string }>
+  >;
 }
 
 export async function POST(request: Request) {
@@ -75,39 +99,34 @@ export async function POST(request: Request) {
 
   // Resolve provider + credentials
   let resolvedProvider: WebFetchProviderId | undefined;
-  let credentials: { apiKey?: string } = {};
+  let credentials: {
+    apiKey?: string;
+    providerCredentials?: Partial<Record<WebFetchProviderId, { apiKey?: string }>>;
+  } = {};
 
   if (body.provider) {
     resolvedProvider = body.provider as WebFetchProviderId;
+    const provider = getWebFetchProvider(resolvedProvider);
     const creds = await resolveCredentials(resolvedProvider);
-    if (!creds) {
+    if (!creds && provider?.authType !== "none") {
       return errorResponse(
         HTTP_STATUS.BAD_REQUEST,
         `No credentials configured for web-fetch provider: ${resolvedProvider}. ` +
           `Add an API key for "${resolvedProvider}" in the dashboard.`
       );
     }
-    credentials = creds;
+    credentials = {
+      ...(creds ?? {}),
+      providerCredentials: body.fallback ? await resolveProviderCredentialMap() : undefined,
+    };
   } else {
-    // Auto-select: try providers in priority order
-    for (const pid of WEB_FETCH_PROVIDERS) {
-      const creds = await resolveCredentials(pid);
-      if (creds) {
-        resolvedProvider = pid;
-        credentials = creds;
-        break;
-      }
-    }
-    if (!resolvedProvider) {
-      return errorResponse(
-        HTTP_STATUS.BAD_REQUEST,
-        `No credentials configured for any web-fetch provider. ` +
-          `Add an API key for one of: ${WEB_FETCH_PROVIDERS.join(", ")}.`
-      );
-    }
+    credentials = { providerCredentials: await resolveProviderCredentialMap() };
   }
 
-  log.info("WEB_FETCH", `${resolvedProvider} | ${body.url} | format=${body.format}`);
+  log.info(
+    "WEB_FETCH",
+    `${resolvedProvider ?? "auto"} | ${getUrlHost(body.url)} | format=${body.format}`
+  );
 
   const result = await handleWebFetch(
     {
@@ -116,6 +135,9 @@ export async function POST(request: Request) {
       depth: body.depth as 0 | 1 | 2,
       wait_for_selector: body.wait_for_selector,
       include_metadata: body.include_metadata,
+      fallback: body.fallback,
+      headers: request.headers,
+      log,
     },
     credentials,
     resolvedProvider
@@ -137,4 +159,12 @@ export async function POST(request: Request) {
     status: 200,
     headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
+}
+
+function getUrlHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "invalid-url";
+  }
 }

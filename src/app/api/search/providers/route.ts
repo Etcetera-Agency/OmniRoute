@@ -3,6 +3,7 @@ import {
   SEARCH_PROVIDERS,
   SEARCH_CREDENTIAL_FALLBACKS,
 } from "@omniroute/open-sse/config/searchRegistry.ts";
+import { WEB_FETCH_PROVIDERS } from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { getProviderCredentials } from "@/sse/services/auth";
 import { isAllRateLimitedCredentials } from "@/app/api/v1/_shared/rateLimit";
@@ -14,40 +15,8 @@ import {
 import * as log from "@/sse/utils/logger";
 
 // ---------------------------------------------------------------------------
-// Fetch provider metadata (hardcoded — no registry for these 3)
+// Fetch provider metadata
 // ---------------------------------------------------------------------------
-
-interface FetchProviderDef {
-  id: string;
-  name: string;
-  costPerQuery: number;
-  freeMonthlyQuota: number;
-  fetchFormats: string[];
-}
-
-const FETCH_PROVIDERS: FetchProviderDef[] = [
-  {
-    id: "firecrawl",
-    name: "Firecrawl",
-    costPerQuery: 0.002,
-    freeMonthlyQuota: 500,
-    fetchFormats: ["markdown", "html", "links", "screenshot"],
-  },
-  {
-    id: "jina-reader",
-    name: "Jina Reader",
-    costPerQuery: 0.0005,
-    freeMonthlyQuota: 1000,
-    fetchFormats: ["markdown", "text"],
-  },
-  {
-    id: "tavily-search",
-    name: "Tavily Extract",
-    costPerQuery: 0.001,
-    freeMonthlyQuota: 1000,
-    fetchFormats: ["markdown", "text"],
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Credential status resolution
@@ -67,8 +36,11 @@ async function resolveProviderStatus(
   providerId: string,
   useCredentialFallback = true
 ): Promise<ProviderStatus> {
+  if (providerId === "mdream") return "configured";
+
   try {
-    const credentials = await getProviderCredentials(providerId).catch(() => null);
+    const credentialProviderId = providerId === "parallel-extract" ? "parallel" : providerId;
+    const credentials = await getProviderCredentials(credentialProviderId).catch(() => null);
 
     // Active credentials available
     if (credentials && !isAllRateLimitedCredentials(credentials)) {
@@ -115,10 +87,7 @@ async function resolveProviderStatus(
 
 export async function GET(request: Request) {
   if (!(await isAuthenticated(request))) {
-    return NextResponse.json(
-      buildErrorBody(401, "Unauthorized"),
-      { status: 401 }
-    );
+    return NextResponse.json(buildErrorBody(401, "Unauthorized"), { status: 401 });
   }
 
   try {
@@ -133,22 +102,25 @@ export async function GET(request: Request) {
       )
     );
 
-    const searchItems: SearchProviderCatalogItem[] = searchProviderStatuses.map(({ p, status }) => ({
-      id: p.id,
-      name: p.name,
-      kind: "search" as const,
-      costPerQuery: p.costPerQuery,
-      freeMonthlyQuota: p.freeMonthlyQuota,
-      searchTypes: p.searchTypes,
-      status,
-      configureHref: "/dashboard/providers",
-    }));
+    const searchItems: SearchProviderCatalogItem[] = searchProviderStatuses.map(
+      ({ p, status }) => ({
+        id: p.id,
+        name: p.name,
+        kind: "search" as const,
+        costPerQuery: p.costPerQuery,
+        freeMonthlyQuota: p.freeMonthlyQuota,
+        searchTypes: p.searchTypes,
+        status,
+        configureHref: "/dashboard/providers",
+      })
+    );
 
     // -----------------------------------------------------------------------
-    // 2. Build fetch providers (3 hardcoded)
+    // 2. Build fetch providers
     // -----------------------------------------------------------------------
+    const fetchProviders = Object.values(WEB_FETCH_PROVIDERS);
     const fetchProviderStatuses = await Promise.all(
-      FETCH_PROVIDERS.map((fp) =>
+      fetchProviders.map((fp) =>
         resolveProviderStatus(fp.id, false).then((status) => ({ fp, status }))
       )
     );

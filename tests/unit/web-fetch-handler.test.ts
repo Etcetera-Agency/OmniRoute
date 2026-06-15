@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { handleWebFetch } = await import("../../open-sse/handlers/webFetch.ts");
+const mdream = await import("../../open-sse/executors/mdream-fetch.ts");
+const parallel = await import("../../open-sse/executors/parallel-extract.ts");
 
 // ── handleWebFetch — basic routing ───────────────────────────────────────────
 
@@ -135,4 +137,182 @@ test("handleWebFetch passes depth and wait_for_selector to firecrawl", async () 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("mdreamFetch builds verified raw Mdream URL and rejects secret query params", async () => {
+  assert.equal(
+    mdream.buildMdreamFetchUrl("https://example.com/path?a=1"),
+    "https://mdream.dev/example.com/path?a=1"
+  );
+
+  const result = await mdream.mdreamFetch({
+    url: "https://example.com/callback?token=secret",
+    format: "markdown",
+    includeMetadata: false,
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.status, 400);
+  assert.ok(result.error?.includes("secret-bearing"));
+});
+
+test("mdreamFetch blocks private, authorized, cookie-bearing, and sensitive-health URLs", async () => {
+  const cases = [
+    {
+      name: "localhost",
+      options: { url: "http://localhost:3000/private", format: "markdown" as const },
+      expected: /Blocked private|local provider URL/,
+    },
+    {
+      name: "private ip",
+      options: { url: "http://192.168.0.2/private", format: "markdown" as const },
+      expected: /Blocked private|local provider URL/,
+    },
+    {
+      name: "authorization",
+      options: {
+        url: "https://example.com/private",
+        format: "markdown" as const,
+        headers: new Headers({ Authorization: "Bearer secret" }),
+      },
+      expected: /authorized|cookie-bearing/,
+    },
+    {
+      name: "cookie",
+      options: {
+        url: "https://example.com/private",
+        format: "markdown" as const,
+        headers: new Headers({ Cookie: "session=secret" }),
+      },
+      expected: /authorized|cookie-bearing/,
+    },
+    {
+      name: "sensitive-health",
+      options: {
+        url: "https://example.com/private",
+        format: "markdown" as const,
+        headers: new Headers({ "x-hermes-data-class": "sensitive-health" }),
+      },
+      expected: /sensitive-health/,
+    },
+  ];
+
+  for (const item of cases) {
+    const result = await mdream.mdreamFetch({
+      includeMetadata: false,
+      ...item.options,
+    });
+    assert.equal(result.success, false, `${item.name} should fail`);
+    assert.match(result.error ?? "", item.expected, `${item.name} error should match`);
+  }
+});
+
+test("parallelExtract sends current Parallel v1 extract request and normalizes excerpts", async () => {
+  const originalFetch = globalThis.fetch;
+  let captured: { url: string; headers: Headers; body: Record<string, unknown> } | null = null;
+
+  globalThis.fetch = async (url, init) => {
+    captured = {
+      url: String(url),
+      headers: new Headers(init?.headers),
+      body: JSON.parse(String(init?.body ?? "{}")),
+    };
+    return new Response(
+      JSON.stringify({
+        results: [
+          {
+            url: "https://example.com",
+            title: "Example",
+            excerpts: ["# Example", "Body"],
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const result = await parallel.parallelExtractFetch({
+      url: "https://example.com",
+      format: "markdown",
+      includeMetadata: true,
+      credentials: { apiKey: "parallel-key" },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data?.provider, "parallel-extract");
+    assert.equal(result.data?.content, "# Example\n\nBody");
+    assert.equal(captured?.url, "https://api.parallel.ai/v1/extract");
+    assert.equal(captured?.headers.get("x-api-key"), "parallel-key");
+    assert.deepEqual(captured?.body.urls, ["https://example.com"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("handleWebFetch auto fallback tries mdream then parallel-extract", async () => {
+  const originalFetch = globalThis.fetch;
+  const urls: string[] = [];
+
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).startsWith("https://mdream.dev/")) {
+      return new Response("", { status: 200 });
+    }
+    return new Response(
+      JSON.stringify({
+        results: [{ url: "https://example.com", excerpts: ["Parallel content"] }],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const result = await handleWebFetch(
+      { url: "https://example.com", format: "markdown" },
+      { providerCredentials: { "parallel-extract": { apiKey: "parallel-key" } } }
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.data?.provider, "parallel-extract");
+    assert.ok(urls[0].startsWith("https://mdream.dev/"));
+    assert.equal(urls[1], "https://api.parallel.ai/v1/extract");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("handleWebFetch attempt telemetry stores host without secret URL", async () => {
+  const attempts: unknown[] = [];
+
+  const result = await handleWebFetch(
+    {
+      url: "https://example.com/callback?api_key=secret",
+      provider: "mdream",
+      format: "markdown",
+      log: {
+        info(_tag, _message, data) {
+          attempts.push(data);
+        },
+      },
+    },
+    {}
+  );
+
+  assert.equal(result.success, false);
+  assert.equal(attempts.length, 1);
+  const attempt = attempts[0] as { latencyMs: number };
+  assert.deepEqual(attempts[0], {
+    provider: "mdream",
+    format: "markdown",
+    success: false,
+    status: 400,
+    latencyMs: attempt.latencyMs,
+    contentBytes: 0,
+    fallbackReason: result.error,
+    fallback: false,
+    urlHost: "example.com",
+  });
+  assert.ok(attempt.latencyMs >= 0);
+  assert.equal(JSON.stringify(attempts).includes("api_key=secret"), false);
 });

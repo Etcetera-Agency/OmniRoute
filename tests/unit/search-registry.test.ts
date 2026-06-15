@@ -439,3 +439,17 @@ test("v1SearchSchema allows unknown fields (forward compat)", async () => {
   });
   assert.ok(result.success);
 });
+
+test("v1WebFetchSchema accepts mdream, parallel-extract, and fallback flag", async () => {
+  const { v1WebFetchSchema } = await import("../../src/shared/validation/schemas.ts");
+
+  for (const provider of ["mdream", "parallel-extract"] as const) {
+    const result = v1WebFetchSchema.safeParse({
+      url: "https://example.com",
+      provider,
+      fallback: true,
+    });
+    assert.equal(result.success, true, `${provider} should be accepted`);
+    assert.equal(result.data?.fallback, true);
+  }
+});

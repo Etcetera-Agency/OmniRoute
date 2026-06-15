@@ -2,7 +2,7 @@
  * Integration tests for GET /api/search/providers — extended catalog (F4).
  *
  * Tests:
- * - Returns 15 items total (12 search + 3 fetch providers).
+ * - Returns 17 items total (12 search + 5 fetch providers).
  * - Each item carries the correct `kind` field.
  * - Status reflects actual DB credential state:
  *   - "configured"  when an active, non-rate-limited connection exists.
@@ -27,9 +27,7 @@ import {
 // ---------------------------------------------------------------------------
 // Isolated temp DB for this test suite
 // ---------------------------------------------------------------------------
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-search-providers-catalog-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-search-providers-catalog-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = "test-api-key-secret-search-catalog";
 // Disable dashboard password requirement by default
@@ -51,7 +49,7 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // ---------------------------------------------------------------------------
 
 const EXPECTED_SEARCH_COUNT = 12;
-const EXPECTED_FETCH_COUNT = 3;
+const EXPECTED_FETCH_COUNT = 5;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 
 // ---------------------------------------------------------------------------
@@ -137,7 +135,7 @@ test("search-providers-catalog: returns 401 for unauthenticated requests when au
   assert.ok(!bodyStr.includes(" at /"), "error body must not contain stack trace");
 });
 
-test("search-providers-catalog: returns 15 providers (12 search + 3 fetch)", async () => {
+test("search-providers-catalog: returns 17 providers (12 search + 5 fetch)", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
 
@@ -186,12 +184,16 @@ test("search-providers-catalog: every item has a valid kind value", async () => 
 });
 
 test("search-providers-catalog: status=missing when no DB credentials exist", async () => {
-  // No connections seeded — all providers should be "missing"
+  // No connections seeded — keyed providers should be "missing"; no-auth Mdream is ready.
   const req = await buildAuthRequest();
   const res = await route.GET(req);
   const body = await res.json();
 
   for (const item of body.providers) {
+    if (item.id === "mdream") {
+      assert.equal(item.status, "configured", "mdream should be configured without credentials");
+      continue;
+    }
     assert.equal(
       item.status,
       "missing",
@@ -218,7 +220,8 @@ test("search-providers-catalog: status=configured when active credentials seeded
 
   // Other providers (no creds) should still be "missing"
   const missingItems = body.providers.filter(
-    (p: { id: string; status: string }) => p.id !== "serper-search" && p.id !== "perplexity-search"
+    (p: { id: string; status: string }) =>
+      p.id !== "serper-search" && p.id !== "perplexity-search" && p.id !== "mdream"
   );
   for (const item of missingItems) {
     assert.equal(item.status, "missing", `${item.id} should be 'missing'`);
@@ -268,11 +271,7 @@ test("search-providers-catalog: back-compat data field has legacy shape", async 
 
   // Legacy shape: { id, object, created, name, search_types }
   assert.ok(Array.isArray(body.data), "`data` array must be present for back-compat");
-  assert.equal(
-    body.data.length,
-    EXPECTED_TOTAL,
-    "data array should have same length as providers"
-  );
+  assert.equal(body.data.length, EXPECTED_TOTAL, "data array should have same length as providers");
 
   for (const item of body.data) {
     assert.ok(typeof item.id === "string", "data item must have id");
@@ -291,6 +290,8 @@ test("search-providers-catalog: fetch providers have correct metadata", async ()
   const fetchProviders = body.providers.filter((p: { kind: string }) => p.kind === "fetch");
   const ids = fetchProviders.map((p: { id: string }) => p.id);
   assert.ok(ids.includes("firecrawl"), "firecrawl must be present");
+  assert.ok(ids.includes("mdream"), "mdream must be present");
+  assert.ok(ids.includes("parallel-extract"), "parallel-extract must be present");
   assert.ok(ids.includes("jina-reader"), "jina-reader must be present");
   assert.ok(ids.includes("tavily-search"), "tavily-search must be present");
 
@@ -328,10 +329,7 @@ test("search-providers-catalog: search providers have correct fields", async () 
     assert.ok(typeof item.id === "string", "search item must have id");
     assert.ok(typeof item.name === "string", "search item must have name");
     assert.ok(typeof item.costPerQuery === "number", "search item must have costPerQuery");
-    assert.ok(
-      typeof item.freeMonthlyQuota === "number",
-      "search item must have freeMonthlyQuota"
-    );
+    assert.ok(typeof item.freeMonthlyQuota === "number", "search item must have freeMonthlyQuota");
     assert.ok(Array.isArray(item.searchTypes), "search item must have searchTypes array");
     assert.equal(
       item.configureHref,
@@ -352,9 +350,8 @@ test("search-providers-catalog: response validates against SearchProviderCatalog
   const res = await route.GET(req);
   const body = await res.json();
 
-  const { SearchProviderCatalogResponseSchema } = await import(
-    "../../src/shared/schemas/searchTools.ts"
-  );
+  const { SearchProviderCatalogResponseSchema } =
+    await import("../../src/shared/schemas/searchTools.ts");
 
   const result = SearchProviderCatalogResponseSchema.safeParse({ providers: body.providers });
   assert.ok(

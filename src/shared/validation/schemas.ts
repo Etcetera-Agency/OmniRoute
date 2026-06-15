@@ -2500,11 +2500,14 @@ export const v1BatchCreateSchema = z.object({
 
 export const v1WebFetchSchema = z.object({
   url: z.string().url("url must be a valid URL (http/https)"),
-  provider: z.enum(["firecrawl", "jina-reader", "tavily-search"]).optional(),
+  provider: z
+    .enum(["mdream", "parallel-extract", "jina-reader", "tavily-search", "firecrawl"])
+    .optional(),
   format: z.enum(["markdown", "html", "links", "screenshot"]).default("markdown"),
   depth: z.union([z.literal(0), z.literal(1), z.literal(2)]).default(0),
   wait_for_selector: z.string().max(256).optional(),
   include_metadata: z.boolean().default(false),
+  fallback: z.boolean().default(false),
 });
 
 // ── Zed Credential Import Flow ──────────────────────────────────────────────────
