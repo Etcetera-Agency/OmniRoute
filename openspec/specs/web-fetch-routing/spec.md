@@ -150,3 +150,15 @@ WHEN the catalog is rendered on `/dashboard/endpoint`
 THEN the endpoint list includes `POST /api/v1/web/fetch`
 AND the endpoint is grouped under `Web Fetch`
 AND the endpoint is marked as requiring bearer API key auth
+
+### Requirement: Mdream Provider Catalog Visibility
+
+The system SHALL expose Mdream as a no-auth web-fetch provider in the dashboard provider catalog when Mdream is registered in the web-fetch routing registry.
+
+#### Scenario: Web Fetch Providers Lists Mdream
+
+GIVEN Mdream is registered as a keyless web-fetch provider
+WHEN the dashboard renders the Web Fetch Providers section
+THEN the provider list includes `Mdream`
+AND the provider is marked as no-auth
+AND the provider remains visible when configured-only filtering is enabled
