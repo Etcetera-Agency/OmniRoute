@@ -25,7 +25,7 @@ export interface OpenApiEndpoint {
   hasRequestBody: boolean;
 }
 
-export const OPENAPI_VERSION = "3.8.7";
+export const OPENAPI_VERSION = "3.8.26";
 export const OPENAPI_TITLE = "OmniRoute API";
 
 export const OPENAPI_ENDPOINTS: OpenApiEndpoint[] = [
@@ -173,7 +173,8 @@ export const OPENAPI_ENDPOINTS: OpenApiEndpoint[] = [
     path: "/api/v1/providers/{provider}/models",
     method: "GET",
     summary: "List models for a specific provider",
-    description: "Returns only models for the selected provider with provider prefix removed from each model id.",
+    description:
+      "Returns only models for the selected provider with provider prefix removed from each model id.",
     tag: "Models",
     tags: ["Models"],
     requiresAuth: true,
@@ -196,6 +197,17 @@ export const OPENAPI_ENDPOINTS: OpenApiEndpoint[] = [
     description: "OpenAI Responses API endpoint.",
     tag: "Responses",
     tags: ["Responses"],
+    requiresAuth: true,
+    hasRequestBody: true,
+  },
+  {
+    path: "/api/v1/web/fetch",
+    method: "POST",
+    summary: "Fetch web page content",
+    description:
+      "Extracts readable content from a URL through the configured web-fetch provider chain.",
+    tag: "Web Fetch",
+    tags: ["Web Fetch"],
     requiresAuth: true,
     hasRequestBody: true,
   },

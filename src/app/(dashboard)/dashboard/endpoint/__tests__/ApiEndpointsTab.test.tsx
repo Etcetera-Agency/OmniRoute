@@ -29,10 +29,14 @@ vi.mock("next-intl", () => ({
       "endpoint.showInternal": "Show internal",
       "endpoint.hideInternal": "Hide internal",
       "endpoint.vscodeAliasTitle": "VS Code Token Alias",
-      "endpoint.vscodeAliasDescriptionReady": "Ready-to-paste compatibility URLs using the /api/v1/vscode/{token}/... endpoint.",
-      "endpoint.vscodeAliasDescriptionError": "Showing placeholder URLs because CLI keys could not be loaded in this session.",
-      "endpoint.vscodeAliasDescriptionLoading": "Loading CLI keys. Placeholder URLs are shown until a key is available.",
-      "endpoint.vscodeAliasDescriptionPlaceholder": "Showing placeholder URLs. Create or activate an API key in CLI Tools to replace {token}.",
+      "endpoint.vscodeAliasDescriptionReady":
+        "Ready-to-paste compatibility URLs using the /api/v1/vscode/{token}/... endpoint.",
+      "endpoint.vscodeAliasDescriptionError":
+        "Showing placeholder URLs because CLI keys could not be loaded in this session.",
+      "endpoint.vscodeAliasDescriptionLoading":
+        "Loading CLI keys. Placeholder URLs are shown until a key is available.",
+      "endpoint.vscodeAliasDescriptionPlaceholder":
+        "Showing placeholder URLs. Create or activate an API key in CLI Tools to replace {token}.",
       "endpoint.vscodeAliasManage": "CLI Tools",
       "endpoint.vscodeAliasBaseLabel": "VS Code base",
       "endpoint.vscodeAliasModelsLabel": "VS Code models",
@@ -159,6 +163,17 @@ describe("ApiEndpointsTab", () => {
             requestBody: true,
             responses: ["200"],
           },
+          {
+            method: "POST",
+            path: "/api/v1/web/fetch",
+            tags: ["Web Fetch"],
+            summary: "Fetch web page content",
+            description: "Extracts readable content from a URL.",
+            security: true,
+            parameters: [],
+            requestBody: true,
+            responses: ["200"],
+          },
         ],
         schemas: [],
       });
@@ -168,9 +183,10 @@ describe("ApiEndpointsTab", () => {
 
     await waitForText("VS Code Token Alias");
     await waitForText("OmniRoute API");
-    expect(document.body.textContent).toContain("1 endpoints across 1 categories");
+    expect(document.body.textContent).toContain("2 endpoints across 1 categories");
     expect(document.body.textContent).toContain("/api/v1/vscode/sk-live-123/models");
     expect(document.body.textContent).toContain("/api/v1/chat/completions");
+    expect(document.body.textContent).toContain("/api/v1/web/fetch");
   });
 
   it("renders curl example using window.location.origin when NEXT_PUBLIC_BASE_URL is unset", async () => {

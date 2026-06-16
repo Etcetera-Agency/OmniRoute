@@ -137,3 +137,16 @@ WHEN a provider attempt completes
 THEN telemetry stores the URL host
 AND telemetry does not store the full URL
 AND telemetry stores provider, format, latency, status, content byte count, success, and fallback reason
+
+### Requirement: Web Fetch API Catalog Visibility
+
+The system SHALL document `POST /api/v1/web/fetch` in the live OpenAPI spec so the `/dashboard/endpoint` API catalog lists the web-fetch endpoint with its auth requirement, request body, and response shape.
+
+#### Scenario: Dashboard Lists Web Fetch Endpoint
+
+GIVEN the `/api/v1/web/fetch` route exists
+AND the dashboard API catalog loads `/api/openapi/spec`
+WHEN the catalog is rendered on `/dashboard/endpoint`
+THEN the endpoint list includes `POST /api/v1/web/fetch`
+AND the endpoint is grouped under `Web Fetch`
+AND the endpoint is marked as requiring bearer API key auth

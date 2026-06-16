@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OmniRoute API
-  version: 3.8.25
+  version: 3.8.26
   description: |
     OmniRoute is a local-first AI API proxy router. It provides an OpenAI-compatible
     endpoint that routes requests to multiple AI providers with load balancing,
@@ -37,6 +37,8 @@ tags:
     description: Text embedding generation
   - name: Images
     description: Image generation
+  - name: Web Fetch
+    description: Web page extraction through configured fetch providers
   - name: Audio
     description: Audio speech and transcription
   - name: Moderations
@@ -1199,6 +1201,77 @@ paths:
           description: Response object or SSE stream
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/web/fetch:
+    post:
+      tags: [Web Fetch]
+      summary: Fetch web page content
+      description: Extracts readable content from a URL through the configured web-fetch provider chain.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: URL to fetch and extract.
+                provider:
+                  type: string
+                  description: Optional provider id. If omitted, OmniRoute uses configured provider order and fallback.
+                format:
+                  type: string
+                  enum: [markdown, text, html]
+                  default: markdown
+                depth:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+                  default: 0
+                wait_for_selector:
+                  type: string
+                  description: Optional CSS selector to wait for before extraction.
+                include_metadata:
+                  type: boolean
+                  default: true
+                fallback:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          description: Extracted page content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                  url:
+                    type: string
+                  content:
+                    type: string
+                  links:
+                    type: array
+                    items:
+                      type: string
+                  metadata:
+                    type: object
+                    additionalProperties: true
+                  screenshot_url:
+                    type: string
+                    nullable: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Web fetch provider failed
 
   /api/v1/embeddings:
     post:
