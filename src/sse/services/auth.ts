@@ -52,6 +52,7 @@ import {
   WEB_COOKIE_PROVIDERS,
 } from "@/shared/constants/providers";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
+import { getSharedCredentialProviderIds } from "@/lib/providers/sharedCredentials";
 import * as log from "../utils/logger";
 import { fisherYatesShuffle, getNextFromDeckSync } from "@/shared/utils/shuffleDeck";
 
@@ -900,7 +901,15 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
     return ["nvidia_nim", "nvidia"];
   }
 
-  const searchPool = new Set([provider, canonicalProvider, canonicalAlias].filter(Boolean));
+  const candidateProviderIds = [provider, canonicalProvider, canonicalAlias].filter(
+    (id): id is string => Boolean(id)
+  );
+  const searchPool = new Set(candidateProviderIds);
+  for (const id of candidateProviderIds) {
+    for (const sharedId of getSharedCredentialProviderIds(id)) {
+      searchPool.add(sharedId);
+    }
+  }
 
   // Built-in providers already resolve through static ids/aliases. Only
   // compatible/custom providers need provider_nodes expansion back to the

@@ -25,7 +25,6 @@ test("parallel-search request builder sends current v1 search shape", () => {
   assert.deepEqual(JSON.parse(String(request.init.body)), {
     objective: "agent search",
     search_queries: ["agent search"],
-    max_results: 3,
   });
 });
 

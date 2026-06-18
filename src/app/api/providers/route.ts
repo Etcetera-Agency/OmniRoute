@@ -30,12 +30,18 @@ import {
   sanitizeProviderSpecificDataForResponse,
 } from "@/lib/providers/requestDefaults";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { isManagedProviderConnectionId } from "@/lib/providers/catalog";
+import {
+  isManagedProviderConnectionId,
+  resolveStaticProviderCatalogEntry,
+} from "@/lib/providers/catalog";
+import { getSharedCredentialProviderIds } from "@/lib/providers/sharedCredentials";
 import { isApiKeyRevealEnabled, maskStoredApiKey } from "@/lib/apiKeyExposure";
 import {
   buildModelSyncInternalHeaders,
   getModelSyncInternalBaseUrl,
 } from "@/shared/services/modelSyncScheduler";
+
+type CreatedProviderConnection = Awaited<ReturnType<typeof createProviderConnection>>;
 
 // GET /api/providers - List all connections
 export async function GET(request: Request) {
@@ -169,6 +175,14 @@ export async function POST(request: Request) {
       isActive: true,
       testStatus: testStatus || "unknown",
     });
+    const linkedConnections = await createMissingSharedCredentialConnections({
+      sourceProvider: provider,
+      sourceName: name,
+      apiKey,
+      priority: priority || 1,
+      globalPriority: globalPriority || null,
+      testStatus: testStatus || "unknown",
+    });
 
     // Auto-trigger model discovery for the newly created connection.
     // Fire-and-forget: model sync can take seconds and should NOT block the
@@ -237,6 +251,8 @@ export async function POST(request: Request) {
       metadata: {
         provider: provider,
         connection: summarizeProviderConnectionForAudit(newConnection),
+        linkedConnectionCount: linkedConnections.length,
+        linkedProviders: linkedConnections.map((connection) => connection.provider),
       },
     });
 
@@ -245,6 +261,54 @@ export async function POST(request: Request) {
     console.log("Error creating provider:", error);
     return NextResponse.json({ error: "Failed to create provider" }, { status: 500 });
   }
+}
+
+async function createMissingSharedCredentialConnections({
+  sourceProvider,
+  sourceName,
+  apiKey,
+  priority,
+  globalPriority,
+  testStatus,
+}: {
+  sourceProvider: string;
+  sourceName: string;
+  apiKey: string | undefined;
+  priority: number;
+  globalPriority: number | null;
+  testStatus: string;
+}): Promise<CreatedProviderConnection[]> {
+  if (!apiKey) return [];
+
+  const linkedConnections: CreatedProviderConnection[] = [];
+  for (const providerId of getSharedCredentialProviderIds(sourceProvider)) {
+    if (providerId === sourceProvider) continue;
+    if (!isManagedProviderConnectionId(providerId)) continue;
+
+    const existing = await getProviderConnections({ provider: providerId });
+    if (Array.isArray(existing) && existing.length > 0) continue;
+
+    const entry = resolveStaticProviderCatalogEntry(providerId);
+    const name = entry?.name ? `${entry.name} API key` : `${sourceName} (${providerId})`;
+    const providerSpecificData = normalizeProviderSpecificData(providerId, null) || null;
+
+    linkedConnections.push(
+      await createProviderConnection({
+        provider: providerId,
+        authType: "apikey",
+        name,
+        apiKey,
+        priority,
+        globalPriority,
+        defaultModel: null,
+        providerSpecificData,
+        isActive: true,
+        testStatus,
+      })
+    );
+  }
+
+  return linkedConnections;
 }
 
 // PATCH /api/providers - Bulk activate/deactivate connections

@@ -674,7 +674,6 @@ export function buildParallelSearchRequest(
       body: JSON.stringify({
         objective: params.query,
         search_queries: [params.query],
-        max_results: params.maxResults,
       }),
     },
   };
@@ -772,7 +771,10 @@ export function buildGeminiGroundedSearchRequest(
 
 type BuiltSearchRequest = { url: string; init: RequestInit; model?: string };
 
-function buildRequest(config: SearchProviderConfig, params: SearchRequestParams): BuiltSearchRequest {
+function buildRequest(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): BuiltSearchRequest {
   if (config.id === "serper-search") return buildSerperRequest(config, params);
   if (config.id === "brave-search") return buildBraveRequest(config, params);
   if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
