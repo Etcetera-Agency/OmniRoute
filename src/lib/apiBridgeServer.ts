@@ -18,8 +18,54 @@ const OPENAI_COMPAT_PATHS = [
   /^\/callback(?:\?|$)/,
 ];
 
+const FMO_MANAGEMENT_READ_PATHS = [
+  /^\/api\/monitoring\/health(?:\?|$)/,
+  /^\/api\/providers(?:\?|$)/,
+  /^\/api\/providers\/[^/]+\/models(?:\/|\?|$)/,
+  /^\/api\/v1\/providers\/[^/]+\/models(?:\/|\?|$)/,
+  /^\/api\/free-models(?:\?|$)/,
+  /^\/api\/free-provider-rankings(?:\?|$)/,
+  /^\/api\/free-tier\/summary(?:\?|$)/,
+  /^\/api\/rate-limits(?:\?|$)/,
+  /^\/api\/usage\/analytics(?:\?|$)/,
+  /^\/api\/usage\/quota(?:\?|$)/,
+];
+
+const FMO_COMBO_COLLECTION_PATH = /^\/api\/combos(?:\?|$)/;
+const FMO_COMBO_ITEM_PATH = /^\/api\/combos\/fmo-[^/]+(?:\?|$)/;
+
 function isOpenAiCompatiblePath(pathname: string): boolean {
   return OPENAI_COMPAT_PATHS.some((pattern) => pattern.test(pathname));
+}
+
+function isFmoManagementReadPath(method: string | undefined, pathname: string): boolean {
+  const normalizedMethod = String(method || "GET").toUpperCase();
+  if (normalizedMethod !== "GET" && normalizedMethod !== "OPTIONS" && normalizedMethod !== "HEAD") {
+    return false;
+  }
+  return FMO_MANAGEMENT_READ_PATHS.some((pattern) => pattern.test(pathname));
+}
+
+function isFmoComboManagementPath(method: string | undefined, pathname: string): boolean {
+  const normalizedMethod = String(method || "GET").toUpperCase();
+  if (
+    ["GET", "OPTIONS", "HEAD"].includes(normalizedMethod) &&
+    FMO_COMBO_COLLECTION_PATH.test(pathname)
+  ) {
+    return true;
+  }
+  if (!["GET", "PUT", "OPTIONS", "HEAD"].includes(normalizedMethod)) {
+    return false;
+  }
+  return FMO_COMBO_ITEM_PATH.test(pathname);
+}
+
+export function isApiBridgeAllowedPath(method: string | undefined, pathname: string): boolean {
+  return (
+    isOpenAiCompatiblePath(pathname) ||
+    isFmoManagementReadPath(method, pathname) ||
+    isFmoComboManagementPath(method, pathname)
+  );
 }
 
 function requestWantsStreaming(req: IncomingMessage): boolean {
@@ -180,12 +226,13 @@ export function initApiBridgeServer(): void {
     const rawUrl = req.url || "/";
     const pathname = rawUrl.split("?")[0] || "/";
 
-    if (!isOpenAiCompatiblePath(pathname)) {
+    if (!isApiBridgeAllowedPath(req.method, pathname)) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(
         JSON.stringify({
           error: "not_found",
-          message: "API port only serves OpenAI-compatible routes.",
+          message:
+            "API port only serves OpenAI-compatible and approved read-only management routes.",
         })
       );
       return;
@@ -201,13 +248,14 @@ export function initApiBridgeServer(): void {
     const rawUrl = req.url || "/";
     const pathname = rawUrl.split("?")[0] || "/";
 
-    if (!isOpenAiCompatiblePath(pathname)) {
+    if (!isApiBridgeAllowedPath(req.method, pathname)) {
       writeUpgradeProxyError(
         socket,
         404,
         JSON.stringify({
           error: "not_found",
-          message: "API port only serves OpenAI-compatible routes.",
+          message:
+            "API port only serves OpenAI-compatible and approved read-only management routes.",
         })
       );
       return;

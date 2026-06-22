@@ -2294,6 +2294,18 @@ export const APIKEY_PROVIDERS = {
     },
     serviceKinds: ["webFetch"],
   },
+  "parallel-extract": {
+    id: "parallel-extract",
+    alias: "parallel-extract",
+    name: "Parallel Extract",
+    icon: "hub",
+    color: "#111827",
+    textIcon: "PE",
+    website: "https://docs.parallel.ai/extract/overview",
+    hasFree: true,
+    authHint: "Uses the same API key as Parallel Search.",
+    serviceKinds: ["webFetch"],
+  },
   byteplus: {
     id: "byteplus",
     alias: "bpm",
