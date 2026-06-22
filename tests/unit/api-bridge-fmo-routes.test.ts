@@ -36,6 +36,19 @@ test("API bridge does not expose management writes on the API port", () => {
   assert.equal(isApiBridgeAllowedPath("DELETE", "/api/providers/conn-1"), false);
 });
 
+test("API bridge exposes only FMO combo management routes needed for apply", () => {
+  assert.equal(isApiBridgeAllowedPath("GET", "/api/combos"), true);
+  assert.equal(isApiBridgeAllowedPath("HEAD", "/api/combos"), true);
+  assert.equal(isApiBridgeAllowedPath("GET", "/api/combos/fmo-routing"), true);
+  assert.equal(isApiBridgeAllowedPath("PUT", "/api/combos/fmo-routing"), true);
+
+  assert.equal(isApiBridgeAllowedPath("POST", "/api/combos"), false);
+  assert.equal(isApiBridgeAllowedPath("DELETE", "/api/combos/fmo-routing"), false);
+  assert.equal(isApiBridgeAllowedPath("POST", "/api/combos/test"), false);
+  assert.equal(isApiBridgeAllowedPath("GET", "/api/combos/auto"), false);
+  assert.equal(isApiBridgeAllowedPath("POST", "/api/combos/reorder"), false);
+});
+
 test("API bridge rejects unrelated dashboard management routes", () => {
   assert.equal(isApiBridgeAllowedPath("GET", "/api/settings"), false);
   assert.equal(isApiBridgeAllowedPath("GET", "/api/providers/conn-1/test"), false);

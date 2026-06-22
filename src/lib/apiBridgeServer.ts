@@ -31,6 +31,9 @@ const FMO_MANAGEMENT_READ_PATHS = [
   /^\/api\/usage\/quota(?:\?|$)/,
 ];
 
+const FMO_COMBO_COLLECTION_PATH = /^\/api\/combos(?:\?|$)/;
+const FMO_COMBO_ITEM_PATH = /^\/api\/combos\/fmo-[^/]+(?:\?|$)/;
+
 function isOpenAiCompatiblePath(pathname: string): boolean {
   return OPENAI_COMPAT_PATHS.some((pattern) => pattern.test(pathname));
 }
@@ -43,8 +46,26 @@ function isFmoManagementReadPath(method: string | undefined, pathname: string): 
   return FMO_MANAGEMENT_READ_PATHS.some((pattern) => pattern.test(pathname));
 }
 
+function isFmoComboManagementPath(method: string | undefined, pathname: string): boolean {
+  const normalizedMethod = String(method || "GET").toUpperCase();
+  if (
+    ["GET", "OPTIONS", "HEAD"].includes(normalizedMethod) &&
+    FMO_COMBO_COLLECTION_PATH.test(pathname)
+  ) {
+    return true;
+  }
+  if (!["GET", "PUT", "OPTIONS", "HEAD"].includes(normalizedMethod)) {
+    return false;
+  }
+  return FMO_COMBO_ITEM_PATH.test(pathname);
+}
+
 export function isApiBridgeAllowedPath(method: string | undefined, pathname: string): boolean {
-  return isOpenAiCompatiblePath(pathname) || isFmoManagementReadPath(method, pathname);
+  return (
+    isOpenAiCompatiblePath(pathname) ||
+    isFmoManagementReadPath(method, pathname) ||
+    isFmoComboManagementPath(method, pathname)
+  );
 }
 
 function requestWantsStreaming(req: IncomingMessage): boolean {
