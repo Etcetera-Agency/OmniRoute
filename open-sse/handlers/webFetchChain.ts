@@ -160,7 +160,7 @@ async function tryWebFetchProvider(
           url: req.url,
           format,
           includeMetadata,
-          headers: req.headers,
+          headers: sanitizedMdreamRequestHeaders(req.headers),
         });
 
       case "parallel-extract":
@@ -216,4 +216,17 @@ async function tryWebFetchProvider(
       error: body.error.message,
     };
   }
+}
+
+function sanitizedMdreamRequestHeaders(headers: Headers | undefined): Headers | undefined {
+  if (!headers) return undefined;
+
+  const sanitized = new Headers(headers);
+  // AICODE-NOTE: /v1/web/fetch authenticates with the same Bearer header as
+  // other OmniRoute /v1 routes; Mdream privacy checks must not confuse that
+  // gateway credential with page-specific Authorization/Cookie material.
+  sanitized.delete("authorization");
+  sanitized.delete("x-api-key");
+  sanitized.delete("anthropic-version");
+  return sanitized;
 }

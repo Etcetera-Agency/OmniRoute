@@ -158,6 +158,36 @@ test("handleWebFetch passes depth and wait_for_selector to firecrawl", async () 
   }
 });
 
+test("handleWebFetch lets Mdream handle Bearer-authenticated gateway requests", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedHeaders: Headers | null = null;
+
+  globalThis.fetch = async (_url, init) => {
+    capturedHeaders = new Headers(init?.headers);
+    return new Response("# Example", {
+      status: 200,
+      headers: { "content-type": "text/markdown" },
+    });
+  };
+
+  try {
+    const result = await handleWebFetch(
+      {
+        url: "https://example.com",
+        headers: new Headers({ Authorization: "Bearer omni-key" }),
+      },
+      {},
+      "mdream"
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.data?.provider, "mdream");
+    assert.equal(capturedHeaders?.get("authorization"), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("mdreamFetch builds verified raw Mdream URL and rejects secret query params", async () => {
   assert.equal(
     mdream.buildMdreamFetchUrl("https://example.com/path?a=1"),
