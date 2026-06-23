@@ -1,0 +1,7 @@
+name: web-omniroute
+version: 1.0.0
+description: "OmniRoute web search and URL fetch backend using /v1/search and /v1/web/fetch."
+author: Etcetera
+kind: backend
+provides_web_providers:
+  - omniroute
