@@ -1,9 +1,10 @@
 # Spec coverage pending
 
-- `add-fmo-pools-apply`: pending focused tests for all-or-nothing apply,
-  priority materialization, incumbency commit behavior, scheduler gate, and
-  manual trigger auth/apply.
 - FMO tier-3 quota extractor needs live provider-contract coverage once an
   internal extractor model is configured; current focused planning tests cover
   internal-chain boundaries, evidence validation, source precedence, and capacity
   math without making live LLM calls.
+- FMO scheduled rebalance needs production materialized-plan coverage once the
+  Hermes-side solver publishes accepted plans into OmniRoute; current apply tests
+  cover validated manual apply, transaction rollback, shadow diff, and scheduler
+  flag gating without letting the scheduler synthesize empty combo plans.

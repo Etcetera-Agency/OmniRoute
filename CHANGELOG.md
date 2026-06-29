@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- **feat(fmo): add fork-owned FMO pool rebalance data plane** — adds flag-gated
+  `fmo-pools/v1` ingestion, planning inputs, deterministic solve/tail planning,
+  and atomic combo apply with shadow/manual/scheduled rebalance support.
+
 ---
 
 ## [3.8.25] — TBD

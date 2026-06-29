@@ -152,6 +152,21 @@ export async function registerNodejs(): Promise<void> {
     const { initBatchProcessor } = await import("@omniroute/open-sse/services/batchProcessor");
     initBatchProcessor();
     console.log("[STARTUP] Batch processor started");
+
+    try {
+      const [{ createFmoRebalanceScheduler }, { isFeatureFlagEnabled }] = await Promise.all([
+        import("@/lib/fmoPools/rebalance"),
+        import("@/shared/utils/featureFlags"),
+      ]);
+      const timer = createFmoRebalanceScheduler({
+        enabled: () => isFeatureFlagEnabled("OMNIROUTE_FMO_POOLS_ENABLED"),
+        logger: console,
+      }).start();
+      if (timer) console.log("[STARTUP] FMO pool rebalance scheduler started");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[STARTUP] Could not start FMO pool rebalance scheduler:", msg);
+    }
   }
 
   try {
