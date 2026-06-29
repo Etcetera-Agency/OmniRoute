@@ -1,0 +1,9 @@
+# Spec coverage pending
+
+- `add-fmo-pools-planning`: pending focused tests for inventory, intelligence,
+  quota normalization, internal search-research, capacity, and learning loop.
+- `add-fmo-pools-solve-tail`: pending focused tests for packing, ladder,
+  ranking/incumbency, canary seating, degraded incumbent drops, and tail guards.
+- `add-fmo-pools-apply`: pending focused tests for all-or-nothing apply,
+  priority materialization, incumbency commit behavior, scheduler gate, and
+  manual trigger auth/apply.

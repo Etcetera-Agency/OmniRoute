@@ -313,6 +313,17 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     requiresRestart: false,
     warningLevel: "info",
   },
+  {
+    key: "OMNIROUTE_FMO_POOLS_ENABLED",
+    label: "FMO Pools",
+    description: "Enable the inert FMO pool spec ingestion seam.",
+    descriptionI18nKey: "featureFlagOmnirouteFmoPoolsEnabledDescription",
+    category: "runtime",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "caution",
+  },
 
   // ──────────────── CLI (3) ────────────────
   {
