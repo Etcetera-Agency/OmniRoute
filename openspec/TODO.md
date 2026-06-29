@@ -4,9 +4,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## Deferred Items
 
-0. Implement remaining active FMO pool OmniRoute changes after the planning slice:
-   `add-fmo-pools-solve-tail` and `add-fmo-pools-apply`. Keep the shadow solve
-   and atomic apply gates covered by tests before archive.
+0. Implement remaining active FMO pool OmniRoute change after the solve-tail slice:
+   `add-fmo-pools-apply`. Keep the shadow solve and atomic apply gates covered by
+   tests before archive.
 1. Before implementing `add-fmo-pools-planning` search-research tier, pin the
    relocated quota search contract to OmniRoute's internal search chain:
    `searchResearchClaim(candidate)` must call `buildSearchAttempts`/`runSearchChain`
