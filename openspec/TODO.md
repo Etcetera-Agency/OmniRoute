@@ -4,9 +4,8 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## Deferred Items
 
-0. Implement remaining active FMO pool OmniRoute changes after the contract slice:
-   `add-fmo-pools-planning`, `add-fmo-pools-solve-tail`, and
-   `add-fmo-pools-apply`. Keep the normalized live quota adapter, shadow solve,
+0. Implement remaining active FMO pool OmniRoute changes after the planning slice:
+   `add-fmo-pools-solve-tail` and `add-fmo-pools-apply`. Keep the shadow solve
    and atomic apply gates covered by tests before archive.
 1. Before implementing `add-fmo-pools-planning` search-research tier, pin the
    relocated quota search contract to OmniRoute's internal search chain:
@@ -22,6 +21,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
    `provider`, `provider_model_id`, `source_type`, `source_url`, `text`, and
    `previous_limit`, validate the returned `QuotaClaimResponse`, and do not add a
    separate FMO/Instructor inspector.
+   Implementation note: planning slice now has the in-process search-chain seam,
+   evidence snapshot, and claim validator. Add live internal-LLM extractor
+   contract coverage once an extractor model is configured for this fork.
 
 2. Keep the daily model-manager routine in the Hermes repo. OmniRoute only supplies management APIs, routing behavior, telemetry, and provider support consumed by that routine.
 3. Prepare an upstream OmniRoute PR after the fork changes stabilize:

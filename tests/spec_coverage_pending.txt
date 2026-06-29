@@ -1,9 +1,11 @@
 # Spec coverage pending
 
-- `add-fmo-pools-planning`: pending focused tests for inventory, intelligence,
-  quota normalization, internal search-research, capacity, and learning loop.
 - `add-fmo-pools-solve-tail`: pending focused tests for packing, ladder,
   ranking/incumbency, canary seating, degraded incumbent drops, and tail guards.
 - `add-fmo-pools-apply`: pending focused tests for all-or-nothing apply,
   priority materialization, incumbency commit behavior, scheduler gate, and
   manual trigger auth/apply.
+- FMO tier-3 quota extractor needs live provider-contract coverage once an
+  internal extractor model is configured; current focused planning tests cover
+  internal-chain boundaries, evidence validation, source precedence, and capacity
+  math without making live LLM calls.
