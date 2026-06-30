@@ -191,6 +191,18 @@ const RENAMED_MIGRATION_COMPATIBILITY = [
     toVersion: "059",
     toName: "manifest_routing",
   },
+  {
+    fromVersion: "100",
+    fromName: "fmo_pools",
+    toVersion: "110",
+    toName: "fmo_pools",
+  },
+  {
+    fromVersion: "101",
+    fromName: "fmo_pool_decisions",
+    toVersion: "111",
+    toName: "fmo_pool_decisions",
+  },
 ] as const;
 
 const LEGACY_VERSION_SLOT_MIGRATIONS = [
@@ -264,7 +276,7 @@ function supportsFts5(db: SqliteAdapter): boolean {
   }
 
   try {
-    const probeTable = `__omniroute_fts5_probe_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const probeTable = `__omniroute_fts5_probe_${crypto.randomUUID().replace(/-/g, "_")}`;
     db.transaction(() => {
       db.exec(`CREATE VIRTUAL TABLE "${probeTable}" USING fts5(content);`);
       db.exec(`DROP TABLE "${probeTable}";`);
@@ -526,6 +538,10 @@ function isSchemaAlreadyApplied(
       // was dropped on integration; this canonical migration creates the table
       // that recordPluginExecution()/getPluginAnalytics() rely on.
       return hasTable(db, "plugin_analytics");
+    case "110":
+      return hasTable(db, "fmo_pools");
+    case "111":
+      return hasTable(db, "fmo_pool_decisions");
     default:
       return false;
   }

@@ -1,6 +1,7 @@
 import { getModelInfo, getComboForModel } from "../services/model";
 import { clearAccountError, markAccountUnavailable } from "../services/auth";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
+import { createBuiltinAutoCombo } from "@omniroute/open-sse/services/autoCombo/builtinCatalog.ts";
 import * as log from "../utils/logger";
 import { updateProviderCredentials } from "../services/tokenRefresh";
 import {
@@ -21,11 +22,17 @@ import {
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import {
   runWithProxyContext,
+  runWithAppliedProxyCapture,
   runWithTlsTracking,
   isTlsFingerprintActive,
+  type AppliedProxySink,
 } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { resolveProxyForConnection } from "@/lib/localDb";
-import { CircuitBreakerOpenError, getCircuitBreaker } from "../../shared/utils/circuitBreaker";
+import {
+  CircuitBreakerOpenError,
+  getCircuitBreaker,
+  isLocalStreamLifecycleError,
+} from "../../shared/utils/circuitBreaker";
 import { classify429FromError, type FailureKind } from "../../shared/utils/classify429";
 import { resolveUseUpstream429BreakerHints } from "../../shared/utils/providerHints";
 
@@ -173,18 +180,20 @@ export async function resolveModelOrError(
     }
   }
 
-  // "auto" is a combo prefix, not a provider. parseModel("auto/fast") splits it into
-  // provider="auto" model="fast" — redirect to matching combo before credential lookup fails.
+  // "auto" is a built-in virtual combo prefix, not a provider. parseModel("auto/fast")
+  // splits it into provider="auto" model="fast", so resolve it before credential lookup.
   if (modelInfo.provider === "auto") {
+    const suffix = modelInfo.model || "";
+    const fuzzyCandidates = [`auto/best-${suffix}`, `auto/${suffix}`];
+
     const exactCombo = await getComboForModel(modelStr);
     if (exactCombo) {
       log.info("ROUTING", `"auto" provider → combo "${modelStr}"`);
-      return { combo: exactCombo, provider: "auto", model: modelInfo.model };
+      return { combo: exactCombo, provider: "auto", model: suffix };
     }
 
-    // Fuzzy: "fast" → "auto/best-fast", "chat" → "auto/best-chat"
-    const suffix = modelInfo.model || "";
-    for (const candidate of [`auto/best-${suffix}`, `auto/${suffix}`]) {
+    // Preserve persisted fuzzy combo behavior before falling back to built-in virtual catalog ids.
+    for (const candidate of fuzzyCandidates) {
       const fuzzyCombo = await getComboForModel(candidate);
       if (fuzzyCombo) {
         log.info("ROUTING", `"auto/${suffix}" → combo "${candidate}" (fuzzy)`);
@@ -192,25 +201,35 @@ export async function resolveModelOrError(
       }
     }
 
-    // List available auto/* combos in error
-    const available: string[] = [];
     try {
-      const { getCombos } = await import("@/lib/localDb");
-      const all = await getCombos();
-      for (const c of all) {
-        const name =
-          typeof c === "object" && c !== null ? (c as Record<string, unknown>).name : undefined;
-        if (typeof name === "string" && name.startsWith("auto/")) available.push(name);
-      }
-    } catch {
-      /* DB unavailable */
+      const virtualCombo = await createBuiltinAutoCombo(modelStr, suffix);
+      log.info(
+        "AUTO",
+        `"auto" provider → built-in virtual combo "${modelStr}" (${virtualCombo.candidatePool?.length || 0} candidates)`
+      );
+      return { combo: virtualCombo, provider: "auto", model: suffix };
+    } catch (err) {
+      log.warn("CHAT", `Failed to create built-in auto combo "${modelStr}"`, { err });
     }
 
-    const hint =
-      available.length > 0
-        ? ` Available auto combos: ${available.join(", ")}`
-        : " No auto combos configured — create one in the Dashboard.";
-    const message = `Model '${modelStr}' is not a valid combo or provider.${hint}`;
+    // Fuzzy: "fast" → "auto/best-fast", "chat" → "auto/best-chat"
+    for (const candidate of fuzzyCandidates) {
+      try {
+        const virtualCombo = await createBuiltinAutoCombo(
+          candidate,
+          candidate.replace(/^auto\/?/, "")
+        );
+        log.info(
+          "AUTO",
+          `"auto/${suffix}" → built-in virtual combo "${candidate}" (fuzzy, ${virtualCombo.candidatePool?.length || 0} candidates)`
+        );
+        return { combo: virtualCombo, provider: "auto", model: suffix };
+      } catch {
+        /* Try next fuzzy candidate */
+      }
+    }
+
+    const message = `Model '${modelStr}' is not a valid combo or provider. Unknown built-in auto combo.`;
     log.warn("CHAT", message, { model: modelStr });
     return { error: errorResponse(HTTP_STATUS.BAD_REQUEST, message) };
   }
@@ -311,6 +330,9 @@ export async function checkPipelineGates(
     failureThreshold: providerProfile.failureThreshold ?? providerProfile.circuitBreakerThreshold,
     degradationThreshold: providerProfile.degradationThreshold,
     resetTimeout: providerProfile.resetTimeoutMs ?? providerProfile.circuitBreakerReset,
+    // #4602: a local WS-bridge "Controller is already closed" throw is not an
+    // upstream outage — keep it from tripping the whole-provider breaker.
+    isFailure: (e) => !isLocalStreamLifecycleError(e),
     onStateChange: (name: string, from: string, to: string) =>
       log.info("CIRCUIT", `${name}: ${from} → ${to}`),
     ...(useHints429
@@ -343,6 +365,7 @@ export async function executeChatWithBreaker({
   model,
   refreshedCredentials,
   proxyInfo,
+  appliedProxySink,
   log: handlerLog,
   clientRawRequest,
   credentials,
@@ -359,6 +382,7 @@ export async function executeChatWithBreaker({
   cachedSettings,
   skipUpstreamRetry = false,
   trafficType = "production",
+  correlationId = null,
 }: ExecuteChatWithBreakerOptions): Promise<{ result: any; tlsFingerprintUsed: boolean }> {
   let tlsFingerprintUsed = false;
   const normalizedTrafficType: TrafficType =
@@ -367,8 +391,15 @@ export async function executeChatWithBreaker({
       : "production";
   const isShadowTraffic = normalizedTrafficType === "shadow";
 
+  // #5217: capture the proxy actually applied during execution so the caller can
+  // merge it into proxyInfo before the egress log (executors pinning a per-account
+  // proxy internally otherwise leave the egress log reading "direct").
+  const capture = <T>(fn: () => T): T =>
+    appliedProxySink ? runWithAppliedProxyCapture(appliedProxySink, fn) : fn();
+
   try {
     const chatFn = () =>
+      capture(() =>
       runWithProxyContext(proxyInfo?.proxy || null, () =>
         (handleChatCore as any)({
           body: { ...body, model: `${provider}/${model}` },
@@ -387,6 +418,7 @@ export async function executeChatWithBreaker({
           cachedSettings,
           skipUpstreamRetry,
           trafficType: normalizedTrafficType,
+          correlationId,
           onCredentialsRefreshed: async (newCreds: any) => {
             await updateProviderCredentials(credentials.connectionId, {
               accessToken: newCreds.accessToken,
@@ -409,6 +441,13 @@ export async function executeChatWithBreaker({
           onStreamFailure: async (failure: any) => {
             if (isShadowTraffic) return;
             if (!credentials.connectionId) return;
+            if (
+              Number(failure?.status) === 499 ||
+              failure?.code === "client_disconnected" ||
+              failure?.type === "client_disconnected"
+            ) {
+              return;
+            }
             // A3 guard: if 401 and connection has extra keys, skip connection-level disable
             // (key-level failure already recorded in chatCore.ts via T07)
             // Check extra keys directly from credentials for reliability across restarts
@@ -435,6 +474,7 @@ export async function executeChatWithBreaker({
             );
           },
         })
+      )
       );
 
     if (isShadowTraffic) {
@@ -572,8 +612,18 @@ export function handleNoCredentials(
     return errorResponse(lastStatus, lastError);
   }
   if (!excludeConnectionId) {
-    log.error("AUTH", `No credentials for provider: ${provider}`);
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${provider}`);
+    // Ported from upstream decolua/9router#336 (Ibrahim Ryan): surface as 404
+    // NOT_FOUND instead of 400 BAD_REQUEST so combo routing can fall through to
+    // the next target. The combo target loop (open-sse/services/combo.ts) treats
+    // 400 as a hard stop to break body-specific infinite fallback loops
+    // (PR #4316 / issue #4279). 404 flows through checkFallbackError as
+    // `shouldFallback: true` (generic-error catch-all path in
+    // open-sse/services/accountFallback.ts), letting a combo like
+    // `antigravity/opus → github/opus` skip a provider whose credentials are
+    // all disabled. log level is `warn` rather than `error` because zero active
+    // credentials is an expected operator-driven state, not a server fault.
+    log.warn("AUTH", `No active credentials for provider: ${provider}`);
+    return errorResponse(HTTP_STATUS.NOT_FOUND, `No active credentials for provider: ${provider}`);
   }
   log.warn("CHAT", "No more accounts available", { provider });
   return errorResponse(
@@ -638,6 +688,26 @@ export async function safeResolveProxy(connectionId: string, apiKeyId?: string) 
   } catch (proxyErr) {
     return decideProxyResolutionFailure(proxyErr);
   }
+}
+
+/**
+ * #5217: merge a proxy the executor applied internally (captured via
+ * AppliedProxySink) into the pre-execution proxyInfo so the egress logger reflects
+ * the real egress. No applied proxy → proxyInfo unchanged. A pre-existing
+ * non-direct level is preserved; otherwise reported as "account" (per-account
+ * proxy, e.g. OpenCode rotation). Pure + unit-testable.
+ */
+export function applyExecutorProxyToInfo(
+  proxyInfo: { proxy?: unknown; level?: string; levelId?: string | null } | null | undefined,
+  appliedProxy: unknown
+) {
+  if (!appliedProxy) return proxyInfo;
+  const priorLevel = proxyInfo?.level;
+  return {
+    ...(proxyInfo || {}),
+    proxy: appliedProxy,
+    level: priorLevel && priorLevel !== "direct" ? priorLevel : "account",
+  };
 }
 
 // Async because the egress-IP lookup lazy-imports proxyEgress; callers treat
@@ -729,6 +799,43 @@ export function withSessionHeader(response: Response, sessionId: string | null):
       headers: response.headers,
     });
     cloned.headers.set("X-OmniRoute-Session-Id", sessionId);
+    return cloned;
+  }
+}
+
+export function withCorrelationId(response: Response, correlationId: string | null): Response {
+  if (!response || !correlationId) return response;
+
+  try {
+    response.headers.set("X-Correlation-Id", correlationId);
+    return response;
+  } catch {
+    const cloned = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+    cloned.headers.set("X-Correlation-Id", correlationId);
+    return cloned;
+  }
+}
+
+export function withSelectedConnectionHeader(
+  response: Response,
+  connectionId: string | null | undefined
+): Response {
+  if (!response || !connectionId) return response;
+
+  try {
+    response.headers.set("X-OmniRoute-Selected-Connection-Id", connectionId);
+    return response;
+  } catch {
+    const cloned = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+    cloned.headers.set("X-OmniRoute-Selected-Connection-Id", connectionId);
     return cloned;
   }
 }

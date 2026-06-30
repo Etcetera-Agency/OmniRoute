@@ -9,8 +9,10 @@ import {
 import { getRegistryEntry } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { getStaticModelsForProvider, type LocalCatalogModel } from "@/lib/providers/staticModels";
+import { isProviderBlockedByIdOrAlias } from "@/shared/utils/noAuthProviders";
 import {
   getProviderConnectionById,
+  getSettings,
   getModelIsHidden,
   resolveProxyForProvider,
 } from "@/lib/localDb";
@@ -23,6 +25,7 @@ import {
 import { getProviderOutboundGuard } from "@/shared/network/outboundUrlGuard";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { getStaticQoderModels } from "@omniroute/open-sse/services/qoderCli.ts";
+import { deriveConfigFromRegistryModelsUrl } from "./discoveryConfig";
 import { fetchGitHubCopilotModels } from "@omniroute/open-sse/services/githubCopilotModels.ts";
 import { fetchKiroAvailableModels } from "@omniroute/open-sse/services/kiroModels.ts";
 import { getAntigravityHeaders } from "@omniroute/open-sse/services/antigravityHeaders.ts";
@@ -101,14 +104,6 @@ function toNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function toGeminiCliProjectId(value: unknown): string | null {
-  const normalized = toNonEmptyString(value);
-  if (!normalized) return null;
-  const lower = normalized.toLowerCase();
-  if (lower === "default-project" || lower === "projects/default-project") return null;
-  return normalized;
-}
-
 function getProviderBaseUrl(providerSpecificData: unknown): string | null {
   const data = asRecord(providerSpecificData);
   const baseUrl = data.baseUrl;
@@ -141,6 +136,57 @@ const NAMED_OPENAI_STYLE_PROVIDERS = new Set([
   "nous-research",
   "poe",
   "siliconflow",
+  // #3976: these carry a real modelsUrl but were not classified by any live-fetch
+  // branch, so their hardcoded registry catalog was served instead of the live
+  // `<baseUrl>/models` list. Live fetch falls back to the local catalog on error.
+  "llm7",
+  "byteplus",
+  // #4202: zenmux is the same case — its free models (e.g. z-ai/glm-5.2-free,
+  // moonshotai/kimi-k2.7-code-free) live only on the upstream /models list.
+  "zenmux",
+  // #4249: vercel-ai-gateway carries a real baseUrl (.../v1/chat/completions) but
+  // was unclassified, so import served the 5-entry hardcoded catalog instead of the
+  // live `https://ai-gateway.vercel.sh/v1/models` list. Falls back to local on error.
+  "vercel-ai-gateway",
+  // #4239 / #4155 / #3841: OpenAI-compatible aggregators whose real catalog lives
+  // on the upstream `/v1/models` list — serve it live, fall back to the seeded
+  // registry catalog on error (same case as zenmux).
+  "openadapter",
+  "dit",
+  "tokenrouter",
+  // provider-model-sweep (2026-06-19): same class as #3976/#4202/#4249 — keyed
+  // openai-style providers with a real live `<baseUrl>/models` catalog, served
+  // their small hardcoded seed because unclassified. Seed stays as offline fallback.
+  "venice",
+  "deepinfra",
+  "wandb",
+  "pollinations",
+  "nscale",
+  "inference-net",
+  "moonshot",
+  // provider-model-sweep (2026-06-19) cont.: GPU-cloud / aggregator marketplaces
+  // hosting large, volatile OSS catalogs. The sweep confirmed each exposes a live
+  // `<baseUrl>/v1/models` endpoint (200 public or 401/403 = exists + keyed), so live
+  // fetch keeps the catalog fresh; the registry seed remains the offline fallback.
+  "crof",
+  "featherless-ai",
+  "ovhcloud",
+  "sambanova",
+  "orcarouter",
+  "uncloseai",
+  "opencode-go",
+  "baseten",
+  "hyperbolic",
+  "nebius",
+  "scaleway",
+  "together",
+  // escalated cmqlvxg4o: api-airforce has a live `https://api.airforce/v1/models` catalog
+  // but was left out of the sweep, so it served a stale hardcoded seed (grok-3, grok-2-1212,
+  // claude-3.7-sonnet …). Live fetch keeps it fresh; seed stays as the offline fallback.
+  "api-airforce",
+  // DGrid is an OpenAI-compatible gateway whose default seed is the free auto-router;
+  // the full model catalog is discovered live from https://api.dgrid.ai/v1/models.
+  "dgrid",
 ]);
 
 function isNamedOpenAIStyleProvider(provider: string): boolean {
@@ -406,7 +452,6 @@ const PROVIDER_MODELS_CONFIG: Record<string, ProviderModelsConfigEntry> = {
     authQuery: "key", // Use query param for API key
     parseResponse: (data) => parseGeminiModelsList(data),
   },
-  // gemini-cli handled via retrieveUserQuota (see GET handler)
   huggingface: {
     url: "https://router.huggingface.co/v1/models",
     method: "GET",
@@ -422,6 +467,25 @@ const PROVIDER_MODELS_CONFIG: Record<string, ProviderModelsConfigEntry> = {
     authHeader: "Authorization",
     authPrefix: "Bearer ",
     parseResponse: (data) => data.data || [],
+  },
+  // #3931: qwen-web (cookie provider) was missing here, so its discovery page
+  // showed nothing (the OAuth fallback above only fires for provider==="qwen").
+  // `chat.qwen.ai/api/v2/models` is public (no auth header configured/sent);
+  // shape `{ data: { data: [{ id, name, owned_by }] } }`, flatter `{ data: [] }` fallback.
+  "qwen-web": {
+    url: "https://chat.qwen.ai/api/v2/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    parseResponse: (data) => {
+      const innerData = data?.data?.data || data?.data || [];
+      return (Array.isArray(innerData) ? innerData : [])
+        .map((item: any) => ({
+          id: item.id || item.name,
+          name: item.name || item.id,
+          owned_by: item.owned_by || "qwen",
+        }))
+        .filter((m: any) => m.id);
+    },
   },
   antigravity: {
     url: getAntigravityModelsDiscoveryUrls()[0],
@@ -631,7 +695,23 @@ const PROVIDER_MODELS_CONFIG: Record<string, ProviderModelsConfigEntry> = {
     headers: { "Content-Type": "application/json" },
     authHeader: "Authorization",
     authPrefix: "Bearer ",
-    parseResponse: (data) => data.result || [],
+    // #4259: Cloudflare's `/ai/models/search` returns `{ id: "<uuid>", name: "@cf/..." }`.
+    // `name` is the usable model slug; `id` is an internal UUID. Map `name`→id so the
+    // dashboard/import surfaces callable model ids (`@cf/...`) instead of UUIDs.
+    parseResponse: (data) =>
+      (data.result || [])
+        .map((model: any) => {
+          const slug = typeof model?.name === "string" ? model.name : "";
+          if (!slug) return null;
+          return {
+            id: slug,
+            name: slug,
+            ...(typeof model?.description === "string" && model.description
+              ? { description: model.description }
+              : {}),
+          };
+        })
+        .filter(Boolean),
   },
   synthetic: {
     url: "https://api.synthetic.new/openai/v1/models",
@@ -718,19 +798,15 @@ export async function GET(
     const connection = await getProviderConnectionById(id);
 
     if (!connection) {
-      // #3047 — no-auth providers (e.g. OpenCode Free) have no connection rows,
-      // so the "Import from /models" button had no connection id to fetch from
-      // and silently no-op'd. When the route is called with a no-auth provider
-      // id, serve that provider's registry/static model catalog so the import
-      // flow can populate the custom model list.
+      // #3047 — no-auth providers have no connection rows; serve their catalog by provider id.
       const isNoAuthProvider =
         (NOAUTH_PROVIDERS as Record<string, { noAuth?: boolean }>)[id]?.noAuth === true;
       if (isNoAuthProvider) {
-        // #3611 — if the registry entry has a modelsUrl, attempt a live fetch so
-        // the model picker shows the current catalog instead of the stale
-        // hardcoded list (opencode provider had 9 hardcoded models while the live
-        // endpoint exposes many more). No auth header is added because noAuth
-        // providers are genuinely public. Fall through to local_catalog on any error.
+        if (isProviderBlockedByIdOrAlias(id, (await getSettings()).blockedProviders)) {
+          return NextResponse.json({ error: "Provider is disabled" }, { status: 403 });
+        }
+
+        // #3611 — prefer the live public modelsUrl when present; fall back to local_catalog.
         const noAuthRegistryEntry = getRegistryEntry(id);
         const noAuthModelsUrl =
           typeof noAuthRegistryEntry?.modelsUrl === "string" &&
@@ -1733,7 +1809,7 @@ export async function GET(
         const innerAiHeaders: Record<string, string> = {
           "USER-TOKEN": innerAiToken,
           "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
           Origin: "https://app.innerai.com",
           Referer: "https://app.innerai.com/",
         };
@@ -1869,86 +1945,6 @@ export async function GET(
       const models = data.data || data.models || [];
 
       return buildApiDiscoveryResponse(models);
-    }
-
-    if (provider === "gemini-cli") {
-      const cachedResponse = maybeReturnCachedDiscovery();
-      if (cachedResponse) return cachedResponse;
-
-      const autoFetchDisabledResponse = maybeReturnAutoFetchDisabled();
-      if (autoFetchDisabledResponse) return autoFetchDisabledResponse;
-
-      // Gemini CLI doesn't have a /models endpoint. Instead, query the quota
-      // endpoint to discover available models from the quota buckets.
-      if (!accessToken) {
-        return NextResponse.json(
-          { error: "No access token for Gemini CLI. Please reconnect OAuth." },
-          { status: 400 }
-        );
-      }
-
-      const psd = asRecord(connection.providerSpecificData);
-      const projectId =
-        toGeminiCliProjectId(psd.projectId) ||
-        toGeminiCliProjectId(psd.project) ||
-        toGeminiCliProjectId(connection.projectId);
-
-      if (!projectId) {
-        return NextResponse.json(
-          { error: "Gemini CLI project ID not available. Please reconnect OAuth." },
-          { status: 400 }
-        );
-      }
-
-      try {
-        const quotaRes = await safeOutboundFetch(
-          "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-          {
-            ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
-            guard: getProviderOutboundGuard(),
-            proxyConfig: proxy,
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ project: projectId }),
-          }
-        );
-
-        if (!quotaRes.ok) {
-          const errText = await quotaRes.text();
-          console.log("[models] Gemini CLI quota fetch failed", {
-            status: quotaRes.status,
-            errText,
-          });
-          const fallback = buildDiscoveryFallbackResponse();
-          if (fallback) return fallback;
-          return NextResponse.json(
-            { error: `Failed to fetch Gemini CLI models: ${quotaRes.status}` },
-            { status: quotaRes.status }
-          );
-        }
-
-        const quotaData = await quotaRes.json();
-        const buckets: Array<{ modelId?: string; tokenType?: string }> = quotaData.buckets || [];
-
-        const models = buckets
-          .filter((b) => b.modelId)
-          .map((b) => ({
-            id: b.modelId,
-            name: b.modelId,
-            owned_by: "google",
-          }));
-
-        return buildApiDiscoveryResponse(models);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.log("[models] Gemini CLI model fetch error:", msg);
-        const fallback = buildDiscoveryFallbackResponse();
-        if (fallback) return fallback;
-        return NextResponse.json({ error: "Failed to fetch Gemini CLI models" }, { status: 500 });
-      }
     }
 
     if (provider === "antigravity") {
@@ -2306,8 +2302,7 @@ export async function GET(
     const config =
       provider in PROVIDER_MODELS_CONFIG
         ? PROVIDER_MODELS_CONFIG[provider as keyof typeof PROVIDER_MODELS_CONFIG]
-        : undefined;
-
+        : deriveConfigFromRegistryModelsUrl(provider);
     // Static model providers (no remote /models API)
     // Qwen OAuth Fallback: The Dashscope /models API rejects OAuth tokens with 401
     if (provider === "qwen" && connection.authType === "oauth") {
@@ -2380,6 +2375,26 @@ export async function GET(
 
     // Build request URL
     let url = config.url;
+    // VibeProxy: honor a user-configured custom base URL for the built-in
+    // `openai` provider (e.g. an OpenAI-compatible gateway / proxy). Without
+    // this, model discovery always hit the hardcoded api.openai.com and ignored
+    // the configured endpoint — returning the wrong catalog (or failing auth)
+    // for gateway users, and preventing instant access to gateway-served models.
+    // Falls back to config.url (api.openai.com) when no custom base URL is set.
+    if (provider === "openai") {
+      const customBaseUrl = getProviderBaseUrl(connection.providerSpecificData);
+      if (customBaseUrl) {
+        let base = customBaseUrl.replace(/\/$/, "");
+        if (base.endsWith("/chat/completions")) {
+          base = base.slice(0, -"/chat/completions".length);
+        } else if (base.endsWith("/completions")) {
+          base = base.slice(0, -"/completions".length);
+        } else if (base.endsWith("/v1")) {
+          base = base.slice(0, -"/v1".length);
+        }
+        url = `${base}/v1/models`;
+      }
+    }
     if (provider === "cloudflare-ai") {
       const pData = asRecord(connection.providerSpecificData);
       const accountId =

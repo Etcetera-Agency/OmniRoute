@@ -47,6 +47,12 @@ import {
   stripResponsesLifecycleEcho,
 } from "./responsesStreamHelpers.ts";
 import { processBufferedPassthroughLine } from "./passthroughTailProcessor.ts";
+import {
+  getAnyReasoningValue,
+  getReadableReasoningValue,
+  getUnsupportedReasoningValue,
+  hasUnsupportedReasoningSignal,
+} from "./reasoningFields.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -93,6 +99,9 @@ type StreamCompletePayload = {
   responseBody?: unknown;
   providerPayload?: unknown;
   clientPayload?: unknown;
+  error?: string | null;
+  errorCode?: string | null;
+  ttft?: number | null;
 };
 
 type StreamFailurePayload = {
@@ -108,6 +117,8 @@ type StreamOptions = {
   sourceFormat?: string;
   clientResponseFormat?: string | null;
   copilotCompatibleReasoning?: boolean;
+  /** Suppress the `</think>` close marker for clients that render it verbatim (#5245). */
+  suppressThinkClose?: boolean;
   provider?: string | null;
   reqLogger?: StreamLogger | null;
   toolNameMap?: unknown;
@@ -116,7 +127,7 @@ type StreamOptions = {
   apiKeyInfo?: unknown;
   body?: unknown;
   onComplete?: ((payload: StreamCompletePayload) => void) | null;
-  onFailure?: ((payload: StreamFailurePayload) => void | Promise<void>) | null;
+  onFailure?: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null;
 };
 
 type TranslateState = ReturnType<typeof initState> & {
@@ -126,6 +137,8 @@ type TranslateState = ReturnType<typeof initState> & {
   usage?: unknown;
   finishReason?: unknown;
   copilotCompatibleReasoning?: boolean;
+  /** Suppress the `</think>` close marker for clients that render it verbatim (#5245). */
+  suppressThinkClose?: boolean;
   /** Accumulated message content for call log response body */
   accumulatedContent?: string;
   upstreamError?: {
@@ -598,6 +611,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     sourceFormat,
     clientResponseFormat = null,
     copilotCompatibleReasoning = false,
+    suppressThinkClose = false,
     provider = null,
     reqLogger = null,
     toolNameMap = null,
@@ -651,6 +665,7 @@ export function createSSEStream(options: StreamOptions = {}) {
           toolNameMap,
           signatureNamespace,
           copilotCompatibleReasoning,
+          suppressThinkClose,
           accumulatedContent: "",
         }
       : null;
@@ -824,6 +839,13 @@ export function createSSEStream(options: StreamOptions = {}) {
     }
   };
 
+  let pendingRequestClearedByStream = false;
+  const clearPendingRequestFromStream = () => {
+    if (pendingRequestClearedByStream) return;
+    pendingRequestClearedByStream = true;
+    trackPendingRequest(model, provider, connectionId, false);
+  };
+
   const emitClaudeEmptyStreamErrorAndAbort = (
     controller: TransformStreamDefaultController,
     decrementPendingRequest = true
@@ -839,13 +861,14 @@ export function createSSEStream(options: StreamOptions = {}) {
     reqLogger?.appendConvertedChunk?.(errOutput);
     clientPayloadCollector.push(errorEvent);
     controller.enqueue(encoder.encode(errOutput));
+    let failureHandled = false;
     if (onFailure) {
       try {
-        void onFailure({ status: 502, message: msg, code: "empty_response" });
+        failureHandled = onFailure({ status: 502, message: msg, code: "empty_response" }) === true;
       } catch {}
     }
-    if (decrementPendingRequest) {
-      trackPendingRequest(model, provider, connectionId, false);
+    if (decrementPendingRequest && !failureHandled) {
+      clearPendingRequestFromStream();
     }
     controller.error(markPendingRequestCleared(new Error(msg)));
   };
@@ -1056,7 +1079,21 @@ export function createSSEStream(options: StreamOptions = {}) {
               clearIdleTimer();
               const timeoutMsg = `[STREAM] Idle timeout: no data from ${provider || "provider"} for ${STREAM_IDLE_TIMEOUT_MS}ms (model: ${model || "unknown"})`;
               console.warn(timeoutMsg);
-              trackPendingRequest(model, provider, connectionId, false);
+              let failureHandled = false;
+              if (onFailure) {
+                try {
+                  failureHandled =
+                    onFailure({
+                      status: HTTP_STATUS.GATEWAY_TIMEOUT,
+                      message: timeoutMsg,
+                      code: "stream_idle_timeout",
+                      type: "timeout_error",
+                    }) === true;
+                } catch {}
+              }
+              if (!failureHandled) {
+                clearPendingRequestFromStream();
+              }
               appendRequestLog({
                 model,
                 provider,
@@ -1520,6 +1557,26 @@ export function createSSEStream(options: StreamOptions = {}) {
                   if (Array.isArray(parsed.choices) && parsed.choices.length === 0) {
                     const emptyChoicesUsage = extractUsage(parsed) ?? parsed.usage;
                     if (hasValidUsage(emptyChoicesUsage)) {
+                      // Some upstreams (e.g. Ollama Cloud) emit prompt_tokens: 0
+                      // even when input was sent — they simply don't count input
+                      // tokens.  When we have a non-zero output but zero input,
+                      // estimate the real input token count from the request body.
+                      if (
+                        emptyChoicesUsage &&
+                        typeof emptyChoicesUsage === "object" &&
+                        !Array.isArray(emptyChoicesUsage) &&
+                        emptyChoicesUsage.completion_tokens > 0
+                      ) {
+                        const pt = emptyChoicesUsage.prompt_tokens ?? 0;
+                        if (pt === 0) {
+                          const estimated = estimateUsage(body, totalContentLength, FORMATS.OPENAI);
+                          if (estimated?.prompt_tokens > 0) {
+                            emptyChoicesUsage.prompt_tokens = estimated.prompt_tokens;
+                            emptyChoicesUsage.total_tokens =
+                              (emptyChoicesUsage.total_tokens ?? 0) + estimated.prompt_tokens;
+                          }
+                        }
+                      }
                       usage = emptyChoicesUsage;
                       output = `data: ${JSON.stringify(parsed)}\n\n`;
                       injectedUsage = true;
@@ -1547,11 +1604,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                     : false;
                   const hadNonStringTopLevelId =
                     parsed?.id != null && typeof parsed.id !== "string";
-                  const hadReasoningAlias = !!(
-                    parsed.choices?.[0]?.delta?.reasoning &&
-                    typeof parsed.choices[0].delta.reasoning === "string" &&
-                    !parsed.choices[0].delta.reasoning_content
-                  );
+                  const rawDelta = parsed.choices?.[0]?.delta;
+                  const hadReasoningAlias = hasUnsupportedReasoningSignal(rawDelta);
 
                   parsed = sanitizeStreamingChunk(parsed);
                   if (
@@ -1572,13 +1626,21 @@ export function createSSEStream(options: StreamOptions = {}) {
                   const delta = parsed.choices?.[0]?.delta;
                   let textualToolCallConverted = false;
                   let toolCallIdCoerced = false;
+                  let splitMixedReasoningContent = false;
 
                   // Split combined reasoning+content deltas into separate SSE events.
                   // Standard OpenAI streaming never mixes both fields in one delta;
                   // clients (e.g. LobeChat) may skip content when reasoning_content
                   // is present, causing the first content token to be lost.
                   if (delta?.reasoning_content && delta?.content) {
-                    const reasoningChunk = JSON.parse(JSON.stringify(parsed));
+                    // Per-chunk clone on the streaming hot path: a JSON.parse(JSON.stringify())
+                    // round-trip re-serializes and re-parses the entire chunk just to drop two
+                    // fields. structuredClone is a native, much faster deep clone with identical
+                    // semantics for this JSON-derived object (falls back on older runtimes).
+                    const reasoningChunk =
+                      typeof structuredClone === "function"
+                        ? structuredClone(parsed)
+                        : JSON.parse(JSON.stringify(parsed));
                     const rDelta = reasoningChunk.choices[0].delta;
                     delete rDelta.content;
                     reasoningChunk.choices[0].finish_reason = null;
@@ -1593,12 +1655,15 @@ export function createSSEStream(options: StreamOptions = {}) {
                     reqLogger?.appendConvertedChunk?.(rOutput);
                     controller.enqueue(encoder.encode(rOutput));
                     delete delta.reasoning_content;
+                    splitMixedReasoningContent = true;
                   }
 
                   // Track whether we need to re-serialize (separate from injectedUsage
                   // to avoid blocking subsequent finish_reason / usage mutations)
                   const needsReserialization =
-                    hadReasoningAlias || (delta?.content === "" && delta?.reasoning_content);
+                    splitMixedReasoningContent ||
+                    hadReasoningAlias ||
+                    (delta?.content === "" && delta?.reasoning_content);
 
                   // T18: Track if we saw tool calls & accumulate for call log
                   if (delta?.tool_calls && delta.tool_calls.length > 0) {
@@ -1643,7 +1708,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     }
                   }
 
-                  const content = delta?.content || delta?.reasoning_content;
+                  const content = delta?.content;
                   if (typeof content === "string") {
                     totalContentLength += content.length;
 
@@ -1664,6 +1729,10 @@ export function createSSEStream(options: StreamOptions = {}) {
                       }
                     }
                   }
+                  const reasoningDelta = getReadableReasoningValue(delta);
+                  if (reasoningDelta) {
+                    totalContentLength += reasoningDelta.length;
+                  }
                   {
                     const guarded = applyTextualToolCallStreamingGuard(
                       parsed as Record<string, unknown>
@@ -1671,10 +1740,10 @@ export function createSSEStream(options: StreamOptions = {}) {
                     parsed = guarded.parsed as typeof parsed;
                     textualToolCallConverted = guarded.textualToolCallConverted;
                   }
-                  if (typeof delta?.reasoning_content === "string")
+                  if (reasoningDelta)
                     passthroughAccumulatedReasoning = appendBoundedText(
                       passthroughAccumulatedReasoning,
-                      delta.reasoning_content
+                      reasoningDelta
                     );
 
                   const extracted = extractUsage(parsed);
@@ -1735,7 +1804,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                 }
 
                 clientPayload = parsed;
-              } catch {}
+              } catch {
+                // Skip non-JSON data lines silently — don't forward garbage to clients.
+                // Upstream providers sometimes return plain-text errors (HTML, rate-limit
+                // messages) in the SSE stream that would break downstream JSON decoders.
+                continue;
+              }
             }
 
             if (!injectedUsage) {
@@ -1755,13 +1829,16 @@ export function createSSEStream(options: StreamOptions = {}) {
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(encoder.encode(output));
             if (failurePayload) {
+              let failureHandled = false;
               if (onFailure) {
                 try {
-                  void onFailure(failurePayload);
+                  failureHandled = onFailure(failurePayload) === true;
                 } catch {}
               }
               clearIdleTimer();
-              trackPendingRequest(model, provider, connectionId, false);
+              if (!failureHandled) {
+                clearPendingRequestFromStream();
+              }
               controller.error(
                 markPendingRequestCleared(new Error(failurePayload.message || "Upstream failure"))
               );
@@ -1835,23 +1912,24 @@ export function createSSEStream(options: StreamOptions = {}) {
               }
             }
           }
-          if (parsed.choices?.[0]?.delta?.reasoning_content) {
-            const r = parsed.choices[0].delta.reasoning_content;
-            if (typeof r === "string") {
-              totalContentLength += r.length;
-              if (state?.accumulatedContent !== undefined)
-                state.accumulatedContent = appendBoundedText(state.accumulatedContent, r);
-            }
+          const openAiDelta = parsed.choices?.[0]?.delta;
+          const openAiReasoning = getReadableReasoningValue(openAiDelta);
+          if (openAiReasoning) {
+            totalContentLength += openAiReasoning.length;
+            if (state?.accumulatedContent !== undefined)
+              state.accumulatedContent = appendBoundedText(
+                state.accumulatedContent,
+                openAiReasoning
+              );
           }
-          // Normalize `reasoning` alias → `reasoning_content` (NVIDIA kimi-k2.5 etc.)
-          if (
-            parsed.choices?.[0]?.delta?.reasoning &&
-            !parsed.choices?.[0]?.delta?.reasoning_content
-          ) {
-            const r = parsed.choices[0].delta.reasoning;
-            if (typeof r === "string") {
+          // Mirror only client-unsupported reasoning aliases into `reasoning_content`.
+          if (!openAiReasoning) {
+            const delta = openAiDelta;
+            const r = getUnsupportedReasoningValue(delta);
+            if (typeof r === "string" && r.length > 0) {
               parsed.choices[0].delta.reasoning_content = r;
-              delete parsed.choices[0].delta.reasoning;
+              delete parsed.choices[0].delta.thinking;
+              delete parsed.choices[0].delta.thought;
               totalContentLength += r.length;
               if (state?.accumulatedContent !== undefined)
                 state.accumulatedContent = appendBoundedText(state.accumulatedContent, r);
@@ -1862,9 +1940,7 @@ export function createSSEStream(options: StreamOptions = {}) {
           // Cloud Code API wraps in { response: { candidates: [...] } }, so unwrap.
           // Only applies to Gemini-family formats — skip for OpenAI, Claude, etc.
           const isGeminiFormat =
-            targetFormat === FORMATS.GEMINI ||
-            targetFormat === FORMATS.GEMINI_CLI ||
-            targetFormat === FORMATS.ANTIGRAVITY;
+            targetFormat === FORMATS.GEMINI || targetFormat === FORMATS.ANTIGRAVITY;
           const geminiChunk = isGeminiFormat ? unwrapGeminiChunk(parsed) : parsed;
           if (geminiChunk.candidates?.[0]?.content?.parts) {
             for (const part of geminiChunk.candidates[0].content.parts) {
@@ -1898,7 +1974,7 @@ export function createSSEStream(options: StreamOptions = {}) {
           const translateHasContent =
             typeof parsed.delta?.text === "string" ||
             typeof parsed.choices?.[0]?.delta?.content === "string" ||
-            typeof parsed.choices?.[0]?.delta?.reasoning_content === "string";
+            Boolean(getAnyReasoningValue(parsed.choices?.[0]?.delta));
           if (translateHasContent && !contentAfterToolSeen) {
             const toolTs = toolFinishTime || pendingToolFinishTime;
             const lastChunkTs = lastToolCallChunkTime;
@@ -1918,7 +1994,25 @@ export function createSSEStream(options: StreamOptions = {}) {
 
           // Extract usage
           const extracted = extractUsage(parsed);
-          if (extracted) state.usage = extracted; // Keep original usage for logging
+          if (extracted) {
+            if (!state.usage) {
+              state.usage = extracted;
+            } else {
+              const su = state.usage as Record<string, number>;
+              const eu = extracted as Record<string, number>;
+              if (eu.prompt_tokens > 0) su.prompt_tokens = eu.prompt_tokens;
+              if (eu.completion_tokens > 0) su.completion_tokens = eu.completion_tokens;
+              if (eu.total_tokens > 0) su.total_tokens = eu.total_tokens;
+              if (eu.input_tokens > 0) su.input_tokens = eu.input_tokens;
+              if (eu.output_tokens > 0) su.output_tokens = eu.output_tokens;
+              if (eu.cache_read_input_tokens > 0)
+                su.cache_read_input_tokens = eu.cache_read_input_tokens;
+              if (eu.cache_creation_input_tokens > 0)
+                su.cache_creation_input_tokens = eu.cache_creation_input_tokens;
+              if (eu.cached_tokens > 0) su.cached_tokens = eu.cached_tokens;
+              if (eu.reasoning_tokens > 0) su.reasoning_tokens = eu.reasoning_tokens;
+            }
+          }
 
           // Translate: targetFormat -> openai -> sourceFormat
           const translated = translateResponse(targetFormat, sourceFormat, parsed, state);
@@ -1945,7 +2039,6 @@ export function createSSEStream(options: StreamOptions = {}) {
         if (streamTimedOut) {
           return;
         }
-        trackPendingRequest(model, provider, connectionId, false);
         try {
           const remaining = decoder.decode();
           if (remaining) buffer += remaining;
@@ -1969,7 +2062,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   payload
                 ),
               emitClaudeEmptyStreamErrorAndAbort: () =>
-                emitClaudeEmptyStreamErrorAndAbort(controller, false),
+                emitClaudeEmptyStreamErrorAndAbort(controller),
               isClaudeEventPayload,
               updateClaudeEmptyResponseLifecycle: (payload: unknown) =>
                 updateClaudeEmptyResponseLifecycle(claudeEmptyResponseLifecycle, payload),
@@ -2046,7 +2139,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     bufferedPayload
                   )
                 ) {
-                  emitClaudeEmptyStreamErrorAndAbort(controller, false);
+                  emitClaudeEmptyStreamErrorAndAbort(controller);
                   return;
                 }
                 if (isClaudeEventPayload(bufferedPayload)) {
@@ -2104,7 +2197,7 @@ export function createSSEStream(options: StreamOptions = {}) {
             }
 
             if (shouldInjectClaudeEmptyResponseOnFlush(claudeEmptyResponseLifecycle)) {
-              emitClaudeEmptyStreamErrorAndAbort(controller, false);
+              emitClaudeEmptyStreamErrorAndAbort(controller);
               return;
             } else if (shouldInjectClaudeMissingFinalizersOnFlush(claudeEmptyResponseLifecycle)) {
               emitSyntheticClaudeEmptyResponse(controller, {
@@ -2272,6 +2365,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                   }),
                 });
               } catch {}
+            } else {
+              clearPendingRequestFromStream();
             }
             return;
           }
@@ -2297,6 +2392,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                   if (eu.prompt_tokens > 0) su.prompt_tokens = eu.prompt_tokens;
                   if (eu.completion_tokens > 0) su.completion_tokens = eu.completion_tokens;
                   if (eu.total_tokens > 0) su.total_tokens = eu.total_tokens;
+                  if (eu.input_tokens > 0) su.input_tokens = eu.input_tokens;
+                  if (eu.output_tokens > 0) su.output_tokens = eu.output_tokens;
                   if (eu.cache_read_input_tokens > 0)
                     su.cache_read_input_tokens = eu.cache_read_input_tokens;
                   if (eu.cache_creation_input_tokens > 0)
@@ -2324,15 +2421,16 @@ export function createSSEStream(options: StreamOptions = {}) {
 
           if (state?.upstreamError) {
             const err = state.upstreamError;
-            trackPendingRequest(model, provider, connectionId, false);
+            let failureHandled = false;
             if (onFailure) {
               try {
-                void onFailure({
-                  status: err.status,
-                  message: err.message,
-                  code: err.code,
-                  type: err.type,
-                });
+                failureHandled =
+                  onFailure({
+                    status: err.status,
+                    message: err.message,
+                    code: err.code,
+                    type: err.type,
+                  }) === true;
               } catch {}
             }
 
@@ -2343,6 +2441,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                   status: err.status,
                   usage: state?.usage,
                   responseBody: errorBody,
+                  error: err.message,
+                  errorCode: err.code,
                   providerPayload: providerPayloadCollector.build(
                     buildStreamSummaryFromEvents(
                       providerPayloadCollector.getEvents(),
@@ -2355,10 +2455,14 @@ export function createSSEStream(options: StreamOptions = {}) {
                     includeEvents: false,
                   }),
                 });
+                failureHandled = true;
               } catch {}
             }
 
             clearIdleTimer();
+            if (!failureHandled) {
+              clearPendingRequestFromStream();
+            }
             controller.error(
               markPendingRequestCleared(new Error(err.message || "Upstream failure"))
             );
@@ -2382,7 +2486,7 @@ export function createSSEStream(options: StreamOptions = {}) {
 
           if (sourceFormat === FORMATS.CLAUDE) {
             if (shouldInjectClaudeEmptyResponseOnFlush(claudeEmptyResponseLifecycle)) {
-              emitClaudeEmptyStreamErrorAndAbort(controller, false);
+              emitClaudeEmptyStreamErrorAndAbort(controller);
               return;
             } else if (shouldInjectClaudeMissingFinalizersOnFlush(claudeEmptyResponseLifecycle)) {
               emitSyntheticClaudeEmptyResponse(controller, {
@@ -2507,6 +2611,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                 }),
               });
             } catch {}
+          } else {
+            clearPendingRequestFromStream();
           }
         } catch (error) {
           console.log(`[STREAM] Error in flush (${model || "unknown"}):`, error.message || error);
@@ -2536,7 +2642,8 @@ export function createSSETransformStreamWithLogger(
   onComplete: ((payload: StreamCompletePayload) => void) | null = null,
   apiKeyInfo: unknown = null,
   onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
-  copilotCompatibleReasoning = false
+  copilotCompatibleReasoning = false,
+  suppressThinkClose = false
 ) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
@@ -2552,6 +2659,7 @@ export function createSSETransformStreamWithLogger(
     onComplete,
     onFailure,
     copilotCompatibleReasoning,
+    suppressThinkClose,
   });
 }
 

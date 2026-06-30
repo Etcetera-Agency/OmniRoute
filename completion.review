@@ -5,3 +5,9 @@
 - Fixed post-archive shared fixture drift: `tests/fixtures/fmo/fmo-pools-v1.golden.json`
   now matches the FMO canonical fixture byte-for-byte (`quality_band.min/max` are
   `0.55`/`0.85`).
+- Resolved upstream merge conflicts by keeping the Hermes ordered search chain while
+  adding upstream `duckduckgo-free` fallback support and split provider/schema catalogs.
+- Renumbered fork FMO migrations from colliding `100/101` slots to `110/111`,
+  with compatibility reconciliation so old fork DBs do not skip upstream migrations.
+- Restored web-fetch schema derivation from `webFetchRegistry` so Hermes providers
+  (`mdream`, `parallel-extract`) and the `fallback` flag survive the upstream schema split.

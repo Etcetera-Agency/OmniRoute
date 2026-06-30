@@ -114,7 +114,7 @@ export default function SearchToolsConfigPane({
     >
       <div className="p-3 border-b border-border">
         <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-          Configuração
+          Configuration
         </span>
       </div>
 
@@ -139,7 +139,7 @@ export default function SearchToolsConfigPane({
         {selectedProvider && (
           <div className="text-[10px] text-text-muted space-y-0.5">
             <div>
-              Custo:{" "}
+              Cost:{" "}
               <span className="text-text-main font-medium">
                 ${selectedProvider.costPerQuery.toFixed(4)}/query
               </span>
@@ -167,10 +167,10 @@ export default function SearchToolsConfigPane({
                 }
               >
                 {selectedProvider.status === "configured"
-                  ? "Configurado"
+                  ? "Configured"
                   : selectedProvider.status === "rate_limited"
                     ? "Rate limited"
-                    : "Sem credencial"}
+                    : "Missing credential"}
               </span>
             </div>
           </div>
@@ -181,7 +181,7 @@ export default function SearchToolsConfigPane({
       {activeTab === "search" && (
         <div className="p-3 border-b border-border space-y-2">
           <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">
-            Tipo de busca
+            Search type
           </label>
           <Select
             value={config.searchType}
@@ -201,7 +201,7 @@ export default function SearchToolsConfigPane({
       {activeTab === "scrape" && (
         <div className="p-3 border-b border-border space-y-2">
           <label className="block text-[10px] text-text-muted uppercase tracking-wider mb-1">
-            Formato
+            Format
           </label>
           <Select
             value={config.fetchFormat}
@@ -211,7 +211,7 @@ export default function SearchToolsConfigPane({
             options={[
               { value: "markdown", label: "Markdown" },
               { value: "html", label: "HTML" },
-              { value: "text", label: "Texto" },
+              { value: "text", label: "Text" },
             ]}
             className="w-full"
           />
@@ -231,7 +231,7 @@ export default function SearchToolsConfigPane({
       {activeTab === "compare" && (
         <div className="p-3 border-b border-border">
           <div className="text-[10px] text-text-muted">
-            Selecione até 4 providers na aba Compare para comparar em paralelo.
+            Select up to 4 providers on the Compare tab to compare them side by side.
           </div>
         </div>
       )}
@@ -247,10 +247,7 @@ export default function SearchToolsConfigPane({
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               onConfigChange({ rerankModel: e.target.value })
             }
-            options={[
-              { value: "", label: "Nenhum" },
-              ...rerankModels,
-            ]}
+            options={[{ value: "", label: "None" }, ...rerankModels]}
             className="w-full"
           />
         </div>
@@ -328,7 +325,7 @@ export default function SearchToolsConfigPane({
           aria-expanded={historyExpanded}
         >
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-            Histórico
+            History
           </span>
           <span className="text-text-muted text-xs" aria-hidden="true">
             {historyExpanded ? "▼" : "▶"}
@@ -336,7 +333,7 @@ export default function SearchToolsConfigPane({
         </button>
         {historyExpanded && (
           <div className="mt-2 text-[10px] text-text-muted">
-            Histórico disponível na aba Search.
+            History is available on the Search tab.
           </div>
         )}
       </div>

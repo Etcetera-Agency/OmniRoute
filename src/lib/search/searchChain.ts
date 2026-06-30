@@ -187,6 +187,18 @@ export async function buildSearchAttempts(
     attempts.push({ config, credentials: resolvedCredentials });
   }
 
+  if (!body.provider && attempts.length === 0) {
+    for (const config of Object.values(SEARCH_PROVIDERS)) {
+      if (!config.fallbackOnly || !supportsSearchType(config, body.search_type)) continue;
+
+      const resolvedCredentials = await resolveSearchExecutionCredentials(config);
+      if (resolvedCredentials && !isAllRateLimitedCredentials(resolvedCredentials)) {
+        attempts.push({ config, credentials: resolvedCredentials });
+        break;
+      }
+    }
+  }
+
   if (attempts.length === 0) {
     if (firstRateLimited) {
       return { rateLimited: firstRateLimited };

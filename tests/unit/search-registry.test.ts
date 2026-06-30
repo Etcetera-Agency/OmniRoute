@@ -20,7 +20,7 @@ const { computeCacheKey, getOrCoalesce, getCacheStats, SEARCH_CACHE_DEFAULT_TTL_
 
 // ─── Registry Tests ──────────────────────────────────────────
 
-test("SEARCH_PROVIDERS has all 15 providers", () => {
+test("SEARCH_PROVIDERS has all 16 providers", () => {
   assert.ok(SEARCH_PROVIDERS["serper-search"], "serper should exist");
   assert.ok(SEARCH_PROVIDERS["brave-search"], "brave should exist");
   assert.ok(SEARCH_PROVIDERS["perplexity-search"], "perplexity-search should exist");
@@ -36,7 +36,18 @@ test("SEARCH_PROVIDERS has all 15 providers", () => {
   assert.ok(SEARCH_PROVIDERS["parallel-search"], "parallel-search should exist");
   assert.ok(SEARCH_PROVIDERS["firecrawl-search"], "firecrawl-search should exist");
   assert.ok(SEARCH_PROVIDERS["gemini-grounded-search"], "gemini-grounded-search should exist");
-  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 15);
+  assert.ok(SEARCH_PROVIDERS["duckduckgo-free"], "duckduckgo-free should exist");
+  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 16);
+});
+
+test("duckduckgo-free config is a no-key, fallback-only provider", () => {
+  const d = SEARCH_PROVIDERS["duckduckgo-free"];
+  assert.equal(d.id, "duckduckgo-free");
+  assert.equal(d.method, "POST");
+  assert.equal(d.authType, "none");
+  assert.equal(d.costPerQuery, 0);
+  assert.equal(d.fallbackOnly, true, "must only be used as a last resort");
+  assert.deepEqual(d.searchTypes, ["web"]);
 });
 
 test("serper-search config is correct", () => {
@@ -199,7 +210,8 @@ test("excluded provider candidates are not registered", () => {
 
 test("getAllSearchProviders returns flat list", () => {
   const all = getAllSearchProviders();
-  assert.equal(all.length, 15);
+  assert.equal(all.length, 16);
+  assert.ok(all.some((p) => p.id === "duckduckgo-free"));
   assert.ok(all.some((p) => p.id === "serper-search"));
   assert.ok(all.some((p) => p.id === "brave-search"));
   assert.ok(all.some((p) => p.id === "perplexity-search"));
@@ -221,6 +233,12 @@ test("getAllSearchProviders returns flat list", () => {
     assert.ok(p.name);
     assert.ok(Array.isArray(p.searchTypes));
   }
+});
+
+test("selectProvider still honors an explicit fallbackOnly provider", () => {
+  const config = selectProvider("duckduckgo-free", "web");
+  assert.ok(config);
+  assert.equal(config.id, "duckduckgo-free");
 });
 
 test("getAutoSearchProviders keeps Gemini grounded search as final web fallback", () => {
@@ -249,6 +267,15 @@ test("selectProvider without argument returns first configured auto provider", (
   const config = selectProvider();
   assert.ok(config);
   assert.equal(config.id, "brave-search");
+});
+
+test("selectProvider auto-selection never returns a fallbackOnly provider", () => {
+  const auto = selectProvider();
+  assert.ok(auto);
+  assert.notEqual(auto.fallbackOnly, true);
+  const autoWeb = selectProvider(undefined, "web");
+  assert.ok(autoWeb);
+  assert.notEqual(autoWeb.fallbackOnly, true);
 });
 
 test("selectProvider filters by search type support", () => {
@@ -427,6 +454,7 @@ test("v1SearchSchema accepts new search providers", async () => {
     "parallel-search",
     "firecrawl-search",
     "gemini-grounded-search",
+    "duckduckgo-free",
   ] as const;
 
   for (const provider of providers) {

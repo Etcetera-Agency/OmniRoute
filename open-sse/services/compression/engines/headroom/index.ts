@@ -3,9 +3,9 @@
  *
  * Implements item H3 (SmartCrusher lossless compaction) + N5 (explicit [N rows] count marker)
  * + GP5' (columnar/tabular encoder, dependency-free) from the compression research plan:
- *   docs/research/compression/headroom-plano-implementacao.md
- *   docs/research/compression/rodada4-internet-e-coerencia.md
- *   docs/research/compression/gcf-proxy-relatorio-plano.md
+ *   _tasks/research/compression/headroom-plano-implementacao.md
+ *   _tasks/research/compression/rodada4-internet-e-coerencia.md
+ *   _tasks/research/compression/gcf-proxy-relatorio-plano.md
  *
  * Algorithm:
  *   - Scans non-system message contents (string contents and ```json fenced blocks).
@@ -37,9 +37,11 @@ import { crushMessages, DEFAULT_MIN_ROWS } from "./smartcrusher.ts";
 import {
   TABULAR_FENCE_OPEN,
   TABULAR_FENCE_CLOSE,
+  GCF_FENCE_OPEN,
+  GCF_FENCE_CLOSE,
   decodeTabular,
-  TABULAR_MARKER_RE,
 } from "./tabular.ts";
+import { TOON_FENCE_OPEN, TOON_FENCE_CLOSE } from "./toon.ts";
 
 export { encodeTabular, decodeTabular } from "./tabular.ts";
 
@@ -178,10 +180,14 @@ type MessageLike = {
 };
 
 /**
- * Reverse the headroom tabular compaction: find every ```omni-tabular block
- * in message contents and decode it back to the original JSON string.
+ * Reverse the headroom compaction: find every ```gcf-generic or ```omni-tabular
+ * block in message contents and decode it back to the original JSON string.
  *
- * Returns a new body with all tabular blocks expanded.
+ * No production caller by design — the compact form is sent to the provider as-is. This is
+ * exported as the round-trip ORACLE that proves the GCF/tabular encoder is lossless: the
+ * losslessness regression tests encode via apply() then decode here and assert deep-equal.
+ *
+ * Returns a new body with all compacted blocks expanded.
  */
 export function reconstructHeadroom(body: Record<string, unknown>): Record<string, unknown> {
   const messages = body["messages"];
@@ -224,19 +230,23 @@ export function reconstructHeadroom(body: Record<string, unknown>): Record<strin
 }
 
 /**
- * Restore all omni-tabular blocks in a text string back to their original JSON.
+ * Restore all GCF (```gcf-generic) and legacy (```omni-tabular) blocks
+ * in a text string back to their original JSON.
  */
-function restoreText(text: string): string {
-  // Fast path: no fence marker present
-  if (!text.includes(TABULAR_FENCE_OPEN)) return text;
+/** Map a fence-open marker to its matching close tag. */
+function closeTagFor(fence: string): string {
+  if (fence === GCF_FENCE_OPEN) return GCF_FENCE_CLOSE;
+  if (fence === TOON_FENCE_OPEN) return TOON_FENCE_CLOSE;
+  return TABULAR_FENCE_CLOSE;
+}
 
-  const fence = TABULAR_FENCE_OPEN;
-  const closeTag = TABULAR_FENCE_CLOSE;
-
+/**
+ * Decode every occurrence of one fence type in `text`, replacing each block
+ * with its original JSON. Extracted from restoreText to keep that function
+ * below the cognitive-complexity gate.
+ */
+function decodeFenceOccurrences(text: string, fence: string, closeTag: string): string {
   let result = text;
-  let offset = 0;
-
-  // Find each occurrence of the tabular fence
   let searchFrom = 0;
   while (true) {
     const fenceStart = result.indexOf(fence, searchFrom);
@@ -255,6 +265,22 @@ function restoreText(text: string): string {
 
     searchFrom = fenceStart + jsonStr.length;
   }
+  return result;
+}
 
+function restoreText(text: string): string {
+  // Fast path: no fence marker present
+  if (
+    !text.includes(TABULAR_FENCE_OPEN) &&
+    !text.includes(GCF_FENCE_OPEN) &&
+    !text.includes(TOON_FENCE_OPEN)
+  )
+    return text;
+
+  let result = text;
+  // Process all fence types: GCF first (new format), then legacy omni-tabular, then TOON
+  for (const fence of [GCF_FENCE_OPEN, TABULAR_FENCE_OPEN, TOON_FENCE_OPEN]) {
+    result = decodeFenceOccurrences(result, fence, closeTagFor(fence));
+  }
   return result;
 }

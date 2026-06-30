@@ -48,7 +48,7 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // Constants
 // ---------------------------------------------------------------------------
 
-const EXPECTED_SEARCH_COUNT = 15;
+const EXPECTED_SEARCH_COUNT = 16;
 const EXPECTED_FETCH_COUNT = 5;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 

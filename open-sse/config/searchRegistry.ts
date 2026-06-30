@@ -25,6 +25,12 @@ export interface SearchProviderConfig {
   maxMaxResults: number;
   timeoutMs: number;
   cacheTTLMs: number;
+  /**
+   * Last-resort provider: excluded from automatic selection so a cost-0 free
+   * provider never overrides configured providers. Used only by explicit id or
+   * a separate fallback step.
+   */
+  fallbackOnly?: boolean;
 }
 
 export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
@@ -267,6 +273,26 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     timeoutMs: 15_000,
     cacheTTLMs: 5 * 60 * 1000,
   },
+
+  // Free, no-API-key DuckDuckGo lite scraping (free-claude-code port). Last-resort
+  // only (fallbackOnly): never auto-selected over a configured provider; served by
+  // the dedicated HTML path in open-sse/handlers/search.ts (not the generic JSON one).
+  "duckduckgo-free": {
+    id: "duckduckgo-free",
+    name: "DuckDuckGo (free)",
+    baseUrl: "https://lite.duckduckgo.com/lite/",
+    method: "POST",
+    authType: "none",
+    authHeader: "none",
+    costPerQuery: 0,
+    freeMonthlyQuota: 999999,
+    searchTypes: ["web"],
+    defaultMaxResults: 5,
+    maxMaxResults: 25,
+    timeoutMs: 10_000,
+    cacheTTLMs: 5 * 60 * 1000,
+    fallbackOnly: true,
+  },
 };
 
 /**
@@ -302,6 +328,7 @@ export const SEARCH_AUTO_PROVIDER_ORDER = [
 export function getAutoSearchProviders(searchType?: string): SearchProviderConfig[] {
   return SEARCH_AUTO_PROVIDER_ORDER.map((id) => SEARCH_PROVIDERS[id])
     .filter((provider): provider is SearchProviderConfig => Boolean(provider))
+    .filter((provider) => !provider.fallbackOnly)
     .filter((provider) => (searchType ? supportsSearchType(provider, searchType) : true));
 }
 

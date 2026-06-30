@@ -78,11 +78,30 @@ export type CompatModelRow = {
   isHidden?: boolean;
   upstreamHeaders?: Record<string, string>;
   compatByProtocol?: CompatByProtocolMap;
+  /** #2905: per-model upstream wire-format override. */ targetFormat?: string;
 };
 
 export type CompatModelMap = Map<string, CompatModelRow>;
 
 export type HeaderDraftRow = { id: string; name: string; value: string };
+
+// ---------------------------------------------------------------------------
+// #2905 — per-model targetFormat badge label mapping (pure, so it can be unit-tested
+// outside the .tsx). Returns the i18n key for a targetFormat value, or null when the
+// value is unknown (the caller then renders the raw value verbatim).
+// ---------------------------------------------------------------------------
+
+const TARGET_FORMAT_BADGE_I18N_KEYS: Record<string, string> = {
+  openai: "compatProtocolOpenAI",
+  "openai-responses": "compatProtocolOpenAIResponses",
+  claude: "compatProtocolClaude",
+  gemini: "targetFormatGemini",
+  antigravity: "targetFormatAntigravity",
+};
+
+export function targetFormatBadgeI18nKey(value: string): string | null {
+  return TARGET_FORMAT_BADGE_I18N_KEYS[value] ?? null;
+}
 
 // ---------------------------------------------------------------------------
 // Utility — message translation with fallback
@@ -676,13 +695,12 @@ export function getCodexRequestDefaults(providerSpecificData: unknown): {
     ...(defaults.serviceTier ? { serviceTier: defaults.serviceTier } : {}),
   };
 }
-
-export function getClaudeCodeCompatibleRequestDefaults(providerSpecificData: unknown): {
-  context1m: boolean;
-} {
+export function getClaudeCodeCompatibleRequestDefaults(providerSpecificData: unknown) {
   const defaults = _getClaudeCodeCompatibleRequestDefaults(providerSpecificData);
   return {
     context1m: defaults.context1m === true,
+    redactThinking: defaults.redactThinking === true,
+    summarizeThinking: defaults.summarizeThinking === true,
   };
 }
 

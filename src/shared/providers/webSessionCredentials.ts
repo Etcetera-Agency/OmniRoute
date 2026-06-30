@@ -17,6 +17,13 @@ export type WebSessionCredentialRequirement =
     };
 
 export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
+  "zenmux-free": {
+    kind: "cookie",
+    credentialName: "Cookie header (full)",
+    placeholder: "paste the full Cookie header from zenmux.ai",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie"],
+  },
   "chatgpt-web": {
     kind: "cookie",
     credentialName: "__Secure-next-auth.session-token",
@@ -87,6 +94,13 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: false,
     storageKeys: ["token", "access_token", "accessToken"],
   },
+  "copilot-m365-web": {
+    kind: "token",
+    credentialName: "access_token + chathubPath",
+    placeholder: "access_token=...; chathubPath=redacted",
+    acceptsFullCookieHeader: false,
+    storageKeys: ["token", "access_token", "accessToken", "chathubPath", "userTenant"],
+  },
   "t3-web": {
     kind: "cookie",
     credentialName: "convex-session-id + Cookie header",
@@ -114,13 +128,6 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     placeholder: "hf-chat=... or full Cookie header from huggingface.co",
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "hf-chat"],
-  },
-  phind: {
-    kind: "cookie",
-    credentialName: "phind_session",
-    placeholder: "phind_session=... or full Cookie header from phind.com",
-    acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "phind_session"],
   },
   "poe-web": {
     kind: "cookie",
@@ -204,10 +211,22 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     kind: "cookie",
     // lmarena.ai's auth cookie is `arena-auth-prod-v1` (the legacy hint said `session`,
     // which never matched the real cookie name and confused users). #3810
+    //
+    // #4271: LMArena migrated to Supabase SSR chunked cookies — the single
+    // `arena-auth-prod-v1` cookie is now empty and the session is split across
+    // `arena-auth-prod-v1.0`, `arena-auth-prod-v1.1`, … Users must paste the FULL
+    // Cookie header so the executor can reconstruct the single cookie from chunks.
     credentialName: "arena-auth-prod-v1",
-    placeholder: "arena-auth-prod-v1=... or full Cookie header from lmarena.ai",
+    placeholder:
+      "Paste the full Cookie header from lmarena.ai (the session is now split across arena-auth-prod-v1.0, .1, …)",
     acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "arena-auth-prod-v1", "session"],
+    storageKeys: [
+      "cookie",
+      "arena-auth-prod-v1",
+      "arena-auth-prod-v1.0",
+      "arena-auth-prod-v1.1",
+      "session",
+    ],
   },
 } satisfies Record<keyof typeof WEB_COOKIE_PROVIDERS, WebSessionCredentialRequirement>;
 
