@@ -1,8 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { buildFmoHeadInventory } from "../../src/lib/fmoPools/inventory.ts";
 import { solveFmoPools, type FmoSolveCandidate } from "../../src/lib/fmoPools/packing.ts";
 import { buildFmoTail } from "../../src/lib/fmoPools/tail.ts";
+import { readFmoTailConfig, readFmoTailProviderConfig } from "../../src/lib/fmoPools/tailConfig.ts";
 import type { FmoPlanningPool } from "../../src/lib/fmoPools/types.ts";
+
+const ORIGINAL_TAIL_CONFIG_PATH = process.env.OMNIROUTE_FMO_TAIL_CONFIG_PATH;
+
+test.afterEach(() => {
+  if (ORIGINAL_TAIL_CONFIG_PATH === undefined) delete process.env.OMNIROUTE_FMO_TAIL_CONFIG_PATH;
+  else process.env.OMNIROUTE_FMO_TAIL_CONFIG_PATH = ORIGINAL_TAIL_CONFIG_PATH;
+});
 
 function pool(
   id: string,
@@ -190,4 +202,82 @@ test("tail is unpinned, uncounted, capability-filtered, and guarded against head
   ]);
   assert.equal(warnings.length, 1);
   assert.equal(warnings[0]?.providerId, "head-provider");
+});
+
+test("real tail config source appends matching entries and excludes the same provider from head", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-fmo-tail-config-"));
+  const configPath = path.join(dir, "tail.json");
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      providers: ["tail-provider"],
+      entries: [
+        {
+          providerId: "tail-provider",
+          modelId: "tail-model",
+          capabilities: ["chat", "tools"],
+          contextWindow: 128_000,
+        },
+      ],
+    })
+  );
+  process.env.OMNIROUTE_FMO_TAIL_CONFIG_PATH = configPath;
+
+  const tail = readFmoTailConfig();
+  const members = buildFmoTail(pool("tools", "combo-tools", ["tools"]), tail, new Set());
+  const head = await buildFmoHeadInventory({
+    async getProviderConnections() {
+      return [
+        { id: "acct-head", provider: "head-provider" },
+        { id: "acct-tail", provider: "tail-provider" },
+      ];
+    },
+    async getSyncedAvailableModelsForConnection(providerId, connectionId) {
+      return [
+        {
+          id: `${providerId}-model`,
+          name: `${providerId} ${connectionId}`,
+          source: "imported",
+          supportedEndpoints: ["chat"],
+          inputTokenLimit: 128_000,
+        },
+      ];
+    },
+    getModelCompatOverrides() {
+      return [];
+    },
+    freeModelCatalog: [],
+    readTailConfig: readFmoTailProviderConfig,
+  });
+
+  assert.deepEqual(members, [
+    {
+      role: "tail",
+      providerId: "tail-provider",
+      modelId: "tail-model",
+      connectionId: null,
+      countedCapacity: 0,
+    },
+  ]);
+  assert.deepEqual(
+    head.map((row) => row.providerId),
+    ["head-provider"]
+  );
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("malformed real tail config logs and degrades to empty", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-fmo-tail-config-bad-"));
+  const configPath = path.join(dir, "tail.json");
+  const warnings: Array<Record<string, unknown> | undefined> = [];
+  fs.writeFileSync(configPath, JSON.stringify({ providers: ["tail-provider"], entries: "bad" }));
+  process.env.OMNIROUTE_FMO_TAIL_CONFIG_PATH = configPath;
+
+  assert.deepEqual(readFmoTailConfig({ warn: (_message, context) => warnings.push(context) }), {
+    entries: [],
+  });
+  assert.deepEqual(readFmoTailProviderConfig(), { providers: [] });
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0]?.configPath, configPath);
+  fs.rmSync(dir, { recursive: true, force: true });
 });

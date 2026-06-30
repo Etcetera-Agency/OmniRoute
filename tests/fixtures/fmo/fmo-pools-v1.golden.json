@@ -15,8 +15,8 @@
           "source": "model_intelligence",
           "metric": "score",
           "category": "coding",
-          "min": 55,
-          "max": 85,
+          "min": 0.55,
+          "max": 0.85,
           "relax": { "max_delta": 12, "when": "underfilled" }
         }
       },

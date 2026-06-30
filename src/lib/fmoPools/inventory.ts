@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/models";
 import { getProviderConnections } from "@/lib/db/providers";
 import type { FmoHeadCandidate, FmoPoolTailConfig, JsonRecord } from "./types";
+import { readFmoTailProviderConfig } from "./tailConfig";
 
 export interface FmoInventoryDeps {
   getProviderConnections(filter: { isActive: boolean }): Promise<JsonRecord[]>;
@@ -20,14 +21,12 @@ export interface FmoInventoryDeps {
   readTailConfig(): FmoPoolTailConfig;
 }
 
-const DEFAULT_TAIL_CONFIG: FmoPoolTailConfig = { providers: [] };
-
 export const defaultFmoInventoryDeps: FmoInventoryDeps = {
   getProviderConnections,
   getSyncedAvailableModelsForConnection,
   getModelCompatOverrides,
   freeModelCatalog: FREE_MODEL_BUDGETS,
-  readTailConfig: () => DEFAULT_TAIL_CONFIG,
+  readTailConfig: readFmoTailProviderConfig,
 };
 
 function asString(value: unknown): string | null {
