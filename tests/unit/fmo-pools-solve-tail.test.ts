@@ -227,6 +227,115 @@ test("incumbent receives stability margin and degraded incumbent is dropped", ()
   assert.ok(result.decisions.some((decision) => decision.outcome === "dropped"));
 });
 
+test("within-margin challenger keeps incumbent and records kept outcome", () => {
+  const result = solveFmoPools(
+    [pool("coding", "combo-coding", ["chat"], 100)],
+    [
+      candidate({ providerId: "inc", modelId: "old", connectionId: "acct-old", score: 0.8 }),
+      candidate({
+        providerId: "new",
+        modelId: "challenger",
+        connectionId: "acct-new",
+        score: 0.85,
+      }),
+    ],
+    {
+      prior: {
+        byComboId: {
+          "combo-coding": [{ providerId: "inc", modelId: "old", connectionId: "acct-old" }],
+        },
+      },
+    }
+  );
+  const kept = result.decisions.find((decision) => decision.outcome === "kept");
+
+  assert.equal(result.plans["combo-coding"][0].providerId, "inc");
+  assert.equal(kept?.providerId, "inc");
+  assert.match(kept?.reason ?? "", /challenger=new:challenger:acct-new/);
+  assert.match(kept?.reason ?? "", /delta=0\.05/);
+});
+
+test("margin-beating challenger displaces incumbent and records displaced outcome", () => {
+  const result = solveFmoPools(
+    [pool("coding", "combo-coding", ["chat"], 100)],
+    [
+      candidate({ providerId: "inc", modelId: "old", connectionId: "acct-old", score: 0.7 }),
+      candidate({
+        providerId: "new",
+        modelId: "challenger",
+        connectionId: "acct-new",
+        score: 0.9,
+      }),
+    ],
+    {
+      prior: {
+        byComboId: {
+          "combo-coding": [{ providerId: "inc", modelId: "old", connectionId: "acct-old" }],
+        },
+      },
+    }
+  );
+  const displaced = result.decisions.find((decision) => decision.outcome === "displaced");
+
+  assert.equal(result.plans["combo-coding"][0].providerId, "new");
+  assert.equal(displaced?.providerId, "inc");
+  assert.match(displaced?.reason ?? "", /challenger=new:challenger:acct-new/);
+  assert.match(displaced?.reason ?? "", /delta=0\.20/);
+});
+
+test("eligible prior pin is retained as hard stickiness before filling new accounts", () => {
+  const result = solveFmoPools(
+    [pool("coding", "combo-coding", ["chat"], 200)],
+    [
+      candidate({
+        providerId: "inc",
+        modelId: "old",
+        connectionId: "acct-old",
+        capacityPerDay: 100,
+        score: 0.8,
+      }),
+      candidate({
+        providerId: "new",
+        modelId: "challenger",
+        connectionId: "acct-new",
+        capacityPerDay: 100,
+        score: 0.85,
+      }),
+    ],
+    {
+      prior: {
+        byComboId: {
+          "combo-coding": [{ providerId: "inc", modelId: "old", connectionId: "acct-old" }],
+        },
+      },
+    }
+  );
+
+  assert.deepEqual(
+    result.plans["combo-coding"].map((member) => member.connectionId),
+    ["acct-old", "acct-new"]
+  );
+  assert.ok(result.decisions.some((decision) => decision.outcome === "kept"));
+});
+
+test("mixed pinned and unpinned head entries for one provider fail closed", () => {
+  const warnings: string[] = [];
+
+  assert.throws(
+    () =>
+      solveFmoPools(
+        [pool("a", "combo-a", ["chat"], 100), pool("b", "combo-b", ["chat"], 100)],
+        [
+          candidate({ providerId: "mixed", modelId: "pinned", connectionId: "acct-1" }),
+          candidate({ providerId: "mixed", modelId: "unpinned", connectionId: null }),
+        ],
+        { logger: { warn: (message) => warnings.push(message) } }
+      ),
+    /mixed pinned and unpinned/
+  );
+  assert.equal(warnings[0], "FMO plan mixes pinned and unpinned head entries for provider");
+});
+
 test("tail is unpinned, uncounted, capability-filtered, and guarded against head-pinned providers", () => {
   const warnings: Array<Record<string, unknown> | undefined> = [];
   const members = buildFmoTail(

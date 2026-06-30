@@ -58,6 +58,8 @@ export interface FmoSolveOptions {
 
 type PoolDemand = { requests_per_day?: number };
 
+const INCUMBENCY_MARGIN = 0.1;
+
 function demandRequests(pool: FmoPlanningPool): number {
   return (pool.demand as PoolDemand).requests_per_day ?? 0;
 }
@@ -202,6 +204,7 @@ function fillStep(
 ): { members: FmoPlanMember[]; covered: number } {
   const members: FmoPlanMember[] = [];
   let covered = 0;
+  if (needed <= 0) return { members, covered };
 
   for (const candidate of candidates) {
     const key = candidateKey(candidate);
@@ -228,6 +231,50 @@ function fillStep(
   return { members, covered };
 }
 
+function incumbentDropReason(candidate: FmoSolveCandidate | undefined): string {
+  if (!candidate) return "missing-incumbent";
+  if (candidate.degraded) return "degraded";
+  return "ineligible-incumbent";
+}
+
+function isEligibleIncumbent(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
+  return (
+    passesHardGates(candidate, pool) &&
+    inBand(candidate, pool) &&
+    (candidateCapacity(candidate, pool) ?? 0) > 0
+  );
+}
+
+function findBestChallenger(
+  pool: FmoPlanningPool,
+  candidates: FmoSolveCandidate[],
+  used: Set<string>,
+  incumbent: FmoSolveCandidate
+): FmoSolveCandidate | null {
+  return (
+    candidates
+      .filter(
+        (candidate) =>
+          candidateKey(candidate) !== candidateKey(incumbent) &&
+          !used.has(candidateKey(candidate)) &&
+          passesHardGates(candidate, pool) &&
+          inBand(candidate, pool) &&
+          !hasCapabilitySurplus(candidate, pool) &&
+          (candidateCapacity(candidate, pool) ?? 0) > 0
+      )
+      .sort((left, right) => candidateScore(right, pool) - candidateScore(left, pool))[0] ?? null
+  );
+}
+
+function stabilityReason(
+  prefix: "incumbent-kept" | "incumbent-displaced",
+  challenger: FmoSolveCandidate | null,
+  delta: number
+): string {
+  const challengerKey = challenger ? candidateKey(challenger) : "none";
+  return `${prefix} challenger=${challengerKey} delta=${delta.toFixed(2)}`;
+}
+
 function buildPinnedProviderSet(plans: Record<string, FmoPlanMember[]>): Set<string> {
   const pinned = new Set<string>();
   for (const members of Object.values(plans)) {
@@ -236,6 +283,31 @@ function buildPinnedProviderSet(plans: Record<string, FmoPlanMember[]>): Set<str
     }
   }
   return pinned;
+}
+
+function assertNoMixedHeadPinning(
+  plans: Record<string, FmoPlanMember[]>,
+  logger: FmoTailLogger = console
+): void {
+  const providerPinning = new Map<string, { pinned: boolean; unpinned: boolean }>();
+
+  for (const members of Object.values(plans)) {
+    for (const member of members) {
+      if (member.role !== "head") continue;
+      const state = providerPinning.get(member.providerId) ?? { pinned: false, unpinned: false };
+      if (member.connectionId) state.pinned = true;
+      else state.unpinned = true;
+      providerPinning.set(member.providerId, state);
+    }
+  }
+
+  for (const [providerId, state] of providerPinning) {
+    if (!state.pinned || !state.unpinned) continue;
+    logger.warn("FMO plan mixes pinned and unpinned head entries for provider", { providerId });
+    throw new Error(
+      `FMO plan has mixed pinned and unpinned head entries for provider ${providerId}`
+    );
+  }
 }
 
 export function solveFmoPools(
@@ -250,22 +322,8 @@ export function solveFmoPools(
 
   for (const pool of sortedPools) {
     const members: FmoPlanMember[] = [];
+    const displacedKeys = new Set<string>();
     let covered = 0;
-
-    for (const priorMember of options.prior?.byComboId[pool.combo_id] ?? []) {
-      const incumbent = candidates.find(
-        (candidate) => candidateKey(candidate) === candidateKey(priorMember)
-      );
-      if (incumbent?.degraded) {
-        decisions.push({
-          ...priorMember,
-          comboId: pool.combo_id,
-          role: "head",
-          outcome: "dropped",
-          reason: "degraded",
-        });
-      }
-    }
 
     const canary = chooseCanary(pool, candidates, used);
     if (canary) {
@@ -282,9 +340,58 @@ export function solveFmoPools(
       });
     }
 
+    for (const priorMember of options.prior?.byComboId[pool.combo_id] ?? []) {
+      const incumbent = candidates.find(
+        (candidate) => candidateKey(candidate) === candidateKey(priorMember)
+      );
+      const key = candidateKey(priorMember);
+      if (!incumbent || !isEligibleIncumbent(incumbent, pool)) {
+        decisions.push({
+          ...priorMember,
+          comboId: pool.combo_id,
+          role: "head",
+          outcome: "dropped",
+          reason: incumbentDropReason(incumbent),
+        });
+        continue;
+      }
+      if (used.has(key)) continue;
+
+      const challenger = findBestChallenger(pool, candidates, used, incumbent);
+      const delta = challenger
+        ? candidateScore(challenger, pool) - candidateScore(incumbent, pool)
+        : 0;
+      if (challenger && delta > INCUMBENCY_MARGIN) {
+        displacedKeys.add(key);
+        decisions.push({
+          ...priorMember,
+          comboId: pool.combo_id,
+          role: "head",
+          outcome: "displaced",
+          reason: stabilityReason("incumbent-displaced", challenger, delta),
+        });
+        continue;
+      }
+
+      const capacity = candidateCapacity(incumbent, pool) ?? 0;
+      used.add(key);
+      covered += capacity;
+      members.push(toMember(incumbent, "head"));
+      decisions.push({
+        comboId: pool.combo_id,
+        providerId: incumbent.providerId,
+        modelId: incumbent.modelId,
+        connectionId: incumbent.connectionId,
+        role: "head",
+        outcome: "kept",
+        reason: stabilityReason("incumbent-kept", challenger, delta),
+      });
+    }
+
     const exact = sortCandidates(
       candidates.filter(
         (candidate) =>
+          !displacedKeys.has(candidateKey(candidate)) &&
           passesHardGates(candidate, pool) &&
           inBand(candidate, pool) &&
           !hasCapabilitySurplus(candidate, pool)
@@ -307,6 +414,7 @@ export function solveFmoPools(
       const relaxed = sortCandidates(
         candidates.filter(
           (candidate) =>
+            !displacedKeys.has(candidateKey(candidate)) &&
             passesHardGates(candidate, pool) &&
             !hasCapabilitySurplus(candidate, pool) &&
             !inBand(candidate, pool) &&
@@ -331,6 +439,7 @@ export function solveFmoPools(
       const overflow = sortCandidates(
         candidates.filter(
           (candidate) =>
+            !displacedKeys.has(candidateKey(candidate)) &&
             passesHardGates(candidate, pool) &&
             hasCapabilitySurplus(candidate, pool) &&
             inBand(candidate, pool, pool.constraints.quality_band.relax)
@@ -351,6 +460,8 @@ export function solveFmoPools(
 
     plans[pool.combo_id] = members;
   }
+
+  assertNoMixedHeadPinning(plans, options.logger);
 
   const pinnedProviders = buildPinnedProviderSet(plans);
   for (const pool of sortedPools) {
