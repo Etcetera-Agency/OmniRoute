@@ -9,7 +9,7 @@ import {
   normalizeGeminiGroundedSearchResponse,
   normalizeParallelSearchResponse,
 } from "../../open-sse/handlers/search.ts";
-import { SEARCH_PROVIDERS } from "../../open-sse/config/searchRegistry.ts";
+import { SEARCH_PROVIDERS } from "../../src/lib/search/providerRegistry.ts";
 
 test("parallel-search request builder sends current v1 search shape", () => {
   const request = buildParallelSearchRequest(SEARCH_PROVIDERS["parallel-search"], {

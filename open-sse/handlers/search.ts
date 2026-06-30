@@ -93,7 +93,9 @@ interface SearchHandlerOptions {
   strictFilters?: boolean;
   providerOptions?: Record<string, unknown>;
   credentials: Record<string, any>;
+  providerConfig?: SearchProviderConfig;
   alternateProvider?: string;
+  alternateProviderConfig?: SearchProviderConfig | null;
   alternateCredentials?: Record<string, any> | null;
   log?: any;
 }
@@ -1511,7 +1513,9 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     contentOptions,
     providerOptions,
     credentials,
+    providerConfig,
     alternateProvider,
+    alternateProviderConfig,
     alternateCredentials,
     log,
   } = options;
@@ -1524,7 +1528,7 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 2. Use resolved provider from route (no re-resolution)
-  const primaryConfig = getSearchProvider(providerId);
+  const primaryConfig = providerConfig ?? getSearchProvider(providerId);
   if (!primaryConfig) {
     return {
       success: false,
@@ -1534,7 +1538,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 3. Get alternate config for failover (pre-resolved by route)
-  const alternateConfig = alternateProvider ? getSearchProvider(alternateProvider) : null;
+  const alternateConfig =
+    alternateProviderConfig ?? (alternateProvider ? getSearchProvider(alternateProvider) : null);
 
   const requestParams = {
     query: cleanQuery,

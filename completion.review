@@ -11,3 +11,6 @@
   with compatibility reconciliation so old fork DBs do not skip upstream migrations.
 - Restored web-fetch schema derivation from `webFetchRegistry` so Hermes providers
   (`mdream`, `parallel-extract`) and the `fallback` flag survive the upstream schema split.
+- Moved fork-owned search providers behind `src/lib/search/providerRegistry.ts` and
+  passed resolved search configs into `handleSearch`, keeping upstream
+  `open-sse/config/searchRegistry.ts` free of Hermes provider entries.

@@ -1,10 +1,4 @@
-# search-routing Specification
-
-## Purpose
-
-Defines how `/v1/search` selects configured search providers, handles automatic provider fallback, preserves explicit provider control, and exposes routing status for management clients.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Configured Search Provider Order
 
@@ -33,37 +27,6 @@ GIVEN upstream `open-sse/config/searchRegistry.ts` does not register
 WHEN `/v1/search` validates, lists, or executes one of those providers
 THEN the fork-owned overlay registry supplies the provider config
 AND `open-sse/handlers/search.ts` executes the passed resolved config
-
-### Requirement: Explicit Search Provider Control
-
-The system SHALL execute only the explicitly requested `provider` when `/v1/search` receives a request with explicit `provider`.
-
-#### Scenario: Explicit Provider Without Fallback
-
-GIVEN request body contains `provider: "exa-search"`
-AND Exa returns a retryable error
-WHEN the request is processed
-THEN the system returns the Exa error
-AND does not attempt the next provider
-
-### Requirement: Search Runtime Fallback
-
-The system SHALL try the next configured provider after retryable provider failures, credential failures, cooldown, quota exhaustion, timeout, network error, or empty usable results when automatic search routing is used.
-
-#### Scenario: First Provider Cooldown
-
-GIVEN `brave-search` is first in configured order
-AND `brave-search` is in cooldown
-WHEN `/v1/search` runs without explicit provider
-THEN the system skips `brave-search`
-AND attempts the next configured compatible provider
-
-#### Scenario: Empty Usable Results
-
-GIVEN a provider returns success with no result containing a valid URL
-WHEN automatic search routing is active
-THEN the system records an empty usable result fallback reason
-AND attempts the next configured compatible provider
 
 ### Requirement: Search Provider Observability
 

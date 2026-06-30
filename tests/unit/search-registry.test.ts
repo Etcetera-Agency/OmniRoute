@@ -13,14 +13,22 @@ const {
   getAutoSearchProviders,
   selectProvider,
   supportsSearchType,
-} = await import("../../open-sse/config/searchRegistry.ts");
+} = await import("../../src/lib/search/providerRegistry.ts");
+const upstreamRegistry = await import("../../open-sse/config/searchRegistry.ts");
 
 const { computeCacheKey, getOrCoalesce, getCacheStats, SEARCH_CACHE_DEFAULT_TTL_MS } =
   await import("../../open-sse/services/searchCache.ts");
 
 // ─── Registry Tests ──────────────────────────────────────────
 
-test("SEARCH_PROVIDERS has all 16 providers", () => {
+test("upstream search registry excludes Hermes-owned fork providers", () => {
+  assert.equal(upstreamRegistry.SEARCH_PROVIDERS["parallel-search"], undefined);
+  assert.equal(upstreamRegistry.SEARCH_PROVIDERS["firecrawl-search"], undefined);
+  assert.equal(upstreamRegistry.SEARCH_PROVIDERS["gemini-grounded-search"], undefined);
+  assert.equal(Object.keys(upstreamRegistry.SEARCH_PROVIDERS).length, 13);
+});
+
+test("overlay SEARCH_PROVIDERS has all 16 providers", () => {
   assert.ok(SEARCH_PROVIDERS["serper-search"], "serper should exist");
   assert.ok(SEARCH_PROVIDERS["brave-search"], "brave should exist");
   assert.ok(SEARCH_PROVIDERS["perplexity-search"], "perplexity-search should exist");

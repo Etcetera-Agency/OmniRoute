@@ -14,6 +14,7 @@ import {
 } from "@/shared/constants/upstreamHeaders";
 import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 import { WEB_FETCH_PROVIDER_ORDER } from "@omniroute/open-sse/config/webFetchRegistry.ts";
+import { SEARCH_PROVIDER_IDS } from "@/lib/search/providerRegistry";
 
 import { modelIdSchema, nonEmptyStringSchema } from "./misc.ts";
 
@@ -133,26 +134,7 @@ export const v1SearchSchema = z
       .trim()
       .min(1, "Query is required")
       .max(500, "Query must be 500 characters or fewer"),
-    provider: z
-      .enum([
-        "serper-search",
-        "brave-search",
-        "perplexity-search",
-        "exa-search",
-        "tavily-search",
-        "google-pse-search",
-        "linkup-search",
-        "ollama-search",
-        "searchapi-search",
-        "youcom-search",
-        "searxng-search",
-        "zai-search",
-        "parallel-search",
-        "firecrawl-search",
-        "gemini-grounded-search",
-        "duckduckgo-free",
-      ])
-      .optional(),
+    provider: z.enum(SEARCH_PROVIDER_IDS).optional(),
     max_results: z.coerce.number().int().min(1).max(100).default(5),
     search_type: z.enum(["web", "news"]).default("web"),
     offset: z.coerce.number().int().min(0).default(0),

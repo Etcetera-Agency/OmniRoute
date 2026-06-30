@@ -226,54 +226,6 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     cacheTTLMs: 5 * 60 * 1000,
   },
 
-  "parallel-search": {
-    id: "parallel-search",
-    name: "Parallel Search",
-    baseUrl: "https://api.parallel.ai/v1/search",
-    method: "POST",
-    authType: "apikey",
-    authHeader: "x-api-key",
-    costPerQuery: 0.005,
-    freeMonthlyQuota: 16000,
-    searchTypes: ["web", "news"],
-    defaultMaxResults: 5,
-    maxMaxResults: 100,
-    timeoutMs: 20_000,
-    cacheTTLMs: 5 * 60 * 1000,
-  },
-
-  "firecrawl-search": {
-    id: "firecrawl-search",
-    name: "Firecrawl Search",
-    baseUrl: "https://api.firecrawl.dev/v2/search",
-    method: "POST",
-    authType: "apikey",
-    authHeader: "bearer",
-    costPerQuery: 0.002,
-    freeMonthlyQuota: 500,
-    searchTypes: ["web", "news"],
-    defaultMaxResults: 5,
-    maxMaxResults: 100,
-    timeoutMs: 60_000,
-    cacheTTLMs: 5 * 60 * 1000,
-  },
-
-  "gemini-grounded-search": {
-    id: "gemini-grounded-search",
-    name: "Gemini Grounded Search",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/models",
-    method: "POST",
-    authType: "apikey",
-    authHeader: "x-goog-api-key",
-    costPerQuery: 0,
-    freeMonthlyQuota: 0,
-    searchTypes: ["web"],
-    defaultMaxResults: 5,
-    maxMaxResults: 20,
-    timeoutMs: 15_000,
-    cacheTTLMs: 5 * 60 * 1000,
-  },
-
   // Free, no-API-key DuckDuckGo lite scraping (free-claude-code port). Last-resort
   // only (fallbackOnly): never auto-selected over a configured provider; served by
   // the dedicated HTML path in open-sse/handlers/search.ts (not the generic JSON one).
@@ -303,9 +255,6 @@ export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
   "perplexity-search": "perplexity",
   "ollama-search": "ollama-cloud",
   "zai-search": "zai",
-  "parallel-search": "parallel",
-  "firecrawl-search": "firecrawl",
-  "gemini-grounded-search": "gemini",
 };
 
 export const SEARCH_AUTO_PROVIDER_ORDER = [
@@ -319,10 +268,7 @@ export const SEARCH_AUTO_PROVIDER_ORDER = [
   "youcom-search",
   "ollama-search",
   "zai-search",
-  "parallel-search",
-  "firecrawl-search",
   "perplexity-search",
-  "gemini-grounded-search",
 ] as const;
 
 export function getAutoSearchProviders(searchType?: string): SearchProviderConfig[] {

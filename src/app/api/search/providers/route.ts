@@ -3,7 +3,7 @@ import {
   SEARCH_PROVIDERS,
   SEARCH_CREDENTIAL_FALLBACKS,
   SEARCH_AUTO_PROVIDER_ORDER,
-} from "@omniroute/open-sse/config/searchRegistry.ts";
+} from "@/lib/search/providerRegistry";
 import {
   WEB_FETCH_PROVIDERS,
   WEB_FETCH_PROVIDER_ORDER,

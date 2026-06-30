@@ -39,7 +39,7 @@ delete process.env.PARALLEL_API_KEY;
 // ---------------------------------------------------------------------------
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
-const searchRegistry = await import("../../open-sse/config/searchRegistry.ts");
+const searchRegistry = await import("../../src/lib/search/providerRegistry.ts");
 
 // Import route AFTER env is configured
 const route = await import("../../src/app/api/search/providers/route.ts");

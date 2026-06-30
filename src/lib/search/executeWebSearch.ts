@@ -9,7 +9,7 @@ import {
   SEARCH_CREDENTIAL_FALLBACKS,
   SEARCH_PROVIDERS,
   type SearchProviderConfig,
-} from "@omniroute/open-sse/config/searchRegistry.ts";
+} from "@/lib/search/providerRegistry";
 import { handleSearch, type SearchResponse } from "@omniroute/open-sse/handlers/search.ts";
 import {
   computeCacheKey,
@@ -235,6 +235,7 @@ export async function executeWebSearch(
     const result = await handleSearch({
       query: input.query.trim(),
       provider: providerConfig.id,
+      providerConfig,
       maxResults: clampedMaxResults,
       searchType,
       country: input.country,
@@ -247,6 +248,7 @@ export async function executeWebSearch(
       providerOptions: input.provider_options,
       credentials,
       alternateProvider: alternateProviderId,
+      alternateProviderConfig: alternateProviderId ? getSearchProvider(alternateProviderId) : null,
       alternateCredentials,
       log,
     });

@@ -16,7 +16,7 @@ import {
   SEARCH_PROVIDERS,
   SEARCH_CREDENTIAL_FALLBACKS,
   type SearchProviderConfig,
-} from "@omniroute/open-sse/config/searchRegistry.ts";
+} from "@/lib/search/providerRegistry";
 import { getProviderCredentials } from "@/sse/services/auth";
 import {
   isAllRateLimitedCredentials,
@@ -232,6 +232,7 @@ export async function runSearchChain(
     const result = await handleSearch({
       query: body.query,
       provider: attempt.config.id,
+      providerConfig: attempt.config,
       maxResults: Math.min(body.max_results, attempt.config.maxMaxResults),
       searchType: body.search_type,
       country: body.country,

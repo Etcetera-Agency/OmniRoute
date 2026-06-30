@@ -28,11 +28,3 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 8. `mcp-omnisearch` review on 2026-06-15 found reusable MIT-licensed patterns worth adapting later: provider registration with missing-key status entries, compound `provider:mode` IDs for extract modes, schema-validated provider responses, shared retryable error classification, and configurable Firecrawl v2 base URL. Do not copy its implementation wholesale; port only logic that fits OmniRoute contracts.
 9. Verify Mdream and Parallel Extract rendering in `/dashboard/search-tools` after the provider UI supports the shared `parallel` connection. API catalog integration is covered now; visual dashboard verification remains deferred.
 10. Fix existing MDX frontmatter in `docs/security/SUPPLY_CHAIN.md`: `npx playwright test tests/e2e/search-tools-studio.spec.ts` cannot start its webServer because Fumadocs rejects the document with `title: Invalid input: expected string, received undefined`. This blocks dashboard E2E verification for routing UI until the docs source is corrected.
-11. Reduce future upstream merge conflicts for fork-owned search providers by moving
-    Hermes additions (`parallel-search`, `firecrawl-search`, `gemini-grounded-search`)
-    behind a fork-owned overlay registry and passing resolved `SearchProviderConfig`
-    into `open-sse/handlers/search.ts`. Do this as one explicit OpenSpec change:
-    `open-sse/config/searchRegistry.ts` keeps only upstream providers, fork code imports
-    the overlay for route/schema/catalog/tests, and `handleSearch` accepts an optional
-    resolved config so provider execution no longer needs fork entries in the upstream
-    registry file.
