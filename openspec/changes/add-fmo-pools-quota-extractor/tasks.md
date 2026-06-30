@@ -5,15 +5,15 @@
 source_type, source_url, text, previous_limit})`; preserve the FMO contract (supplied
       text only, never guess, require evidence, cumulative-over-RPM, range-by-previous-limit,
       reject unusable). Export `QUOTA_CLAIM_JSON_SCHEMA` for `FmoQuotaClaimResponse`.
-- [ ] `src/lib/fmoPools/quotaExtractor.ts` — `runInternalChatPipeline(input, deps)`:
+- [x] `src/lib/fmoPools/quotaExtractor.ts` — `runInternalChatPipeline(input, deps)`:
       resolve model via `getModelInfo`, credentials via `getProviderCredentials`, build a
       non-streaming OpenAI-shaped `body` with `temperature: 0` and the `response_format`
       json_schema, call `handleChatCore`, read `result.response`, parse
       `choices[0].message.content`. Inject all four collaborators via a `QuotaExtractorDeps`
       interface for testability.
-- [ ] Tolerant `parseQuotaClaim(content)` — strip code fences, `JSON.parse`, shape-check
+- [x] Tolerant `parseQuotaClaim(content)` — strip code fences, `JSON.parse`, shape-check
       against `FmoQuotaClaimResponse`; return `null` on any deviation. Never throw.
-- [ ] `selectExtractorModel()` — pick a cheap, JSON-reliable model id for extraction;
+- [x] `selectExtractorModel()` — pick a cheap, JSON-reliable model id for extraction;
       keep it configurable. `isEnabled()` flag gates the whole step (disabled ⇒ no-claim).
 - [ ] `src/lib/fmoPools/quota.ts` — replace the `extractQuotaClaimWithInternalLlm` stub
       body with a `.catch(() => null)`-wrapped call into `runInternalChatPipeline`; keep the
