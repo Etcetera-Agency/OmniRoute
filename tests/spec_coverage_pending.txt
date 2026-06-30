@@ -1,5 +1,8 @@
 # Spec coverage pending
 
+- No pending coverage remains for the FMO pool shared fixture contract slice:
+  `tests/unit/api/fmo-pools-contract.test.ts` now validates numeric consumers,
+  fractional `requests_per_day`, and byte-identical fixture drift.
 - FMO tier-3 quota extractor needs live provider-contract coverage once an
   internal extractor model is configured; current focused planning tests cover
   internal-chain boundaries, evidence validation, source precedence, and capacity
