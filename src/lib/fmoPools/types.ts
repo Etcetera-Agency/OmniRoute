@@ -1,6 +1,4 @@
 import type { FreeModelBudget } from "@omniroute/open-sse/config/freeModelCatalog.ts";
-import type { FmoPoolSpec } from "@/shared/schemas/fmoPools";
-
 export type JsonRecord = Record<string, unknown>;
 
 export interface FmoPoolTailConfig {
@@ -53,6 +51,32 @@ export interface FmoQuotaResult {
   searchSnapshot?: FmoSearchSnapshot;
 }
 
-export interface FmoPlanningPool extends FmoPoolSpec {
+export interface FmoPlanningPool {
+  pool_id: string;
+  combo_id: string;
+  demand: {
+    requests_per_day: number;
+    consumers?: string[];
+  };
+  constraints: {
+    min_context_tokens: number;
+    quality_band: {
+      category: string;
+      min: number;
+      max: number;
+      relax: number;
+      source?: string;
+      metric?: string;
+    };
+    required_capabilities: string[];
+    hard_gates: string[];
+    free_only: boolean;
+  };
+  tail: {
+    strategy: string;
+    mode: string;
+    compatibility: string;
+  };
+  metadata?: JsonRecord;
   workload_class?: string;
 }

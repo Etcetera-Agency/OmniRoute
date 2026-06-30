@@ -1,4 +1,5 @@
 import { getDbInstance } from "./core";
+import type { FmoPlanningPool } from "@/lib/fmoPools/types";
 import type { FmoPoolSpec, FmoPoolsGeneration } from "@/shared/schemas/fmoPools";
 
 export interface FmoPoolGenerationMarker {
@@ -110,13 +111,19 @@ export function storeFmoPoolsGeneration(
         "(id, generation, contract, pool_count, idempotency_key, accepted_at)",
         "VALUES (1, ?, ?, ?, ?, ?)",
       ].join(" ")
-    ).run(generation.generation, generation.contract, generation.pools.length, idempotencyKey, now);
+    ).run(
+      generation.generation,
+      generation.contract_version,
+      generation.pools.length,
+      idempotencyKey,
+      now
+    );
   });
 
   writeGeneration();
   return {
     generation: generation.generation,
-    contract: generation.contract,
+    contract: generation.contract_version,
     poolCount: generation.pools.length,
     idempotencyKey,
     acceptedAt: now,
@@ -146,6 +153,39 @@ export function listFmoPoolSpecs(): StoredFmoPoolSpec[] {
     .all() as StoredPoolRow[];
 
   return rows.map(parseStoredPool);
+}
+
+export function mapFmoPoolSpecToPlanningPool(spec: FmoPoolSpec): FmoPlanningPool {
+  // AICODE-NOTE: This is the canonical wire-contract boundary; solver code consumes this internal shape only.
+  return {
+    pool_id: spec.pool_id,
+    combo_id: spec.combo_id,
+    demand: {
+      requests_per_day: spec.demand.requests_per_day,
+      consumers: spec.demand.consumers,
+    },
+    constraints: {
+      min_context_tokens: spec.constraints.min_context_tokens,
+      quality_band: {
+        source: spec.constraints.quality_band.source,
+        metric: spec.constraints.quality_band.metric,
+        category: spec.constraints.quality_band.category,
+        min: spec.constraints.quality_band.min,
+        max: spec.constraints.quality_band.max,
+        relax: spec.constraints.quality_band.relax.max_delta,
+      },
+      required_capabilities: spec.constraints.capabilities,
+      hard_gates: spec.constraints.free_only ? ["free_only"] : [],
+      free_only: spec.constraints.free_only,
+    },
+    tail: spec.tail,
+    metadata: spec.metadata,
+    workload_class: spec.demand.workload_class,
+  };
+}
+
+export function listFmoPlanningPools(): FmoPlanningPool[] {
+  return listFmoPoolSpecs().map((pool) => mapFmoPoolSpecToPlanningPool(pool.spec));
 }
 
 export function getFmoPoolUsageBackchannel(): {

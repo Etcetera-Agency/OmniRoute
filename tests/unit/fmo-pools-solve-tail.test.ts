@@ -20,8 +20,9 @@ function pool(
       quality_band: { category: "coding", min: 0.6, max: 0.8, relax: 0.15 },
       required_capabilities: requiredCapabilities,
       hard_gates: [],
+      free_only: false,
     },
-    tail: [],
+    tail: { strategy: "configured", mode: "fallback", compatibility: "capability-and-context" },
   };
 }
 

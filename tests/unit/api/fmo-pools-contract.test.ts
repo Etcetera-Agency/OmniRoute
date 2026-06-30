@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -18,6 +19,7 @@ const fmoPoolsDb = await import("../../../src/lib/db/fmoPools.ts");
 const settingsDb = await import("../../../src/lib/db/settings.ts");
 const poolsRoute = await import("../../../src/app/api/fmo/pools/route.ts");
 const usageRoute = await import("../../../src/app/api/fmo/usage/route.ts");
+const GOLDEN_FIXTURE_PATH = path.join(process.cwd(), "tests/fixtures/fmo/fmo-pools-v1.golden.json");
 
 async function resetStorage(): Promise<void> {
   core.resetDbInstance();
@@ -26,26 +28,26 @@ async function resetStorage(): Promise<void> {
   await settingsDb.updateSettings({ requireLogin: false });
 }
 
+function fixturePayload(): Record<string, unknown> {
+  return JSON.parse(fs.readFileSync(GOLDEN_FIXTURE_PATH, "utf8")) as Record<string, unknown>;
+}
+
+function replaceFixtureComboId(value: unknown, comboId: string): unknown {
+  if (typeof value === "string") return value === "__COMBO_ID__" ? comboId : value;
+  if (Array.isArray(value)) return value.map((item) => replaceFixtureComboId(item, comboId));
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, replaceFixtureComboId(entry, comboId)])
+  );
+}
+
 function makePayload(comboId: string): Record<string, unknown> {
-  return {
-    contract: "fmo-pools/v1",
-    generation: "gen-001",
-    generated_at: "2026-06-29T00:00:00.000Z",
-    pools: [
-      {
-        pool_id: "coding",
-        combo_id: comboId,
-        demand: { requests_per_day: 100 },
-        constraints: {
-          min_context_tokens: 32_000,
-          quality_band: { category: "coding", min: 80, max: 100, relax: 5 },
-          required_capabilities: ["tools"],
-          hard_gates: ["json"],
-        },
-        tail: [{ provider: "fallback", model: "fallback/free" }],
-      },
-    ],
-  };
+  return replaceFixtureComboId(fixturePayload(), comboId) as Record<string, unknown>;
+}
+
+function payloadHash(payload: Record<string, unknown>): string {
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
 async function createComboId(): Promise<string> {
@@ -68,13 +70,14 @@ test.after(() => {
 });
 
 test("flag-off pool write is inert and does not read or store combos", async () => {
+  const payload = makePayload("missing-combo");
   const response = await poolsRoute.PUT(
     new Request("http://localhost/api/fmo/pools", {
       method: "PUT",
-      body: JSON.stringify(makePayload("missing-combo")),
+      body: JSON.stringify(payload),
       headers: {
         "content-type": "application/json",
-        "Idempotency-Key": "gen-001",
+        "Idempotency-Key": payloadHash(payload),
       },
     })
   );
@@ -86,14 +89,15 @@ test("flag-off pool write is inert and does not read or store combos", async () 
 test("unauthenticated writes and usage reads are rejected when flag is on", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
   await settingsDb.updateSettings({ requireLogin: true });
+  const payload = makePayload("combo");
 
   const writeResponse = await poolsRoute.PUT(
     new Request("http://localhost/api/fmo/pools", {
       method: "PUT",
-      body: JSON.stringify(makePayload("combo")),
+      body: JSON.stringify(payload),
       headers: {
         "content-type": "application/json",
-        "Idempotency-Key": "gen-001",
+        "Idempotency-Key": payloadHash(payload),
       },
     })
   );
@@ -107,12 +111,13 @@ test("unauthenticated writes and usage reads are rejected when flag is on", asyn
 test("valid generation is accepted and exposed through usage backchannel", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
   const comboId = await createComboId();
+  const payload = makePayload(comboId);
 
   const response = await poolsRoute.PUT(
     await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
       method: "PUT",
-      headers: { "Idempotency-Key": "gen-001" },
-      body: makePayload(comboId),
+      headers: { "Idempotency-Key": payloadHash(payload) },
+      body: payload,
     })
   );
 
@@ -136,6 +141,65 @@ test("valid generation is accepted and exposed through usage backchannel", async
   ]);
 });
 
+test("canonical fixture maps into planning pool without losing contract-owned fields", async () => {
+  featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
+  const comboId = await createComboId();
+  const payload = makePayload(comboId);
+  const idempotencyKey = payloadHash(payload);
+
+  const response = await poolsRoute.PUT(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "PUT",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: payload,
+    })
+  );
+  const marker = fmoPoolsDb.getFmoPoolGenerationMarker();
+  const [planningPool] = fmoPoolsDb.listFmoPlanningPools();
+
+  assert.equal(response.status, 202);
+  assert.equal(marker?.idempotencyKey, idempotencyKey);
+  assert.equal(marker?.contract, "fmo-pools/v1");
+  assert.equal(planningPool.workload_class, "coding");
+  assert.deepEqual(planningPool.constraints.required_capabilities, ["tools"]);
+  assert.equal(planningPool.constraints.free_only, true);
+  assert.deepEqual(planningPool.constraints.hard_gates, ["free_only"]);
+  assert.equal(planningPool.constraints.quality_band.relax, 0.05);
+  assert.deepEqual(planningPool.tail, {
+    strategy: "configured",
+    mode: "fallback",
+    compatibility: "capability-and-context",
+  });
+});
+
+test("idempotency is keyed by payload hash rather than generation", async () => {
+  featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
+  const comboId = await createComboId();
+  const payload = makePayload(comboId);
+  const idempotencyKey = payloadHash(payload);
+
+  assert.notEqual(idempotencyKey, payload.generation);
+
+  const first = await poolsRoute.POST(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: payload,
+    })
+  );
+  const second = await poolsRoute.POST(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: payload,
+    })
+  );
+
+  assert.equal(first.status, 202);
+  assert.equal(second.status, 202);
+  assert.equal(fmoPoolsDb.getFmoPoolGenerationMarker()?.idempotencyKey, idempotencyKey);
+});
+
 test("unknown shape and missing min_context_tokens are rejected with sanitized errors", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
   const comboId = await createComboId();
@@ -148,7 +212,7 @@ test("unknown shape and missing min_context_tokens are rejected with sanitized e
   const response = await poolsRoute.PUT(
     await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
       method: "PUT",
-      headers: { "Idempotency-Key": "gen-001" },
+      headers: { "Idempotency-Key": payloadHash(payload) },
       body: payload,
     })
   );
@@ -160,14 +224,34 @@ test("unknown shape and missing min_context_tokens are rejected with sanitized e
   assert.equal(fmoPoolsDb.getFmoPoolGenerationMarker(), null);
 });
 
+test("tail members in the contract are rejected", async () => {
+  featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
+  const comboId = await createComboId();
+  const payload = makePayload(comboId);
+  const [pool] = payload.pools as Array<Record<string, unknown>>;
+  pool.tail = [{ provider: "fallback", model: "fallback/free" }];
+
+  const response = await poolsRoute.PUT(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "PUT",
+      headers: { "Idempotency-Key": payloadHash(payload) },
+      body: payload,
+    })
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(fmoPoolsDb.listFmoPoolSpecs(), []);
+});
+
 test("missing combo fails the whole generation", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
+  const payload = makePayload("missing-combo");
 
   const response = await poolsRoute.POST(
     await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
       method: "POST",
-      headers: { "Idempotency-Key": "gen-001" },
-      body: makePayload("missing-combo"),
+      headers: { "Idempotency-Key": payloadHash(payload) },
+      body: payload,
     })
   );
 

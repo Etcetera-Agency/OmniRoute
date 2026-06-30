@@ -39,18 +39,28 @@ async function createCombo(name: string): Promise<string> {
 function acceptGeneration(comboId: string, generation = "gen-apply-1"): void {
   fmoPoolsDb.storeFmoPoolsGeneration(
     {
-      contract: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
+      contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
       generation,
       generated_at: new Date().toISOString(),
       pools: [
         {
           pool_id: "pool-apply",
           combo_id: comboId,
-          demand: { requests_per_day: 100 },
+          demand: { requests_per_day: 100, workload_class: "coding" },
           constraints: {
+            free_only: true,
+            capabilities: [],
             min_context_tokens: 128_000,
-            quality_band: { category: "text", min: 0.5, max: 0.8, relax: 0.1 },
+            quality_band: {
+              source: "test",
+              metric: "text",
+              category: "text",
+              min: 0.5,
+              max: 0.8,
+              relax: { max_delta: 0.1, when: "test" },
+            },
           },
+          tail: { strategy: "configured", mode: "fallback", compatibility: "test" },
         },
       ],
     },

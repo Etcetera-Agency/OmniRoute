@@ -1,0 +1,37 @@
+{
+  "contract_version": "fmo-pools/v1",
+  "generation": "gen-001",
+  "generated_at": "2026-06-29T00:00:00.000Z",
+  "pools": [
+    {
+      "pool_id": "coding",
+      "combo_id": "__COMBO_ID__",
+      "demand": {
+        "requests_per_day": 100,
+        "consumers": ["hermes"],
+        "workload_class": "coding"
+      },
+      "constraints": {
+        "free_only": true,
+        "capabilities": ["tools"],
+        "min_context_tokens": 32000,
+        "quality_band": {
+          "source": "openrouter",
+          "metric": "coding",
+          "category": "coding",
+          "min": 0.8,
+          "max": 1,
+          "relax": {
+            "max_delta": 0.05,
+            "when": "insufficient_capacity"
+          }
+        }
+      },
+      "tail": {
+        "strategy": "configured",
+        "mode": "fallback",
+        "compatibility": "capability-and-context"
+      }
+    }
+  ]
+}

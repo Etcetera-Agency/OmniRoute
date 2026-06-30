@@ -8,10 +8,17 @@ const nonNegativeNumber = z.number().finite().nonnegative();
 
 export const fmoPoolQualityBandSchema = z
   .object({
+    source: nonEmptyString,
+    metric: nonEmptyString,
     category: nonEmptyString,
     min: nonNegativeNumber,
     max: nonNegativeNumber,
-    relax: nonNegativeNumber,
+    relax: z
+      .object({
+        max_delta: nonNegativeNumber,
+        when: nonEmptyString,
+      })
+      .strict(),
   })
   .strict()
   .refine((band) => band.max >= band.min, {
@@ -22,27 +29,25 @@ export const fmoPoolQualityBandSchema = z
 export const fmoPoolDemandSchema = z
   .object({
     requests_per_day: positiveInteger,
-    tokens_per_day: positiveInteger.optional(),
-    concurrency: positiveInteger.optional(),
+    consumers: z.array(nonEmptyString).optional(),
+    workload_class: nonEmptyString.optional(),
   })
   .strict();
 
-export const fmoPoolTailEntrySchema = z
+export const fmoPoolTailIntentSchema = z
   .object({
-    provider: nonEmptyString,
-    model: nonEmptyString,
-    account_id: nonEmptyString.optional(),
-    reason: nonEmptyString.optional(),
+    strategy: nonEmptyString,
+    mode: nonEmptyString,
+    compatibility: nonEmptyString,
   })
   .strict();
 
 export const fmoPoolConstraintsSchema = z
   .object({
+    free_only: z.boolean(),
+    capabilities: z.array(nonEmptyString).default([]),
     min_context_tokens: positiveInteger,
     quality_band: fmoPoolQualityBandSchema,
-    required_capabilities: z.array(nonEmptyString).default([]),
-    hard_gates: z.array(nonEmptyString).default([]),
-    max_latency_ms: positiveInteger.optional(),
   })
   .strict();
 
@@ -52,16 +57,16 @@ export const fmoPoolSpecSchema = z
     combo_id: nonEmptyString,
     demand: fmoPoolDemandSchema,
     constraints: fmoPoolConstraintsSchema,
-    tail: z.array(fmoPoolTailEntrySchema).default([]),
+    tail: fmoPoolTailIntentSchema,
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
 export const fmoPoolsGenerationSchema = z
   .object({
-    contract: z.literal(FMO_POOLS_CONTRACT_VERSION),
+    contract_version: z.literal(FMO_POOLS_CONTRACT_VERSION),
     generation: nonEmptyString,
-    generated_at: nonEmptyString,
+    generated_at: nonEmptyString.optional(),
     pools: z.array(fmoPoolSpecSchema).min(1),
   })
   .strict();

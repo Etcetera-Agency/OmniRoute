@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { listMissingFmoPoolComboIds, storeFmoPoolsGeneration } from "@/lib/db/fmoPools";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
-import { FMO_POOLS_CONTRACT_VERSION, fmoPoolsGenerationSchema } from "@/shared/schemas/fmoPools";
+import { fmoPoolsGenerationSchema } from "@/shared/schemas/fmoPools";
 
 function disabledResponse(): Response {
   return NextResponse.json(
@@ -31,14 +31,7 @@ async function handleWrite(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid fmo-pools/v1 payload" }, { status: 400 });
   }
 
-  if (parsed.data.contract !== FMO_POOLS_CONTRACT_VERSION) {
-    return NextResponse.json({ error: "Unsupported FMO pools contract" }, { status: 400 });
-  }
-
   const idempotencyKey = request.headers.get("Idempotency-Key");
-  if (idempotencyKey !== parsed.data.generation) {
-    return NextResponse.json({ error: "Idempotency-Key must equal generation" }, { status: 409 });
-  }
 
   const missingComboIds = listMissingFmoPoolComboIds(
     parsed.data.pools.map((pool) => pool.combo_id)
