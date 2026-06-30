@@ -117,7 +117,7 @@ test.after(() => {
 
 test("apply writes priority strategy and advances prior only on commit", async () => {
   const comboId = await createCombo("Apply Combo");
-  const result = rebalance.rebalanceFmoPools({ planOverride: plan([comboId]) });
+  const result = await rebalance.rebalanceFmoPools({ planOverride: plan([comboId]) });
   const combo = await combosDb.getComboById(comboId);
 
   assert.equal(result.applied, true);
@@ -130,7 +130,7 @@ test("apply writes priority strategy and advances prior only on commit", async (
 test("shadow mode returns diff and writes no combo row", async () => {
   const comboId = await createCombo("Shadow Combo");
   const before = await combosDb.getComboById(comboId);
-  const result = rebalance.rebalanceFmoPools({ shadow: true, planOverride: plan([comboId]) });
+  const result = await rebalance.rebalanceFmoPools({ shadow: true, planOverride: plan([comboId]) });
   const after = await combosDb.getComboById(comboId);
 
   assert.equal(result.applied, false);
@@ -143,7 +143,7 @@ test("apply is all-or-nothing when a later combo write fails", async () => {
   const before = await Promise.all(ids.map((id) => combosDb.getComboById(id)));
   core.getDbInstance().prepare("UPDATE combos SET data = ? WHERE id = ?").run("{", ids[2]);
 
-  assert.throws(() => rebalance.rebalanceFmoPools({ planOverride: plan(ids) }));
+  await assert.rejects(() => rebalance.rebalanceFmoPools({ planOverride: plan(ids) }));
 
   const afterOne = await combosDb.getComboById(ids[0]);
   const afterTwo = await combosDb.getComboById(ids[1]);

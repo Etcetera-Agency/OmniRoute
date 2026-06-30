@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { getFmoPoolGenerationMarker } from "@/lib/db/fmoPools";
-import { rebalanceFmoPools } from "@/lib/fmoPools/rebalance";
+import { buildFmoGenerationPlan } from "@/lib/fmoPools/planGeneration";
+import { rebalanceFmoPools, type FmoRebalancePlan } from "@/lib/fmoPools/rebalance";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 
 const planMemberSchema = z
@@ -58,21 +59,19 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  if (!parsed.data.plan) {
-    return NextResponse.json({ error: "FMO rebalance plan is required" }, { status: 400 });
-  }
+  const plan: FmoRebalancePlan = parsed.data.plan ?? (await buildFmoGenerationPlan());
 
   const marker = getFmoPoolGenerationMarker();
-  if (marker?.generation !== parsed.data.plan.generation) {
+  if (marker?.generation !== plan.generation) {
     return NextResponse.json(
       { error: "FMO rebalance plan generation is not accepted" },
       { status: 409 }
     );
   }
 
-  const result = rebalanceFmoPools({
+  const result = await rebalanceFmoPools({
     shadow: parsed.data.shadow === true,
-    planOverride: parsed.data.plan,
+    planOverride: plan,
   });
 
   return NextResponse.json(result);

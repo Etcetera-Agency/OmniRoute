@@ -7,10 +7,14 @@ export interface FmoSolveCandidate {
   modelId: string;
   capabilities: string[];
   contextWindow: number | null;
+  isFree?: boolean;
   qualityScore: number | null;
+  qualityScoreByComboId?: Record<string, number | null>;
   quotaTier: 1 | 2 | 3 | 4;
   capacityPerDay: number | null;
+  capacityPerDayByComboId?: Record<string, number | null>;
   score: number;
+  scoreByComboId?: Record<string, number>;
   degraded?: boolean;
 }
 
@@ -78,9 +82,22 @@ function hasCapabilities(candidate: FmoSolveCandidate, pool: FmoPlanningPool): b
   );
 }
 
+function candidateCapacity(candidate: FmoSolveCandidate, pool: FmoPlanningPool): number | null {
+  return candidate.capacityPerDayByComboId?.[pool.combo_id] ?? candidate.capacityPerDay;
+}
+
+function candidateQualityScore(candidate: FmoSolveCandidate, pool: FmoPlanningPool): number | null {
+  return candidate.qualityScoreByComboId?.[pool.combo_id] ?? candidate.qualityScore;
+}
+
+function candidateScore(candidate: FmoSolveCandidate, pool: FmoPlanningPool): number {
+  return candidate.scoreByComboId?.[pool.combo_id] ?? candidate.score;
+}
+
 function passesHardGates(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
   return (
     !candidate.degraded &&
+    (!pool.constraints.free_only || candidate.isFree === true) &&
     candidate.contextWindow !== null &&
     candidate.contextWindow >= pool.constraints.min_context_tokens &&
     hasCapabilities(candidate, pool)
@@ -88,20 +105,19 @@ function passesHardGates(candidate: FmoSolveCandidate, pool: FmoPlanningPool): b
 }
 
 function inBand(candidate: FmoSolveCandidate, pool: FmoPlanningPool, relax = 0): boolean {
-  const score = candidate.qualityScore;
+  const score = candidateQualityScore(candidate, pool);
   if (score === null) return false;
   const band = pool.constraints.quality_band;
   return score >= band.min - relax && score <= band.max + relax;
 }
 
 function hasHigherCapability(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
-  return (
-    candidate.qualityScore !== null && candidate.qualityScore > pool.constraints.quality_band.max
-  );
+  const score = candidateQualityScore(candidate, pool);
+  return score !== null && score > pool.constraints.quality_band.max;
 }
 
 function inRelaxedLowerBand(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
-  const score = candidate.qualityScore;
+  const score = candidateQualityScore(candidate, pool);
   if (score === null) return false;
   const band = pool.constraints.quality_band;
   return score < band.min && score >= band.min - band.relax;
@@ -134,7 +150,9 @@ function sortCandidates(
   return [...candidates].sort((left, right) => {
     const leftStability = incumbentKeys.has(candidateKey(left)) ? 0.1 : 0;
     const rightStability = incumbentKeys.has(candidateKey(right)) ? 0.1 : 0;
-    return right.score + rightStability - (left.score + leftStability);
+    return (
+      candidateScore(right, pool) + rightStability - (candidateScore(left, pool) + leftStability)
+    );
   });
 }
 
@@ -182,7 +200,7 @@ function fillStep(
   for (const candidate of candidates) {
     const key = candidateKey(candidate);
     if (used.has(key)) continue;
-    const capacity = candidate.capacityPerDay ?? 0;
+    const capacity = candidateCapacity(candidate, pool) ?? 0;
     if (capacity <= 0) continue;
 
     used.add(key);

@@ -1,5 +1,5 @@
 import { getDbInstance } from "@/lib/db/core";
-import { listFmoPoolSpecs, getFmoPoolGenerationMarker } from "@/lib/db/fmoPools";
+import { buildFmoGenerationPlan } from "./planGeneration";
 import type { FmoDecisionRecord, FmoPlanMember } from "./packing";
 
 export interface FmoRebalancePlan {
@@ -63,18 +63,6 @@ function renderMember(member: FmoPlanMember, index: number): Record<string, unkn
 
 function renderModels(members: FmoPlanMember[]): Record<string, unknown>[] {
   return members.map(renderMember);
-}
-
-function buildDefaultPlan(): FmoRebalancePlan {
-  const marker = getFmoPoolGenerationMarker();
-  if (!marker) throw new Error("No accepted FMO pool generation");
-
-  const specs = listFmoPoolSpecs();
-  return {
-    generation: marker.generation,
-    plans: Object.fromEntries(specs.map((spec) => [spec.comboId, []])),
-    decisions: [],
-  };
 }
 
 function assertCombosExist(comboIds: string[]): void {
@@ -169,8 +157,10 @@ export function getFmoAppliedGeneration(): string | null {
   return row?.generation ?? null;
 }
 
-export function rebalanceFmoPools(options: FmoRebalanceOptions = {}): FmoRebalanceResult {
-  const plan = options.planOverride ?? buildDefaultPlan();
+export async function rebalanceFmoPools(
+  options: FmoRebalanceOptions = {}
+): Promise<FmoRebalanceResult> {
+  const plan = options.planOverride ?? (await buildFmoGenerationPlan());
   assertCombosExist(listComboIds(plan));
 
   const diffs = diffPlan(plan);
@@ -185,7 +175,7 @@ export function rebalanceFmoPools(options: FmoRebalanceOptions = {}): FmoRebalan
 export function createFmoRebalanceScheduler(options: {
   enabled: () => boolean;
   intervalMs?: number;
-  run?: () => void;
+  run?: () => void | Promise<void>;
   logger?: Pick<Console, "warn">;
 }): FmoRebalanceScheduler {
   return {
@@ -193,11 +183,9 @@ export function createFmoRebalanceScheduler(options: {
       if (!options.enabled()) return null;
       const intervalMs = options.intervalMs ?? 12 * 60 * 60 * 1000;
       return setInterval(() => {
-        try {
-          (options.run ?? (() => rebalanceFmoPools()))();
-        } catch (error) {
+        Promise.resolve(options.run ? options.run() : rebalanceFmoPools()).catch((error) => {
           options.logger?.warn("[FMO] Scheduled rebalance failed", error);
-        }
+        });
       }, intervalMs);
     },
   };
