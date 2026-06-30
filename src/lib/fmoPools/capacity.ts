@@ -7,6 +7,10 @@ const MAX_TOKENS_PER_REQUEST = 128_000;
 const RATE_LIMIT_DISCOUNT = 0.5;
 const STORAGE_NAMESPACE = "fmo_pools";
 const TOKENS_PER_REQUEST_KEY = "tokens_per_request";
+// EMA smoothing: a single outlier request must not whipsaw the global factor that
+// every pool's capacity is computed from. The factor tracks the running average,
+// moving toward each new sample by this weight.
+const TOKENS_PER_REQUEST_SMOOTHING = 0.1;
 
 const WORKLOAD_CLASS_WEIGHTS: Record<string, number> = {
   light: 1000,
@@ -85,7 +89,12 @@ export function observeFmoTokensPerRequest(
 ): number {
   ensurePersistedTokensPerRequestLoaded();
   if (observedRequests <= 0) return globalTokensPerRequest;
-  globalTokensPerRequest = clampTokensPerRequest(observedTokens / observedRequests);
+  const sample = observedTokens / observedRequests;
+  if (!Number.isFinite(sample) || sample <= 0) return globalTokensPerRequest;
+  const smoothed =
+    globalTokensPerRequest * (1 - TOKENS_PER_REQUEST_SMOOTHING) +
+    sample * TOKENS_PER_REQUEST_SMOOTHING;
+  globalTokensPerRequest = clampTokensPerRequest(smoothed);
   writePersistedTokensPerRequest(globalTokensPerRequest);
   return globalTokensPerRequest;
 }

@@ -171,16 +171,25 @@ test("contract workload classes resolve to dedicated weights", () => {
   assert.equal(resolveFmoTokensPerRequest({ workload_class: "unknown" }), 2000);
 });
 
-test("global tokens-per-request learns, clamps, and persists across restart", () => {
+test("global tokens-per-request smooths, clamps, and persists across restart", () => {
   resetFmoTokensPerRequestForTests();
 
   assert.equal(resolveFmoTokensPerRequest({}), 2000);
-  assert.equal(observeFmoTokensPerRequest(128, 1), 256);
-  assert.equal(observeFmoTokensPerRequest(256_000, 1), 128_000);
-  assert.equal(observeFmoTokensPerRequest(10_000, 2), 5000);
-  assert.equal(resolveFmoTokensPerRequest({}), 5000);
-  assert.equal(resolveFmoTokensPerRequest({ workload_class: "light" }), 5000);
-  assert.equal(reloadFmoTokensPerRequestForTests(), 5000);
+
+  // EMA: a single sample moves the factor toward it, it does not jump to it,
+  // so one outlier request cannot whipsaw every pool's capacity.
+  assert.equal(observeFmoTokensPerRequest(8000, 1), 2600); // 2000*0.9 + 8000*0.1
+  assert.equal(observeFmoTokensPerRequest(8000, 1), 3140); // converges gradually
+  assert.equal(resolveFmoTokensPerRequest({}), 3140);
+
+  // request-equivalents: the sample is observedTokens / observedRequests
+  assert.equal(observeFmoTokensPerRequest(20_000, 2), 3826); // 3140*0.9 + 10000*0.1
+
+  // the learned factor persists across a restart
+  assert.equal(reloadFmoTokensPerRequestForTests(), 3826);
+
+  // an extreme sample is still clamped to the ceiling
+  assert.equal(observeFmoTokensPerRequest(2_000_000, 1), 128_000);
 
   resetFmoTokensPerRequestForTests();
   assert.equal(resolveFmoTokensPerRequest({}), 2000);
@@ -198,8 +207,8 @@ test("request call logs observe total tokens for the global factor", async () =>
     connectionId: "acct-1",
   });
 
-  assert.equal(resolveFmoTokensPerRequest({}), 4000);
-  assert.equal(reloadFmoTokensPerRequestForTests(), 4000);
+  assert.equal(resolveFmoTokensPerRequest({}), 2200); // 2000*0.9 + 4000*0.1
+  assert.equal(reloadFmoTokensPerRequestForTests(), 2200);
 });
 
 test.after(() => {
