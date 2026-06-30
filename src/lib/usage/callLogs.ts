@@ -23,6 +23,7 @@ import { sanitizePII } from "../piiSanitizer";
 import { protectPayloadForLog, parseStoredPayload } from "../logPayloads";
 import { getCallLogMaxEntries, getCallLogRetentionDays, getCallLogsTableMaxRows } from "../logEnv";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
+import { observeFmoTokensPerRequest } from "@/lib/fmoPools/capacity";
 import {
   CALL_LOGS_DIR,
   cleanupEmptyCallLogDirs,
@@ -729,6 +730,9 @@ export async function saveCallLog(entry: any) {
       hasPipelineDetails: protectedPipelinePayloads ? 1 : 0,
       requestSummary,
     });
+
+    const observedTokens = logEntry.tokensIn + logEntry.tokensOut;
+    if (observedTokens > 0) observeFmoTokensPerRequest(observedTokens, 1);
 
     scheduleCallLogRotation();
   } catch (error) {

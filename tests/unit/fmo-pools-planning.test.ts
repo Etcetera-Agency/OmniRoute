@@ -13,11 +13,14 @@ const { buildFmoHeadInventory } = await import("../../src/lib/fmoPools/inventory
 const { resolveFmoBand } = await import("../../src/lib/fmoPools/intelligence.ts");
 const {
   calculateFmoRequestCapacityPerDay,
+  observeFmoTokensPerRequest,
+  reloadFmoTokensPerRequestForTests,
   resetFmoTokensPerRequestForTests,
   resolveFmoTokensPerRequest,
 } = await import("../../src/lib/fmoPools/capacity.ts");
 const { normalizeFmoLiveQuotaAxes, resolveFmoQuota } =
   await import("../../src/lib/fmoPools/quota.ts");
+const callLogs = await import("../../src/lib/usage/callLogs.ts");
 const core = await import("../../src/lib/db/core.ts");
 
 function inventoryDeps(): FmoInventoryDeps {
@@ -157,6 +160,46 @@ test("capacity uses global factor when class weight is smaller", () => {
     calculateFmoRequestCapacityPerDay({ tokensPerMonth: 6_000_000 }, { workload_class: "light" }),
     100
   );
+});
+
+test("contract workload classes resolve to dedicated weights", () => {
+  resetFmoTokensPerRequestForTests();
+
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "chat" }), 2500);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "reasoning" }), 8000);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "tools" }), 6000);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "unknown" }), 2000);
+});
+
+test("global tokens-per-request learns, clamps, and persists across restart", () => {
+  resetFmoTokensPerRequestForTests();
+
+  assert.equal(resolveFmoTokensPerRequest({}), 2000);
+  assert.equal(observeFmoTokensPerRequest(128, 1), 256);
+  assert.equal(observeFmoTokensPerRequest(256_000, 1), 128_000);
+  assert.equal(observeFmoTokensPerRequest(10_000, 2), 5000);
+  assert.equal(resolveFmoTokensPerRequest({}), 5000);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "light" }), 5000);
+  assert.equal(reloadFmoTokensPerRequestForTests(), 5000);
+
+  resetFmoTokensPerRequestForTests();
+  assert.equal(resolveFmoTokensPerRequest({}), 2000);
+  assert.equal(reloadFmoTokensPerRequestForTests(), 2000);
+});
+
+test("request call logs observe total tokens for the global factor", async () => {
+  resetFmoTokensPerRequestForTests();
+
+  await callLogs.saveCallLog({
+    tokens: { prompt_tokens: 3000, completion_tokens: 1000, total_tokens: 4000 },
+    status: 200,
+    provider: "gemini",
+    model: "gemini-model",
+    connectionId: "acct-1",
+  });
+
+  assert.equal(resolveFmoTokensPerRequest({}), 4000);
+  assert.equal(reloadFmoTokensPerRequestForTests(), 4000);
 });
 
 test.after(() => {

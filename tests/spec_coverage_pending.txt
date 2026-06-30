@@ -14,6 +14,9 @@
 - No pending coverage remains for the FMO pool stability outcomes slice:
   `tests/unit/fmo-pools-solve-tail.test.ts` now covers `kept`, `displaced`, hard prior
   pin retention, degraded-incumbent drops, and mixed pinned/unpinned provider failure.
+- No pending coverage remains for the FMO pool token-factor learning slice:
+  `tests/unit/fmo-pools-planning.test.ts` now covers contract workload-class weights,
+  clamped observations, persisted restart reload, and call-log request-path learning.
 - FMO tier-3 quota extractor needs live provider-contract coverage once an
   internal extractor model is configured; current focused planning tests cover
   internal-chain boundaries, evidence validation, source precedence, and capacity

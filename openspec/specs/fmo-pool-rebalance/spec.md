@@ -223,12 +223,19 @@ normalized search snapshot as input and validating the returned
 `QuotaClaimResponse`. It SHALL NOT call the FMO Python client, the FMO Instructor
 runtime, or an OmniRoute HTTP route for this extraction. The tier-3 quota result
 SHALL retain a search snapshot with the query, provider used, answer text, result
-snippets, evidence URLs, retrieval time, and content hash so the planning/debug
-surface can explain the source. The system SHALL own the
-request-equivalents conversion algebra and keep `tokens_per_request` a single global
-learned factor; it SHALL compute candidate capacity as
-`tokens_per_request = max(workload_class weight, global factor)` and fall back to the
-global factor when `workload_class` is omitted.
+snippets, evidence URLs, retrieval time, and content hash so the planning/debug surface
+can explain the source.
+
+The system SHALL own the request-equivalents conversion algebra and keep
+`tokens_per_request` a single global learned factor. The global factor SHALL be learned
+from request-path observations of `observed_tokens / observed_requests` (clamped per
+recalibration) and SHALL persist across restarts, seeding from the persisted value or the
+default when none exists; it SHALL NOT remain pinned to the seed default in production.
+The class-to-weight table SHALL be keyed by the contract `workload_class` vocabulary
+(`light`, `chat`, `reasoning`, `tools`) with a `default` fallback, so a declared class
+resolves to its own weight and does not silently fall to `default`. The system SHALL
+compute candidate capacity as `tokens_per_request = max(workload_class weight, global
+factor)` and fall back to the global factor when `workload_class` is omitted.
 
 #### Scenario: Static figure used without search
 
@@ -284,6 +291,21 @@ global factor when `workload_class` is omitted.
 - GIVEN a pool with `workload_class = light` whose class weight is below the global factor
 - WHEN capacity is computed
 - THEN `tokens_per_request` equals the global factor, not the smaller class weight
+
+#### Scenario: Declared class resolves to its own weight
+
+- GIVEN a pool with `workload_class = reasoning` or `tools`
+- WHEN capacity is computed
+- THEN the class resolves to its own weight in the table
+- AND it does not silently fall back to the `default` weight
+
+#### Scenario: Global factor learns from request-path observation
+
+- GIVEN a request-path observation of total tokens and request count over a window
+- WHEN the factor is recalibrated
+- THEN `observeFmoTokensPerRequest` updates the global factor from `tokens / requests`
+- AND the new value is clamped and persisted
+- AND a later capacity computation uses the learned factor, not the seed default
 
 ### Requirement: One-generation global solve
 
