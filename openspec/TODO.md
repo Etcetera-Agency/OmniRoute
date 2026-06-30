@@ -5,29 +5,19 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 ## Deferred Items
 
 0. Keep FMO pool extractor live-provider coverage pending until an internal
-   extractor model is configured for this fork.
+   extractor model is configured for this fork. Unit coverage now verifies the
+   in-process `handleChatCore` contract, parser, disable path, and tier-4
+   snapshot retention.
 1. Wire the FMO rebalance scheduler to the production materialized-plan builder
    once the Hermes-side pool solver publishes accepted plans into OmniRoute. The
    apply seam now requires a validated plan whose generation matches the accepted
    pool marker; scheduled runs are self-gated and non-fatal, but they must not
    synthesize empty combos from stored pool specs.
-2. Before implementing `add-fmo-pools-planning` search-research tier, pin the
-   relocated quota search contract to OmniRoute's internal search chain:
-   `searchResearchClaim(candidate)` must call `buildSearchAttempts`/`runSearchChain`
-   or the equivalent shared server-side helper directly, never `POST /api/v1/search`,
-   `fetch`, `Request`, `Response`, or the app route boundary. First try
-   `provider="gemini-grounded-search"`, fall back to default internal search on 429
-   only, preserve the FMO quota query wording, consume OmniRoute's normalized
-   `SearchResponse.answer.text`/`results` directly, keep a search snapshot/evidence
-   on the tier-3 quota result, then process that snapshot through OmniRoute's own
-   internal LLM/chat pipeline with structured JSON output. Preserve the existing
-   FMO `quota-research` prompt/rules as the canonical extraction contract, pass
-   `provider`, `provider_model_id`, `source_type`, `source_url`, `text`, and
-   `previous_limit`, validate the returned `QuotaClaimResponse`, and do not add a
-   separate FMO/Instructor inspector.
-   Implementation note: planning slice now has the in-process search-chain seam,
-   evidence snapshot, and claim validator. Add live internal-LLM extractor
-   contract coverage once an extractor model is configured for this fork.
+2. Keep `add-fmo-pools-planning` live extractor validation pending until this fork
+   has a configured, cheap, JSON-reliable quota extractor model. The server-side
+   search chain, snapshot/evidence retention, in-process `handleChatCore` extractor,
+   parser, and deterministic validator are implemented; remaining work is live
+   provider coverage only.
 
 3. Keep the daily model-manager routine in the Hermes repo. OmniRoute only supplies management APIs, routing behavior, telemetry, and provider support consumed by that routine.
 4. Prepare an upstream OmniRoute PR after the fork changes stabilize:

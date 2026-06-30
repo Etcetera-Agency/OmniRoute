@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { SearchResponse } from "@omniroute/open-sse/handlers/search.ts";
 import { getUsageForProvider } from "@omniroute/open-sse/services/usage.ts";
 import { buildSearchAttempts, runSearchChain, SearchError } from "@/lib/search/searchChain";
+import { runInternalChatPipeline } from "./quotaExtractor";
 import type {
   FmoHeadCandidate,
   FmoQuotaAxes,
@@ -13,6 +14,22 @@ import type {
 export interface FmoQuotaDeps {
   getUsageForCandidate(candidate: FmoHeadCandidate): Promise<unknown>;
   searchResearchClaim(candidate: FmoHeadCandidate): Promise<FmoQuotaResult | null>;
+}
+
+export interface FmoSearchResearchDeps {
+  runFmoQuotaSearch(query: string): Promise<FmoSearchSnapshot | null>;
+  extractQuotaClaimWithInternalLlm(
+    input: FmoQuotaResearchInput
+  ): Promise<FmoQuotaClaimResponse | null>;
+}
+
+export interface FmoQuotaResearchInput {
+  provider: string;
+  provider_model_id: string;
+  source_type: string;
+  source_url: string;
+  text: string;
+  previous_limit: string;
 }
 
 export const defaultFmoQuotaDeps: FmoQuotaDeps = {
@@ -171,15 +188,10 @@ export function validateFmoQuotaClaimResponse(
   return Object.keys(claim.axes).length > 0 ? claim.axes : null;
 }
 
-export async function extractQuotaClaimWithInternalLlm(_input: {
-  provider: string;
-  provider_model_id: string;
-  source_type: string;
-  source_url: string;
-  text: string;
-  previous_limit: string;
-}): Promise<FmoQuotaClaimResponse | null> {
-  return null;
+export async function extractQuotaClaimWithInternalLlm(
+  input: FmoQuotaResearchInput
+): Promise<FmoQuotaClaimResponse | null> {
+  return runInternalChatPipeline(input).catch(() => null);
 }
 
 export async function runFmoQuotaSearch(query: string): Promise<FmoSearchSnapshot | null> {
@@ -214,16 +226,20 @@ export async function runFmoQuotaSearch(query: string): Promise<FmoSearchSnapsho
 }
 
 export async function searchResearchClaim(
-  candidate: FmoHeadCandidate
+  candidate: FmoHeadCandidate,
+  deps: FmoSearchResearchDeps = {
+    runFmoQuotaSearch,
+    extractQuotaClaimWithInternalLlm,
+  }
 ): Promise<FmoQuotaResult | null> {
   // AICODE-NOTE: Tier-3 quota research stays in-process: searchChain + internal extractor only;
   // never route back through /api/v1/search or construct Request/Response.
   const query = buildFmoQuotaSearchQuery(candidate.providerId, candidate.modelId);
-  const snapshot = await runFmoQuotaSearch(query);
+  const snapshot = await deps.runFmoQuotaSearch(query);
   if (!snapshot) return null;
 
   const text = snapshot.answerText ?? snapshot.snippets.join("\n");
-  const claim = await extractQuotaClaimWithInternalLlm({
+  const claim = await deps.extractQuotaClaimWithInternalLlm({
     provider: candidate.providerId,
     provider_model_id: candidate.modelId,
     source_type: "search_summary",
@@ -231,8 +247,10 @@ export async function searchResearchClaim(
     text,
     previous_limit: "unknown",
   });
-  if (!claim) return null;
+  if (!claim) return { tier: 4, axes: null, source: "none", searchSnapshot: snapshot };
 
   const axes = validateFmoQuotaClaimResponse(claim, snapshot);
-  return axes ? { tier: 3, axes, source: "search-research", searchSnapshot: snapshot } : null;
+  return axes
+    ? { tier: 3, axes, source: "search-research", searchSnapshot: snapshot }
+    : { tier: 4, axes: null, source: "none", searchSnapshot: snapshot };
 }
