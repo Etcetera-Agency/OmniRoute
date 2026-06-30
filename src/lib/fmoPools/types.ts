@@ -56,7 +56,7 @@ export interface FmoPlanningPool {
   combo_id: string;
   demand: {
     requests_per_day: number;
-    consumers?: string[];
+    consumers?: number;
   };
   constraints: {
     min_context_tokens: number;
