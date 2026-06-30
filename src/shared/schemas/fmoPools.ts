@@ -4,6 +4,7 @@ export const FMO_POOLS_CONTRACT_VERSION = "fmo-pools/v1";
 
 const nonEmptyString = z.string().trim().min(1);
 const positiveInteger = z.number().int().positive();
+const positiveFiniteNumber = z.number().finite().positive();
 const nonNegativeNumber = z.number().finite().nonnegative();
 
 export const fmoPoolQualityBandSchema = z
@@ -28,8 +29,8 @@ export const fmoPoolQualityBandSchema = z
 
 export const fmoPoolDemandSchema = z
   .object({
-    requests_per_day: positiveInteger,
-    consumers: z.array(nonEmptyString).optional(),
+    requests_per_day: positiveFiniteNumber,
+    consumers: positiveInteger.optional(),
     workload_class: nonEmptyString.optional(),
   })
   .strict();

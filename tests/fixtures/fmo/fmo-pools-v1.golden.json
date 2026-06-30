@@ -4,34 +4,23 @@
   "generated_at": "2026-06-29T00:00:00.000Z",
   "pools": [
     {
-      "pool_id": "coding",
-      "combo_id": "__COMBO_ID__",
-      "demand": {
-        "requests_per_day": 100,
-        "consumers": ["hermes"],
-        "workload_class": "coding"
-      },
+      "pool_id": "pool-fast",
+      "combo_id": "combo-fast",
+      "demand": { "requests_per_day": 1000, "consumers": 4, "workload_class": "reasoning" },
       "constraints": {
         "free_only": true,
-        "capabilities": ["tools"],
-        "min_context_tokens": 32000,
+        "capabilities": ["api:openai", "chat", "thinking", "tool_call"],
+        "min_context_tokens": 32768,
         "quality_band": {
-          "source": "openrouter",
-          "metric": "coding",
+          "source": "model_intelligence",
+          "metric": "score",
           "category": "coding",
-          "min": 0.8,
-          "max": 1,
-          "relax": {
-            "max_delta": 0.05,
-            "when": "insufficient_capacity"
-          }
+          "min": 0.55,
+          "max": 0.85,
+          "relax": { "max_delta": 12, "when": "underfilled" }
         }
       },
-      "tail": {
-        "strategy": "configured",
-        "mode": "fallback",
-        "compatibility": "capability-and-context"
-      }
+      "tail": { "strategy": "auto", "mode": "fallback", "compatibility": "strict" }
     }
   ]
 }

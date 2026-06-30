@@ -19,7 +19,12 @@ const fmoPoolsDb = await import("../../../src/lib/db/fmoPools.ts");
 const settingsDb = await import("../../../src/lib/db/settings.ts");
 const poolsRoute = await import("../../../src/app/api/fmo/pools/route.ts");
 const usageRoute = await import("../../../src/app/api/fmo/usage/route.ts");
+const fmoPoolsSchemas = await import("../../../src/shared/schemas/fmoPools.ts");
 const GOLDEN_FIXTURE_PATH = path.join(process.cwd(), "tests/fixtures/fmo/fmo-pools-v1.golden.json");
+const FMO_FIXTURE_PATH = path.join(
+  process.cwd(),
+  "../free-model-orchestrator-for-omniroute/reference/fixtures/fmo-pools-v1-generation.json"
+);
 
 async function resetStorage(): Promise<void> {
   core.resetDbInstance();
@@ -33,7 +38,7 @@ function fixturePayload(): Record<string, unknown> {
 }
 
 function replaceFixtureComboId(value: unknown, comboId: string): unknown {
-  if (typeof value === "string") return value === "__COMBO_ID__" ? comboId : value;
+  if (typeof value === "string") return value === "combo-fast" ? comboId : value;
   if (Array.isArray(value)) return value.map((item) => replaceFixtureComboId(item, comboId));
   if (!value || typeof value !== "object") return value;
 
@@ -67,6 +72,37 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_INITIAL_PASSWORD === undefined) delete process.env.INITIAL_PASSWORD;
   else process.env.INITIAL_PASSWORD = ORIGINAL_INITIAL_PASSWORD;
+});
+
+test("shared golden fixture conforms to the fmo-pools schema byte-for-byte", () => {
+  const fixtureBytes = fs.readFileSync(GOLDEN_FIXTURE_PATH, "utf8");
+  const parsed = fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(JSON.parse(fixtureBytes));
+
+  assert.equal(parsed.success, true);
+  assert.equal(
+    fixtureBytes,
+    fs.readFileSync(FMO_FIXTURE_PATH, "utf8"),
+    "OmniRoute and FMO fixture copies must stay byte-identical"
+  );
+  if (!parsed.success) return;
+  assert.equal(parsed.data.pools[0]?.demand.consumers, 4);
+});
+
+test("pool demand accepts numeric consumers and fractional requests_per_day without coercion", () => {
+  const payload = fixturePayload();
+  const [pool] = payload.pools as Array<Record<string, unknown>>;
+  const demand = pool.demand as Record<string, unknown>;
+  demand.requests_per_day = 1000.5;
+  demand.consumers = 4;
+
+  const accepted = fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload);
+  assert.equal(accepted.success, true);
+  if (!accepted.success) return;
+  assert.equal(accepted.data.pools[0]?.demand.requests_per_day, 1000.5);
+  assert.equal(accepted.data.pools[0]?.demand.consumers, 4);
+
+  demand.consumers = ["hermes"];
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, false);
 });
 
 test("flag-off pool write is inert and does not read or store combos", async () => {
@@ -137,7 +173,7 @@ test("valid generation is accepted and exposed through usage backchannel", async
   assert.equal(usageBody.marker.generation, "gen-001");
   assert.equal(usageBody.marker.poolCount, 1);
   assert.deepEqual(usageBody.pools, [
-    { poolId: "coding", comboId, generation: "gen-001", status: "accepted" },
+    { poolId: "pool-fast", comboId, generation: "gen-001", status: "accepted" },
   ]);
 });
 
@@ -160,15 +196,21 @@ test("canonical fixture maps into planning pool without losing contract-owned fi
   assert.equal(response.status, 202);
   assert.equal(marker?.idempotencyKey, idempotencyKey);
   assert.equal(marker?.contract, "fmo-pools/v1");
-  assert.equal(planningPool.workload_class, "coding");
-  assert.deepEqual(planningPool.constraints.required_capabilities, ["tools"]);
+  assert.equal(planningPool.workload_class, "reasoning");
+  assert.equal(planningPool.demand.consumers, 4);
+  assert.deepEqual(planningPool.constraints.required_capabilities, [
+    "api:openai",
+    "chat",
+    "thinking",
+    "tool_call",
+  ]);
   assert.equal(planningPool.constraints.free_only, true);
   assert.deepEqual(planningPool.constraints.hard_gates, ["free_only"]);
-  assert.equal(planningPool.constraints.quality_band.relax, 0.05);
+  assert.equal(planningPool.constraints.quality_band.relax, 12);
   assert.deepEqual(planningPool.tail, {
-    strategy: "configured",
+    strategy: "auto",
     mode: "fallback",
-    compatibility: "capability-and-context",
+    compatibility: "strict",
   });
 });
 

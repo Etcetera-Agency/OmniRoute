@@ -1,5 +1,22 @@
 # Spec coverage pending
 
+- No pending coverage remains for the FMO pool shared fixture contract slice:
+  `tests/unit/api/fmo-pools-contract.test.ts` now validates numeric consumers,
+  fractional `requests_per_day`, and byte-identical fixture drift.
+- No pending coverage remains for the FMO pool tail config source slice:
+  `tests/unit/fmo-pools-solve-tail.test.ts` now covers env-loaded real config, head
+  exclusion from the same provider source, pinned-tail drops, and malformed-config
+  fallback.
+- No pending coverage remains for the FMO pool overflow-by-capability slice:
+  `tests/unit/fmo-pools-solve-tail.test.ts` now covers capability-equal high-score
+  rejection, strict-superset overflow seating, stricter-pool reservation, relax-before-
+  overflow ordering, and hard-gate preservation.
+- No pending coverage remains for the FMO pool stability outcomes slice:
+  `tests/unit/fmo-pools-solve-tail.test.ts` now covers `kept`, `displaced`, hard prior
+  pin retention, degraded-incumbent drops, and mixed pinned/unpinned provider failure.
+- No pending coverage remains for the FMO pool token-factor learning slice:
+  `tests/unit/fmo-pools-planning.test.ts` now covers contract workload-class weights,
+  clamped observations, persisted restart reload, and call-log request-path learning.
 - FMO tier-3 quota extractor needs live provider-contract coverage once an
   internal extractor model is configured; current focused planning tests cover
   internal-chain boundaries, evidence validation, source precedence, and capacity

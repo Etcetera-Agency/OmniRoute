@@ -13,11 +13,14 @@ const { buildFmoHeadInventory } = await import("../../src/lib/fmoPools/inventory
 const { resolveFmoBand } = await import("../../src/lib/fmoPools/intelligence.ts");
 const {
   calculateFmoRequestCapacityPerDay,
+  observeFmoTokensPerRequest,
+  reloadFmoTokensPerRequestForTests,
   resetFmoTokensPerRequestForTests,
   resolveFmoTokensPerRequest,
 } = await import("../../src/lib/fmoPools/capacity.ts");
 const { normalizeFmoLiveQuotaAxes, resolveFmoQuota } =
   await import("../../src/lib/fmoPools/quota.ts");
+const callLogs = await import("../../src/lib/usage/callLogs.ts");
 const core = await import("../../src/lib/db/core.ts");
 
 function inventoryDeps(): FmoInventoryDeps {
@@ -157,6 +160,55 @@ test("capacity uses global factor when class weight is smaller", () => {
     calculateFmoRequestCapacityPerDay({ tokensPerMonth: 6_000_000 }, { workload_class: "light" }),
     100
   );
+});
+
+test("contract workload classes resolve to dedicated weights", () => {
+  resetFmoTokensPerRequestForTests();
+
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "chat" }), 2500);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "reasoning" }), 8000);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "tools" }), 6000);
+  assert.equal(resolveFmoTokensPerRequest({ workload_class: "unknown" }), 2000);
+});
+
+test("global tokens-per-request smooths, clamps, and persists across restart", () => {
+  resetFmoTokensPerRequestForTests();
+
+  assert.equal(resolveFmoTokensPerRequest({}), 2000);
+
+  // EMA: a single sample moves the factor toward it, it does not jump to it,
+  // so one outlier request cannot whipsaw every pool's capacity.
+  assert.equal(observeFmoTokensPerRequest(8000, 1), 2600); // 2000*0.9 + 8000*0.1
+  assert.equal(observeFmoTokensPerRequest(8000, 1), 3140); // converges gradually
+  assert.equal(resolveFmoTokensPerRequest({}), 3140);
+
+  // request-equivalents: the sample is observedTokens / observedRequests
+  assert.equal(observeFmoTokensPerRequest(20_000, 2), 3826); // 3140*0.9 + 10000*0.1
+
+  // the learned factor persists across a restart
+  assert.equal(reloadFmoTokensPerRequestForTests(), 3826);
+
+  // an extreme sample is still clamped to the ceiling
+  assert.equal(observeFmoTokensPerRequest(2_000_000, 1), 128_000);
+
+  resetFmoTokensPerRequestForTests();
+  assert.equal(resolveFmoTokensPerRequest({}), 2000);
+  assert.equal(reloadFmoTokensPerRequestForTests(), 2000);
+});
+
+test("request call logs observe total tokens for the global factor", async () => {
+  resetFmoTokensPerRequestForTests();
+
+  await callLogs.saveCallLog({
+    tokens: { prompt_tokens: 3000, completion_tokens: 1000, total_tokens: 4000 },
+    status: 200,
+    provider: "gemini",
+    model: "gemini-model",
+    connectionId: "acct-1",
+  });
+
+  assert.equal(resolveFmoTokensPerRequest({}), 2200); // 2000*0.9 + 4000*0.1
+  assert.equal(reloadFmoTokensPerRequestForTests(), 2200);
 });
 
 test.after(() => {

@@ -18,10 +18,11 @@ SHALL be inert and OmniRoute behavior SHALL equal upstream.
 The accepted shape SHALL be the canonical publisher contract: a top-level
 `contract_version` literal `fmo-pools/v1`, a `generation` string, an optional
 `generated_at`, and a non-empty `pools` array. Each pool SHALL carry `pool_id`,
-`combo_id`, a `demand` object (`requests_per_day`, with optional `consumers` and
-`workload_class`), and a `constraints` object (`free_only`, `capabilities`,
-`min_context_tokens`, and a `quality_band` intent with `min`, `max`, a `category`/
-metric, and a `relax` of `{ max_delta, when }`), plus a `tail` intent object
+`combo_id`, a `demand` object whose `requests_per_day` is any positive finite number
+(integer or fractional) and whose optional `consumers` is a positive integer count (not
+a list) alongside an optional `workload_class`, and a `constraints` object (`free_only`,
+`capabilities`, `min_context_tokens`, and a `quality_band` intent with `min`, `max`, a
+`category`/metric, and a `relax` of `{ max_delta, when }`), plus a `tail` intent object
 (`strategy`, `mode`, `compatibility`). The `tail` field SHALL carry intent only and
 SHALL NOT carry explicit tail members; tail entries are resolved from OmniRoute config,
 not from the contract. The system SHALL reject an unknown or breaking contract shape
@@ -33,6 +34,19 @@ the system SHALL NOT require the `Idempotency-Key` to equal the `generation`. Th
 SHALL fail the whole generation when any referenced `combo_id` does not exist; it SHALL
 NOT create, delete, or synthesize combos. Storing a generation SHALL NOT materialize or
 modify any combo.
+
+#### Scenario: Consumers count accepted as a number
+
+- GIVEN a valid generation whose `demand.consumers` is the integer count `4`
+- WHEN the payload is validated
+- THEN it is accepted without coercion
+- AND a `demand.consumers` given as a string array is rejected as a breaking shape
+
+#### Scenario: Fractional requests_per_day accepted
+
+- GIVEN a valid generation whose `demand.requests_per_day` is a fractional number
+- WHEN the payload is validated
+- THEN it is accepted without rejection or truncation
 
 #### Scenario: Flag off is a no-op
 
@@ -94,6 +108,27 @@ modify any combo.
 - GIVEN a payload with an unknown or breaking field shape
 - WHEN it is validated
 - THEN it is rejected without storing any pool
+
+### Requirement: Shared contract fixture conformance
+
+The system SHALL keep one canonical `fmo-pools/v1` golden fixture that is byte-identical
+to the copy used by the FMO publisher, and SHALL use it as the single source of contract
+truth on both sides. A conformance test SHALL load that fixture and assert the ingester
+accepts it verbatim, with no field coercions, so any shape drift between the publisher
+and the ingester fails a test rather than failing silently in production.
+
+#### Scenario: Canonical fixture is accepted verbatim
+
+- GIVEN the shared canonical `fmo-pools/v1` fixture
+- WHEN it is validated against the ingestion schema
+- THEN validation succeeds with no coercion
+- AND the fixture bytes match the FMO publisher's copy of the same fixture
+
+#### Scenario: Drift from the fixture fails a test
+
+- GIVEN a change to either side's contract shape that diverges from the shared fixture
+- WHEN the conformance test runs
+- THEN the test fails
 
 ### Requirement: Contract-to-planning mapping
 
@@ -188,12 +223,19 @@ normalized search snapshot as input and validating the returned
 `QuotaClaimResponse`. It SHALL NOT call the FMO Python client, the FMO Instructor
 runtime, or an OmniRoute HTTP route for this extraction. The tier-3 quota result
 SHALL retain a search snapshot with the query, provider used, answer text, result
-snippets, evidence URLs, retrieval time, and content hash so the planning/debug
-surface can explain the source. The system SHALL own the
-request-equivalents conversion algebra and keep `tokens_per_request` a single global
-learned factor; it SHALL compute candidate capacity as
-`tokens_per_request = max(workload_class weight, global factor)` and fall back to the
-global factor when `workload_class` is omitted.
+snippets, evidence URLs, retrieval time, and content hash so the planning/debug surface
+can explain the source.
+
+The system SHALL own the request-equivalents conversion algebra and keep
+`tokens_per_request` a single global learned factor. The global factor SHALL be learned
+from request-path observations of `observed_tokens / observed_requests` (clamped per
+recalibration) and SHALL persist across restarts, seeding from the persisted value or the
+default when none exists; it SHALL NOT remain pinned to the seed default in production.
+The class-to-weight table SHALL be keyed by the contract `workload_class` vocabulary
+(`light`, `chat`, `reasoning`, `tools`) with a `default` fallback, so a declared class
+resolves to its own weight and does not silently fall to `default`. The system SHALL
+compute candidate capacity as `tokens_per_request = max(workload_class weight, global
+factor)` and fall back to the global factor when `workload_class` is omitted.
 
 #### Scenario: Static figure used without search
 
@@ -250,6 +292,21 @@ global factor when `workload_class` is omitted.
 - WHEN capacity is computed
 - THEN `tokens_per_request` equals the global factor, not the smaller class weight
 
+#### Scenario: Declared class resolves to its own weight
+
+- GIVEN a pool with `workload_class = reasoning` or `tools`
+- WHEN capacity is computed
+- THEN the class resolves to its own weight in the table
+- AND it does not silently fall back to the `default` weight
+
+#### Scenario: Global factor learns from request-path observation
+
+- GIVEN a request-path observation of total tokens and request count over a window
+- WHEN the factor is recalibrated
+- THEN `observeFmoTokensPerRequest` updates the global factor from `tokens / requests`
+- AND the new value is clamped and persisted
+- AND a later capacity computation uses the learned factor, not the seed default
+
 ### Requirement: One-generation global solve
 
 The system SHALL process the published pool set as one batch allocation problem and
@@ -276,16 +333,33 @@ SHALL emit a per-combo materialization plan and SHALL NOT write combos itself.
 ### Requirement: Deterministic fill ladder
 
 The system SHALL fill each pool by the deterministic ladder: exact-fit in-band, then
-relax the AA band within `max_delta`, then in-band higher-capability overflow. It
-SHALL relax the AA band before spending higher-capability overflow candidates, and
-SHALL NOT relax capability, context, or free gates. Higher-capability overflow SHALL
-be allowed only after the stricter pools that need those candidates are covered.
+relax the AA band within `max_delta`, then in-band higher-capability overflow. Step 3
+higher-capability overflow SHALL be defined by capability surplus — a candidate whose
+capability set is a strict superset of the pool's required capabilities — and SHALL NOT
+be defined by an intelligence score above the band maximum; the score SHALL only order
+candidates within a step, not select the step. The system SHALL relax the AA band before
+spending higher-capability overflow candidates, and SHALL NOT relax capability, context,
+or free gates. Higher-capability overflow SHALL be allowed only after the stricter pools
+that need those rarer-capability candidates are covered.
 
 #### Scenario: Relax precedes overflow
 
 - GIVEN a pool underfilled after exact-fit in-band
 - WHEN the ladder continues
 - THEN the band is relaxed within `max_delta` and refilled before any higher-capability overflow is spent
+
+#### Scenario: Overflow is keyed on capability surplus, not score
+
+- GIVEN a candidate that is capability-equal to the pool but scores above the band maximum
+- WHEN the overflow step runs
+- THEN that candidate is not admitted as higher-capability overflow
+- AND only candidates whose capabilities are a strict superset of the pool's requirements are admitted
+
+#### Scenario: Stricter pool covered before overflow spends its candidate
+
+- GIVEN a rarer-capability candidate needed by a stricter pool
+- WHEN a less-specific pool reaches its overflow step
+- THEN the candidate is spent on the less-specific pool only after the stricter pool is covered
 
 #### Scenario: Hard gate never relaxed
 
@@ -313,49 +387,80 @@ canary.
 
 The system SHALL prefer incumbent candidates over challengers unless a challenger
 beats the incumbency margin, and SHALL keep a provider/model pinned to its previous
-`connectionId` while that account is alive and not exhausted, adding new accounts at
-the margin rather than reshuffling placed pins. Stability SHALL apply only among
-eligible candidates and SHALL NOT override capability, context, band, free, or quota
-gates; a degraded incumbent SHALL be dropped immediately. The system SHALL NOT mix
-account-pinned and account-unpinned entries for the same provider in one generation,
-and SHALL record stability outcomes (kept, displaced, dropped) with reasons.
+`connectionId` as a hard rule while that account is alive and not exhausted, adding new
+accounts at the margin rather than reshuffling placed pins; this retention SHALL NOT be
+reducible to a soft scoring nudge that a small input shift can overturn. Stability SHALL
+apply only among eligible candidates and SHALL NOT override capability, context, band,
+free, or quota gates; a degraded incumbent SHALL be dropped immediately. The system
+SHALL NOT mix account-pinned and account-unpinned entries for the same provider in one
+generation, and SHALL enforce this with an explicit per-provider assertion that fails the
+generation and logs the violation when both pinned and unpinned head entries appear for
+one provider. The system SHALL record stability outcomes for every incumbent — `kept`
+(survived a within-margin challenger), `displaced` (beaten by a challenger), and
+`dropped` (ineligible) — each with a reason.
 
 #### Scenario: Incumbent kept within margin
 
 - GIVEN an incumbent member and a challenger that does not beat the incumbency margin
 - WHEN the pool is solved
 - THEN the incumbent keeps its seat
-- AND the decision record marks it as kept
+- AND the decision record marks it as `kept` with the challenger and delta in the reason
+
+#### Scenario: Incumbent displaced beyond margin
+
+- GIVEN an incumbent member and a challenger that beats the incumbency margin
+- WHEN the pool is solved
+- THEN the challenger takes the seat
+- AND the decision record marks the incumbent as `displaced` with the delta
+
+#### Scenario: Live pin retained as a hard rule
+
+- GIVEN a previous-generation pin that is in-band, capable, not exhausted, and on a live account
+- WHEN the next generation is solved after a small input shift
+- THEN the pin keeps its `connectionId`
+- AND new accounts are added only at the margin for unfilled demand
 
 #### Scenario: Degraded incumbent dropped
 
 - GIVEN an incumbent that fell out of band or exhausted its quota
 - WHEN the pool is solved
 - THEN the incumbent is dropped immediately with no margin
-- AND the decision record carries the drop reason
+- AND the decision record carries the `dropped` reason
 
 #### Scenario: No mixed pinning per provider
 
 - GIVEN a provider used across several combos in one generation
 - WHEN the plan is built
 - THEN that provider's entries are either all account-pinned or all account-unpinned
+- AND a mixed-pin plan fails the generation and logs the violation
 
 ### Requirement: Config-driven tail
 
-The system SHALL read an approved tail config on every combo rebuild, filter entries
-by the pool's capabilities and context, and append matching entries after the head.
-Tail entries SHALL always be account-unpinned and SHALL NOT carry a `connectionId`.
-Tail/fallback providers SHALL be a class disjoint from head inventory providers. The
-tail SHALL NOT be counted as forecast demand capacity and SHALL be treated as
-above-quota overflow safety. The system SHALL drop and log any tail entry whose
-provider is account-pinned in the same generation's head.
+The system SHALL read an approved tail config from a real configured source (a config
+file, optionally overridable by an environment path), validated on load, on every combo
+rebuild; it SHALL NOT use an always-empty placeholder source. It SHALL filter entries by
+the pool's capabilities and context, and append matching entries after the head. Tail
+entries SHALL always be account-unpinned and SHALL NOT carry a `connectionId`.
+Tail/fallback providers SHALL be a class disjoint from head inventory providers, and the
+same config's provider list SHALL be the single source that excludes those providers from
+the head inventory snapshot. The tail SHALL NOT be counted as forecast demand capacity
+and SHALL be treated as above-quota overflow safety. The system SHALL drop and log any
+tail entry whose provider is account-pinned in the same generation's head. A malformed
+tail config SHALL be logged and SHALL degrade to an empty tail rather than throwing.
 
-#### Scenario: Tail is account-unpinned and uncounted
+#### Scenario: Approved config entry is appended
 
-- GIVEN a pool whose demand is already covered by head candidates
-- WHEN the tail is appended
-- THEN tail members carry no `connectionId`
-- AND the tail does not change the pool's covered-demand calculation
+- GIVEN an approved tail config with an entry that matches the pool capabilities and context
+- WHEN the combo is rebuilt
+- THEN the matching entry is appended after the head candidates
+- AND it carries no `connectionId`
+- AND it does not change the pool's covered-demand calculation
+
+#### Scenario: Tail provider excluded from head from the same source
+
+- GIVEN a provider listed in the approved tail config
+- WHEN the head inventory snapshot is built
+- THEN that provider is not entered into the head snapshot
 
 #### Scenario: Tools pool keeps capability in its tail
 
@@ -370,6 +475,13 @@ provider is account-pinned in the same generation's head.
 - WHEN the tail is materialized
 - THEN the offending tail entry is dropped
 - AND the violation is logged
+
+#### Scenario: Malformed config degrades to empty
+
+- GIVEN an approved tail config that fails schema validation
+- WHEN the tail config is read
+- THEN the failure is logged
+- AND the tail is treated as empty rather than throwing
 
 ### Requirement: Atomic generation apply
 

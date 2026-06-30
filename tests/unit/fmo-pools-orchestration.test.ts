@@ -48,7 +48,7 @@ function poolPayload(comboId: string, overrides: Partial<FmoPoolSpec> = {}): Fmo
   return {
     pool_id: `pool-${comboId}`,
     combo_id: comboId,
-    demand: { requests_per_day: 100, workload_class: "coding" },
+    demand: { requests_per_day: 100, workload_class: "chat" },
     constraints: {
       free_only: false,
       capabilities: ["chat"],
@@ -137,8 +137,8 @@ test("candidate assembler carries band, quota, per-pool capacity, and excludes t
   const pools = [
     fmoPoolsDb.mapFmoPoolSpecToPlanningPool(poolPayload("combo-light")),
     fmoPoolsDb.mapFmoPoolSpecToPlanningPool(
-      poolPayload("combo-analysis", {
-        demand: { requests_per_day: 100, workload_class: "analysis" },
+      poolPayload("combo-reasoning", {
+        demand: { requests_per_day: 100, workload_class: "reasoning" },
       })
     ),
   ];
@@ -201,8 +201,8 @@ test("candidate assembler carries band, quota, per-pool capacity, and excludes t
   assert.equal(quotaCalls, 1);
   assert.equal(candidates[0].providerId, "gemini");
   assert.equal(candidates[0].qualityScoreByComboId?.["combo-light"], 0.7);
-  assert.equal(candidates[0].capacityPerDayByComboId?.["combo-light"], 200);
-  assert.equal(candidates[0].capacityPerDayByComboId?.["combo-analysis"], 100);
+  assert.equal(candidates[0].capacityPerDayByComboId?.["combo-light"], 320);
+  assert.equal(candidates[0].capacityPerDayByComboId?.["combo-reasoning"], 100);
   assert.equal(candidates[0].isFree, true);
 });
 

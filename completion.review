@@ -1,0 +1,7 @@
+# Completion Review
+
+## 2026-06-30
+
+- Fixed post-archive shared fixture drift: `tests/fixtures/fmo/fmo-pools-v1.golden.json`
+  now matches the FMO canonical fixture byte-for-byte (`quality_band.min/max` are
+  `0.55`/`0.85`).

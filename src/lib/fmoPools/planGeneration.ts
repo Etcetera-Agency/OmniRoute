@@ -4,6 +4,7 @@ import { buildFmoSolveCandidates, type FmoSolveCandidateDeps } from "./candidate
 import { solveFmoPools, type FmoIncumbencyPrior } from "./packing";
 import type { FmoRebalancePlan } from "./rebalance";
 import type { FmoTailConfig } from "./tail";
+import { readFmoTailConfig } from "./tailConfig";
 
 export interface FmoGenerationPlanDeps extends FmoSolveCandidateDeps {
   readTailConfig?: () => FmoTailConfig;
@@ -15,12 +16,6 @@ type DecisionRow = {
   model_id: string;
   connection_id: string | null;
 };
-
-const EMPTY_TAIL_CONFIG: FmoTailConfig = { entries: [] };
-
-export function readFmoTailConfig(): FmoTailConfig {
-  return EMPTY_TAIL_CONFIG;
-}
 
 export function loadIncumbencyPrior(generation: string | null): FmoIncumbencyPrior {
   if (!generation) return { byComboId: {} };
