@@ -111,9 +111,15 @@ function inBand(candidate: FmoSolveCandidate, pool: FmoPlanningPool, relax = 0):
   return score >= band.min - relax && score <= band.max + relax;
 }
 
-function hasHigherCapability(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
-  const score = candidateQualityScore(candidate, pool);
-  return score !== null && score > pool.constraints.quality_band.max;
+function hasCapabilitySurplus(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
+  const required = new Set(pool.constraints.required_capabilities ?? []);
+  const candidateCapabilities = new Set(candidate.capabilities);
+
+  for (const capability of required) {
+    if (!candidateCapabilities.has(capability)) return false;
+  }
+
+  return candidate.capabilities.some((capability) => !required.has(capability));
 }
 
 function inRelaxedLowerBand(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
@@ -277,7 +283,12 @@ export function solveFmoPools(
     }
 
     const exact = sortCandidates(
-      candidates.filter((candidate) => passesHardGates(candidate, pool) && inBand(candidate, pool)),
+      candidates.filter(
+        (candidate) =>
+          passesHardGates(candidate, pool) &&
+          inBand(candidate, pool) &&
+          !hasCapabilitySurplus(candidate, pool)
+      ),
       pool,
       options.prior
     );
@@ -297,6 +308,7 @@ export function solveFmoPools(
         candidates.filter(
           (candidate) =>
             passesHardGates(candidate, pool) &&
+            !hasCapabilitySurplus(candidate, pool) &&
             !inBand(candidate, pool) &&
             inRelaxedLowerBand(candidate, pool)
         ),
@@ -318,7 +330,10 @@ export function solveFmoPools(
     if (covered < demandRequests(pool)) {
       const overflow = sortCandidates(
         candidates.filter(
-          (candidate) => passesHardGates(candidate, pool) && hasHigherCapability(candidate, pool)
+          (candidate) =>
+            passesHardGates(candidate, pool) &&
+            hasCapabilitySurplus(candidate, pool) &&
+            inBand(candidate, pool, pool.constraints.quality_band.relax)
         ),
         pool,
         options.prior

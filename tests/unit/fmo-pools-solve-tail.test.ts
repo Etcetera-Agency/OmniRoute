@@ -75,13 +75,74 @@ test("relaxed band is used before higher-capability overflow", () => {
   const result = solveFmoPools(
     [pool("coding", "combo-coding", ["chat"], 100)],
     [
-      candidate({ providerId: "overflow", modelId: "premium", qualityScore: 0.95, score: 0.99 }),
+      candidate({
+        providerId: "overflow",
+        modelId: "premium",
+        capabilities: ["chat", "tools"],
+        qualityScore: 0.7,
+        score: 0.99,
+      }),
       candidate({ providerId: "relaxed", modelId: "near", qualityScore: 0.52, score: 0.5 }),
     ]
   );
 
   assert.equal(result.plans["combo-coding"][0].providerId, "relaxed");
   assert.equal(result.decisions[0].reason, "relaxed-band");
+});
+
+test("higher-capability overflow is keyed by capability surplus, not score", () => {
+  const result = solveFmoPools(
+    [pool("coding", "combo-coding", ["chat"], 100)],
+    [
+      candidate({
+        providerId: "high-score",
+        modelId: "plain",
+        capabilities: ["chat"],
+        qualityScore: 0.95,
+        score: 0.99,
+      }),
+      candidate({
+        providerId: "surplus",
+        modelId: "tool",
+        capabilities: ["chat", "tools"],
+        qualityScore: 0.7,
+        score: 0.5,
+      }),
+    ]
+  );
+
+  assert.deepEqual(
+    result.plans["combo-coding"].map((member) => member.providerId),
+    ["surplus"]
+  );
+  assert.equal(result.decisions[0].reason, "overflow");
+});
+
+test("stricter pool is covered before capability surplus overflow is spent", () => {
+  const result = solveFmoPools(
+    [pool("text", "combo-text", ["chat"]), pool("tools", "combo-tools", ["chat", "tools"])],
+    [
+      candidate({
+        providerId: "rare-best",
+        modelId: "tool-a",
+        capabilities: ["chat", "tools"],
+        score: 0.9,
+      }),
+      candidate({
+        providerId: "rare-overflow",
+        modelId: "tool-b",
+        capabilities: ["chat", "tools"],
+        score: 0.8,
+      }),
+    ]
+  );
+
+  assert.equal(result.plans["combo-tools"][0].providerId, "rare-best");
+  assert.equal(result.plans["combo-text"][0].providerId, "rare-overflow");
+  assert.equal(
+    result.decisions.find((decision) => decision.comboId === "combo-text")?.reason,
+    "overflow"
+  );
 });
 
 test("hard capability and context gates are never relaxed", () => {
