@@ -8,11 +8,10 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   `fix-fmo-pools-live-seam` is implemented with focused unit coverage and a documented
   deploy smoke in `docs/fmo-pools-live-seam-smoke.md`; production cutover validation
   still must run that smoke through the live bridge before marking the broader pool
-  migration complete. `fix-fmo-pools-solver-contract` must validate canonical quality categories and
-  symmetric band relax, and include runtime/manual `customModels` in FMO head
-  candidate inventory while excluding hidden models with the same visibility gate as
-  the public catalog. Do not mark the pool migration complete until both slices are
-  implemented and live cutover smoke passes.
+  migration complete. `fix-fmo-pools-solver-contract` is implemented with focused unit
+  coverage for canonical quality categories, symmetric band relax, runtime/manual
+  `customModels` inventory, and hidden-model visibility gates. Do not mark the pool
+  migration complete until live cutover smoke passes.
 
 0. Keep FMO pool extractor live-provider coverage pending until an internal
    extractor model is configured for this fork. Unit coverage now verifies the

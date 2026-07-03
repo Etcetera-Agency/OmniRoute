@@ -7,11 +7,21 @@ const positiveInteger = z.number().int().positive();
 const positiveFiniteNumber = z.number().finite().positive();
 const nonNegativeNumber = z.number().finite().nonnegative();
 
+export const fmoPoolQualityCategorySchema = z.enum([
+  "coding",
+  "review",
+  "planning",
+  "analysis",
+  "debugging",
+  "documentation",
+  "default",
+]);
+
 export const fmoPoolQualityBandSchema = z
   .object({
     source: nonEmptyString,
     metric: nonEmptyString,
-    category: nonEmptyString,
+    category: fmoPoolQualityCategorySchema,
     min: nonNegativeNumber,
     max: nonNegativeNumber,
     relax: z

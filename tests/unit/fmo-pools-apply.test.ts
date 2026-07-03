@@ -55,7 +55,7 @@ function acceptGeneration(comboId: string, generation = "gen-apply-1"): void {
             quality_band: {
               source: "test",
               metric: "text",
-              category: "text",
+              category: "default",
               min: 0.5,
               max: 0.8,
               relax: { max_delta: 0.1, when: "test" },
@@ -184,7 +184,7 @@ test("scheduler cadence comes from latest accepted pool generation", async () =>
             quality_band: {
               source: "test",
               metric: "text",
-              category: "text",
+              category: "default",
               min: 0.5,
               max: 0.8,
               relax: { max_delta: 0.1, when: "test" },
@@ -242,7 +242,7 @@ test("pool publish rejects unauthenticated calls and applies authenticated plan"
           quality_band: {
             source: "test",
             metric: "text",
-            category: "text",
+            category: "default",
             min: 0.5,
             max: 0.8,
             relax: { max_delta: 0.1, when: "test" },

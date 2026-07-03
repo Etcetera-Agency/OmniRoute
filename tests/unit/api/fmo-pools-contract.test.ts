@@ -232,6 +232,19 @@ test("rebalance interval is required and must be a positive integer", () => {
   assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, true);
 });
 
+test("unknown quality category is rejected at schema validation", () => {
+  const payload = fixturePayload();
+  const [pool] = payload.pools as Array<Record<string, unknown>>;
+  const constraints = pool.constraints as Record<string, unknown>;
+  const qualityBand = constraints.quality_band as Record<string, unknown>;
+
+  qualityBand.category = "intelligence";
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, false);
+
+  qualityBand.category = "default";
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, true);
+});
+
 test("idempotency is keyed by payload hash rather than generation", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
   const comboId = await createComboId();

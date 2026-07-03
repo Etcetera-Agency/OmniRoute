@@ -124,13 +124,6 @@ function hasCapabilitySurplus(candidate: FmoSolveCandidate, pool: FmoPlanningPoo
   return candidate.capabilities.some((capability) => !required.has(capability));
 }
 
-function inRelaxedLowerBand(candidate: FmoSolveCandidate, pool: FmoPlanningPool): boolean {
-  const score = candidateQualityScore(candidate, pool);
-  if (score === null) return false;
-  const band = pool.constraints.quality_band;
-  return score < band.min && score >= band.min - band.relax;
-}
-
 function scarcity(pool: FmoPlanningPool, candidates: FmoSolveCandidate[]): number {
   const exactFitCount = candidates.filter(
     (candidate) => passesHardGates(candidate, pool) && inBand(candidate, pool)
@@ -418,7 +411,7 @@ export function solveFmoPools(
             passesHardGates(candidate, pool) &&
             !hasCapabilitySurplus(candidate, pool) &&
             !inBand(candidate, pool) &&
-            inRelaxedLowerBand(candidate, pool)
+            inBand(candidate, pool, pool.constraints.quality_band.relax)
         ),
         pool,
         options.prior

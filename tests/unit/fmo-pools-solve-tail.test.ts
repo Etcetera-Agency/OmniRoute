@@ -90,6 +90,25 @@ test("relaxed band is used before higher-capability overflow", () => {
   assert.equal(result.decisions[0].reason, "relaxed-band");
 });
 
+test("above-max relaxed candidate is used before higher-capability overflow", () => {
+  const result = solveFmoPools(
+    [pool("coding", "combo-coding", ["chat"], 100)],
+    [
+      candidate({
+        providerId: "overflow",
+        modelId: "premium",
+        capabilities: ["chat", "tools"],
+        qualityScore: 0.7,
+        score: 0.99,
+      }),
+      candidate({ providerId: "relaxed", modelId: "near-high", qualityScore: 0.85, score: 0.5 }),
+    ]
+  );
+
+  assert.equal(result.plans["combo-coding"][0].providerId, "relaxed");
+  assert.equal(result.decisions[0].reason, "relaxed-band");
+});
+
 test("higher-capability overflow is keyed by capability surplus, not score", () => {
   const result = solveFmoPools(
     [pool("coding", "combo-coding", ["chat"], 100)],
@@ -98,7 +117,7 @@ test("higher-capability overflow is keyed by capability surplus, not score", () 
         providerId: "high-score",
         modelId: "plain",
         capabilities: ["chat"],
-        qualityScore: 0.95,
+        qualityScore: 1,
         score: 0.99,
       }),
       candidate({
