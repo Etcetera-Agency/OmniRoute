@@ -40,13 +40,23 @@ test("API bridge exposes only FMO combo management routes needed for apply", () 
   assert.equal(isApiBridgeAllowedPath("GET", "/api/combos"), true);
   assert.equal(isApiBridgeAllowedPath("HEAD", "/api/combos"), true);
   assert.equal(isApiBridgeAllowedPath("GET", "/api/combos/fmo-routing"), true);
-  assert.equal(isApiBridgeAllowedPath("PUT", "/api/combos/fmo-routing"), true);
 
   assert.equal(isApiBridgeAllowedPath("POST", "/api/combos"), false);
+  assert.equal(isApiBridgeAllowedPath("PUT", "/api/combos/fmo-routing"), false);
   assert.equal(isApiBridgeAllowedPath("DELETE", "/api/combos/fmo-routing"), false);
   assert.equal(isApiBridgeAllowedPath("POST", "/api/combos/test"), false);
   assert.equal(isApiBridgeAllowedPath("GET", "/api/combos/auto"), false);
   assert.equal(isApiBridgeAllowedPath("POST", "/api/combos/reorder"), false);
+});
+
+test("API bridge exposes FMO pool publish seam", () => {
+  assert.equal(isApiBridgeAllowedPath("PUT", "/api/fmo/pools"), true);
+  assert.equal(isApiBridgeAllowedPath("POST", "/api/fmo/pools"), true);
+  assert.equal(isApiBridgeAllowedPath("OPTIONS", "/api/fmo/pools"), true);
+  assert.equal(isApiBridgeAllowedPath("GET", "/api/fmo/status"), true);
+
+  assert.equal(isApiBridgeAllowedPath("GET", "/api/fmo/pools"), false);
+  assert.equal(isApiBridgeAllowedPath("POST", "/api/fmo/rebalance"), false);
 });
 
 test("API bridge rejects unrelated dashboard management routes", () => {

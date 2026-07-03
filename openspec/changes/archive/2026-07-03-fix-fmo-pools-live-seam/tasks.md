@@ -1,0 +1,21 @@
+# Implementation Tasks
+
+- [x] Add failing bridge tests for `PUT /api/fmo/pools` and `POST /api/fmo/pools`.
+- [x] Add failing bridge regression proving legacy `/api/combos/fmo-*` writes are denied once the pool seam is the writer path.
+- [x] Add failing pool-contract test proving `rebalance.interval_minutes` is required and validated as a positive integer.
+- [x] Add failing pool-publish test proving accepted pool publish immediately applies the computed plan and does not require `POST /api/fmo/rebalance`.
+- [x] Add failing pool-publish test proving an identical payload/idempotency key still rebuilds and applies a fresh plan.
+- [x] Add failing scheduler test proving the self-rebalance cadence comes from the latest accepted generation's `rebalance.interval_minutes`.
+- [x] Add failing scheduler test proving the FMO scheduler reuses the existing startup background timer pattern and does not require cron/queue/external scheduler infra.
+- [x] Add failing scheduler test proving successful pool publish updates the next self-rebalance cadence.
+- [x] Add failing route regression proving `POST /api/fmo/rebalance` is gone.
+- [x] Update `src/lib/apiBridgeServer.ts` allowlist for the pool publish seam only.
+- [x] Update `PUT/POST /api/fmo/pools` to store or reuse the generation record, always build the plan, apply it atomically, and return accepted/applied status with generation and diff summary.
+- [x] Delete `src/app/api/fmo/rebalance/route.ts` and update route tests to exercise internal apply/scheduler behavior through `/api/fmo/pools` instead.
+- [x] Persist/read the accepted generation rebalance cadence for the OmniRoute self-rebalance scheduler, and reschedule the internal timer after successful pool publish.
+- [x] Add or adjust diagnostics/rebalance-status endpoint(s) so operators can inspect accepted generation, applied generation, last shadow diff, and decision-log summary without feeding FMO demand.
+- [x] Add tests proving diagnostics/status endpoints are read-only and are not required by pool publish.
+- [x] Preserve disabled/auth failure behavior for `/api/fmo/pools` and diagnostics/status routes.
+- [x] Add a live-seam smoke script or documented command sequence: publish fixture through bridge, verify applied status, inspect diagnostics/status, and verify scheduled self-rebalance cadence.
+- [x] Update `openspec/TODO.md` after implementation if production cutover validation remains deferred.
+- [x] Run targeted tests: `api-bridge-fmo-routes`, `api/fmo-pools-contract`, `fmo-pools-apply`, and diagnostics/status tests.

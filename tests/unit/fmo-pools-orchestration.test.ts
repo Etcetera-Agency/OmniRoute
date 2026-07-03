@@ -26,7 +26,7 @@ const { buildFmoSolveCandidates } = await import("../../src/lib/fmoPools/candida
 const { buildFmoGenerationPlan, loadIncumbencyPrior } =
   await import("../../src/lib/fmoPools/planGeneration.ts");
 const rebalance = await import("../../src/lib/fmoPools/rebalance.ts");
-const route = await import("../../src/app/api/fmo/rebalance/route.ts");
+const poolsRoute = await import("../../src/app/api/fmo/pools/route.ts");
 const fmoPoolSchemas = await import("../../src/shared/schemas/fmoPools.ts");
 
 async function resetStorage(): Promise<void> {
@@ -72,6 +72,7 @@ function acceptGeneration(comboIds: string[], generation = "gen-orchestration-1"
     {
       contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
       generation,
+      rebalance: { interval_minutes: 60 },
       pools: comboIds.map((comboId) => poolPayload(comboId)),
     },
     null
@@ -272,6 +273,7 @@ test("no-candidate pool materializes tail-only and logs empty-head outcome", asy
     {
       contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
       generation: "gen-tail-only",
+      rebalance: { interval_minutes: 60 },
       pools: [
         poolPayload(comboId, {
           constraints: {
@@ -320,7 +322,7 @@ test("no-candidate pool materializes tail-only and logs empty-head outcome", asy
   assert.ok(built.decisions.some((decision) => decision.reason === "empty-head-tail-only"));
 });
 
-test("scheduled and manual rebalance compute plans without supplied members", async () => {
+test("scheduled rebalance and repeated pool publish compute plans without supplied members", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
   await settingsDb.updateSettings({ requireLogin: true });
   const comboId = await createCombo("Route Combo");
@@ -359,20 +361,37 @@ test("scheduled and manual rebalance compute plans without supplied members", as
   const timer = scheduler.start();
   assert.ok(timer);
   await new Promise((resolve) => setTimeout(resolve, 25));
-  clearInterval(timer);
+  clearTimeout(timer);
+  scheduler.stop();
   const scheduledCombo = await combosDb.getComboById(comboId);
   assert.notEqual(scheduledCombo?.models.length, 0);
 
-  const response = await route.POST(
-    await makeManagementSessionRequest("http://localhost/api/fmo/rebalance", {
-      method: "POST",
-      body: { shadow: true },
+  const response = await poolsRoute.PUT(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "PUT",
+      body: {
+        contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
+        generation: "gen-route",
+        rebalance: { interval_minutes: 60 },
+        pools: [poolPayload(comboId)],
+      },
     })
   );
-  const body = (await response.json()) as { diffs: Array<{ afterModels: unknown[] }> };
+  const body = (await response.json()) as {
+    applied: boolean;
+    diffs: Array<{ afterModels: unknown[] }>;
+  };
 
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 202);
+  assert.equal(body.applied, true);
   assert.notEqual(body.diffs[0].afterModels.length, 0);
+});
+
+test("public FMO rebalance API route is removed", () => {
+  assert.equal(
+    fs.existsSync(path.join(process.cwd(), "src/app/api/fmo/rebalance/route.ts")),
+    false
+  );
 });
 
 test("computed apply abort leaves previous generation live", async () => {

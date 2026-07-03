@@ -11,103 +11,104 @@ guardrails, and apply semantics used by the Hermes-managed OmniRoute fork.
 
 The system SHALL accept a versioned `fmo-pools/v1` generation on a dedicated seam
 (`PUT/POST /api/fmo/pools`) behind the `OMNIROUTE_FMO_POOLS_ENABLED` feature flag,
-require management authentication for pool writes and usage reads, validate pool
-writes against a Zod schema, and store accepted pools. When the flag is off the seam
-SHALL be inert and OmniRoute behavior SHALL equal upstream.
+require management authentication for pool writes, validate pool writes against a Zod
+schema, and store accepted pools. When the flag is off the seam SHALL be inert and
+OmniRoute behavior SHALL equal upstream.
+
+The API bridge SHALL expose the pool seam methods FMO needs in production:
+`PUT /api/fmo/pools` and `POST /api/fmo/pools`, preserving the caller's management
+authentication headers. `/api/fmo/usage` SHALL NOT be a required FMO publisher
+contract endpoint. The bridge SHALL NOT expose direct legacy FMO combo-write routes as
+the production writer path; FMO publishes pool specs and OmniRoute applies combos
+internally.
 
 The accepted shape SHALL be the canonical publisher contract: a top-level
 `contract_version` literal `fmo-pools/v1`, a `generation` string, an optional
-`generated_at`, and a non-empty `pools` array. Each pool SHALL carry `pool_id`,
-`combo_id`, a `demand` object whose `requests_per_day` is any positive finite number
-(integer or fractional) and whose optional `consumers` is a positive integer count (not
-a list) alongside an optional `workload_class`, and a `constraints` object (`free_only`,
-`capabilities`, `min_context_tokens`, and a `quality_band` intent with `min`, `max`, a
-`category`/metric, and a `relax` of `{ max_delta, when }`), plus a `tail` intent object
-(`strategy`, `mode`, `compatibility`). The `tail` field SHALL carry intent only and
-SHALL NOT carry explicit tail members; tail entries are resolved from OmniRoute config,
-not from the contract. The system SHALL reject an unknown or breaking contract shape
-and SHALL reject a pool that omits a per-pool context lower bound; it SHALL NOT invent a
-default context lower bound.
+`generated_at`, a required `rebalance` object, and a non-empty `pools` array.
+`rebalance.interval_minutes` SHALL be a positive integer cadence chosen by FMO.
+Each pool SHALL carry `pool_id`, `combo_id`, a `demand` object whose
+`requests_per_day` is any positive finite number and whose optional `consumers` is a
+positive integer count alongside an optional `workload_class`, and a `constraints`
+object (`free_only`, `capabilities`, `min_context_tokens`, and a `quality_band` intent
+with `min`, `max`, `category`, and `relax` of `{ max_delta, when }`), plus a `tail`
+intent object. The system SHALL reject unknown or breaking contract shape and SHALL
+NOT invent a default context lower bound.
 
-Pool-write idempotency SHALL be keyed by the payload hash supplied as `Idempotency-Key`;
-the system SHALL NOT require the `Idempotency-Key` to equal the `generation`. The system
-SHALL fail the whole generation when any referenced `combo_id` does not exist; it SHALL
-NOT create, delete, or synthesize combos. Storing a generation SHALL NOT materialize or
-modify any combo.
+Pool-write idempotency SHALL be keyed by the payload hash supplied as
+`Idempotency-Key`, but idempotency SHALL only deduplicate the stored pool generation
+record. Every successful `PUT/POST /api/fmo/pools` call SHALL build and apply the
+OmniRoute seating plan, even when the payload and accepted generation are identical to
+the current stored generation. This preserves a manual rebalance path without a
+separate rebalance route. The system SHALL fail the whole generation when any
+referenced `combo_id` does not exist; it SHALL NOT create, delete, or synthesize
+combos. Storing a generation SHALL immediately build and apply the OmniRoute seating
+plan for that generation. The scheduled OmniRoute self-rebalance loop SHALL then
+re-apply the latest accepted generation using `rebalance.interval_minutes`.
+`POST /api/fmo/rebalance` SHALL be removed; rebalance is an internal OmniRoute
+function/job, not an API contract.
 
-#### Scenario: Consumers count accepted as a number
+The self-rebalance scheduler SHALL reuse OmniRoute's existing startup background
+service pattern (`instrumentation-node` plus an internal timer). The system SHALL NOT
+introduce a new cron service, queue worker, or external scheduler framework for this
+slice. The timer SHALL be inactive until an accepted pool generation exists. After
+each successful pool publish, the timer SHALL use the latest
+`rebalance.interval_minutes` value for subsequent ticks.
 
-- GIVEN a valid generation whose `demand.consumers` is the integer count `4`
-- WHEN the payload is validated
-- THEN it is accepted without coercion
-- AND a `demand.consumers` given as a string array is rejected as a breaking shape
+#### Scenario: Bridge accepts pool publish
 
-#### Scenario: Fractional requests_per_day accepted
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true and management auth is valid
+- WHEN FMO calls `PUT /api/fmo/pools` through the API bridge
+- THEN the bridge forwards the request to the app route with auth headers intact
+- AND the generation is validated, stored, planned, and applied
+- AND future self-rebalance uses the published `rebalance.interval_minutes` cadence
 
-- GIVEN a valid generation whose `demand.requests_per_day` is a fractional number
-- WHEN the payload is validated
-- THEN it is accepted without rejection or truncation
+#### Scenario: Pool publish applies atomically
 
-#### Scenario: Flag off is a no-op
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true
+- AND FMO publishes a valid generation with `rebalance.interval_minutes = 60`
+- WHEN `PUT /api/fmo/pools` succeeds
+- THEN OmniRoute stores the generation and applies the computed combo model seating in the same accepted flow
+- AND the next scheduled self-rebalance is based on the same accepted generation and the 60 minute cadence
+- AND no `POST /api/fmo/rebalance` route exists
 
-- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is false
-- WHEN a client calls `PUT /api/fmo/pools`
-- THEN the seam returns a disabled response
-- AND no combo row is read or written
+#### Scenario: Identical pool publish still rebalances
 
-#### Scenario: Unauthenticated pool write is rejected
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true
+- AND generation `gen-1` is already accepted and applied
+- AND OmniRoute runtime state has changed without a new FMO pool payload
+- WHEN FMO sends the same `fmo-pools/v1` payload and idempotency key again to `PUT /api/fmo/pools`
+- THEN OmniRoute may reuse the stored generation record
+- BUT it still rebuilds and applies a fresh seating plan against current runtime state
+- AND the response reports the new apply result
 
-- GIVEN the feature flag is on
-- WHEN a client without management authentication calls `PUT /api/fmo/pools`
-- THEN the request is rejected before validation or storage
-- AND no generation marker or pool row is stored
+#### Scenario: Scheduler uses existing startup timer pattern
 
-#### Scenario: Canonical publisher payload accepted and stored
+- GIVEN OmniRoute starts with background services enabled
+- WHEN an accepted FMO pool generation exists with `rebalance.interval_minutes = 60`
+- THEN the existing FMO self-rebalance startup service schedules an internal timer for that cadence
+- AND no cron service, queue worker, or external scheduler is required
 
-- GIVEN the flag is on and a payload with `contract_version: "fmo-pools/v1"`, a
-  `demand` carrying `workload_class`, `constraints` with `free_only`, `capabilities`,
-  `min_context_tokens`, and a `quality_band` whose `relax` is `{ max_delta, when }`,
-  and a `tail` intent object whose combos all exist
-- WHEN the payload is submitted
-- THEN every pool is stored with status accepted
-- AND the generation marker is recorded
-- AND no combo is materialized
+#### Scenario: Pool publish updates scheduler cadence
 
-#### Scenario: Idempotency keyed by payload hash
+- GIVEN the FMO self-rebalance scheduler is running for generation `gen-1`
+- WHEN `/api/fmo/pools` accepts generation `gen-2` with `rebalance.interval_minutes = 15`
+- THEN subsequent self-rebalance ticks use the 15 minute cadence
+- AND they rebuild/apply `gen-2` against current OmniRoute runtime state
 
-- GIVEN the flag is on and a valid generation whose `Idempotency-Key` is the payload
-  hash and is not equal to the `generation`
-- WHEN the payload is submitted
-- THEN the write is accepted and not rejected for key/generation mismatch
-- AND resubmitting the identical payload with the same hash is idempotent
+#### Scenario: Usage endpoint not required
 
-#### Scenario: Tail members in the contract are rejected
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true
+- AND `PUT /api/fmo/pools` accepts a valid generation
+- WHEN `/api/fmo/usage` is absent or disabled
+- THEN pool publish is still a valid contract flow
+- AND no demand recalibration is expected from OmniRoute usage
 
-- GIVEN a payload whose `tail` is an array of explicit members rather than an intent
-  object
-- WHEN it is validated
-- THEN it is rejected as an unknown/breaking shape
-- AND no pool is stored
+#### Scenario: Legacy combo write denied
 
-#### Scenario: Missing referenced combo fails the generation
-
-- GIVEN a pool referencing a `combo_id` that does not exist in OmniRoute
-- WHEN the generation is validated
-- THEN the whole generation is rejected
-- AND no combo is created and no partial state is stored
-
-#### Scenario: Missing context lower bound rejected
-
-- GIVEN a pool whose constraints omit `min_context_tokens`
-- WHEN the generation is validated
-- THEN the generation is rejected
-- AND no default context lower bound is substituted
-
-#### Scenario: Unknown contract shape rejected
-
-- GIVEN a payload with an unknown or breaking field shape
-- WHEN it is validated
-- THEN it is rejected without storing any pool
+- GIVEN FMO pool publishing is the active writer path
+- WHEN a client calls a legacy direct combo-write route such as `PUT /api/combos/fmo-routing` through the API bridge
+- THEN the bridge denies the write
+- AND no combo row is modified through that legacy path
 
 ### Requirement: Shared contract fixture conformance
 
@@ -648,3 +649,33 @@ hash) SHALL be preserved on the tier-3 result regardless of extraction outcome.
 - WHEN tier-3 is reached for a candidate
 - THEN the extractor is not invoked
 - AND the candidate degrades to tier-4 `none` exactly as a no-claim result
+
+### Requirement: Pool execution diagnostics boundary
+
+The system SHALL expose OmniRoute-owned pool execution data through diagnostics,
+decision logs, and rebalance status endpoints, not as FMO demand recalibration input.
+Diagnostics MAY include accepted generation, applied generation, shadow diff, decision
+log summary, selected model/account counts, quota/cooldown state, and tail fallback
+reasons. These endpoints SHALL be read-only, management-auth gated, and feature-flag
+gated where they expose FMO pool internals. They SHALL NOT be required by the FMO
+publisher pipeline and SHALL NOT describe their output as forecast demand feedback.
+
+#### Scenario: Diagnostics expose execution facts
+
+- GIVEN a pool generation has been applied
+- WHEN an operator reads the diagnostics or rebalance status endpoint
+- THEN the response can show applied generation, last decision-log summary, selected model/account counts, and tail fallback facts where available
+- AND the response is labeled as diagnostics/status data, not demand feedback
+
+#### Scenario: Diagnostics not required for publish
+
+- GIVEN the diagnostics/status endpoint is unavailable
+- WHEN FMO publishes a valid `fmo-pools/v1` generation
+- THEN publish can still succeed
+- AND FMO demand is not recalibrated from missing OmniRoute diagnostics
+
+#### Scenario: Diagnostics stay read-only
+
+- GIVEN a diagnostics/status endpoint is called
+- WHEN the route computes execution facts
+- THEN no combo rows, pool specs, or generation markers are modified

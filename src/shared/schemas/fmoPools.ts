@@ -63,11 +63,18 @@ export const fmoPoolSpecSchema = z
   })
   .strict();
 
+export const fmoPoolRebalanceSchema = z
+  .object({
+    interval_minutes: positiveInteger,
+  })
+  .strict();
+
 export const fmoPoolsGenerationSchema = z
   .object({
     contract_version: z.literal(FMO_POOLS_CONTRACT_VERSION),
     generation: nonEmptyString,
     generated_at: nonEmptyString.optional(),
+    rebalance: fmoPoolRebalanceSchema,
     pools: z.array(fmoPoolSpecSchema).min(1),
   })
   .strict();

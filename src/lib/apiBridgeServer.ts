@@ -20,6 +20,7 @@ const OPENAI_COMPAT_PATHS = [
 
 const FMO_MANAGEMENT_READ_PATHS = [
   /^\/api\/monitoring\/health(?:\?|$)/,
+  /^\/api\/fmo\/status(?:\?|$)/,
   /^\/api\/providers(?:\?|$)/,
   /^\/api\/providers\/[^/]+\/models(?:\/|\?|$)/,
   /^\/api\/v1\/providers\/[^/]+\/models(?:\/|\?|$)/,
@@ -33,6 +34,7 @@ const FMO_MANAGEMENT_READ_PATHS = [
 
 const FMO_COMBO_COLLECTION_PATH = /^\/api\/combos(?:\?|$)/;
 const FMO_COMBO_ITEM_PATH = /^\/api\/combos\/fmo-[^/]+(?:\?|$)/;
+const FMO_POOL_SEAM_PATH = /^\/api\/fmo\/pools(?:\?|$)/;
 
 function isOpenAiCompatiblePath(pathname: string): boolean {
   return OPENAI_COMPAT_PATHS.some((pattern) => pattern.test(pathname));
@@ -57,13 +59,19 @@ function isFmoComboManagementPath(method: string | undefined, pathname: string):
   if (!["GET", "PUT", "OPTIONS", "HEAD"].includes(normalizedMethod)) {
     return false;
   }
-  return FMO_COMBO_ITEM_PATH.test(pathname);
+  return normalizedMethod !== "PUT" && FMO_COMBO_ITEM_PATH.test(pathname);
+}
+
+function isFmoPoolPublishPath(method: string | undefined, pathname: string): boolean {
+  const normalizedMethod = String(method || "GET").toUpperCase();
+  return ["PUT", "POST", "OPTIONS"].includes(normalizedMethod) && FMO_POOL_SEAM_PATH.test(pathname);
 }
 
 export function isApiBridgeAllowedPath(method: string | undefined, pathname: string): boolean {
   return (
     isOpenAiCompatiblePath(pathname) ||
     isFmoManagementReadPath(method, pathname) ||
+    isFmoPoolPublishPath(method, pathname) ||
     isFmoComboManagementPath(method, pathname)
   );
 }

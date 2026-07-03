@@ -17,6 +17,12 @@
 - No pending coverage remains for the FMO pool token-factor learning slice:
   `tests/unit/fmo-pools-planning.test.ts` now covers contract workload-class weights,
   clamped observations, persisted restart reload, and call-log request-path learning.
+- No pending unit coverage remains for the FMO pool live seam slice:
+  `tests/unit/api-bridge-fmo-routes.test.ts`, `tests/unit/api/fmo-pools-contract.test.ts`,
+  `tests/unit/fmo-pools-apply.test.ts`, and `tests/unit/fmo-pools-orchestration.test.ts`
+  now cover bridge publish exposure, legacy combo-write denial, required rebalance
+  cadence, publish-time apply, repeated publish re-apply, scheduler cadence/reschedule,
+  removed rebalance route, and read-only status diagnostics.
 - FMO tier-3 quota extractor needs live provider-contract coverage once an
   internal extractor model is configured; current focused planning tests cover
   internal-chain boundaries, evidence validation, source precedence, and capacity
