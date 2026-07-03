@@ -2,6 +2,7 @@
   "contract_version": "fmo-pools/v1",
   "generation": "gen-001",
   "generated_at": "2026-06-29T00:00:00.000Z",
+  "rebalance": { "interval_minutes": 60 },
   "pools": [
     {
       "pool_id": "pool-fast",
