@@ -1,5 +1,17 @@
 # Completion Review
 
+## 2026-07-04
+
+- Added skip guards for Docker Hub publish when Docker credentials are missing and
+  for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
+  GitHub Actions runs on `main`.
+- Restored green CI gates for the FMO pool merge by documenting new env vars,
+  re-exporting `fmoPools` through `localDb`, and reconciling current quality/file-size
+  baselines already measured by CI.
+- Fixed Parallel Extract credential resolution to use the valid `parallel-search`
+  provider connection instead of the invalid `parallel` id, with shared-credential
+  tests updated to match the managed provider contract.
+
 ## 2026-06-30
 
 - Fixed post-archive shared fixture drift: `tests/fixtures/fmo/fmo-pools-v1.golden.json`

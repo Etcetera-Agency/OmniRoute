@@ -45,16 +45,25 @@ jobs:
           node-version: "24"
 
       - name: Clone wiki
+        id: clone-wiki
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
+          if ! git ls-remote "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.wiki.git" >/dev/null 2>&1; then
+            echo "Wiki repository is not enabled for ${REPO}; skipping sync."
+            echo "wiki_exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "wiki_exists=true" >> "$GITHUB_OUTPUT"
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.wiki.git" wiki
 
       - name: Sync wiki (add missing pages + cover counts)
+        if: steps.clone-wiki.outputs.wiki_exists == 'true'
         run: node scripts/docs/sync-wiki.mjs --wiki-dir wiki
 
       - name: Commit & push if changed
+        if: steps.clone-wiki.outputs.wiki_exists == 'true'
         run: |
           cd wiki
           if [ -n "$(git status --porcelain)" ]; then

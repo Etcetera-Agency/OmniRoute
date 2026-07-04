@@ -1073,6 +1073,17 @@ that should be able to run the docs translator.
 
 ---
 
+## 27. Fork Search/FMO Providers
+
+| Variable                                  | Default   | Source File                                  | Description                                                                                      |
+| ----------------------------------------- | --------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `PARALLEL_API_KEY`                        | _(unset)_ | `src/lib/webfetch/webFetchCredentials.ts`    | Parallel API key used by Parallel Extract web-fetch fallback when no dashboard credential exists. |
+| `GEMINI_GROUNDED_SEARCH_MODEL`            | _(unset)_ | `src/lib/search/providers/geminiGrounded.ts` | Gemini grounded-search model override.                                                           |
+| `OMNIROUTE_FMO_QUOTA_EXTRACTOR_ENABLED`   | _(unset)_ | `src/lib/fmoPools/quotaExtractor.ts`         | Enable quota extraction during FMO pool planning.                                                 |
+| `OMNIROUTE_FMO_QUOTA_EXTRACTOR_MODEL`     | _(unset)_ | `src/lib/fmoPools/quotaExtractor.ts`         | Model id used by the FMO quota extractor when enabled.                                           |
+
+---
+
 ## Audit: Removed / Dead Variables
 
 The following variables appeared in previous versions of `.env.example` but have **no runtime references** in the current codebase. They have been removed:

@@ -24,7 +24,7 @@ export interface WebFetchExecutionPlan {
 
 /**
  * Resolve credentials for a single web-fetch provider. Mdream is keyless;
- * Parallel Extract reuses the `parallel` connection or `PARALLEL_API_KEY`.
+ * Parallel Extract reuses the `parallel-search` connection or `PARALLEL_API_KEY`.
  */
 async function resolveCredentials(
   providerId: WebFetchProviderId
@@ -32,7 +32,7 @@ async function resolveCredentials(
   if (providerId === "mdream") return {};
 
   try {
-    const credentialProviderId = providerId === "parallel-extract" ? "parallel" : providerId;
+    const credentialProviderId = providerId === "parallel-extract" ? "parallel-search" : providerId;
     const creds = await getProviderCredentials(credentialProviderId);
     if (creds) return creds;
     if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
