@@ -18,6 +18,7 @@ const featureFlagsDb = await import("../../../src/lib/db/featureFlags.ts");
 const fmoPoolsDb = await import("../../../src/lib/db/fmoPools.ts");
 const settingsDb = await import("../../../src/lib/db/settings.ts");
 const poolsRoute = await import("../../../src/app/api/fmo/pools/route.ts");
+const statusRoute = await import("../../../src/app/api/fmo/status/route.ts");
 const usageRoute = await import("../../../src/app/api/fmo/usage/route.ts");
 const fmoPoolsSchemas = await import("../../../src/shared/schemas/fmoPools.ts");
 const GOLDEN_FIXTURE_PATH = path.join(process.cwd(), "tests/fixtures/fmo/fmo-pools-v1.golden.json");
@@ -197,6 +198,7 @@ test("canonical fixture maps into planning pool without losing contract-owned fi
   assert.equal(marker?.idempotencyKey, idempotencyKey);
   assert.equal(marker?.contract, "fmo-pools/v1");
   assert.equal(planningPool.workload_class, "reasoning");
+  assert.equal(marker?.rebalanceIntervalMinutes, 60);
   assert.equal(planningPool.demand.consumers, 4);
   assert.deepEqual(planningPool.constraints.required_capabilities, [
     "api:openai",
@@ -212,6 +214,35 @@ test("canonical fixture maps into planning pool without losing contract-owned fi
     mode: "fallback",
     compatibility: "strict",
   });
+});
+
+test("rebalance interval is required and must be a positive integer", () => {
+  const payload = fixturePayload();
+
+  delete payload.rebalance;
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, false);
+
+  payload.rebalance = { interval_minutes: 0 };
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, false);
+
+  payload.rebalance = { interval_minutes: 15.5 };
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, false);
+
+  payload.rebalance = { interval_minutes: 15 };
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, true);
+});
+
+test("unknown quality category is rejected at schema validation", () => {
+  const payload = fixturePayload();
+  const [pool] = payload.pools as Array<Record<string, unknown>>;
+  const constraints = pool.constraints as Record<string, unknown>;
+  const qualityBand = constraints.quality_band as Record<string, unknown>;
+
+  qualityBand.category = "intelligence";
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, false);
+
+  qualityBand.category = "default";
+  assert.equal(fmoPoolsSchemas.fmoPoolsGenerationSchema.safeParse(payload).success, true);
 });
 
 test("idempotency is keyed by payload hash rather than generation", async () => {
@@ -300,4 +331,39 @@ test("missing combo fails the whole generation", async () => {
   assert.equal(response.status, 400);
   assert.deepEqual(fmoPoolsDb.listFmoPoolSpecs(), []);
   assert.equal(fmoPoolsDb.getFmoPoolGenerationMarker(), null);
+});
+
+test("status endpoint exposes read-only execution diagnostics and is not required for publish", async () => {
+  featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
+  const comboId = await createComboId();
+  const payload = makePayload(comboId);
+
+  const publishResponse = await poolsRoute.PUT(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "PUT",
+      headers: { "Idempotency-Key": payloadHash(payload) },
+      body: payload,
+    })
+  );
+  const before = fmoPoolsDb.getFmoPoolGenerationMarker();
+
+  const statusResponse = await statusRoute.GET(
+    await makeManagementSessionRequest("http://localhost/api/fmo/status")
+  );
+  const statusBody = (await statusResponse.json()) as {
+    kind: string;
+    demandFeedback: boolean;
+    acceptedGeneration: { generation: string };
+    appliedGeneration: string | null;
+    decisionSummary: Array<unknown>;
+  };
+  const after = fmoPoolsDb.getFmoPoolGenerationMarker();
+
+  assert.equal(publishResponse.status, 202);
+  assert.equal(statusResponse.status, 200);
+  assert.equal(statusBody.kind, "fmo_pool_execution_status");
+  assert.equal(statusBody.demandFeedback, false);
+  assert.equal(statusBody.acceptedGeneration.generation, "gen-001");
+  assert.equal(statusBody.appliedGeneration, "gen-001");
+  assert.deepEqual(after, before);
 });

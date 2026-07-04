@@ -7,11 +7,21 @@ const positiveInteger = z.number().int().positive();
 const positiveFiniteNumber = z.number().finite().positive();
 const nonNegativeNumber = z.number().finite().nonnegative();
 
+export const fmoPoolQualityCategorySchema = z.enum([
+  "coding",
+  "review",
+  "planning",
+  "analysis",
+  "debugging",
+  "documentation",
+  "default",
+]);
+
 export const fmoPoolQualityBandSchema = z
   .object({
     source: nonEmptyString,
     metric: nonEmptyString,
-    category: nonEmptyString,
+    category: fmoPoolQualityCategorySchema,
     min: nonNegativeNumber,
     max: nonNegativeNumber,
     relax: z
@@ -63,11 +73,18 @@ export const fmoPoolSpecSchema = z
   })
   .strict();
 
+export const fmoPoolRebalanceSchema = z
+  .object({
+    interval_minutes: positiveInteger,
+  })
+  .strict();
+
 export const fmoPoolsGenerationSchema = z
   .object({
     contract_version: z.literal(FMO_POOLS_CONTRACT_VERSION),
     generation: nonEmptyString,
     generated_at: nonEmptyString.optional(),
+    rebalance: fmoPoolRebalanceSchema,
     pools: z.array(fmoPoolSpecSchema).min(1),
   })
   .strict();

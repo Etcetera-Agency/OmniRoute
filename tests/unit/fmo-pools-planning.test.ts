@@ -93,6 +93,153 @@ test("planning inventory expands multi-account providers and excludes tail provi
   assert.ok(rows.every((row) => row.capabilities.includes("tool_call")));
 });
 
+test("planning inventory emits runtime custom models for each active connection", async () => {
+  const rows = await buildFmoHeadInventory({
+    ...inventoryDeps(),
+    async getProviderConnections() {
+      return [
+        { id: "acct-1", provider: "local-openai", isActive: true },
+        { id: "acct-2", provider: "local-openai", isActive: true },
+      ];
+    },
+    async getSyncedAvailableModelsForConnection() {
+      return [];
+    },
+    async getAllCustomModels() {
+      return {
+        "local-openai": [
+          {
+            id: "local-openai/my-runtime-model",
+            name: "Runtime Model",
+            apiFormat: "openai",
+            supportedEndpoints: ["chat"],
+            inputTokenLimit: 64_000,
+            supportsThinking: true,
+          },
+        ],
+      };
+    },
+  });
+
+  assert.deepEqual(
+    rows.map((row) => [row.connectionId, row.modelId, row.source]),
+    [
+      ["acct-1", "local-openai/my-runtime-model", "custom"],
+      ["acct-2", "local-openai/my-runtime-model", "custom"],
+    ]
+  );
+  assert.ok(rows.every((row) => row.capabilities.includes("chat")));
+  assert.ok(rows.every((row) => row.capabilities.includes("api:openai")));
+  assert.ok(rows.every((row) => row.capabilities.includes("thinking")));
+});
+
+test("planning inventory dedupes synced and custom models by connection model key", async () => {
+  const rows = await buildFmoHeadInventory({
+    ...inventoryDeps(),
+    async getProviderConnections() {
+      return [{ id: "acct-1", provider: "openrouter", isActive: true }];
+    },
+    async getSyncedAvailableModelsForConnection() {
+      return [
+        {
+          id: "openrouter/foo",
+          name: "Synced Foo",
+          source: "imported",
+          supportedEndpoints: ["chat"],
+          inputTokenLimit: 32_000,
+        },
+      ];
+    },
+    async getAllCustomModels() {
+      return {
+        openrouter: [
+          {
+            id: "openrouter/foo",
+            name: "Custom Foo",
+            apiFormat: "openai",
+            supportedEndpoints: ["chat", "responses"],
+            inputTokenLimit: 64_000,
+          },
+        ],
+      };
+    },
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].displayName, "Synced Foo");
+  assert.equal(rows[0].contextWindow, 32_000);
+  assert.equal(rows[0].source, "synced");
+  assert.ok(rows[0].capabilities.includes("api:openai"));
+});
+
+test("planning inventory skips hidden and malformed custom/synced models", async () => {
+  const rows = await buildFmoHeadInventory({
+    ...inventoryDeps(),
+    async getProviderConnections() {
+      return [
+        { id: "acct-head", provider: "head-provider", isActive: true },
+        { id: "acct-tail", provider: "tail-provider", isActive: true },
+      ];
+    },
+    async getSyncedAvailableModelsForConnection(providerId) {
+      if (providerId !== "head-provider") return [];
+      return [
+        {
+          id: "head-provider/hidden-synced",
+          name: "Hidden Synced",
+          source: "imported",
+          supportedEndpoints: ["chat"],
+          inputTokenLimit: 32_000,
+        },
+        {
+          id: "head-provider/visible-synced",
+          name: "Visible Synced",
+          source: "imported",
+          supportedEndpoints: ["chat"],
+          inputTokenLimit: 32_000,
+        },
+      ];
+    },
+    async getAllCustomModels() {
+      return {
+        "head-provider": [
+          { name: "No ID" },
+          {
+            id: "head-provider/hidden-custom",
+            name: "Hidden Custom",
+            isHidden: true,
+          },
+          {
+            id: "head-provider/visible-custom",
+            name: "Visible Custom",
+            supportedEndpoints: ["chat"],
+            inputTokenLimit: 32_000,
+          },
+        ],
+        "tail-provider": [
+          {
+            id: "tail-provider/manual-head",
+            name: "Tail Manual",
+            supportedEndpoints: ["chat"],
+            inputTokenLimit: 32_000,
+          },
+        ],
+      };
+    },
+    getModelIsHidden(providerId, modelId) {
+      return providerId === "head-provider" && modelId === "head-provider/hidden-synced";
+    },
+    readTailConfig() {
+      return { providers: ["tail-provider"] };
+    },
+  });
+
+  assert.deepEqual(rows.map((row) => row.modelId).sort(), [
+    "head-provider/visible-custom",
+    "head-provider/visible-synced",
+  ]);
+});
+
 test("band resolution accepts in-band candidates and rejects unrated candidates", () => {
   const inBand = resolveFmoBand(
     candidate(),

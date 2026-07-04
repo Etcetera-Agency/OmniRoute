@@ -11,103 +11,104 @@ guardrails, and apply semantics used by the Hermes-managed OmniRoute fork.
 
 The system SHALL accept a versioned `fmo-pools/v1` generation on a dedicated seam
 (`PUT/POST /api/fmo/pools`) behind the `OMNIROUTE_FMO_POOLS_ENABLED` feature flag,
-require management authentication for pool writes and usage reads, validate pool
-writes against a Zod schema, and store accepted pools. When the flag is off the seam
-SHALL be inert and OmniRoute behavior SHALL equal upstream.
+require management authentication for pool writes, validate pool writes against a Zod
+schema, and store accepted pools. When the flag is off the seam SHALL be inert and
+OmniRoute behavior SHALL equal upstream.
+
+The API bridge SHALL expose the pool seam methods FMO needs in production:
+`PUT /api/fmo/pools` and `POST /api/fmo/pools`, preserving the caller's management
+authentication headers. `/api/fmo/usage` SHALL NOT be a required FMO publisher
+contract endpoint. The bridge SHALL NOT expose direct legacy FMO combo-write routes as
+the production writer path; FMO publishes pool specs and OmniRoute applies combos
+internally.
 
 The accepted shape SHALL be the canonical publisher contract: a top-level
 `contract_version` literal `fmo-pools/v1`, a `generation` string, an optional
-`generated_at`, and a non-empty `pools` array. Each pool SHALL carry `pool_id`,
-`combo_id`, a `demand` object whose `requests_per_day` is any positive finite number
-(integer or fractional) and whose optional `consumers` is a positive integer count (not
-a list) alongside an optional `workload_class`, and a `constraints` object (`free_only`,
-`capabilities`, `min_context_tokens`, and a `quality_band` intent with `min`, `max`, a
-`category`/metric, and a `relax` of `{ max_delta, when }`), plus a `tail` intent object
-(`strategy`, `mode`, `compatibility`). The `tail` field SHALL carry intent only and
-SHALL NOT carry explicit tail members; tail entries are resolved from OmniRoute config,
-not from the contract. The system SHALL reject an unknown or breaking contract shape
-and SHALL reject a pool that omits a per-pool context lower bound; it SHALL NOT invent a
-default context lower bound.
+`generated_at`, a required `rebalance` object, and a non-empty `pools` array.
+`rebalance.interval_minutes` SHALL be a positive integer cadence chosen by FMO.
+Each pool SHALL carry `pool_id`, `combo_id`, a `demand` object whose
+`requests_per_day` is any positive finite number and whose optional `consumers` is a
+positive integer count alongside an optional `workload_class`, and a `constraints`
+object (`free_only`, `capabilities`, `min_context_tokens`, and a `quality_band` intent
+with `min`, `max`, `category`, and `relax` of `{ max_delta, when }`), plus a `tail`
+intent object. The system SHALL reject unknown or breaking contract shape and SHALL
+NOT invent a default context lower bound.
 
-Pool-write idempotency SHALL be keyed by the payload hash supplied as `Idempotency-Key`;
-the system SHALL NOT require the `Idempotency-Key` to equal the `generation`. The system
-SHALL fail the whole generation when any referenced `combo_id` does not exist; it SHALL
-NOT create, delete, or synthesize combos. Storing a generation SHALL NOT materialize or
-modify any combo.
+Pool-write idempotency SHALL be keyed by the payload hash supplied as
+`Idempotency-Key`, but idempotency SHALL only deduplicate the stored pool generation
+record. Every successful `PUT/POST /api/fmo/pools` call SHALL build and apply the
+OmniRoute seating plan, even when the payload and accepted generation are identical to
+the current stored generation. This preserves a manual rebalance path without a
+separate rebalance route. The system SHALL fail the whole generation when any
+referenced `combo_id` does not exist; it SHALL NOT create, delete, or synthesize
+combos. Storing a generation SHALL immediately build and apply the OmniRoute seating
+plan for that generation. The scheduled OmniRoute self-rebalance loop SHALL then
+re-apply the latest accepted generation using `rebalance.interval_minutes`.
+`POST /api/fmo/rebalance` SHALL be removed; rebalance is an internal OmniRoute
+function/job, not an API contract.
 
-#### Scenario: Consumers count accepted as a number
+The self-rebalance scheduler SHALL reuse OmniRoute's existing startup background
+service pattern (`instrumentation-node` plus an internal timer). The system SHALL NOT
+introduce a new cron service, queue worker, or external scheduler framework for this
+slice. The timer SHALL be inactive until an accepted pool generation exists. After
+each successful pool publish, the timer SHALL use the latest
+`rebalance.interval_minutes` value for subsequent ticks.
 
-- GIVEN a valid generation whose `demand.consumers` is the integer count `4`
-- WHEN the payload is validated
-- THEN it is accepted without coercion
-- AND a `demand.consumers` given as a string array is rejected as a breaking shape
+#### Scenario: Bridge accepts pool publish
 
-#### Scenario: Fractional requests_per_day accepted
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true and management auth is valid
+- WHEN FMO calls `PUT /api/fmo/pools` through the API bridge
+- THEN the bridge forwards the request to the app route with auth headers intact
+- AND the generation is validated, stored, planned, and applied
+- AND future self-rebalance uses the published `rebalance.interval_minutes` cadence
 
-- GIVEN a valid generation whose `demand.requests_per_day` is a fractional number
-- WHEN the payload is validated
-- THEN it is accepted without rejection or truncation
+#### Scenario: Pool publish applies atomically
 
-#### Scenario: Flag off is a no-op
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true
+- AND FMO publishes a valid generation with `rebalance.interval_minutes = 60`
+- WHEN `PUT /api/fmo/pools` succeeds
+- THEN OmniRoute stores the generation and applies the computed combo model seating in the same accepted flow
+- AND the next scheduled self-rebalance is based on the same accepted generation and the 60 minute cadence
+- AND no `POST /api/fmo/rebalance` route exists
 
-- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is false
-- WHEN a client calls `PUT /api/fmo/pools`
-- THEN the seam returns a disabled response
-- AND no combo row is read or written
+#### Scenario: Identical pool publish still rebalances
 
-#### Scenario: Unauthenticated pool write is rejected
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true
+- AND generation `gen-1` is already accepted and applied
+- AND OmniRoute runtime state has changed without a new FMO pool payload
+- WHEN FMO sends the same `fmo-pools/v1` payload and idempotency key again to `PUT /api/fmo/pools`
+- THEN OmniRoute may reuse the stored generation record
+- BUT it still rebuilds and applies a fresh seating plan against current runtime state
+- AND the response reports the new apply result
 
-- GIVEN the feature flag is on
-- WHEN a client without management authentication calls `PUT /api/fmo/pools`
-- THEN the request is rejected before validation or storage
-- AND no generation marker or pool row is stored
+#### Scenario: Scheduler uses existing startup timer pattern
 
-#### Scenario: Canonical publisher payload accepted and stored
+- GIVEN OmniRoute starts with background services enabled
+- WHEN an accepted FMO pool generation exists with `rebalance.interval_minutes = 60`
+- THEN the existing FMO self-rebalance startup service schedules an internal timer for that cadence
+- AND no cron service, queue worker, or external scheduler is required
 
-- GIVEN the flag is on and a payload with `contract_version: "fmo-pools/v1"`, a
-  `demand` carrying `workload_class`, `constraints` with `free_only`, `capabilities`,
-  `min_context_tokens`, and a `quality_band` whose `relax` is `{ max_delta, when }`,
-  and a `tail` intent object whose combos all exist
-- WHEN the payload is submitted
-- THEN every pool is stored with status accepted
-- AND the generation marker is recorded
-- AND no combo is materialized
+#### Scenario: Pool publish updates scheduler cadence
 
-#### Scenario: Idempotency keyed by payload hash
+- GIVEN the FMO self-rebalance scheduler is running for generation `gen-1`
+- WHEN `/api/fmo/pools` accepts generation `gen-2` with `rebalance.interval_minutes = 15`
+- THEN subsequent self-rebalance ticks use the 15 minute cadence
+- AND they rebuild/apply `gen-2` against current OmniRoute runtime state
 
-- GIVEN the flag is on and a valid generation whose `Idempotency-Key` is the payload
-  hash and is not equal to the `generation`
-- WHEN the payload is submitted
-- THEN the write is accepted and not rejected for key/generation mismatch
-- AND resubmitting the identical payload with the same hash is idempotent
+#### Scenario: Usage endpoint not required
 
-#### Scenario: Tail members in the contract are rejected
+- GIVEN `OMNIROUTE_FMO_POOLS_ENABLED` is true
+- AND `PUT /api/fmo/pools` accepts a valid generation
+- WHEN `/api/fmo/usage` is absent or disabled
+- THEN pool publish is still a valid contract flow
+- AND no demand recalibration is expected from OmniRoute usage
 
-- GIVEN a payload whose `tail` is an array of explicit members rather than an intent
-  object
-- WHEN it is validated
-- THEN it is rejected as an unknown/breaking shape
-- AND no pool is stored
+#### Scenario: Legacy combo write denied
 
-#### Scenario: Missing referenced combo fails the generation
-
-- GIVEN a pool referencing a `combo_id` that does not exist in OmniRoute
-- WHEN the generation is validated
-- THEN the whole generation is rejected
-- AND no combo is created and no partial state is stored
-
-#### Scenario: Missing context lower bound rejected
-
-- GIVEN a pool whose constraints omit `min_context_tokens`
-- WHEN the generation is validated
-- THEN the generation is rejected
-- AND no default context lower bound is substituted
-
-#### Scenario: Unknown contract shape rejected
-
-- GIVEN a payload with an unknown or breaking field shape
-- WHEN it is validated
-- THEN it is rejected without storing any pool
+- GIVEN FMO pool publishing is the active writer path
+- WHEN a client calls a legacy direct combo-write route such as `PUT /api/combos/fmo-routing` through the API bridge
+- THEN the bridge denies the write
+- AND no combo row is modified through that legacy path
 
 ### Requirement: Shared contract fixture conformance
 
@@ -160,44 +161,91 @@ context, or free gates, and SHALL carry the `tail` intent only (no members).
 
 ### Requirement: Head inventory snapshot
 
-The system SHALL build the head inventory from active provider connections and the
-synced model catalog, enriched with capabilities, context window, free status,
-model-intelligence score, and quota/cooldown state. It SHALL expand a provider with
-multiple active accounts into account-level candidates. It SHALL NOT enter
-tail/fallback providers into the head inventory snapshot.
+The system SHALL build FMO head candidates from every OmniRoute model source that can
+route live chat traffic for an active provider connection. Candidate inventory SHALL
+merge connection-scoped `syncedAvailableModels` with provider-scoped `customModels`.
+Runtime/manual models stored only in `customModels` SHALL be eligible for FMO head
+seating when their provider has an active connection and the provider is not configured
+as tail-only. The system SHALL NOT rely on `syncedAvailableModels` alone.
 
-#### Scenario: Multi-account expansion
+Merged candidates SHALL be deduped by `(providerId, connectionId, modelId)`. When the
+same model appears in both sources for a connection, synced metadata SHALL be the base
+record and custom metadata MAY fill missing runtime fields such as display name,
+`apiFormat`, `supportedEndpoints`, token limits, or explicit vision/thinking flags.
+Model compatibility overrides and free-model catalog matching SHALL apply to both
+synced and custom candidates. The inventory builder SHALL apply OmniRoute model
+visibility gates to every candidate source by using the same hidden-model semantics as
+the public model catalog (`getModelIsHidden(providerId, modelId)`, including
+`modelCompatOverrides.isHidden` and `customModels.isHidden`). Hidden synced models,
+hidden custom models, and malformed custom model rows SHALL NOT be seated as heads.
 
-- GIVEN a provider with two active connections
-- WHEN the inventory is built
-- THEN the provider appears as two account-level candidates, one per `connectionId`
+#### Scenario: Runtime custom model is eligible
 
-#### Scenario: Tail provider excluded from head
+- GIVEN provider `local-openai` has an active connection `conn-1`
+- AND model `local-openai/my-runtime-model` exists only in provider-scoped `customModels`
+- AND `syncedAvailableModels` for `conn-1` is empty
+- WHEN FMO head inventory is built
+- THEN `my-runtime-model` is included as a head candidate for `(local-openai, conn-1)`
+- AND the candidate source identifies that it came from a custom/runtime model source
 
-- GIVEN a provider listed only in the approved tail config
-- WHEN the head inventory is built
-- THEN that provider is not present as a head candidate
+#### Scenario: Synced and custom model are deduped
+
+- GIVEN provider `openrouter` has active connection `conn-1`
+- AND model `openrouter/foo` exists in both `syncedAvailableModels` and `customModels`
+- WHEN FMO head inventory is built
+- THEN exactly one candidate is produced for `(openrouter, conn-1, openrouter/foo)`
+- AND synced metadata is retained with any missing custom metadata filled where safe
+
+#### Scenario: Custom model follows same hard gates
+
+- GIVEN provider `tail-provider` is configured as tail-only
+- AND `tail-provider/manual-head` exists in `customModels`
+- WHEN FMO head inventory is built
+- THEN `manual-head` is not emitted as a head candidate
+- AND malformed or hidden custom model rows are skipped
+
+#### Scenario: Hidden synced model is skipped
+
+- GIVEN provider `openrouter` has active connection `conn-1`
+- AND model `openrouter/hidden-model` exists in `syncedAvailableModels`
+- AND `getModelIsHidden("openrouter", "openrouter/hidden-model")` returns true
+- WHEN FMO head inventory is built
+- THEN `hidden-model` is not emitted as a head candidate
+
+#### Scenario: Hidden custom model is skipped
+
+- GIVEN provider `local-openai` has active connection `conn-1`
+- AND model `local-openai/manual-hidden` exists only in `customModels`
+- AND that custom model has `isHidden: true`
+- WHEN FMO head inventory is built
+- THEN `manual-hidden` is not emitted as a head candidate
 
 ### Requirement: Model intelligence band resolution
 
 The system SHALL resolve a candidate's quality against `model_intelligence.score`
 for the pool's declared `category`, using the fixed source precedence
-`user_override > arena_elo > models_dev_tier`. A candidate with no resolvable score
-for the category SHALL NOT be a head candidate on score grounds. The band metric
-SHALL be the normalized score in `[0..1]`; the system SHALL NOT use an Artificial
-Analysis `intelligence_index`.
+`user_override > arena_elo > models_dev_tier`. The accepted pool contract SHALL allow
+only categories present in the OmniRoute `model_intelligence` domain:
+`coding`, `review`, `planning`, `analysis`, `debugging`, `documentation`, and
+`default`. A pool generation with any other category SHALL be rejected at ingestion,
+not accepted into a generation that later resolves every candidate to unrated. A
+candidate with no resolvable score for the accepted category SHALL NOT be a head
+candidate on score grounds. The band metric SHALL be the normalized score in `[0..1]`;
+the system SHALL NOT use an Artificial Analysis `intelligence_index`.
 
-#### Scenario: In-band candidate passes
+#### Scenario: Unknown category rejected
 
-- GIVEN a pool band `{category: coding, min: 0.55, max: 0.80}` and a candidate whose resolved coding score is 0.7
+- GIVEN a pool whose `quality_band.category` is `intelligence`
+- WHEN the generation is validated
+- THEN the generation is rejected as an unsupported model-intelligence category
+- AND no pool is stored
+
+#### Scenario: Canonical category resolves
+
+- GIVEN a pool whose `quality_band.category` is `default`
+- AND a candidate has a `model_intelligence` row for `default`
 - WHEN the band is checked
-- THEN the candidate is in band
-
-#### Scenario: Unrated candidate is not a score-based head candidate
-
-- GIVEN a candidate with no `model_intelligence` row for the pool category
-- WHEN the band is checked
-- THEN the candidate is excluded from the head on score grounds
+- THEN the candidate is evaluated against that row's normalized score
 
 ### Requirement: Quota source precedence and request-equivalent capacity
 
@@ -333,39 +381,31 @@ SHALL emit a per-combo materialization plan and SHALL NOT write combos itself.
 ### Requirement: Deterministic fill ladder
 
 The system SHALL fill each pool by the deterministic ladder: exact-fit in-band, then
-relax the AA band within `max_delta`, then in-band higher-capability overflow. Step 3
-higher-capability overflow SHALL be defined by capability surplus — a candidate whose
-capability set is a strict superset of the pool's required capabilities — and SHALL NOT
-be defined by an intelligence score above the band maximum; the score SHALL only order
-candidates within a step, not select the step. The system SHALL relax the AA band before
-spending higher-capability overflow candidates, and SHALL NOT relax capability, context,
-or free gates. Higher-capability overflow SHALL be allowed only after the stricter pools
-that need those rarer-capability candidates are covered.
+relax the model-intelligence band within `max_delta`, then in-band
+higher-capability overflow. The relax step SHALL be symmetric: a candidate whose score
+is below `min` or above `max` SHALL be eligible for the relaxed step when it remains
+inside `[min - max_delta, max + max_delta]` and passes all hard gates. Step 3
+higher-capability overflow SHALL be defined by capability surplus, not by an
+intelligence score above the band maximum; score SHALL only order candidates within a
+step. The system SHALL relax the band before spending higher-capability overflow and
+SHALL NOT relax capability, context, or free gates.
 
-#### Scenario: Relax precedes overflow
+#### Scenario: Above-max candidate can be relaxed
 
-- GIVEN a pool underfilled after exact-fit in-band
-- WHEN the ladder continues
-- THEN the band is relaxed within `max_delta` and refilled before any higher-capability overflow is spent
+- GIVEN a pool with band `{ min: 0.60, max: 0.80, relax.max_delta: 0.10 }`
+- AND an exact-capability candidate with score `0.85`
+- AND a higher-capability overflow candidate with score `0.70`
+- WHEN the pool is underfilled after exact-fit in-band
+- THEN the exact-capability `0.85` candidate is selected in the relaxed-band step
+- AND the overflow candidate is not spent first
 
-#### Scenario: Overflow is keyed on capability surplus, not score
+#### Scenario: Outside relaxed band rejected
 
-- GIVEN a candidate that is capability-equal to the pool but scores above the band maximum
-- WHEN the overflow step runs
-- THEN that candidate is not admitted as higher-capability overflow
-- AND only candidates whose capabilities are a strict superset of the pool's requirements are admitted
-
-#### Scenario: Stricter pool covered before overflow spends its candidate
-
-- GIVEN a rarer-capability candidate needed by a stricter pool
-- WHEN a less-specific pool reaches its overflow step
-- THEN the candidate is spent on the less-specific pool only after the stricter pool is covered
-
-#### Scenario: Hard gate never relaxed
-
-- GIVEN a pool still underfilled after all ladder steps
-- WHEN filling stops
-- THEN no candidate that fails capability, context, or free gates is added
+- GIVEN a pool with band `{ min: 0.60, max: 0.80, relax.max_delta: 0.10 }`
+- AND an exact-capability candidate with score `0.95`
+- WHEN the relaxed step runs
+- THEN that candidate is not admitted
+- AND capability, context, and free gates remain hard gates
 
 ### Requirement: Quota-learning canary
 
@@ -648,3 +688,33 @@ hash) SHALL be preserved on the tier-3 result regardless of extraction outcome.
 - WHEN tier-3 is reached for a candidate
 - THEN the extractor is not invoked
 - AND the candidate degrades to tier-4 `none` exactly as a no-claim result
+
+### Requirement: Pool execution diagnostics boundary
+
+The system SHALL expose OmniRoute-owned pool execution data through diagnostics,
+decision logs, and rebalance status endpoints, not as FMO demand recalibration input.
+Diagnostics MAY include accepted generation, applied generation, shadow diff, decision
+log summary, selected model/account counts, quota/cooldown state, and tail fallback
+reasons. These endpoints SHALL be read-only, management-auth gated, and feature-flag
+gated where they expose FMO pool internals. They SHALL NOT be required by the FMO
+publisher pipeline and SHALL NOT describe their output as forecast demand feedback.
+
+#### Scenario: Diagnostics expose execution facts
+
+- GIVEN a pool generation has been applied
+- WHEN an operator reads the diagnostics or rebalance status endpoint
+- THEN the response can show applied generation, last decision-log summary, selected model/account counts, and tail fallback facts where available
+- AND the response is labeled as diagnostics/status data, not demand feedback
+
+#### Scenario: Diagnostics not required for publish
+
+- GIVEN the diagnostics/status endpoint is unavailable
+- WHEN FMO publishes a valid `fmo-pools/v1` generation
+- THEN publish can still succeed
+- AND FMO demand is not recalibrated from missing OmniRoute diagnostics
+
+#### Scenario: Diagnostics stay read-only
+
+- GIVEN a diagnostics/status endpoint is called
+- WHEN the route computes execution facts
+- THEN no combo rows, pool specs, or generation markers are modified

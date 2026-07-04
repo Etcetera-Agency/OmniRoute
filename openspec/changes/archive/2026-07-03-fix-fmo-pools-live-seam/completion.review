@@ -1,0 +1,5 @@
+# Completion Review
+
+- Code Simplifier pass tightened FMO pool state snapshot types and import order after implementation.
+- Added/updated focused coverage for bridge allowlist, required rebalance cadence, publish-time apply, repeated publish re-apply, scheduler cadence/reschedule, removed public rebalance route, and read-only diagnostics status.
+- Deferred live production cutover smoke remains tracked in `openspec/TODO.md`.

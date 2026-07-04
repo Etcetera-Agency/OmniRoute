@@ -1,4 +1,5 @@
 import { getDbInstance } from "@/lib/db/core";
+import { getFmoPoolGenerationMarker } from "@/lib/db/fmoPools";
 import { buildFmoGenerationPlan } from "./planGeneration";
 import type { FmoDecisionRecord, FmoPlanMember } from "./packing";
 
@@ -28,8 +29,13 @@ export interface FmoRebalanceOptions {
 }
 
 export interface FmoRebalanceScheduler {
-  start(): ReturnType<typeof setInterval> | null;
+  start(): ReturnType<typeof setTimeout> | null;
+  reschedule(): ReturnType<typeof setTimeout> | null;
+  stop(): void;
 }
+
+let lastFmoRebalanceResult: FmoRebalanceResult | null = null;
+let activeScheduler: FmoRebalanceScheduler | null = null;
 
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -157,6 +163,47 @@ export function getFmoAppliedGeneration(): string | null {
   return row?.generation ?? null;
 }
 
+export function getFmoPoolDecisionSummary(generation: string | null): Array<{
+  comboId: string;
+  outcome: string;
+  count: number;
+}> {
+  if (!generation) return [];
+  const rows = getDbInstance()
+    .prepare(
+      [
+        "SELECT combo_id, outcome, COUNT(*) AS count",
+        "FROM fmo_pool_decisions",
+        "WHERE generation = ?",
+        "GROUP BY combo_id, outcome",
+        "ORDER BY combo_id COLLATE NOCASE ASC, outcome COLLATE NOCASE ASC",
+      ].join(" ")
+    )
+    .all(generation) as Array<{ combo_id: string; outcome: string; count: number }>;
+
+  return rows.map((row) => ({
+    comboId: row.combo_id,
+    outcome: row.outcome,
+    count: row.count,
+  }));
+}
+
+export function getFmoRebalanceStatus(): {
+  acceptedGeneration: ReturnType<typeof getFmoPoolGenerationMarker>;
+  appliedGeneration: string | null;
+  lastResult: FmoRebalanceResult | null;
+  decisionSummary: Array<{ comboId: string; outcome: string; count: number }>;
+} {
+  const acceptedGeneration = getFmoPoolGenerationMarker();
+  const appliedGeneration = getFmoAppliedGeneration();
+  return {
+    acceptedGeneration,
+    appliedGeneration,
+    lastResult: lastFmoRebalanceResult,
+    decisionSummary: getFmoPoolDecisionSummary(appliedGeneration),
+  };
+}
+
 export async function rebalanceFmoPools(
   options: FmoRebalanceOptions = {}
 ): Promise<FmoRebalanceResult> {
@@ -165,28 +212,79 @@ export async function rebalanceFmoPools(
 
   const diffs = diffPlan(plan);
   if (options.shadow) {
-    return { generation: plan.generation, shadow: true, applied: false, diffs };
+    const result = { generation: plan.generation, shadow: true, applied: false, diffs };
+    lastFmoRebalanceResult = result;
+    return result;
   }
 
   applyPlan(plan);
-  return { generation: plan.generation, shadow: false, applied: true, diffs };
+  const result = { generation: plan.generation, shadow: false, applied: true, diffs };
+  lastFmoRebalanceResult = result;
+  return result;
 }
 
 export function createFmoRebalanceScheduler(options: {
   enabled: () => boolean;
-  intervalMs?: number;
+  intervalMs?: number | (() => number | null);
   run?: () => void | Promise<void>;
   logger?: Pick<Console, "warn">;
 }): FmoRebalanceScheduler {
-  return {
-    start() {
-      if (!options.enabled()) return null;
-      const intervalMs = options.intervalMs ?? 12 * 60 * 60 * 1000;
-      return setInterval(() => {
-        Promise.resolve(options.run ? options.run() : rebalanceFmoPools()).catch((error) => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  function getIntervalMs(): number | null {
+    if (typeof options.intervalMs === "function") return options.intervalMs();
+    if (typeof options.intervalMs === "number") return options.intervalMs;
+
+    const marker = getFmoPoolGenerationMarker();
+    if (!marker) return null;
+    return marker.rebalanceIntervalMinutes * 60 * 1000;
+  }
+
+  function clearTimer(): void {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  }
+
+  function schedule(): ReturnType<typeof setTimeout> | null {
+    clearTimer();
+    if (!options.enabled()) return null;
+
+    const intervalMs = getIntervalMs();
+    if (!intervalMs || intervalMs <= 0) return null;
+
+    timer = setTimeout(() => {
+      Promise.resolve(options.run ? options.run() : rebalanceFmoPools())
+        .catch((error) => {
           options.logger?.warn("[FMO] Scheduled rebalance failed", error);
+        })
+        .finally(() => {
+          schedule();
         });
-      }, intervalMs);
+    }, intervalMs);
+    return timer;
+  }
+
+  const scheduler: FmoRebalanceScheduler = {
+    start() {
+      return schedule();
+    },
+    reschedule() {
+      return schedule();
+    },
+    stop() {
+      clearTimer();
     },
   };
+
+  activeScheduler = scheduler;
+  return scheduler;
+}
+
+export function rescheduleActiveFmoRebalance(): void {
+  activeScheduler?.reschedule();
+}
+
+export function getFmoRebalanceIntervalMs(): number | null {
+  const marker = getFmoPoolGenerationMarker();
+  return marker ? marker.rebalanceIntervalMinutes * 60 * 1000 : null;
 }

@@ -7,6 +7,7 @@ export interface FmoPoolGenerationMarker {
   contract: string;
   poolCount: number;
   idempotencyKey: string | null;
+  rebalanceIntervalMinutes: number;
   acceptedAt: string;
 }
 
@@ -18,6 +19,11 @@ export interface StoredFmoPoolSpec {
   spec: FmoPoolSpec;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FmoPoolsStateSnapshot {
+  marker: FmoPoolGenerationMarker | null;
+  pools: StoredFmoPoolSpec[];
 }
 
 type StoredPoolRow = {
@@ -35,6 +41,7 @@ type MarkerRow = {
   contract: string;
   pool_count: number;
   idempotency_key: string | null;
+  rebalance_interval_minutes: number;
   accepted_at: string;
 };
 
@@ -56,8 +63,28 @@ function parseMarker(row: MarkerRow): FmoPoolGenerationMarker {
     contract: row.contract,
     poolCount: row.pool_count,
     idempotencyKey: row.idempotency_key,
+    rebalanceIntervalMinutes: row.rebalance_interval_minutes,
     acceptedAt: row.accepted_at,
   };
+}
+
+function markerColumns(): Set<string> {
+  const db = getDbInstance();
+  const rows = db.prepare("PRAGMA table_info(fmo_pool_generation_marker)").all() as Array<{
+    name?: string;
+  }>;
+  return new Set(rows.map((row) => String(row.name || "")));
+}
+
+function ensureFmoPoolsLiveSeamColumns(): void {
+  const columns = markerColumns();
+  if (!columns.has("rebalance_interval_minutes")) {
+    getDbInstance()
+      .prepare(
+        "ALTER TABLE fmo_pool_generation_marker ADD COLUMN rebalance_interval_minutes INTEGER NOT NULL DEFAULT 720"
+      )
+      .run();
+  }
 }
 
 export function listMissingFmoPoolComboIds(comboIds: string[]): string[] {
@@ -81,6 +108,7 @@ export function storeFmoPoolsGeneration(
   idempotencyKey: string | null
 ): FmoPoolGenerationMarker {
   const db = getDbInstance();
+  ensureFmoPoolsLiveSeamColumns();
   const now = new Date().toISOString();
 
   const writeGeneration = db.transaction(() => {
@@ -108,14 +136,15 @@ export function storeFmoPoolsGeneration(
     db.prepare(
       [
         "INSERT OR REPLACE INTO fmo_pool_generation_marker",
-        "(id, generation, contract, pool_count, idempotency_key, accepted_at)",
-        "VALUES (1, ?, ?, ?, ?, ?)",
+        "(id, generation, contract, pool_count, idempotency_key, rebalance_interval_minutes, accepted_at)",
+        "VALUES (1, ?, ?, ?, ?, ?, ?)",
       ].join(" ")
     ).run(
       generation.generation,
       generation.contract_version,
       generation.pools.length,
       idempotencyKey,
+      generation.rebalance.interval_minutes,
       now
     );
   });
@@ -126,19 +155,80 @@ export function storeFmoPoolsGeneration(
     contract: generation.contract_version,
     poolCount: generation.pools.length,
     idempotencyKey,
+    rebalanceIntervalMinutes: generation.rebalance.interval_minutes,
     acceptedAt: now,
   };
 }
 
 export function getFmoPoolGenerationMarker(): FmoPoolGenerationMarker | null {
   const db = getDbInstance();
+  ensureFmoPoolsLiveSeamColumns();
   const row = db
     .prepare(
-      "SELECT generation, contract, pool_count, idempotency_key, accepted_at FROM fmo_pool_generation_marker WHERE id = 1"
+      [
+        "SELECT generation, contract, pool_count, idempotency_key,",
+        "rebalance_interval_minutes, accepted_at",
+        "FROM fmo_pool_generation_marker WHERE id = 1",
+      ].join(" ")
     )
     .get() as MarkerRow | undefined;
 
   return row ? parseMarker(row) : null;
+}
+
+export function snapshotFmoPoolsState(): FmoPoolsStateSnapshot {
+  return {
+    marker: getFmoPoolGenerationMarker(),
+    pools: listFmoPoolSpecs(),
+  };
+}
+
+export function restoreFmoPoolsState(snapshot: FmoPoolsStateSnapshot): void {
+  const db = getDbInstance();
+  ensureFmoPoolsLiveSeamColumns();
+  const now = new Date().toISOString();
+
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM fmo_pool_specs").run();
+    db.prepare("DELETE FROM fmo_pool_generation_marker").run();
+
+    const insertPool = db.prepare(
+      [
+        "INSERT INTO fmo_pool_specs",
+        "(pool_id, generation, combo_id, status, spec_json, created_at, updated_at)",
+        "VALUES (?, ?, ?, 'accepted', ?, ?, ?)",
+      ].join(" ")
+    );
+    for (const pool of snapshot.pools) {
+      insertPool.run(
+        pool.poolId,
+        pool.generation,
+        pool.comboId,
+        JSON.stringify(pool.spec),
+        pool.createdAt || now,
+        pool.updatedAt || now
+      );
+    }
+
+    if (snapshot.marker) {
+      db.prepare(
+        [
+          "INSERT INTO fmo_pool_generation_marker",
+          "(id, generation, contract, pool_count, idempotency_key, rebalance_interval_minutes, accepted_at)",
+          "VALUES (1, ?, ?, ?, ?, ?, ?)",
+        ].join(" ")
+      ).run(
+        snapshot.marker.generation,
+        snapshot.marker.contract,
+        snapshot.marker.poolCount,
+        snapshot.marker.idempotencyKey,
+        snapshot.marker.rebalanceIntervalMinutes,
+        snapshot.marker.acceptedAt
+      );
+    }
+  });
+
+  tx();
 }
 
 export function listFmoPoolSpecs(): StoredFmoPoolSpec[] {

@@ -1,0 +1,5 @@
+# Completion Review
+
+- Code Simplifier pass reduced repeated custom-model normalization logic after implementation.
+- Added focused coverage for provider `customModels` inventory, synced/custom dedupe, hidden-model filtering, canonical quality category rejection, and symmetric relaxed-band solve behavior.
+- No new deferred solver-contract work discovered.

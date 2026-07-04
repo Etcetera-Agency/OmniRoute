@@ -1,6 +1,8 @@
 import { FREE_MODEL_BUDGETS } from "@omniroute/open-sse/config/freeModelCatalog.ts";
 import type { FreeModelBudget } from "@omniroute/open-sse/config/freeModelCatalog.ts";
 import {
+  getAllCustomModels,
+  getModelIsHidden,
   getModelCompatOverrides,
   getSyncedAvailableModelsForConnection,
   type ModelCompatOverride,
@@ -16,6 +18,8 @@ export interface FmoInventoryDeps {
     providerId: string,
     connectionId: string
   ): Promise<SyncedAvailableModel[]>;
+  getAllCustomModels?(): Promise<Record<string, unknown>>;
+  getModelIsHidden?(providerId: string, modelId: string): boolean;
   getModelCompatOverrides(providerId: string): ModelCompatOverride[];
   freeModelCatalog: FreeModelBudget[];
   readTailConfig(): FmoPoolTailConfig;
@@ -24,13 +28,61 @@ export interface FmoInventoryDeps {
 export const defaultFmoInventoryDeps: FmoInventoryDeps = {
   getProviderConnections,
   getSyncedAvailableModelsForConnection,
+  getAllCustomModels,
+  getModelIsHidden,
   getModelCompatOverrides,
   freeModelCatalog: FREE_MODEL_BUDGETS,
   readTailConfig: readFmoTailProviderConfig,
 };
 
+type InventoryModel = Pick<
+  SyncedAvailableModel,
+  | "id"
+  | "name"
+  | "apiFormat"
+  | "supportedEndpoints"
+  | "inputTokenLimit"
+  | "supportsThinking"
+  | "supportsVision"
+>;
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function normalizeCustomModels(models: unknown): InventoryModel[] {
+  if (!Array.isArray(models)) return [];
+
+  const normalized: InventoryModel[] = [];
+  for (const model of models) {
+    if (!model || typeof model !== "object" || Array.isArray(model)) continue;
+    const record = model as JsonRecord;
+    if (record.isHidden === true) continue;
+
+    const id = asString(record.id) ?? asString(record.model);
+    if (!id) continue;
+
+    const apiFormat = asString(record.apiFormat);
+    const supportedEndpoints = Array.isArray(record.supportedEndpoints)
+      ? record.supportedEndpoints
+          .map((endpoint) => asString(endpoint))
+          .filter((endpoint): endpoint is string => Boolean(endpoint))
+      : [];
+
+    normalized.push({
+      id,
+      name: asString(record.name) ?? asString(record.displayName) ?? id,
+      ...(apiFormat ? { apiFormat } : {}),
+      ...(supportedEndpoints.length > 0 ? { supportedEndpoints } : {}),
+      ...(typeof record.inputTokenLimit === "number"
+        ? { inputTokenLimit: record.inputTokenLimit }
+        : {}),
+      ...(record.supportsThinking === true ? { supportsThinking: true } : {}),
+      ...(record.supportsVision === true ? { supportsVision: true } : {}),
+    });
+  }
+
+  return normalized;
 }
 
 function findFreeModel(
@@ -59,7 +111,7 @@ function compatCapabilities(override: ModelCompatOverride | undefined): string[]
 }
 
 function modelCapabilities(
-  model: SyncedAvailableModel,
+  model: InventoryModel,
   override: ModelCompatOverride | undefined
 ): string[] {
   const caps = new Set<string>();
@@ -70,11 +122,43 @@ function modelCapabilities(
   return [...caps].sort();
 }
 
+function mergeModelSources(
+  syncedModels: SyncedAvailableModel[],
+  customModels: InventoryModel[]
+): Array<{ model: InventoryModel; source: FmoHeadCandidate["source"] }> {
+  const merged = new Map<string, { model: InventoryModel; source: FmoHeadCandidate["source"] }>();
+
+  for (const custom of customModels) {
+    merged.set(custom.id, { model: custom, source: "custom" });
+  }
+
+  for (const synced of syncedModels) {
+    const custom = merged.get(synced.id)?.model;
+    merged.set(synced.id, {
+      model: {
+        ...custom,
+        ...synced,
+        name: synced.name || custom?.name || synced.id,
+        supportedEndpoints: synced.supportedEndpoints ?? custom?.supportedEndpoints,
+        apiFormat: synced.apiFormat ?? custom?.apiFormat,
+        inputTokenLimit: synced.inputTokenLimit ?? custom?.inputTokenLimit,
+        supportsThinking: synced.supportsThinking ?? custom?.supportsThinking,
+        supportsVision: synced.supportsVision ?? custom?.supportsVision,
+      },
+      source: "synced",
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
 export async function buildFmoHeadInventory(
   deps: FmoInventoryDeps = defaultFmoInventoryDeps
 ): Promise<FmoHeadCandidate[]> {
   const tailProviders = new Set(deps.readTailConfig().providers);
   const connections = await deps.getProviderConnections({ isActive: true });
+  const customByProvider = await (deps.getAllCustomModels?.() ?? Promise.resolve({}));
+  const isHidden = deps.getModelIsHidden ?? (() => false);
   const candidates: FmoHeadCandidate[] = [];
 
   for (const connection of connections) {
@@ -85,9 +169,12 @@ export async function buildFmoHeadInventory(
     const overrides = new Map(
       deps.getModelCompatOverrides(providerId).map((item) => [item.id, item])
     );
-    const models = await deps.getSyncedAvailableModelsForConnection(providerId, connectionId);
+    const syncedModels = await deps.getSyncedAvailableModelsForConnection(providerId, connectionId);
+    const customModels = normalizeCustomModels(customByProvider[providerId]);
+    const models = mergeModelSources(syncedModels, customModels);
 
-    for (const model of models) {
+    for (const { model, source } of models) {
+      if (isHidden(providerId, model.id)) continue;
       const override = overrides.get(model.id);
       candidates.push({
         providerId,
@@ -98,7 +185,7 @@ export async function buildFmoHeadInventory(
         capabilities: modelCapabilities(model, override),
         contextWindow: model.inputTokenLimit ?? null,
         freeModel: findFreeModel(deps.freeModelCatalog, providerId, model.id),
-        source: "synced",
+        source,
       });
     }
   }

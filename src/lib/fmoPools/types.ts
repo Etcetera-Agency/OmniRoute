@@ -14,7 +14,7 @@ export interface FmoHeadCandidate {
   capabilities: string[];
   contextWindow: number | null;
   freeModel: FreeModelBudget | null;
-  source: "synced";
+  source: "synced" | "custom";
 }
 
 export interface FmoQuotaAxes {

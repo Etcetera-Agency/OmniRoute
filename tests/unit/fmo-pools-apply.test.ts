@@ -18,7 +18,7 @@ const featureFlagsDb = await import("../../src/lib/db/featureFlags.ts");
 const fmoPoolsDb = await import("../../src/lib/db/fmoPools.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const rebalance = await import("../../src/lib/fmoPools/rebalance.ts");
-const route = await import("../../src/app/api/fmo/rebalance/route.ts");
+const poolsRoute = await import("../../src/app/api/fmo/pools/route.ts");
 const fmoPoolSchemas = await import("../../src/shared/schemas/fmoPools.ts");
 
 async function resetStorage(): Promise<void> {
@@ -42,6 +42,7 @@ function acceptGeneration(comboId: string, generation = "gen-apply-1"): void {
       contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
       generation,
       generated_at: new Date().toISOString(),
+      rebalance: { interval_minutes: 60 },
       pools: [
         {
           pool_id: "pool-apply",
@@ -54,7 +55,7 @@ function acceptGeneration(comboId: string, generation = "gen-apply-1"): void {
             quality_band: {
               source: "test",
               metric: "text",
-              category: "text",
+              category: "default",
               min: 0.5,
               max: 0.8,
               relax: { max_delta: 0.1, when: "test" },
@@ -157,25 +158,121 @@ test("scheduler is gated by feature flag callback", () => {
   assert.equal(disabled, null);
 });
 
-test("manual route rejects unauthenticated calls and applies authenticated plan", async () => {
+test("scheduler cadence comes from latest accepted pool generation", async () => {
+  const comboId = await createCombo("Cadence Combo");
+
+  assert.equal(rebalance.createFmoRebalanceScheduler({ enabled: () => true }).start(), null);
+
+  acceptGeneration(comboId, "gen-cadence-1");
+  assert.equal(rebalance.getFmoRebalanceIntervalMs(), 60 * 60 * 1000);
+
+  fmoPoolsDb.storeFmoPoolsGeneration(
+    {
+      contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
+      generation: "gen-cadence-2",
+      generated_at: new Date().toISOString(),
+      rebalance: { interval_minutes: 15 },
+      pools: [
+        {
+          pool_id: "pool-cadence",
+          combo_id: comboId,
+          demand: { requests_per_day: 100, workload_class: "coding" },
+          constraints: {
+            free_only: true,
+            capabilities: [],
+            min_context_tokens: 128_000,
+            quality_band: {
+              source: "test",
+              metric: "text",
+              category: "default",
+              min: 0.5,
+              max: 0.8,
+              relax: { max_delta: 0.1, when: "test" },
+            },
+          },
+          tail: { strategy: "configured", mode: "fallback", compatibility: "test" },
+        },
+      ],
+    },
+    null
+  );
+
+  assert.equal(rebalance.getFmoRebalanceIntervalMs(), 15 * 60 * 1000);
+});
+
+test("scheduler reuses startup timer shape and reschedules after publish", async () => {
+  let intervalMs = 1;
+  let runCount = 0;
+  const scheduler = rebalance.createFmoRebalanceScheduler({
+    enabled: () => true,
+    intervalMs: () => intervalMs,
+    run: () => {
+      runCount += 1;
+    },
+  });
+
+  const timer = scheduler.start();
+  assert.ok(timer);
+  intervalMs = 5;
+  const rescheduled = scheduler.reschedule();
+  assert.ok(rescheduled);
+  await new Promise((resolve) => setTimeout(resolve, 8));
+  scheduler.stop();
+
+  assert.ok(runCount >= 1);
+});
+
+test("pool publish rejects unauthenticated calls and applies authenticated plan", async () => {
   featureFlagsDb.setFeatureFlagOverride("OMNIROUTE_FMO_POOLS_ENABLED", "true");
   await settingsDb.updateSettings({ requireLogin: true });
   const comboId = await createCombo("Manual Combo");
-  acceptGeneration(comboId);
+  const payload = {
+    contract_version: fmoPoolSchemas.FMO_POOLS_CONTRACT_VERSION,
+    generation: "gen-publish-apply",
+    rebalance: { interval_minutes: 30 },
+    pools: [
+      {
+        pool_id: "pool-publish",
+        combo_id: comboId,
+        demand: { requests_per_day: 100, workload_class: "coding" },
+        constraints: {
+          free_only: false,
+          capabilities: [],
+          min_context_tokens: 128_000,
+          quality_band: {
+            source: "test",
+            metric: "text",
+            category: "default",
+            min: 0.5,
+            max: 0.8,
+            relax: { max_delta: 0.1, when: "test" },
+          },
+        },
+        tail: { strategy: "configured", mode: "fallback", compatibility: "test" },
+      },
+    ],
+  };
 
-  const rejected = await route.POST(
-    new Request("http://localhost/api/fmo/rebalance", { method: "POST" })
+  const rejected = await poolsRoute.PUT(
+    new Request("http://localhost/api/fmo/pools", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      headers: { "content-type": "application/json" },
+    })
   );
   assert.equal(rejected.status, 401);
 
-  const accepted = await route.POST(
-    await makeManagementSessionRequest("http://localhost/api/fmo/rebalance", {
-      method: "POST",
-      body: { plan: plan([comboId]) },
+  const accepted = await poolsRoute.PUT(
+    await makeManagementSessionRequest("http://localhost/api/fmo/pools", {
+      method: "PUT",
+      body: payload,
     })
   );
   const combo = await combosDb.getComboById(comboId);
+  const body = (await accepted.json()) as { applied?: boolean; generation?: string };
 
-  assert.equal(accepted.status, 200);
+  assert.equal(accepted.status, 202);
+  assert.equal(body.applied, true);
+  assert.equal(body.generation, "gen-publish-apply");
   assert.equal(combo?.strategy, "priority");
 });

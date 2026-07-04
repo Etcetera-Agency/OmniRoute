@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { listMissingFmoPoolComboIds, storeFmoPoolsGeneration } from "@/lib/db/fmoPools";
+import {
+  listMissingFmoPoolComboIds,
+  restoreFmoPoolsState,
+  snapshotFmoPoolsState,
+  storeFmoPoolsGeneration,
+} from "@/lib/db/fmoPools";
+import { buildFmoGenerationPlan } from "@/lib/fmoPools/planGeneration";
+import { rebalanceFmoPools, rescheduleActiveFmoRebalance } from "@/lib/fmoPools/rebalance";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { fmoPoolsGenerationSchema } from "@/shared/schemas/fmoPools";
 
@@ -40,8 +47,32 @@ async function handleWrite(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Referenced combo not found" }, { status: 400 });
   }
 
-  const marker = storeFmoPoolsGeneration(parsed.data, idempotencyKey);
-  return NextResponse.json({ status: "accepted", marker }, { status: 202 });
+  const previousState = snapshotFmoPoolsState();
+
+  try {
+    const marker = storeFmoPoolsGeneration(parsed.data, idempotencyKey);
+    const plan = await buildFmoGenerationPlan();
+    const apply = await rebalanceFmoPools({ planOverride: plan });
+    rescheduleActiveFmoRebalance();
+    return NextResponse.json(
+      {
+        status: "accepted",
+        applied: apply.applied,
+        generation: marker.generation,
+        marker,
+        diffs: apply.diffs,
+      },
+      { status: 202 }
+    );
+  } catch {
+    restoreFmoPoolsState(previousState);
+    return NextResponse.json(
+      {
+        error: "FMO pool publish failed",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(request: Request): Promise<Response> {
