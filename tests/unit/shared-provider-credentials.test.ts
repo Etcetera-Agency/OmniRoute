@@ -48,8 +48,7 @@ test.after(() => {
 });
 
 test("shared credential groups include service provider ids", () => {
-  assert.deepEqual(getSharedCredentialProviderIds("parallel"), [
-    "parallel",
+  assert.deepEqual(getSharedCredentialProviderIds("parallel-search"), [
     "parallel-search",
     "parallel-extract",
   ]);
@@ -61,14 +60,18 @@ test("shared credential groups include service provider ids", () => {
   assert.deepEqual(getSharedCredentialProviderIds("openai"), ["openai"]);
 });
 
-test("POST /api/providers creates visible sibling connections for a shared parallel key", async () => {
-  const response = await providersRoute.POST(createRequest("parallel"));
+test("POST /api/providers stores the managed Parallel Search connection", async () => {
+  const response = await providersRoute.POST(createRequest("parallel-search"));
   assert.equal(response.status, 201);
 
   const connections = await providersDb.getProviderConnections();
   const providers = connections.map((connection: any) => connection.provider).sort();
 
-  assert.deepEqual(providers, ["parallel", "parallel-extract", "parallel-search"]);
+  assert.deepEqual(providers, ["parallel-search"]);
+
+  const credentials = await auth.getProviderCredentials("parallel-extract");
+  assert.equal(credentials?.apiKey, "shared-key");
+  assert.equal(credentials?.provider, "parallel-search");
 });
 
 test("POST /api/providers spreads a Jina AI key to Jina Reader", async () => {
@@ -83,15 +86,15 @@ test("POST /api/providers spreads a Jina AI key to Jina Reader", async () => {
 
 test("POST /api/providers does not duplicate existing shared credential siblings", async () => {
   await providersDb.createProviderConnection({
-    provider: "parallel-search",
+    provider: "parallel-extract",
     authType: "apikey",
-    name: "existing search",
+    name: "existing extract",
     apiKey: "existing-key",
     isActive: true,
     testStatus: "active",
   });
 
-  const response = await providersRoute.POST(createRequest("parallel"));
+  const response = await providersRoute.POST(createRequest("parallel-search"));
   assert.equal(response.status, 201);
 
   const connections = await providersDb.getProviderConnections();
@@ -100,14 +103,13 @@ test("POST /api/providers does not duplicate existing shared credential siblings
     return counts;
   }, {});
 
-  assert.equal(providerCounts.parallel, 1);
   assert.equal(providerCounts["parallel-search"], 1);
   assert.equal(providerCounts["parallel-extract"], 1);
 });
 
 test("credential resolver finds a sibling provider from one shared DB row", async () => {
   await providersDb.createProviderConnection({
-    provider: "parallel",
+    provider: "parallel-search",
     authType: "apikey",
     name: "shared parallel",
     apiKey: "parallel-key",
@@ -118,5 +120,5 @@ test("credential resolver finds a sibling provider from one shared DB row", asyn
   const credentials = await auth.getProviderCredentials("parallel-extract");
 
   assert.equal(credentials?.apiKey, "parallel-key");
-  assert.equal(credentials?.provider, "parallel");
+  assert.equal(credentials?.provider, "parallel-search");
 });

@@ -1,5 +1,5 @@
 export const SHARED_CREDENTIAL_PROVIDER_GROUPS = [
-  ["parallel", "parallel-search", "parallel-extract"],
+  ["parallel-search", "parallel-extract"],
   ["firecrawl", "firecrawl-search"],
   ["jina-ai", "jina-reader"],
   ["perplexity", "perplexity-search"],
