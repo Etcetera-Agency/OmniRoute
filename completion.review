@@ -28,6 +28,8 @@
 - Fixed Parallel Extract credential resolution to use the valid `parallel-search`
   provider connection instead of the invalid `parallel` id, with shared-credential
   tests updated to match the managed provider contract.
+- Rebaselined cyclomatic complexity from 2050 to 2057 after PR CI measured the
+  same upstream-sync drift locally and on GitHub Actions.
 
 ## 2026-06-30
 
