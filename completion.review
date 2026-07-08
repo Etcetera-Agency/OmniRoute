@@ -1,5 +1,12 @@
 # Completion Review
 
+## 2026-07-08
+
+- Fixed Docker build bundler override wiring: `OMNIROUTE_USE_TURBOPACK=0` is now a
+  declared build arg before it becomes an image env var, so Shlink can build the
+  upstream-synced commit with the webpack escape hatch instead of overloading the
+  2-core host with Turbopack.
+
 ## 2026-07-04
 
 - Added skip guards for Docker Hub publish when Docker credentials are missing and
