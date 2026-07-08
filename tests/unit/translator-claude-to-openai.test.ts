@@ -54,8 +54,6 @@ test("Claude -> OpenAI maps system blocks, parameters, tool declarations and too
   });
 });
 
-
-
 test("Claude -> OpenAI maps Claude server WebSearch to native Responses web_search", () => {
   const result = claudeToOpenAIRequest(
     "gpt-5.5",
@@ -257,6 +255,42 @@ test("Claude -> OpenAI turns thinking and tool_use blocks into assistant tool_ca
     tool_call_id: "tu_1",
     content: "[No response received]",
   });
+});
+
+test("Claude -> OpenAI passes pre-stringified tool_use input through verbatim (no double-encoding)", () => {
+  // #2279: some upstream Claude sources emit tool_use.input already JSON-encoded
+  // as a string. Re-running JSON.stringify on it would double-encode the
+  // payload (wrapping it in an extra pair of quotes with escaped internals).
+  const result = claudeToOpenAIRequest(
+    "gpt-4o",
+    {
+      messages: [
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_2",
+              name: "read_file",
+              input: '{"path":"/tmp/demo"}',
+            },
+          ],
+        },
+      ],
+    },
+    false
+  );
+
+  assert.deepEqual(result.messages[0].tool_calls, [
+    {
+      id: "tu_2",
+      type: "function",
+      function: {
+        name: "read_file",
+        arguments: '{"path":"/tmp/demo"}',
+      },
+    },
+  ]);
 });
 
 test("Claude -> OpenAI converts tool_result blocks into tool messages and preserves trailing user text", () => {

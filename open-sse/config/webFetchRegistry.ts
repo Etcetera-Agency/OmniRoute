@@ -3,6 +3,7 @@ export const WEB_FETCH_PROVIDER_ORDER = [
   "parallel-extract",
   "jina-reader",
   "tavily-search",
+  "tinyfish",
   "firecrawl",
 ] as const;
 
@@ -48,6 +49,14 @@ export const WEB_FETCH_PROVIDERS: Record<WebFetchProviderId, WebFetchProviderCon
     costPerQuery: 0.001,
     freeMonthlyQuota: 1000,
     fetchFormats: ["markdown", "text"],
+    authType: "apikey",
+  },
+  tinyfish: {
+    id: "tinyfish",
+    name: "TinyFish Fetch",
+    costPerQuery: 0,
+    freeMonthlyQuota: 0,
+    fetchFormats: ["markdown", "html"],
     authType: "apikey",
   },
   firecrawl: {

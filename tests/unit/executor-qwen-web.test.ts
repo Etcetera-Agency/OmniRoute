@@ -40,7 +40,7 @@ function chatCreatedResponse(id = "chat-abc"): Response {
 function wafHtmlResponse(status = 504): Response {
   return new Response(
     "<html>\n<head><title>504 Gateway Time-out</title></head>\n<body>\n" +
-      '<center><h1>504 Gateway Time-out</h1></center>\n<hr><center>alibaba-ga</center>\n' +
+      "<center><h1>504 Gateway Time-out</h1></center>\n<hr><center>alibaba-ga</center>\n" +
       '<meta name="aliyun_waf_aa" content="ff926c7f07e45e2e487a29a6197d3460">\n</body>\n</html>',
     { status, headers: { "content-type": "text/html; charset=utf-8" } }
   );
@@ -154,6 +154,33 @@ describe("QwenWebExecutor (v2 migration)", () => {
     assert.equal(headers.source || headers.Source, "web", "source: web header present");
   });
 
+  it("sends the Qwen SPA build 'version' header on the v2 chat completion request", async () => {
+    globalThis.fetch = (async (url: any, init: any = {}) => {
+      calls.push({ url: String(url), init });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
+      return sseResponse([
+        { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
+      ]);
+    }) as any;
+
+    const executor = new mod.QwenWebExecutor();
+    await executor.execute({
+      model: "qwen3.7-plus",
+      body: { messages: [{ role: "user", content: "hi" }] },
+      stream: false,
+      credentials: { apiKey: "token=t; cna=c" },
+      signal: null,
+    } as any);
+
+    // Without the `version` header the v2 endpoint short-circuits with a
+    // Bad_Request envelope before ever reaching the model router — see
+    // open-sse/executors/qwen-web.ts::QWEN_SPA_VERSION.
+    const completionCall = calls.find((call) => call.url.includes("/api/v2/chat/completions"));
+    assert.ok(completionCall, "chat/completions call must have been made");
+    const headers = completionCall!.init.headers as Record<string, string>;
+    assert.equal(headers.version, "0.2.66", "SPA build version header present");
+  });
+
   it("maps the thinking phase to reasoning_content, not the answer content", async () => {
     globalThis.fetch = (async (url: any) => {
       if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
@@ -253,7 +280,11 @@ describe("QwenWebExecutor (v2 migration)", () => {
   it("registry points at the v2 endpoint and the current model catalog", () => {
     const provider = (REGISTRY as any)["qwen-web"];
     assert.ok(provider, "qwen-web must be registered");
-    assert.match(provider.baseUrl, /\/api\/v2\/chat\/completions$/, "registry must use v2 endpoint");
+    assert.match(
+      provider.baseUrl,
+      /\/api\/v2\/chat\/completions$/,
+      "registry must use v2 endpoint"
+    );
     const ids = provider.models.map((m: any) => m.id);
     assert.deepEqual(ids.sort(), ["qwen3.6-plus", "qwen3.7-max", "qwen3.7-plus"]);
   });
