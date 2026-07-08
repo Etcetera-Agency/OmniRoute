@@ -17,6 +17,8 @@
   schema IDs to a shared client-safe constant, restoring Mdream no-auth catalog
   visibility, making the FMO fixture parity check require the sibling FMO checkout
   only when present, and updating the feature flag registry count for the new FMO flag.
+- Stabilized the Docker latest-promotion shell helper so prerelease short-circuiting
+  still drains stdin and the unit test no longer flakes with `spawnSync bash EPIPE`.
 - Added skip guards for Docker Hub publish when Docker credentials are missing and
   for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
   GitHub Actions runs on `main`.
