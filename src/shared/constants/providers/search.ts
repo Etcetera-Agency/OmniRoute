@@ -176,3 +176,5 @@ export const SEARCH_PROVIDERS = {
     authHint: "No credentials required. Used only as a last-resort search fallback.",
   },
 };
+
+export const SEARCH_PROVIDER_IDS = Object.keys(SEARCH_PROVIDERS) as [string, ...string[]];

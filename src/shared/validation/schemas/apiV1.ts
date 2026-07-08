@@ -14,7 +14,7 @@ import {
 } from "@/shared/constants/upstreamHeaders";
 import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 import { WEB_FETCH_PROVIDER_ORDER } from "@omniroute/open-sse/config/webFetchRegistry.ts";
-import { SEARCH_PROVIDER_IDS } from "@/lib/search/providerRegistry";
+import { SEARCH_PROVIDER_IDS } from "@/shared/constants/providers/search";
 import {
   effortRequestSchema,
   thinkingRequestSchema,

@@ -11,6 +11,12 @@
   freezes the current merged snapshot instead of staying red on inherited drift.
 - Added license-gate exceptions for upstream optional native macOS packages
   already covered by existing libvips/lightningcss policy rationale.
+- Rebaselined OpenAPI coverage ratchet to the upstream-sync snapshot measured by
+  CI/local quality collect so the PR gate reflects current merged route drift.
+- Restored PR unit compatibility after the upstream provider split by moving search
+  schema IDs to a shared client-safe constant, restoring Mdream no-auth catalog
+  visibility, making the FMO fixture parity check require the sibling FMO checkout
+  only when present, and updating the feature flag registry count for the new FMO flag.
 - Added skip guards for Docker Hub publish when Docker credentials are missing and
   for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
   GitHub Actions runs on `main`.
