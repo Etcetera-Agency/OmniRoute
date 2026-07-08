@@ -2,23 +2,6 @@
 
 ## 2026-07-04
 
-- Fixed PR docs gate drift after the upstream merge by teaching fabricated-docs
-  to recognize env-backed feature flag checks and correcting the Gemini grounded
-  search env source path.
-- Reconciled upstream no-explicit-any suppression drift for search handler tests
-  so the fork PR lint gate stays aligned with the merged upstream snapshot.
-- Rebaselined file-size ratchet entries surfaced by the upstream sync so PR CI
-  freezes the current merged snapshot instead of staying red on inherited drift.
-- Added license-gate exceptions for upstream optional native macOS packages
-  already covered by existing libvips/lightningcss policy rationale.
-- Rebaselined OpenAPI coverage ratchet to the upstream-sync snapshot measured by
-  CI/local quality collect so the PR gate reflects current merged route drift.
-- Restored PR unit compatibility after the upstream provider split by moving search
-  schema IDs to a shared client-safe constant, restoring Mdream no-auth catalog
-  visibility, making the FMO fixture parity check require the sibling FMO checkout
-  only when present, and updating the feature flag registry count for the new FMO flag.
-- Stabilized the Docker latest-promotion shell helper so prerelease short-circuiting
-  still drains stdin and the unit test no longer flakes with `spawnSync bash EPIPE`.
 - Added skip guards for Docker Hub publish when Docker credentials are missing and
   for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
   GitHub Actions runs on `main`.
@@ -28,11 +11,6 @@
 - Fixed Parallel Extract credential resolution to use the valid `parallel-search`
   provider connection instead of the invalid `parallel` id, with shared-credential
   tests updated to match the managed provider contract.
-- Rebaselined cyclomatic complexity from 2050 to 2057 after PR CI measured the
-  same upstream-sync drift locally and on GitHub Actions.
-- Pointed the packaged Electron CI smoke at `/api/monitoring/health` and tightened
-  fatal log detection for lowercase `uncaughtException`, avoiding a `/login` SSR
-  readiness false-negative while still failing real startup exceptions.
 
 ## 2026-06-30
 

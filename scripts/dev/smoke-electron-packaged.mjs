@@ -23,7 +23,6 @@ export const FATAL_LOG_PATTERNS = [
   /Failed to start server/i,
   /Unhandled Rejection/i,
   /Uncaught Exception/i,
-  /uncaughtException/i,
 ];
 
 function parsePositiveInteger(value, fallback) {

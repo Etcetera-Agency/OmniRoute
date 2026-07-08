@@ -1140,7 +1140,7 @@ that should be able to run the docs translator.
 | Variable                                  | Default   | Source File                                  | Description                                                                                      |
 | ----------------------------------------- | --------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `PARALLEL_API_KEY`                        | _(unset)_ | `src/lib/webfetch/webFetchCredentials.ts`    | Parallel API key used by Parallel Extract web-fetch fallback when no dashboard credential exists. |
-| `GEMINI_GROUNDED_SEARCH_MODEL`            | _(unset)_ | `open-sse/handlers/search.ts`                 | Gemini grounded-search model override.                                                           |
+| `GEMINI_GROUNDED_SEARCH_MODEL`            | _(unset)_ | `src/lib/search/providers/geminiGrounded.ts` | Gemini grounded-search model override.                                                           |
 | `OMNIROUTE_FMO_QUOTA_EXTRACTOR_ENABLED`   | _(unset)_ | `src/lib/fmoPools/quotaExtractor.ts`         | Enable quota extraction during FMO pool planning.                                                 |
 | `OMNIROUTE_FMO_QUOTA_EXTRACTOR_MODEL`     | _(unset)_ | `src/lib/fmoPools/quotaExtractor.ts`         | Model id used by the FMO quota extractor when enabled.                                           |
 

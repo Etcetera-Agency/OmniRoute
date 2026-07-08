@@ -415,13 +415,10 @@ function allScanFiles(root = ROOT) {
 // Env var helper wrappers used across OmniRoute — envInt(NAME, 5), envBool(NAME),
 // envStr(NAME), … — read the named var from the environment, so a string-literal
 // argument is a genuine env-var read, equivalent to a direct process.env member read.
-// Feature-flag helpers also read env-backed flags through the shared feature flag
-// registry, so docs that name those flags are real env-var claims too.
 // (Comment avoids a literal `process.env.<NAME>` token so the sibling env-doc-sync
 // grep does not mistake this example for a real env-var read.)
 const ENV_HELPER_CALL =
   /\benv(?:Int|Bool|Str|Num|Float|String|Flag|Raw|List|Json)?\(\s*["'`]([A-Z][A-Z0-9_]+)["'`]/g;
-const FEATURE_FLAG_CALL = /\bisFeatureFlagEnabled\(\s*["'`]([A-Z][A-Z0-9_]+)["'`]/g;
 
 export function buildCodebaseIndex(root = ROOT) {
   // Set of /api/... paths that have a route.ts handler.
@@ -516,8 +513,6 @@ export function buildCodebaseIndex(root = ROOT) {
             envVars.add(m[1]);
           // envInt("X", …) / envBool("X") / envStr("X") … helper wrappers
           for (const m of content.matchAll(ENV_HELPER_CALL)) envVars.add(m[1]);
-          // isFeatureFlagEnabled("X") reads an env-backed feature flag.
-          for (const m of content.matchAll(FEATURE_FLAG_CALL)) envVars.add(m[1]);
           // import.meta.env.X (Vite-style, unlikely here but cheap)
           for (const m of content.matchAll(/import\.meta\.env\.([A-Z][A-Z0-9_]+)/g))
             envVars.add(m[1]);

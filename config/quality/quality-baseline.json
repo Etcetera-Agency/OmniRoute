@@ -97,10 +97,9 @@
       "tightenSlack": 10
     },
     "openapiCoverage.pct": {
-      "value": 38.6,
+      "value": 39.3,
       "direction": "up",
       "eps": 0.5,
-      "_rebaseline_2026_07_08_fork_upstream_sync": "39.3 -> 38.6 (-0.7, beyond the 0.5 eps). Fork upstream-sync PR pulled the current upstream/fork API route surface after v3.8.46 work; CI Quality Ratchet measured 38.6 and local `npm run quality:collect` measured the same value. This PR primarily reconciles upstream/fork merge drift and does not document the newly uncovered public API surface. Tighten via --require-tighten after OpenAPI route docs catch up.",
       "_tighten_2026_07_04_v3844_release": "36.9 -> 39.3 (aperto exigido pelo --require-tighten no PR de release #5925). A cobertura OpenAPI melhorou no ciclo (9 rotas documentadas em 8fb020676 + as rotas novas de #5939/#5817/#6034/#5998 documentadas junto das features). 39.3 = valor medido pelo CI Quality Ratchet no run 28708141003 (tip 00c55afcb).",
       "_rebaseline_2026_06_28_v3839_release": "37.8 -> 36.9 (-0.9, beyond the 0.5 eps). v3.8.39 cycle drift surfaced ONLY on the release PR (the openapi-coverage ratchet does NOT run on PR->release fast-gates). The cycle added API/internal routes (antigravity paste-credentials onboarding, CCR ranged/grep/stats retrieve params, mcp 404 session handling) faster than docs/openapi.yaml coverage; documenting LOCAL_ONLY/internal onboarding routes in the PUBLIC spec would be gaming (same precedent as _rebaseline_2026_06_18_v3828_cycle_close). Measured by CI collect-metrics (run 28317145160) = 36.9. My release-finalize tree touches no routes (only the openapi.yaml version bump). Raising coverage by documenting public routes is tracked as follow-up doc debt.",
       "_rebaseline_2026_06_23_v3834_release": "38.4 -> 37.8 (-0.6, beyond the 0.5 eps so it failed the ratchet). v3.8.34 cycle drift: contributor PRs added API routes (e.g. quota/usage/opencode-go endpoints) faster than openapi.yaml coverage; the openapi-coverage ratchet does NOT run on PR->release fast-gates so it surfaced only on the release PR. Verified my release-finalize working tree touches no routes / openapi paths (only version bump in openapi.yaml). Measured by CI quality:collect (run 28000387577) = 37.8. Raising coverage by documenting the new routes is tracked as follow-up doc debt."
