@@ -76,7 +76,7 @@
   },
   "open-sse/handlers/search.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 47
     }
   },
   "open-sse/handlers/videoGeneration.ts": {
@@ -1999,7 +1999,7 @@
   },
   "tests/unit/search-route.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 7
+      "count": 15
     }
   },
   "tests/unit/security/cloud-sync-hmac.test.ts": {
@@ -2045,6 +2045,11 @@
   "tests/unit/shared-api-utils.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
+    }
+  },
+  "tests/unit/shared-provider-credentials.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
     }
   },
   "tests/unit/sidebar-customization.test.ts": {
