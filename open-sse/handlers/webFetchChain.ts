@@ -14,6 +14,7 @@ import { firecrawlFetch } from "../executors/firecrawl-fetch.ts";
 import { jinaReaderFetch } from "../executors/jina-reader-fetch.ts";
 import { mdreamFetch } from "../executors/mdream-fetch.ts";
 import { parallelExtractFetch } from "../executors/parallel-extract.ts";
+import { tinyfishFetch } from "../executors/tinyfish-fetch.ts";
 import { resolveEffectiveProviderOrder } from "@/lib/routing/routingOverrides";
 import type {
   WebFetchCredentials,
@@ -191,6 +192,14 @@ async function tryWebFetchProvider(
 
       case "tavily-search":
         return await tavilyFetch({
+          url: req.url,
+          format,
+          includeMetadata,
+          credentials,
+        });
+
+      case "tinyfish":
+        return await tinyfishFetch({
           url: req.url,
           format,
           includeMetadata,

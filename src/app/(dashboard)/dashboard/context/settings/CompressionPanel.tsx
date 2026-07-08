@@ -51,6 +51,7 @@ interface CompressionConfig {
   enabled: boolean;
   autoTriggerTokens: number;
   preserveSystemPrompt: boolean;
+  preserveSystemPromptMode?: "always" | "whenNoCache" | "never";
   engines: Record<string, EngineToggle>;
   activeComboId: string | null;
   cavemanOutputMode?: CavemanOutputModeConfig;
@@ -86,7 +87,9 @@ function normalizeEngines(raw: unknown): Record<string, EngineToggle> {
   const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, EngineToggle>;
   for (const id of ENGINE_IDS) {
     const cur = source[id];
-    engines[id] = cur ? { enabled: cur.enabled === true, ...(cur.level ? { level: cur.level } : {}) } : { enabled: false };
+    engines[id] = cur
+      ? { enabled: cur.enabled === true, ...(cur.level ? { level: cur.level } : {}) }
+      : { enabled: false };
   }
   return engines;
 }
@@ -235,8 +238,7 @@ export default function CompressionPanel() {
           )}
           {status === "error" && (
             <span className="flex items-center gap-1 text-xs font-medium text-red-500">
-              <span className="material-symbols-outlined text-[14px]">error</span>{" "}
-              {t("saveFailed")}
+              <span className="material-symbols-outlined text-[14px]">error</span> {t("saveFailed")}
             </span>
           )}
           <Toggle
@@ -344,9 +346,7 @@ export default function CompressionPanel() {
             >
               <div className="min-w-0">
                 <p className="text-sm text-text-main">{meta.label}</p>
-                {meta.description && (
-                  <p className="text-xs text-text-muted">{meta.description}</p>
-                )}
+                {meta.description && <p className="text-xs text-text-muted">{meta.description}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <select
@@ -383,15 +383,11 @@ export default function CompressionPanel() {
           or the opt-in LLMLingua-2 SLM Tier-B) + best-effort pre-warm. */}
       <div className="mt-2 flex flex-col gap-3 border-t border-border/30 py-3">
         <label className="flex items-center justify-between">
-          <span className="text-sm font-medium text-text-main">
-            {t("compressionUltraEngine")}
-          </span>
+          <span className="text-sm font-medium text-text-main">{t("compressionUltraEngine")}</span>
           <select
             data-testid="ultra-engine-select"
             value={config.ultraEngine ?? "heuristic"}
-            onChange={(e) =>
-              save({ ultraEngine: e.target.value === "slm" ? "slm" : "heuristic" })
-            }
+            onChange={(e) => save({ ultraEngine: e.target.value === "slm" ? "slm" : "heuristic" })}
             disabled={saving}
             className="w-44 rounded border border-border bg-surface px-2 py-1 text-sm text-text-main"
           >
@@ -404,9 +400,7 @@ export default function CompressionPanel() {
           <>
             <p className="text-xs text-text-muted">{t("compressionUltraSlmHint")}</p>
             <label className="flex items-center justify-between">
-              <span className="text-sm text-text-muted">
-                {t("compressionUltraSlmPrewarm")}
-              </span>
+              <span className="text-sm text-text-muted">{t("compressionUltraSlmPrewarm")}</span>
               <span data-testid="ultra-slm-prewarm-toggle">
                 <Toggle
                   size="sm"
@@ -458,15 +452,25 @@ export default function CompressionPanel() {
         </label>
         <label className="flex items-center justify-between">
           <span className="text-sm text-text-muted">{t("compressionPreserveSystem")}</span>
-          <span data-testid="preserve-system-toggle">
-            <Toggle
-              size="sm"
-              checked={config.preserveSystemPrompt}
-              onChange={(preserveSystemPrompt) => save({ preserveSystemPrompt })}
-              disabled={saving}
-              ariaLabel={t("compressionPreserveSystem")}
-            />
-          </span>
+          <select
+            value={
+              config.preserveSystemPromptMode ??
+              (config.preserveSystemPrompt === false ? "whenNoCache" : "always")
+            }
+            onChange={(e) =>
+              save({
+                preserveSystemPromptMode: e.target.value as "always" | "whenNoCache" | "never",
+              })
+            }
+            disabled={saving}
+            aria-label={t("compressionPreserveSystem")}
+            data-testid="preserve-system-mode-select"
+            className="w-36 rounded border border-border bg-surface px-2 py-1 text-sm text-text-main"
+          >
+            <option value="always">{t("compressionPreserveSystemAlways")}</option>
+            <option value="whenNoCache">{t("compressionPreserveSystemWhenNoCache")}</option>
+            <option value="never">{t("compressionPreserveSystemNever")}</option>
+          </select>
         </label>
       </div>
     </Card>

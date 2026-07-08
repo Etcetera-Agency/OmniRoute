@@ -56,6 +56,8 @@ omniroute restart
 - `--max-restarts <n>`
 - `--tray`
 - `--no-tray`
+- `--tls-cert <path>`
+- `--tls-key <path>`
 
 **Example:**
 
@@ -310,4 +312,5 @@ omniroute update                       # Check for a newer version and prompt to
 - `doctor` shows `STORAGE_ENCRYPTION_KEY missing` → set the key in `.env` or run `reset-encrypted-columns --force` to wipe and re-enter credentials
 - `doctor` reports native binary fail → `npm rebuild better-sqlite3` in the OmniRoute app directory
 - `tunnel create cloudflare` hangs → ensure `cloudflared` is installed: `brew install cloudflare/cloudflare/cloudflared`
+
 <!-- skill:custom-end -->

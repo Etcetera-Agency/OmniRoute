@@ -34,7 +34,7 @@ export default function QdrantConfigCard() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"" | "saved" | "error">("");
   const [health, setHealth] = useState<{ ok: boolean; latencyMs: number; error?: string } | null>(
-    null,
+    null
   );
   const [checking, setChecking] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,7 +103,7 @@ export default function QdrantConfigCard() {
         setSaving(false);
       }
     },
-    [qdrant],
+    [qdrant]
   );
 
   const checkHealth = useCallback(async () => {
@@ -185,11 +185,7 @@ export default function QdrantConfigCard() {
         </div>
         <span
           className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-            qdrant.enabled
-              ? health?.ok
-                ? "text-emerald-500"
-                : "text-red-500"
-              : "text-text-muted"
+            qdrant.enabled ? (health?.ok ? "text-emerald-500" : "text-red-500") : "text-text-muted"
           }`}
         >
           <span
@@ -203,6 +199,11 @@ export default function QdrantConfigCard() {
               : t("qdrant.statusError")
             : t("qdrant.statusDisabled")}
         </span>
+      </div>
+
+      {/* Tier 1 vs Tier 2 guidance */}
+      <div className="mb-4 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs text-text-muted leading-relaxed">
+        {t("qdrant.banner")}
       </div>
 
       {/* Enable toggle + test connection */}
@@ -271,6 +272,7 @@ export default function QdrantConfigCard() {
             placeholder="http://127.0.0.1"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
+          <p className="text-[11px] text-text-muted mt-1.5">{t("qdrant.hostHelp")}</p>
         </div>
         <div className="p-3 rounded-lg bg-surface/30 border border-border/30">
           <label className="text-xs font-medium block mb-1.5">{t("qdrant.portLabel")}</label>
@@ -278,7 +280,10 @@ export default function QdrantConfigCard() {
             value={qdrant.port}
             type="number"
             onChange={(e) =>
-              setQdrant((s) => ({ ...s, port: Math.max(1, Math.min(65535, Number(e.target.value) || 1)) }))
+              setQdrant((s) => ({
+                ...s,
+                port: Math.max(1, Math.min(65535, Number(e.target.value) || 1)),
+              }))
             }
             placeholder="6333"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -292,6 +297,7 @@ export default function QdrantConfigCard() {
             placeholder="omniroute_memory"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
+          <p className="text-[11px] text-text-muted mt-1.5">{t("qdrant.collectionHelp")}</p>
         </div>
         <div className="p-3 rounded-lg bg-surface/30 border border-border/30">
           <label className="text-xs font-medium block mb-1.5">
@@ -319,6 +325,7 @@ export default function QdrantConfigCard() {
             placeholder="openai/text-embedding-3-small"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
+          <p className="text-[11px] text-text-muted mt-1.5">{t("qdrant.embeddingModelHelp")}</p>
         </div>
         <div className="p-3 rounded-lg bg-surface/30 border border-border/30 md:col-span-2">
           <label className="text-xs font-medium block mb-1.5">
@@ -347,9 +354,7 @@ export default function QdrantConfigCard() {
               </button>
             )}
             <button
-              onClick={() =>
-                save(apiKeyInput.trim() ? { apiKey: apiKeyInput } : {})
-              }
+              onClick={() => save(apiKeyInput.trim() ? { apiKey: apiKeyInput } : {})}
               disabled={saving}
               className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
             >

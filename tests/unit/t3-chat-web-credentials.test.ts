@@ -26,8 +26,7 @@ test("parseT3Credentials: form (a) — convex-session-id=...; sessionToken=...",
 
 test("parseT3Credentials: form (b) — full Cookie header already containing convex-session-id", () => {
   const creds = {
-    apiKey:
-      "__Secure-better-auth.session_token=foo; convex-session-id=session-123; theme=dark",
+    apiKey: "__Secure-better-auth.session_token=foo; convex-session-id=session-123; theme=dark",
   };
   const parsed = parseT3Credentials(creds);
   assert.ok(parsed);
@@ -80,5 +79,5 @@ test("execute(): empty apiKey still returns a 400 error response", async () => {
   } as never);
   assert.equal(result.response.status, 400);
   const body = await result.response.json();
-  assert.equal(body.error.code, "HTTP_400");
+  assert.equal(body.error.code, "bad_request");
 });

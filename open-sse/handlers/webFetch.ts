@@ -7,7 +7,7 @@
  * Request format:
  * {
  *   "url": "https://example.com",
- *   "provider": "firecrawl" | "jina-reader" | "tavily-search",  // optional
+ *   "provider": "firecrawl" | "jina-reader" | "tavily-search" | "tinyfish",  // optional
  *   "format": "markdown" | "html" | "links" | "screenshot",
  *   "depth": 0 | 1 | 2,
  *   "wait_for_selector": "main",

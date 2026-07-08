@@ -14,6 +14,7 @@ import Toggle from "@/shared/components/Toggle";
 import Tooltip from "@/shared/components/Tooltip";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { FieldLabelWithHelp, WeightTotalBar } from "./parts";
+import { ResponseValidationEditor, type ResponseValidationValue } from "./ResponseValidationEditor";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
@@ -46,7 +47,6 @@ import {
   normalizeIntelligentRoutingConfig,
 } from "@/lib/combos/intelligentRouting";
 import { resolveServerErrorMessage } from "@/lib/api/serverErrorMessage";
-import { withDashboardCsrfHeader } from "@/shared/utils/dashboardCsrf";
 import { useTranslations } from "next-intl";
 
 const ModelSelectModal = dynamic(() => import("@/shared/components/ModelSelectModal"), {
@@ -867,7 +867,7 @@ export default function CombosPage() {
     try {
       const res = await fetch("/api/combos/test", {
         method: "POST",
-        headers: await withDashboardCsrfHeader({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comboName: combo.name }),
       });
       const data = await res.json();
@@ -3972,6 +3972,54 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         <option value="execute">Execute nested combos as targets</option>
                       </select>
                     </div>
+                    {/* #6168: per-combo session-stickiness override (tri-state so it can
+                        force ON or OFF regardless of the global default; blank = inherit). */}
+                    <div>
+                      <FieldLabelWithHelp
+                        label={getI18nOrFallback(
+                          t,
+                          "disableSessionStickiness",
+                          "Disable session stickiness"
+                        )}
+                        help={getI18nOrFallback(
+                          t,
+                          "advancedHelp.disableSessionStickiness",
+                          "Rotate to a different connection on every request instead of pinning a whole conversation to one connection by the first-message hash. Overrides the global default. Leave on Inherit to preserve prompt-cache hits for multi-turn chats."
+                        )}
+                        showHelp={!isExpertMode}
+                      />
+                      <select
+                        value={
+                          config.disableSessionStickiness === true
+                            ? "disabled"
+                            : config.disableSessionStickiness === false
+                              ? "enabled"
+                              : "inherit"
+                        }
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            disableSessionStickiness:
+                              e.target.value === "disabled"
+                                ? true
+                                : e.target.value === "enabled"
+                                  ? false
+                                  : undefined,
+                          })
+                        }
+                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
+                      >
+                        <option value="inherit">
+                          {getI18nOrFallback(t, "stickyLimitInherit", "inherit")}
+                        </option>
+                        <option value="enabled">
+                          {getI18nOrFallback(t, "sessionStickinessEnabled", "Stickiness on")}
+                        </option>
+                        <option value="disabled">
+                          {getI18nOrFallback(t, "sessionStickinessDisabled", "Stickiness off")}
+                        </option>
+                      </select>
+                    </div>
                   </div>
                   {strategy === "context-relay" && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t border-black/5 dark:border-white/5">
@@ -4118,7 +4166,11 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                       </div>
                       <div>
                         <FieldLabelWithHelp
-                          label={getI18nOrFallback(t, "fusionStragglerGraceMs", "Straggler grace (ms)")}
+                          label={getI18nOrFallback(
+                            t,
+                            "fusionStragglerGraceMs",
+                            "Straggler grace (ms)"
+                          )}
                           help={getI18nOrFallback(
                             t,
                             "fusionStragglerGraceMsHelp",
@@ -4133,7 +4185,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           value={config.fusionTuning?.stragglerGraceMs ?? ""}
                           placeholder="8000"
                           onChange={(e) =>
-                            setConfig(updateFusionTuning(config, "stragglerGraceMs", e.target.value))
+                            setConfig(
+                              updateFusionTuning(config, "stragglerGraceMs", e.target.value)
+                            )
                           }
                           className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
@@ -4174,6 +4228,23 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                 </div>
               )}
             </>
+          )}
+
+          {/* Response Validation (4985) */}
+          {showStrategySection && (
+            <div className="flex flex-col gap-2 p-3 bg-black/[0.02] dark:bg-white/[0.02] rounded-lg border border-black/5 dark:border-white/5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="material-symbols-outlined text-[14px] text-primary">rule</span>
+                <p className="text-xs font-medium">
+                  {getI18nOrFallback(t, "responseValidationTitle", "Response validation")}
+                </p>
+              </div>
+              <ResponseValidationEditor
+                value={config.responseValidation as ResponseValidationValue | undefined}
+                onChange={(next) => setConfig({ ...config, responseValidation: next })}
+                t={t}
+              />
+            </div>
           )}
 
           {/* Agent Features (#399 / #401 / #454) */}

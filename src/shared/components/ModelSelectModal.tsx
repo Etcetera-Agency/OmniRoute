@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "./Modal";
-import { buildPassthroughAliasModels } from "./modelSelectModalHelpers";
+import { buildPassthroughAliasModels, buildNodeAliasModels } from "./modelSelectModalHelpers";
 import { getModelsByProviderId, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
 import {
@@ -165,8 +165,7 @@ export default function ModelSelectModal({
     const loadCustomProviderModels = async () => {
       const customProviderIds = activeProviders
         .filter(
-          (p) =>
-            isOpenAICompatibleProvider(p.provider) || isAnthropicCompatibleProvider(p.provider)
+          (p) => isOpenAICompatibleProvider(p.provider) || isAnthropicCompatibleProvider(p.provider)
         )
         .map((p) => p.provider);
 
@@ -274,14 +273,11 @@ export default function ModelSelectModal({
         const displayName = matchedNode?.name || providerInfo.name;
         const nodePrefix = matchedNode?.prefix || providerId; // Consider a more user-friendly fallback if providerId is a UUID
 
-        const nodeModels = Object.entries(modelAliases as Record<string, string>)
-          .filter(([, fullModel]: [string, string]) => fullModel.startsWith(`${providerId}/`))
-          .map(([aliasName, fullModel]: [string, string]) => ({
-            id: fullModel.replace(`${providerId}/`, ""),
-            name: aliasName,
-            value: `${nodePrefix}/${fullModel.replace(`${providerId}/`, "")}`,
-            source: "alias",
-          }));
+        const nodeModels = buildNodeAliasModels(
+          modelAliases as Record<string, string>,
+          providerId,
+          nodePrefix
+        );
 
         const fallbackEntries = (
           getCompatibleFallbackModels(providerId, providerCustomModels) || []
