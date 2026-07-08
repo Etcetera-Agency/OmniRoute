@@ -2,6 +2,9 @@
 
 ## 2026-07-04
 
+- Fixed PR docs gate drift after the upstream merge by teaching fabricated-docs
+  to recognize env-backed feature flag checks and correcting the Gemini grounded
+  search env source path.
 - Added skip guards for Docker Hub publish when Docker credentials are missing and
   for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
   GitHub Actions runs on `main`.
