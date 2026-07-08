@@ -7,6 +7,10 @@
   search env source path.
 - Reconciled upstream no-explicit-any suppression drift for search handler tests
   so the fork PR lint gate stays aligned with the merged upstream snapshot.
+- Rebaselined file-size ratchet entries surfaced by the upstream sync so PR CI
+  freezes the current merged snapshot instead of staying red on inherited drift.
+- Added license-gate exceptions for upstream optional native macOS packages
+  already covered by existing libvips/lightningcss policy rationale.
 - Added skip guards for Docker Hub publish when Docker credentials are missing and
   for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
   GitHub Actions runs on `main`.
