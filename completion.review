@@ -30,6 +30,9 @@
   tests updated to match the managed provider contract.
 - Rebaselined cyclomatic complexity from 2050 to 2057 after PR CI measured the
   same upstream-sync drift locally and on GitHub Actions.
+- Pointed the packaged Electron CI smoke at `/api/monitoring/health` and tightened
+  fatal log detection for lowercase `uncaughtException`, avoiding a `/login` SSR
+  readiness false-negative while still failing real startup exceptions.
 
 ## 2026-06-30
 

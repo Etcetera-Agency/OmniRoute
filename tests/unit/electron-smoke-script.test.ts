@@ -38,6 +38,7 @@ test("electron smoke treats Electron process errors as fatal startup logs", () =
   const logs = [
     "[Electron] Unhandled Rejection: Error: startup failed",
     "[Electron] Uncaught Exception: Error: startup failed",
+    "[Electron] uncaughtException: Error: startup failed",
   ];
 
   for (const log of logs) {

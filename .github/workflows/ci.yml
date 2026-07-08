@@ -628,6 +628,7 @@ jobs:
         run: npm run pack
       - name: Smoke packaged Electron app
         env:
+          ELECTRON_SMOKE_URL: http://127.0.0.1:20128/api/monitoring/health
           ELECTRON_SMOKE_TIMEOUT_MS: 60000
         run: xvfb-run -a npm run electron:smoke:packaged
 
