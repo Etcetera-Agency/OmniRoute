@@ -13,7 +13,10 @@ import {
   type WebFetchProviderId,
 } from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import type { WebFetchCredentials } from "@omniroute/open-sse/handlers/webFetch.ts";
-import { getProviderCredentials } from "@/sse/services/auth";
+import {
+  getProviderCredentials,
+  getProviderCredentialsWithQuotaPreflight,
+} from "@/sse/services/auth";
 
 export interface WebFetchExecutionPlan {
   resolvedProvider?: WebFetchProviderId;
@@ -28,18 +31,27 @@ export interface WebFetchExecutionPlan {
  */
 async function resolveCredentials(
   providerId: WebFetchProviderId
-): Promise<{ apiKey?: string } | null> {
+): Promise<WebFetchCredentials | null> {
   if (providerId === "mdream") return {};
 
+  const credentialProviderId = providerId === "parallel-extract" ? "parallel-search" : providerId;
   try {
-    const credentialProviderId = providerId === "parallel-extract" ? "parallel-search" : providerId;
-    const creds = await getProviderCredentials(credentialProviderId);
-    if (creds) return creds;
+    const creds = await getProviderCredentialsWithQuotaPreflight(credentialProviderId);
+    if (creds) return creds as WebFetchCredentials;
     if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
       return { apiKey: process.env.PARALLEL_API_KEY };
     }
     return null;
   } catch {
+    // A preflight service outage must not make an otherwise usable connection
+    // disappear. Fall back to ordinary credential selection; quota responses
+    // remain authoritative when the preflight resolver returns a descriptor.
+    try {
+      const creds = await getProviderCredentials(credentialProviderId);
+      if (creds) return creds as WebFetchCredentials;
+    } catch {
+      // Fall through to the explicit Parallel environment-key fallback below.
+    }
     if (providerId === "parallel-extract" && process.env.PARALLEL_API_KEY) {
       return { apiKey: process.env.PARALLEL_API_KEY };
     }
@@ -48,7 +60,7 @@ async function resolveCredentials(
 }
 
 async function resolveProviderCredentialMap(): Promise<
-  Partial<Record<WebFetchProviderId, { apiKey?: string }>>
+  Partial<Record<WebFetchProviderId, WebFetchCredentials>>
 > {
   const entries = await Promise.all(
     WEB_FETCH_PROVIDER_ORDER.map(
@@ -56,7 +68,7 @@ async function resolveProviderCredentialMap(): Promise<
     )
   );
   return Object.fromEntries(entries.filter(([, credentials]) => credentials)) as Partial<
-    Record<WebFetchProviderId, { apiKey?: string }>
+    Record<WebFetchProviderId, WebFetchCredentials>
   >;
 }
 
@@ -74,7 +86,7 @@ export async function resolveWebFetchExecution(body: {
     const resolvedProvider = body.provider as WebFetchProviderId;
     const provider = getWebFetchProvider(resolvedProvider);
     const creds = await resolveCredentials(resolvedProvider);
-    if (!creds && provider?.authType !== "none") {
+    if (!creds && provider?.authType !== "none" && !body.fallback) {
       return {
         credentials: {},
         errorStatus: 400,

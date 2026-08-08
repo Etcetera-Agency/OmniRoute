@@ -27,7 +27,7 @@ jobs:
       version: ${{ steps.validate.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -84,17 +84,17 @@ jobs:
             deb_ext: .deb
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
 
       - name: Cache node_modules
-        uses: actions/cache@v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
@@ -120,6 +120,8 @@ jobs:
         env:
           JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
           NODE_OPTIONS: "--max_old_space_size=6144"
+          # Linux hosted runners use webpack to avoid Turbopack native-memory OOM.
+          OMNIROUTE_USE_TURBOPACK: ${{ matrix.platform == 'linux' && '0' || '1' }}
         run: npm run build
 
       - name: Sync version in electron/package.json
@@ -209,7 +211,7 @@ jobs:
           done
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: electron-${{ matrix.platform }}
           path: release-assets/
@@ -217,21 +219,30 @@ jobs:
   release:
     name: Create Release
     needs: [validate, build]
+    # Keep successful platform artifacts when one matrix leg fails; verify completeness separately.
+    if: ${{ !cancelled() && needs.validate.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # softprops/action-gh-release creates the GitHub Release
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          path: release-assets
-          merge-multiple: true
+          path: artifacts
+
+      - name: Merge per-architecture macOS updater manifests
+        run: node scripts/release/merge-mac-update-manifest.mjs artifacts release-assets
+
+      - name: Collect remaining artifacts
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f ! -name latest-mac.yml -exec cp -n {} release-assets/ \;
 
       - name: Create source archives
         env:
@@ -256,7 +267,7 @@ jobs:
         run: ls -la release-assets/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           tag_name: ${{ needs.validate.outputs.version }}
           draft: false
@@ -274,6 +285,42 @@ jobs:
             release-assets/*.source.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify-desktop-assets:
+    name: Verify desktop assets landed
+    needs: [validate, release]
+    # Separate job keeps desktop verification failure from blocking npm publication.
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Assert every platform is present on the release
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          names=$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          missing=""
+          for want in '\.exe$' '\.AppImage$' '\.deb$' '^latest\.yml$' '^latest-mac\.yml$' '^latest-linux\.yml$' '\.source\.tar\.gz$'; do
+            if ! echo "$names" | grep -qE "$want"; then
+              missing="$missing $want"
+            fi
+          done
+          intel_dmg=$(printf '%s\n' "$names" | grep -E '\.dmg$' | grep -vE -- '-arm64\.dmg$' || true)
+          arm64_dmg=$(printf '%s\n' "$names" | grep -E -- '-arm64\.dmg$' || true)
+          if [ -z "$intel_dmg" ]; then
+            missing="$missing Intel .dmg"
+          fi
+          if [ -z "$arm64_dmg" ]; then
+            missing="$missing arm64 .dmg"
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Desktop channel incomplete on $VERSION — no asset matching:$missing"
+            exit 1
+          fi
+          echo "✓ every platform present on $VERSION"
 
   publish-npm:
     name: Publish to npm

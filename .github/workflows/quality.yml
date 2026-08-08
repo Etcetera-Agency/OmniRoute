@@ -32,11 +32,11 @@ jobs:
       i18n: ${{ steps.classify.outputs.i18n }}
       workflow: ${{ steps.classify.outputs.workflow }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
       - id: classify
@@ -90,10 +90,10 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || startsWith(github.head_ref, 'mergify/merge-queue/')) && (needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true')) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -120,17 +120,17 @@ jobs:
       API_KEY_SECRET: ci-lint-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Restore ESLint file cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             .eslintcache
@@ -142,7 +142,17 @@ jobs:
       - run: npm run check:fetch-targets
       # docs-all / openapi-routes / docs-symbols live in docs-gates (path-filtered).
       - run: npm run check:deps
-      - run: npm run check:file-size
+      # Compare against max(frozen baseline, PR base) so inherited drift does not
+      # red an otherwise innocent PR. Manual dispatch has no base and stays absolute.
+      - name: File-size ratchet (base-relative on PR)
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$PR_BASE_SHA" ]; then
+            npm run check:file-size -- --base-ref "$PR_BASE_SHA"
+          else
+            npm run check:file-size
+          fi
       - run: npm run check:error-helper
       - run: npm run check:migration-numbering
       - run: npm run check:public-creds
@@ -166,6 +176,59 @@ jobs:
       # Complexity + cognitive-complexity: ONE ESLint walk (both baselines still
       # enforced separately by ruleId). Avoids two cold tree walks on fast-path.
       - run: npm run check:complexity-ratchets
+      # AICODE-NOTE: release PRs need same deterministic ratchets/security audit as main CI;
+      # every external scanner is pinned so finding counts remain comparable across runners.
+      - run: npm run check:cycles
+      - run: npm run check:lockfile
+      - name: Duplication ratchet
+        run: npm run check:duplication
+      - name: Dead-code ratchet
+        run: npm run check:dead-code
+      - name: Type coverage ratchet
+        run: npm run check:type-coverage
+      - name: Compression budget ratchet
+        run: npm run check:compression-budget
+      - name: Install pinned workflow/security scanners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          GITLEAKS_VERSION=v8.30.1
+          OSV_SCANNER_VERSION=v2.3.8
+          ACTIONLINT_VERSION=1.7.12
+          ZIZMOR_VERSION=1.25.2
+          OASDIFF_VERSION=v1.19.1
+          rm -rf /tmp/gl && mkdir -p /tmp/gl
+          gh release download "$GITLEAKS_VERSION" --repo gitleaks/gitleaks --pattern '*linux_x64.tar.gz' --dir /tmp/gl
+          tar -xzf /tmp/gl/*linux_x64.tar.gz -C "$HOME/.local/bin" gitleaks
+          rm -rf /tmp/osv && mkdir -p /tmp/osv
+          gh release download "$OSV_SCANNER_VERSION" --repo google/osv-scanner --pattern '*linux_amd64' --dir /tmp/osv
+          install -m 0755 /tmp/osv/*linux_amd64 "$HOME/.local/bin/osv-scanner"
+          bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION" "$HOME/.local/bin"
+          pipx install "zizmor==$ZIZMOR_VERSION" || pip install --user "zizmor==$ZIZMOR_VERSION"
+          rm -rf /tmp/oasd && mkdir -p /tmp/oasd
+          gh release download "$OASDIFF_VERSION" --repo oasdiff/oasdiff --pattern '*linux_amd64.tar.gz' --dir /tmp/oasd
+          tar -xzf /tmp/oasd/*linux_amd64.tar.gz -C "$HOME/.local/bin" oasdiff
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          command -v actionlint
+          command -v zizmor
+          "$HOME/.local/bin/gitleaks" version
+          "$HOME/.local/bin/actionlint" -version
+          "$HOME/.local/bin/osv-scanner" --version
+          "$HOME/.local/bin/oasdiff" --version
+          zizmor --version
+      - name: Secret scan (ratchet)
+        run: npm run check:secrets -- --ratchet
+      - name: Vulnerability ratchet
+        run: npm run check:vuln-ratchet -- --ratchet
+      - name: Workflow lint (ratchet)
+        run: npm run check:workflows -- --strict --ratchet
+      - name: OpenAPI breaking-change ratchet
+        env:
+          BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) || '' }}
+        run: npm run check:openapi-breaking -- --ratchet
       - name: Typecheck (core)
         run: npm run typecheck:core
       # #7033: dashboard-scoped typecheck gate — src/app/(dashboard) TSX is not
@@ -248,7 +311,7 @@ jobs:
       # audited against fast-unit failures on the same run (gate moves need this data).
       - name: Upload TIA selection (shadow evidence)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: tia-selection
           path: tia-selection.txt
@@ -266,10 +329,10 @@ jobs:
       API_KEY_SECRET: ci-lint-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -306,10 +369,10 @@ jobs:
       API_KEY_SECRET: ci-lint-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
@@ -339,17 +402,20 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || startsWith(github.head_ref, 'mergify/merge-queue/')) && needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     continue-on-error: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true }}
+    permissions:
+      contents: read
+      security-events: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Restore ESLint file cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             .eslintcache
@@ -360,6 +426,20 @@ jobs:
       - name: ESLint (baseline congelado — warning novo = vermelho)
         # lint:json writes the report; --max-warnings 0 keeps no-new-warnings policy.
         run: npm run lint:json -- --max-warnings 0
+      # AICODE-NOTE: release PRs need the same deterministic quality ratchet as main CI;
+      # reuse this job's ESLint report and keep coverage metrics optional on this rail.
+      - run: npm run quality:collect
+      - name: Ratchet check (blocking)
+        run: node scripts/quality/check-quality-ratchet.mjs --allow-missing --summary .artifacts/quality-ratchet.md
+      - name: Require-tighten (blocking)
+        run: node scripts/quality/check-quality-ratchet.mjs --allow-missing --require-tighten
+      - name: CodeQL alerts ratchet (blocking)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run check:codeql-ratchet
+      - name: Append ratchet summary
+        if: always()
+        run: cat .artifacts/quality-ratchet.md >> "$GITHUB_STEP_SUMMARY" || true
 
   # Merge-integrity: pega no PR os dois vazamentos crônicos de merge que hoje só
   # explodem na release-PR. (1) CHANGELOG-eat — o auto-resolve do merge come

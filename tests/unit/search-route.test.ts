@@ -16,6 +16,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const routingOverrides = await import("../../src/lib/routing/routingOverrides.ts");
+const quotaPreflight = await import("../../open-sse/services/quotaPreflight.ts");
 const searchRoute = await import("../../src/app/api/v1/search/route.ts");
 
 async function resetStorage() {
@@ -53,6 +54,18 @@ async function seedRateLimitedConnection(provider: string) {
     testStatus: "unavailable",
     rateLimitedUntil: new Date(Date.now() + 60_000).toISOString(),
     providerSpecificData: {},
+  });
+}
+
+async function seedPreflightConnection(provider: string, apiKey: string) {
+  return providersDb.createProviderConnection({
+    provider,
+    authType: "apikey",
+    name: `${provider}-preflight-${Math.random().toString(16).slice(2, 8)}`,
+    apiKey,
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: { quotaPreflightEnabled: true },
   });
 }
 
@@ -880,4 +893,168 @@ test("v1 search POST auto-select skips rate-limited first provider", async () =>
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("v1 search POST preflight skips exhausted primary and fetches ordered fallback", async () => {
+  const blocked = await seedPreflightConnection("brave-search", "brave-preflight-key");
+  const fallback = await seedPreflightConnection("tavily-search", "tavily-preflight-key");
+  await routingOverrides.saveRoutingOverride({
+    endpoint: "search",
+    order: ["brave-search", "tavily-search"],
+    disabled: [
+      "exa-search",
+      "serper-search",
+      "searchapi-search",
+      "linkup-search",
+      "searxng-search",
+      "youcom-search",
+      "ollama-search",
+      "zai-search",
+      "parallel-search",
+      "firecrawl-search",
+      "perplexity-search",
+      "gemini-grounded-search",
+    ],
+  });
+
+  quotaPreflight.registerQuotaFetcher("brave-search", async (connectionId) => ({
+    used: connectionId === blocked.id ? 100 : 0,
+    total: 100,
+    percentUsed: connectionId === blocked.id ? 1 : 0,
+    resetAt: connectionId === blocked.id ? new Date(Date.now() + 60_000).toISOString() : null,
+  }));
+  quotaPreflight.registerQuotaFetcher("tavily-search", async (connectionId) => ({
+    used: connectionId === fallback.id ? 0 : 100,
+    total: 100,
+    percentUsed: connectionId === fallback.id ? 0 : 1,
+    resetAt: null,
+  }));
+
+  const originalFetch = globalThis.fetch;
+  const capturedUrls: string[] = [];
+  globalThis.fetch = async (url) => {
+    capturedUrls.push(String(url));
+    return new Response(
+      JSON.stringify({
+        results: [{ title: "Tavily fallback", url: "https://example.com/fallback" }],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute preflight fallback",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as SearchRouteResponse;
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(capturedUrls, ["https://api.tavily.com/search"]);
+    assert.equal(body.provider, "tavily-search");
+    assert.equal(body.results[0].title, "Tavily fallback");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST explicit preflight exhaustion returns rate-limit metadata", async () => {
+  const blocked = await seedPreflightConnection("brave-search", "brave-explicit-blocked");
+  await seedConnection("tavily-search", { apiKey: "tavily-must-not-run" });
+  quotaPreflight.registerQuotaFetcher("brave-search", async (connectionId) => ({
+    used: 100,
+    total: 100,
+    percentUsed: connectionId === blocked.id ? 1 : 0,
+    resetAt: new Date(Date.now() + 60_000).toISOString(),
+  }));
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response(JSON.stringify({ results: [] }), { status: 200 });
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute explicit preflight",
+          provider: "brave-search",
+          max_results: 1,
+          search_type: "web",
+        }),
+      })
+    );
+
+    assert.equal(response.status, 429);
+    assert.equal(fetchCalls, 0);
+    assert.ok(response.headers.get("Retry-After"));
+    assert.match(JSON.stringify(await response.json()), /All accounts rate limited/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST all preflight candidates returns first blocked provider metadata", async () => {
+  const brave = await seedPreflightConnection("brave-search", "brave-all-blocked");
+  const tavily = await seedPreflightConnection("tavily-search", "tavily-all-blocked");
+  await routingOverrides.saveRoutingOverride({
+    endpoint: "search",
+    order: ["brave-search", "tavily-search"],
+    disabled: [
+      "exa-search",
+      "serper-search",
+      "searchapi-search",
+      "linkup-search",
+      "searxng-search",
+      "youcom-search",
+      "ollama-search",
+      "zai-search",
+      "parallel-search",
+      "firecrawl-search",
+      "perplexity-search",
+      "gemini-grounded-search",
+    ],
+  });
+  const retryAfter = new Date(Date.now() + 60_000).toISOString();
+  quotaPreflight.registerQuotaFetcher("brave-search", async () => ({
+    used: 100,
+    total: 100,
+    percentUsed: 1,
+    resetAt: retryAfter,
+  }));
+  quotaPreflight.registerQuotaFetcher("tavily-search", async () => ({
+    used: 100,
+    total: 100,
+    percentUsed: 1,
+    resetAt: retryAfter,
+  }));
+
+  const response = await searchRoute.POST(
+    new Request("http://localhost/api/v1/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: "omniroute all preflight blocked",
+        max_results: 1,
+        search_type: "web",
+      }),
+    })
+  );
+
+  assert.equal(response.status, 429);
+  assert.ok(response.headers.get("Retry-After"));
+  assert.match(JSON.stringify(await response.json()), /brave-search/);
+  assert.ok(brave.id);
+  assert.ok(tavily.id);
 });

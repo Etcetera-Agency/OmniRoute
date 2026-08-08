@@ -1,0 +1,6 @@
+{
+  "_doc": "Upgrade-only SQLite residue is allowlisted and reported. A table present only on a clean install is never allowlisted because it means existing users miss required structure.",
+  "residualTables": {
+    "cache_metrics": "Known upgrade-only residue from older releases; keep visible while cache schema is next changed."
+  }
+}

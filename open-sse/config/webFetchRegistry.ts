@@ -16,6 +16,8 @@ export interface WebFetchProviderConfig {
   freeMonthlyQuota: number;
   fetchFormats: string[];
   authType: "apikey" | "none";
+  /** Upstream statuses that represent quota exhaustion for fallback purposes. */
+  quotaStatusCodes?: readonly number[];
 }
 
 export const WEB_FETCH_PROVIDERS: Record<WebFetchProviderId, WebFetchProviderConfig> = {
@@ -50,6 +52,7 @@ export const WEB_FETCH_PROVIDERS: Record<WebFetchProviderId, WebFetchProviderCon
     freeMonthlyQuota: 1000,
     fetchFormats: ["markdown", "text"],
     authType: "apikey",
+    quotaStatusCodes: [402, 403],
   },
   tinyfish: {
     id: "tinyfish",
@@ -58,6 +61,7 @@ export const WEB_FETCH_PROVIDERS: Record<WebFetchProviderId, WebFetchProviderCon
     freeMonthlyQuota: 0,
     fetchFormats: ["markdown", "html"],
     authType: "apikey",
+    quotaStatusCodes: [402, 403],
   },
   firecrawl: {
     id: "firecrawl",
@@ -66,6 +70,7 @@ export const WEB_FETCH_PROVIDERS: Record<WebFetchProviderId, WebFetchProviderCon
     freeMonthlyQuota: 500,
     fetchFormats: ["markdown", "html", "links", "screenshot"],
     authType: "apikey",
+    quotaStatusCodes: [402, 403],
   },
 };
 

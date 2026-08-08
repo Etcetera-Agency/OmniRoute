@@ -45,12 +45,24 @@ export interface WebFetchResult {
   success: boolean;
   status?: number;
   error?: string;
+  retryAfter?: string | number | Date | null;
+  retryAfterHuman?: string;
   data?: WebFetchResponse;
 }
 
 export interface WebFetchCredentials {
   apiKey?: string;
-  providerCredentials?: Partial<Record<WebFetchProviderId, { apiKey?: string }>>;
+  /** Selected connection metadata used by quota/proxy-aware callers. */
+  connectionId?: string | null;
+  baseUrl?: string | null;
+  providerSpecificData?: Record<string, unknown>;
+  /** Upstream auth resolver sentinel; never pass these credentials to an executor. */
+  allRateLimited?: boolean;
+  retryAfter?: string | number | Date | null;
+  retryAfterHuman?: string;
+  lastError?: string | null;
+  lastErrorCode?: number | string | null;
+  providerCredentials?: Partial<Record<WebFetchProviderId, WebFetchCredentials>>;
 }
 
 interface WebFetchLogger {

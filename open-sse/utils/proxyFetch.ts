@@ -450,6 +450,20 @@ export async function runWithProxyContext(
 }
 
 /**
+ * Run a request with an explicitly direct proxy context. Unlike
+ * `runWithProxyContext(null, fn)`, this clears any inherited context instead
+ * of treating null as "reuse the current proxy".
+ */
+export function runWithDirectProxyContext<T>(fn: () => T): T {
+  if (typeof fn !== "function") {
+    throw new TypeError("runWithDirectProxyContext requires a callback function");
+  }
+  // AICODE-NOTE: null means "inherit" in runWithProxyContext; this explicit
+  // seam is required when a direct fallback must not inherit another attempt.
+  return proxyContext.run(null, fn);
+}
+
+/**
  * Like {@link runWithProxyContext}, but if the assigned proxy is unreachable or fails
  * its pre-checks the request can degrade to a DIRECT connection instead of throwing.
  *

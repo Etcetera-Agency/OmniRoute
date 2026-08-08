@@ -22,6 +22,11 @@ import { getSearchProvider, type SearchProviderConfig } from "../config/searchRe
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
 import type { FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
+export {
+  buildFirecrawlSearchRequest,
+  normalizeFirecrawlSearchResponse,
+} from "./search/firecrawlSearch.ts";
+import { executeSearchOperation, executeSearchRequest } from "./search/searchProxy.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -89,6 +94,17 @@ function getSearchErrorName(error: unknown): string | undefined {
   return typeof name === "string" ? name : undefined;
 }
 
+function resolveSearchConnectionId(
+  credentials: SearchJsonObject,
+  preferredId?: string | null
+): string | null {
+  if (preferredId) return preferredId;
+  const connectionId = readSearchValue(credentials, "connectionId");
+  if (typeof connectionId === "string") return connectionId;
+  const id = readSearchValue(credentials, "id");
+  return typeof id === "string" ? id : null;
+}
+
 export interface SearchResult {
   title: string;
   url: string;
@@ -154,6 +170,8 @@ interface SearchHandlerOptions {
   strictFilters?: boolean;
   providerOptions?: Record<string, unknown>;
   credentials: SearchJsonObject;
+  connectionId?: string | null;
+  apiKeyId?: string | null;
   providerConfig?: SearchProviderConfig;
   alternateProvider?: string;
   alternateProviderConfig?: SearchProviderConfig | null;
@@ -737,58 +755,6 @@ export function buildParallelSearchRequest(
   };
 }
 
-function toFirecrawlTbs(timeRange?: string): string | undefined {
-  if (!timeRange || timeRange === "any") return undefined;
-  const map: Record<string, string> = {
-    day: "qdr:d",
-    week: "qdr:w",
-    month: "qdr:m",
-    year: "qdr:y",
-  };
-  return map[timeRange];
-}
-
-export function buildFirecrawlSearchRequest(
-  config: SearchProviderConfig,
-  params: SearchRequestParams
-): { url: string; init: RequestInit } {
-  const apiKey = params.token;
-  if (!apiKey) {
-    throw new Error("Firecrawl Search requires an API key");
-  }
-
-  const { includes, excludes } = parseDomainFilter(params.domainFilter);
-  const body: Record<string, unknown> = {
-    query: params.query,
-    limit: params.maxResults,
-    sources: [params.searchType === "news" ? "news" : "web"],
-    ignoreInvalidURLs: true,
-  };
-
-  if (includes.length) body.includeDomains = includes;
-  if (excludes.length) body.excludeDomains = excludes;
-  if (params.country) body.country = params.country.toUpperCase();
-  const tbs = toFirecrawlTbs(params.timeRange);
-  if (tbs) body.tbs = tbs;
-  if (params.contentOptions?.full_page) {
-    body.scrapeOptions = {
-      formats: [{ type: params.contentOptions.format === "markdown" ? "markdown" : "html" }],
-    };
-  }
-
-  return {
-    url: resolveSearchBaseUrl(config, params),
-    init: {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    },
-  };
-}
-
 export function buildGeminiGroundedSearchRequest(
   config: SearchProviderConfig,
   params: SearchRequestParams
@@ -838,7 +804,9 @@ function buildRequest(
   if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
   if (config.id === "exa-search") return buildExaRequest(config, params);
   if (config.id === "tavily-search") return buildTavilyRequest(config, params);
-  if (config.id === "firecrawl") return fcSearch.buildFirecrawlSearchRequest(config, params);
+  if (config.id === "firecrawl" || config.id === "firecrawl-search") {
+    return fcSearch.buildFirecrawlSearchRequest(config, params);
+  }
   if (config.id === "google-pse-search") return buildGooglePseRequest(config, params);
   if (config.id === "linkup-search") return buildLinkupRequest(config, params);
   if (config.id === "searchapi-search") return buildSearchApiRequest(config, params);
@@ -846,7 +814,6 @@ function buildRequest(
   if (config.id === "searxng-search") return buildSearxngRequest(config, params);
   if (config.id === "ollama-search") return buildOllamaRequest(config, params);
   if (config.id === "parallel-search") return buildParallelSearchRequest(config, params);
-  if (config.id === "firecrawl-search") return buildFirecrawlSearchRequest(config, params);
   if (config.id === "gemini-grounded-search")
     return buildGeminiGroundedSearchRequest(config, params);
   // Fallback for future providers: POST with bearer auth
@@ -1233,46 +1200,6 @@ export function normalizeParallelSearchResponse(
   return { results, totalResults: results.length };
 }
 
-export function normalizeFirecrawlSearchResponse(
-  data: unknown,
-  _query: string,
-  searchType: string
-): { results: SearchResult[]; totalResults: number | null } {
-  const now = new Date().toISOString();
-  const dataObject = readSearchObject(data, "data");
-  const source = readSearchValue(dataObject, searchType === "news" ? "news" : "web");
-  const items = readSearchArray(source) ?? [];
-
-  const results = items
-    .filter((item) => isValidResultUrl(readSearchString(item, "url")))
-    .map((item, idx) =>
-      makeResult(
-        "firecrawl-search",
-        {
-          title: readSearchString(item, "title"),
-          url: readSearchString(item, "url"),
-          snippet:
-            firstSearchString(
-              readSearchString(item, "description"),
-              readSearchString(item, "snippet")
-            ) || "",
-          published_at: readSearchString(item, "date"),
-          image_url: readSearchString(item, "imageUrl"),
-          source_type: readSearchString(item, "category") || searchType,
-          full_text: firstSearchString(
-            readSearchString(item, "markdown"),
-            readSearchString(item, "html")
-          ),
-          text_format: readSearchString(item, "markdown") ? "markdown" : "html",
-        },
-        idx,
-        now
-      )
-    );
-
-  return { results, totalResults: results.length };
-}
-
 function extractGeminiAnswerText(data: unknown): string {
   const candidates = readSearchArray(readSearchValue(data, "candidates")) ?? [];
   return candidates
@@ -1496,7 +1423,9 @@ async function tryZaiMCPProvider(
   providerSpecificData: Record<string, unknown> | undefined,
   startTime: number,
   globalStartTime: number,
-  log?: SearchLogger
+  log?: SearchLogger,
+  connectionId?: string | null,
+  apiKeyId?: string | null
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
 
@@ -1506,12 +1435,19 @@ async function tryZaiMCPProvider(
   const timer = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const normalized = await zaiSearchExecute({
-      config,
-      query,
-      token,
-      params: { ...params, token, providerSpecificData },
-      signal: controller.signal,
+    const normalized = await executeSearchOperation({
+      providerId: config.id,
+      connectionId,
+      apiKeyId,
+      url: resolveSearchBaseUrl(config, { ...params, providerSpecificData }),
+      operation: () =>
+        zaiSearchExecute({
+          config,
+          query,
+          token,
+          params: { ...params, token, providerSpecificData },
+          signal: controller.signal,
+        }),
     });
     clearTimeout(timer);
 
@@ -1526,6 +1462,8 @@ async function tryZaiMCPProvider(
       provider: config.id,
       duration,
       requestType: "search",
+      connectionId,
+      apiKeyId,
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
       responseBody: { results_count: results.length, cached: false },
@@ -1566,6 +1504,8 @@ async function tryZaiMCPProvider(
       provider: config.id,
       duration: Date.now() - startTime,
       requestType: "search",
+      connectionId,
+      apiKeyId,
       error: errorMessage,
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
     }).catch(() => {
@@ -1607,7 +1547,9 @@ function toFirecrawlSearchEnvelope(data: unknown): FirecrawlSearchEnvelope {
       description: readSearchString(hit, "description"),
       snippet: readSearchString(hit, "snippet"),
       markdown: readSearchString(hit, "markdown"),
+      html: readSearchString(hit, "html"),
       content: readSearchString(hit, "content"),
+      category: readSearchString(hit, "category"),
       date: readSearchString(hit, "date"),
       published_at: readSearchString(hit, "published_at"),
       imageUrl: readSearchString(hit, "imageUrl"),
@@ -1641,11 +1583,22 @@ function normalizeResponse(
     return normalizePerplexityResponse(data, query, searchType);
   if (providerId === "exa-search") return normalizeExaResponse(data, query, searchType);
   if (providerId === "tavily-search") return normalizeTavilyResponse(data, query, searchType);
-  if (providerId === "firecrawl")
+  if (providerId === "firecrawl" || providerId === "firecrawl-search")
     return fcSearch.normalizeFirecrawlSearchResponse(
       toFirecrawlSearchEnvelope(data),
       searchType,
-      makeResult
+      makeResult,
+      {
+        providerId,
+        timeoutMs: providerId === "firecrawl-search" ? 60_000 : undefined,
+        freeMonthlyQuota: providerId === "firecrawl-search" ? 500 : undefined,
+        invalidUrlPolicy: providerId === "firecrawl-search" ? "drop" : "preserve",
+        citationProvider: providerId,
+        aliasBody:
+          providerId === "firecrawl-search"
+            ? { ignoreInvalidURLs: true, scrapeOptionsFromContent: true }
+            : undefined,
+      }
     );
   if (providerId === "google-pse-search")
     return normalizeGooglePseResponse(data, query, searchType);
@@ -1656,8 +1609,6 @@ function normalizeResponse(
   if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
   if (providerId === "parallel-search")
     return normalizeParallelSearchResponse(data, query, searchType);
-  if (providerId === "firecrawl-search")
-    return normalizeFirecrawlSearchResponse(data, query, searchType);
   if (providerId === "gemini-grounded-search")
     return normalizeGeminiGroundedSearchResponse(data, query, searchType, model);
   return { results: [], totalResults: null };
@@ -1676,6 +1627,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     contentOptions,
     providerOptions,
     credentials,
+    connectionId,
+    apiKeyId,
     providerConfig,
     alternateProvider,
     alternateProviderConfig,
@@ -1725,7 +1678,15 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 4. Try primary provider
-  const result = await tryProvider(primaryConfig, requestParams, credentials, startTime, log);
+  const result = await tryProvider(
+    primaryConfig,
+    requestParams,
+    credentials,
+    startTime,
+    log,
+    connectionId,
+    apiKeyId
+  );
 
   if (result.success && (result.data?.results.length || !alternateConfig)) return result;
 
@@ -1746,7 +1707,9 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       requestParams,
       alternateCredentials,
       startTime,
-      log
+      log,
+      resolveSearchConnectionId(alternateCredentials),
+      apiKeyId
     );
 
     if (fallbackResult.success) return fallbackResult;
@@ -1768,7 +1731,9 @@ async function tryDuckDuckGoFreeProvider(
   log?: {
     info?: (tag: string, message: string) => void;
     error?: (tag: string, message: string) => void;
-  } | null
+  } | null,
+  connectionId?: string | null,
+  apiKeyId?: string | null
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
@@ -1785,7 +1750,13 @@ async function tryDuckDuckGoFreeProvider(
   };
 
   try {
-    const freeResults = await freeWebSearch(query, maxResults, timeout);
+    const freeResults = await executeSearchOperation({
+      providerId: config.id,
+      connectionId,
+      apiKeyId,
+      url: config.baseUrl,
+      operation: () => freeWebSearch(query, maxResults, timeout),
+    });
     const now = new Date().toISOString();
     const results = freeResults
       .slice(0, maxResults)
@@ -1802,6 +1773,8 @@ async function tryDuckDuckGoFreeProvider(
       provider: config.id,
       duration,
       requestType: "search",
+      connectionId,
+      apiKeyId,
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       requestBody,
       responseBody: { results_count: results.length, cached: false },
@@ -1840,6 +1813,8 @@ async function tryDuckDuckGoFreeProvider(
       provider: config.id,
       duration,
       requestType: "search",
+      connectionId,
+      apiKeyId,
       error: message.slice(0, 500),
       requestBody,
     }).catch(() => {
@@ -1859,7 +1834,9 @@ async function tryProvider(
   params: Omit<SearchRequestParams, "token">,
   credentials: SearchJsonObject,
   globalStartTime: number,
-  log?: SearchLogger
+  log?: SearchLogger,
+  connectionId?: string | null,
+  apiKeyId?: string | null
 ): Promise<SearchHandlerResult> {
   const startTime = Date.now();
   const providerSpecificData = asSearchObject(readSearchValue(credentials, "providerSpecificData"));
@@ -1867,6 +1844,7 @@ async function tryProvider(
     readSearchValue(credentials, "apiKey"),
     readSearchValue(credentials, "accessToken")
   );
+  const selectedConnectionId = resolveSearchConnectionId(credentials, connectionId);
 
   if (config.authType !== "none" && !token) {
     return {
@@ -1879,7 +1857,15 @@ async function tryProvider(
   const { query, searchType, maxResults } = params;
 
   if (config.id === "duckduckgo-free") {
-    return tryDuckDuckGoFreeProvider(config, params, startTime, globalStartTime, log);
+    return tryDuckDuckGoFreeProvider(
+      config,
+      params,
+      startTime,
+      globalStartTime,
+      log,
+      selectedConnectionId,
+      apiKeyId
+    );
   }
 
   if (config.id === "zai-search" && token) {
@@ -1890,7 +1876,9 @@ async function tryProvider(
       providerSpecificData,
       startTime,
       globalStartTime,
-      log
+      log,
+      selectedConnectionId,
+      apiKeyId
     );
   }
 
@@ -1922,7 +1910,14 @@ async function tryProvider(
   }
 
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    const proxyRequest = await executeSearchRequest({
+      providerId: config.id,
+      connectionId: selectedConnectionId,
+      apiKeyId,
+      url,
+      init: { ...init, signal: controller.signal },
+    });
+    const response = proxyRequest.response;
     clearTimeout(timer);
 
     if (!response.ok) {
@@ -1939,6 +1934,8 @@ async function tryProvider(
         provider: config.id,
         duration: Date.now() - startTime,
         requestType: "search",
+        connectionId: selectedConnectionId,
+        apiKeyId,
         error: errorText.slice(0, 500),
         requestBody: {
           query: query.slice(0, 200),
@@ -1971,6 +1968,8 @@ async function tryProvider(
       provider: config.id,
       duration,
       requestType: "search",
+      connectionId: selectedConnectionId,
+      apiKeyId,
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
       responseBody: { results_count: results.length, cached: false },
@@ -2014,6 +2013,8 @@ async function tryProvider(
       provider: config.id,
       duration: Date.now() - startTime,
       requestType: "search",
+      connectionId: selectedConnectionId,
+      apiKeyId,
       error: errorMessage,
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
     }).catch(() => {

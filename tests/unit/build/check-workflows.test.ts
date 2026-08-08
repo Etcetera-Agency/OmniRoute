@@ -24,6 +24,7 @@ import {
   isBinaryAvailable,
   evaluateZizmorRatchet,
   readBaselineZizmorValue,
+  zizmorVersion,
   // @ts-expect-error — .mjs helper has no type declarations; runtime shape is known.
 } from "../../../scripts/check/check-workflows.mjs";
 
@@ -312,6 +313,10 @@ test("readBaselineZizmorValue: invalid JSON returns null (does not throw)", () =
   withTmpBaseline("{ broken", (p) => {
     assert.equal(readZizmorBaseline(p), null);
   });
+});
+
+test("zizmorVersion reports a string for reproducible ratchet evidence", () => {
+  assert.equal(typeof zizmorVersion(), "string");
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

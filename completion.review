@@ -14,6 +14,26 @@
   backend ID sets, explicit search result types, simpler You.com normalization,
   type-safe Firecrawl timestamp/filter handling, and formatter-clean migration
   directory discovery.
+- Applied Code Simplifier cleanup to search hardening: explicit connection-ID
+  resolution, non-nested Firecrawl base selection, direct proxy-context clearing,
+  per-attempt proxy notes, and special-provider operation boundaries with
+  category-aware Firecrawl content normalization; HTML payloads now use the
+  schema-valid text content format and unknown/web categories normalize to the
+  schema's `other` source type. HTTP error responses emit error proxy telemetry.
+- Applied Code Simplifier cleanup to web-fetch routing: shared credential-provider
+  mapping and keyless Mdream fixtures now preserve the canonical fallback order.
+- Preserved web-fetch fallback for 401/transport failures while limiting 403
+  fallback to registry-declared quota statuses, and hardened standalone script
+  imports when launched from stdin/module test runners; the route now shares
+  canonical Retry-After normalization for relative seconds, dates, and epoch-ms
+  reset values while retaining the 300-second malformed-value default.
+- Applied Code Simplifier cleanup to release workflow hardening: deterministic artifact
+  provenance/candidate isolation, base-relative file-size coverage, release-rail ratchets,
+  env-safe Docker channels with existing trigger topology preserved, manifest checks, and a
+  blocking previous-version boot proof; quality scanner setup now resolves oasdiff from its
+  official repository, requires pinned workflow scanners, and pins all external workflow
+  actions. Self-target checks now distinguish same-name fork branches, while desktop verification
+  requires both Intel/arm64 DMGs and exact updater manifests.
 
 ## 2026-07-08
 

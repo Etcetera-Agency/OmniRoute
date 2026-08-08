@@ -17,7 +17,7 @@ import {
   SEARCH_CREDENTIAL_FALLBACKS,
   type SearchProviderConfig,
 } from "@/lib/search/providerRegistry";
-import { getProviderCredentials } from "@/sse/services/auth";
+import { getProviderCredentialsWithQuotaPreflight } from "@/sse/services/auth";
 import {
   isAllRateLimitedCredentials,
   type RateLimitedCredentials,
@@ -30,6 +30,8 @@ type SearchCredentialLookup = SearchCredentials | RateLimitedCredentials | null;
 export type SearchAttempt = {
   config: SearchProviderConfig;
   credentials: Record<string, any>;
+  connectionId: string | null;
+  apiKeyId: string | null;
 };
 
 export class SearchError extends Error {
@@ -60,6 +62,12 @@ export type SearchLogger = {
   warn(tag: string, message: string): void;
 };
 
+function getSearchConnectionId(credentials: SearchCredentials): string | null {
+  if (typeof credentials.connectionId === "string") return credentials.connectionId;
+  if (typeof credentials.id === "string") return credentials.id;
+  return null;
+}
+
 const FALLBACKABLE_SEARCH_STATUSES = new Set([401, 403, 408, 429, 502, 503, 504]);
 
 export function isFallbackableSearchStatus(status: number | undefined): boolean {
@@ -82,22 +90,28 @@ async function buildSearchProviderChain(
 }
 
 async function resolveSearchCredentials(providerId: string): Promise<SearchCredentialLookup> {
-  const credentials = await getProviderCredentials(providerId).catch(() => null);
-  if (credentials && !isAllRateLimitedCredentials(credentials)) return credentials;
-
+  // AICODE-NOTE: preserve first quota-block descriptor while probing credential
+  // fallback IDs so auto-routing can continue without losing Retry-After context.
+  const credentialProviderIds = [providerId];
   const fallbackId = SEARCH_CREDENTIAL_FALLBACKS[providerId];
-  if (!fallbackId) return credentials;
+  if (fallbackId) credentialProviderIds.push(fallbackId);
 
-  const fallbackCredentials = await getProviderCredentials(fallbackId).catch(() => null);
-  if (fallbackCredentials && !isAllRateLimitedCredentials(fallbackCredentials)) {
-    return fallbackCredentials;
+  let firstRateLimited: RateLimitedCredentials | null = null;
+  for (const credentialProviderId of credentialProviderIds) {
+    const credentials = await getProviderCredentialsWithQuotaPreflight(credentialProviderId).catch(
+      () => null
+    );
+    if (credentials && !isAllRateLimitedCredentials(credentials)) return credentials;
+    if (credentials && !firstRateLimited && isAllRateLimitedCredentials(credentials)) {
+      firstRateLimited = credentials;
+    }
   }
 
   if (providerId === "parallel-search" && process.env.PARALLEL_API_KEY) {
     return { apiKey: process.env.PARALLEL_API_KEY };
   }
 
-  return fallbackCredentials || credentials;
+  return firstRateLimited;
 }
 
 async function resolveSearchExecutionCredentials(providerConfig: {
@@ -139,7 +153,9 @@ export interface BuildAttemptsResult {
  * unavailable providers filtered out.
  */
 export async function buildSearchAttempts(
-  body: Pick<SearchChainRequest, "provider" | "search_type">
+  body: Pick<SearchChainRequest, "provider" | "search_type"> & {
+    apiKeyId?: string | null;
+  }
 ): Promise<BuildAttemptsResult> {
   if (body.provider) {
     const explicitProvider = getSearchProvider(body.provider);
@@ -184,16 +200,26 @@ export async function buildSearchAttempts(
       continue;
     }
 
-    attempts.push({ config, credentials: resolvedCredentials });
+    attempts.push({
+      config,
+      credentials: resolvedCredentials,
+      connectionId: getSearchConnectionId(resolvedCredentials),
+      apiKeyId: body.apiKeyId ?? null,
+    });
   }
 
-  if (!body.provider && attempts.length === 0) {
+  if (!body.provider && attempts.length === 0 && !firstRateLimited) {
     for (const config of Object.values(SEARCH_PROVIDERS)) {
       if (!config.fallbackOnly || !supportsSearchType(config, body.search_type)) continue;
 
       const resolvedCredentials = await resolveSearchExecutionCredentials(config);
       if (resolvedCredentials && !isAllRateLimitedCredentials(resolvedCredentials)) {
-        attempts.push({ config, credentials: resolvedCredentials });
+        attempts.push({
+          config,
+          credentials: resolvedCredentials,
+          connectionId: getSearchConnectionId(resolvedCredentials),
+          apiKeyId: body.apiKeyId ?? null,
+        });
         break;
       }
     }
@@ -244,6 +270,8 @@ export async function runSearchChain(
       strictFilters: body.strict_filters,
       providerOptions: body.provider_options,
       credentials: attempt.credentials,
+      connectionId: attempt.connectionId,
+      apiKeyId: attempt.apiKeyId,
       log: logger,
     });
 

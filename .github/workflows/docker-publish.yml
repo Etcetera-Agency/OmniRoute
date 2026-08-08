@@ -44,7 +44,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/v{0}', inputs.version) || '' }}
@@ -62,36 +62,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 1) Resolve version string from the trigger (all inputs come via env).
-          case "$EVENT_NAME" in
-            workflow_dispatch)
-              VERSION="${INPUT_VERSION#v}"
-              ;;
-            push)
-              if [ "$REF_TYPE" = "tag" ]; then
-                VERSION="${REF_NAME#v}"
-              else
-                # Push to main → build & tag as `main` only. Never touch :latest.
-                VERSION="main"
-              fi
-              ;;
-            release)
-              VERSION="${REF_NAME#v}"
-              ;;
-            *)
-              VERSION="${REF_NAME#v}"
-              ;;
-          esac
-          # Sanity-check: only allow [A-Za-z0-9._-] in VERSION (defense in depth).
-          if ! printf '%s' "$VERSION" | grep -qE '^[A-Za-z0-9._-]+$'; then
-            echo "Refusing to use unsafe VERSION value: $VERSION" >&2
-            exit 1
-          fi
+          # 1) Resolve version/channel through env-only validated helper.
+          VERSION=$(bash scripts/ci/resolve-docker-publish-version.sh \
+            "$EVENT_NAME" "$REF_TYPE" "$REF_NAME" "$INPUT_VERSION")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # 2) Decide whether to promote :latest.
+          # 2) Decide whether to promote :latest. Floating channels never promote.
           PROMOTE="false"
-          if [ "$VERSION" = "main" ]; then
+          if [ "$VERSION" = "main" ] || [ "$VERSION" = "next" ]; then
             PROMOTE="false"
           elif printf '%s' "$VERSION" | grep -qE -- '-(rc|alpha|beta|pre|next)'; then
             echo "Pre-release identifier detected — skipping :latest."
@@ -111,14 +89,13 @@ jobs:
           fi
           echo "promote_latest=$PROMOTE" >> "$GITHUB_OUTPUT"
 
-          # 3) Skip if this exact version is already published in Docker Hub.
-          #    `main` is always rebuilt (mutable floating tag).
+          # 3) Skip immutable version tags already published. Floating channels rebuild.
           SKIP="false"
           if [ -z "${DOCKERHUB_USERNAME:-}" ] || [ -z "${DOCKERHUB_TOKEN:-}" ]; then
             echo "Docker Hub credentials are not configured; skipping Docker Hub publish."
             SKIP="true"
           fi
-          if [ "$VERSION" != "main" ]; then
+          if [ "$VERSION" != "main" ] && [ "$VERSION" != "next" ]; then
             if docker manifest inspect "diegosouzapw/omniroute:${VERSION}" >/dev/null 2>&1; then
               echo "Image diegosouzapw/omniroute:${VERSION} already exists on Docker Hub — skipping rebuild."
               SKIP="true"
@@ -151,23 +128,23 @@ jobs:
       GHCR_IMAGE_NAME: ghcr.io/diegosouzapw/omniroute
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/v{0}', inputs.version) || '' }}
           fetch-depth: 0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -175,7 +152,7 @@ jobs:
 
       - name: Build and push platform image by digest
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           target: runner-base
@@ -192,7 +169,7 @@ jobs:
 
       - name: Build and push WEB platform image by digest
         id: build-web
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           target: runner-web
@@ -218,7 +195,7 @@ jobs:
           touch "/tmp/digests/web/${DIGEST_WEB#sha256:}"
 
       - name: Upload base digests
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: digests-base-${{ matrix.arch }}
           path: /tmp/digests/base/*
@@ -226,7 +203,7 @@ jobs:
           retention-days: 1
 
       - name: Upload web digests
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: digests-web-${{ matrix.arch }}
           path: /tmp/digests/web/*
@@ -251,37 +228,37 @@ jobs:
       PROMOTE_LATEST: ${{ needs.prepare.outputs.promote_latest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/v{0}', inputs.version) || '' }}
           fetch-depth: 0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download base digests
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: digests-base-*
           path: /tmp/digests/base
           merge-multiple: true
 
       - name: Download web digests
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: digests-web-*
           path: /tmp/digests/web
@@ -343,7 +320,7 @@ jobs:
       - name: Generate CycloneDX SBOM (image, advisory)
         if: needs.prepare.outputs.version != 'main'
         continue-on-error: true
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: ${{ env.GHCR_IMAGE_NAME }}:${{ env.VERSION }}
           format: cyclonedx-json
@@ -396,7 +373,7 @@ jobs:
       - name: Upload Trivy SARIF to Security tab
         if: needs.prepare.outputs.version != 'main'
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           sarif_file: trivy-results.sarif
           category: trivy-image
@@ -405,7 +382,7 @@ jobs:
         # Only refresh README/description when we actually promote :latest
         # (avoids overwriting from main pushes or back-fill builds).
         if: needs.prepare.outputs.promote_latest == 'true'
-        uses: peter-evans/dockerhub-description@v5
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}

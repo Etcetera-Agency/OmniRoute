@@ -9,6 +9,7 @@
 // já cabe no cap, inclusive quem NÃO encolheu nesta rodada (loc === frozen[file]).
 // Antes a remoção só acontecia dentro do ramo de encolhimento, então uma entrada
 // igual ao próprio teto ficava presa no baseline para sempre — ver #8584.
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -22,6 +23,7 @@ const BASELINE_PATH = path.resolve(
   getArg("--baseline", path.join(ROOT, "config/quality/file-size-baseline.json"))
 );
 const UPDATE = process.argv.includes("--update");
+const BASE_REF = getArg("--base-ref");
 const SCAN_DIRS = ["src", "open-sse", "electron", "bin"];
 // Test files live under tests/ plus co-located *.test.ts(x) inside the source dirs.
 const TEST_SCAN_DIRS = ["tests", ...SCAN_DIRS];
@@ -37,20 +39,31 @@ const SKIP_DIRS = new Set(["node_modules", "dist-electron", ".next", ".build", "
  * (loc < frozen), entao uma entrada igual ao proprio teto nunca saia da lista,
  * por mais abaixo do cap que estivesse (3 casos reais no v3.8.49).
  *
+ * @param {Object} [baseLocByFile] — LOC in PR base ref (optional)
  * @returns {{violations: string[], improvements: [string, number][], redundant: string[]}}
  */
-export function evaluateFileSizes(currentLocByFile, frozen, cap) {
+export function evaluateFileSizes(currentLocByFile, frozen, cap, baseLocByFile) {
   const violations = [];
   const improvements = [];
   const redundant = [];
   for (const [file, loc] of Object.entries(currentLocByFile)) {
     if (file in frozen) {
-      if (loc > frozen[file])
+      const threshold = baseLocByFile
+        ? Math.max(frozen[file], baseLocByFile[file] ?? frozen[file])
+        : frozen[file];
+      if (loc > threshold)
         violations.push(`${file}: ${loc} > congelado ${frozen[file]} (não pode crescer)`);
       else if (loc < frozen[file]) improvements.push([file, loc]);
       else if (loc <= cap) redundant.push(file);
     } else if (loc > cap) {
-      violations.push(`${file}: ${loc} > cap ${cap} (arquivo novo acima do limite)`);
+      if (!baseLocByFile) {
+        violations.push(`${file}: ${loc} > cap ${cap} (arquivo novo acima do limite)`);
+      } else {
+        const baseLoc = baseLocByFile[file] ?? 0;
+        const prThreshold = Math.max(cap, baseLoc);
+        if (loc > prThreshold)
+          violations.push(`${file}: ${loc} > cap ${cap} (arquivo novo acima do limite)`);
+      }
     }
   }
   return { violations, improvements, redundant };
@@ -108,6 +121,24 @@ function collectTestLoc() {
   return out;
 }
 
+/** Read LOC for paths from a git ref. Missing paths are new files and stay absent. */
+function getBaseLoc(ref, files) {
+  const out = {};
+  for (const file of files) {
+    try {
+      const content = execFileSync("git", ["show", `${ref}:${file}`], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 5000,
+      });
+      out[file] = content.split("\n").length;
+    } catch {
+      // New file in PR base: treat as zero lines.
+    }
+  }
+  return out;
+}
+
 function main() {
   if (!fs.existsSync(BASELINE_PATH)) {
     console.error(`[file-size] FAIL — ${path.basename(BASELINE_PATH)} ausente.`);
@@ -117,19 +148,26 @@ function main() {
   const cap = baseline.cap;
   const frozen = baseline.frozen || {};
   const current = collectLoc();
-  const { violations, improvements, redundant } = evaluateFileSizes(current, frozen, cap);
+  const currentTests = collectTestLoc();
+  const filesToMeasure = [...new Set([...Object.keys(current), ...Object.keys(currentTests)])];
+  const baseLoc = BASE_REF ? getBaseLoc(BASE_REF, filesToMeasure) : undefined;
+  if (BASE_REF) {
+    console.log(
+      `[file-size] PR base ${BASE_REF.slice(0, 12)}: ${Object.keys(baseLoc).length} files measured`
+    );
+  }
+  const { violations, improvements, redundant } = evaluateFileSizes(current, frozen, cap, baseLoc);
 
   // Test-file gate (Layer 1 anti-reinflation): same shrink-only + new-≤cap semantics,
   // reusing evaluateFileSizes against the testFrozen baseline + testCap.
   const testCap = baseline.testCap;
   const testFrozen = baseline.testFrozen || {};
-  const currentTests = collectTestLoc();
   const {
     violations: testViolations,
     improvements: testImprovements,
     redundant: testRedundant,
   } = typeof testCap === "number"
-    ? evaluateFileSizes(currentTests, testFrozen, testCap)
+    ? evaluateFileSizes(currentTests, testFrozen, testCap, baseLoc)
     : { violations: [], improvements: [], redundant: [] };
 
   if (UPDATE) {

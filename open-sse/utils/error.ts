@@ -365,7 +365,12 @@ export async function writeStreamError(
   await writer.write(encoder.encode(`data: ${JSON.stringify(errorBody)}\n\n`));
 }
 
-function normalizeRetryAfterSeconds(retryAfter?: string | number | Date | null): number {
+export function normalizeRetryAfterSeconds(
+  retryAfter?: string | number | Date | null,
+  fallbackSeconds = 1
+): number {
+  const fallback = Number.isFinite(fallbackSeconds) ? Math.max(Math.ceil(fallbackSeconds), 1) : 1;
+
   if (typeof retryAfter === "number" && Number.isFinite(retryAfter)) {
     if (retryAfter > 0 && retryAfter < 1_000_000_000) {
       return Math.max(Math.ceil(retryAfter), 1);
@@ -377,14 +382,33 @@ function normalizeRetryAfterSeconds(retryAfter?: string | number | Date | null):
     }
   }
 
-  if (retryAfter instanceof Date || typeof retryAfter === "string") {
-    const retryTimeMs = new Date(retryAfter).getTime();
+  if (retryAfter instanceof Date) {
+    const retryTimeMs = retryAfter.getTime();
     if (Number.isFinite(retryTimeMs)) {
       return Math.max(Math.ceil((retryTimeMs - Date.now()) / 1000), 1);
     }
   }
 
-  return 1;
+  if (typeof retryAfter === "string") {
+    const trimmed = retryAfter.trim();
+    if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+      const numericRetryAfter = Number(trimmed);
+      if (numericRetryAfter > 0 && numericRetryAfter < 1_000_000_000) {
+        return Math.max(Math.ceil(numericRetryAfter), 1);
+      }
+      const retryTimeMs = new Date(numericRetryAfter).getTime();
+      if (Number.isFinite(retryTimeMs)) {
+        return Math.max(Math.ceil((retryTimeMs - Date.now()) / 1000), 1);
+      }
+    }
+
+    const retryTimeMs = new Date(trimmed).getTime();
+    if (Number.isFinite(retryTimeMs)) {
+      return Math.max(Math.ceil((retryTimeMs - Date.now()) / 1000), 1);
+    }
+  }
+
+  return fallback;
 }
 
 /**

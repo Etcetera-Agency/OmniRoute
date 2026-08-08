@@ -56,6 +56,93 @@ test("firecrawlFetch routes to FIRECRAWL_BASE_URL when set", async () => {
   });
 });
 
+test("firecrawlFetch uses direct credential baseUrl when env override is unset", async () => {
+  await withEnv({ FIRECRAWL_BASE_URL: undefined }, async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedUrl = "";
+    globalThis.fetch = async (url) => {
+      capturedUrl = String(url);
+      return new Response(JSON.stringify({ data: { markdown: "# Direct" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    try {
+      const result = await firecrawlFetch({
+        url: "https://example.com",
+        format: "markdown",
+        depth: 0,
+        includeMetadata: false,
+        credentials: { baseUrl: "http://firecrawl.internal///" },
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(capturedUrl, "http://firecrawl.internal/v1/scrape");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("firecrawlFetch uses nested providerSpecificData baseUrl", async () => {
+  await withEnv({ FIRECRAWL_BASE_URL: undefined }, async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedUrl = "";
+    globalThis.fetch = async (url) => {
+      capturedUrl = String(url);
+      return new Response(JSON.stringify({ data: { markdown: "# Nested" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    try {
+      const result = await firecrawlFetch({
+        url: "https://example.com",
+        format: "markdown",
+        depth: 0,
+        includeMetadata: false,
+        credentials: { providerSpecificData: { baseUrl: "http://firecrawl.internal/" } },
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(capturedUrl, "http://firecrawl.internal/v1/scrape");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("firecrawlFetch environment base overrides credential base", async () => {
+  await withEnv({ FIRECRAWL_BASE_URL: "http://env.firecrawl///" }, async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedUrl = "";
+    globalThis.fetch = async (url) => {
+      capturedUrl = String(url);
+      return new Response(JSON.stringify({ data: { markdown: "# Env" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    try {
+      const result = await firecrawlFetch({
+        url: "https://example.com",
+        format: "markdown",
+        depth: 0,
+        includeMetadata: false,
+        credentials: { baseUrl: "http://credential.firecrawl/" },
+      });
+
+      assert.equal(result.success, true);
+      assert.equal(capturedUrl, "http://env.firecrawl/v1/scrape");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
 test("firecrawlFetch allows missing apiKey when FIRECRAWL_BASE_URL is custom", async () => {
   await withEnv({ FIRECRAWL_BASE_URL: "http://127.0.0.1:3002" }, async () => {
     const originalFetch = globalThis.fetch;

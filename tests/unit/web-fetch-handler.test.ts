@@ -346,7 +346,14 @@ test("handleWebFetch auto fallback tries mdream then parallel-extract", async ()
   try {
     const result = await handleWebFetch(
       { url: "https://example.com", format: "markdown" },
-      { providerCredentials: { "parallel-extract": { apiKey: "parallel-key" } } }
+      {
+        // Auto routing keeps Mdream (keyless) first; credential maps must
+        // include it explicitly when exercising the handler directly.
+        providerCredentials: {
+          mdream: {},
+          "parallel-extract": { apiKey: "parallel-key" },
+        },
+      }
     );
 
     assert.equal(result.success, true);
@@ -387,7 +394,12 @@ test("handleWebFetch skips disabled auto provider but still allows it explicitly
   try {
     const autoResult = await handleWebFetch(
       { url: "https://example.com", format: "markdown" },
-      { providerCredentials: { "parallel-extract": { apiKey: "parallel-key" } } }
+      {
+        providerCredentials: {
+          mdream: {},
+          "parallel-extract": { apiKey: "parallel-key" },
+        },
+      }
     );
 
     assert.equal(autoResult.success, true);
@@ -396,7 +408,12 @@ test("handleWebFetch skips disabled auto provider but still allows it explicitly
 
     const explicitResult = await handleWebFetch(
       { url: "https://example.com", provider: "mdream", format: "markdown" },
-      { providerCredentials: { "parallel-extract": { apiKey: "parallel-key" } } }
+      {
+        providerCredentials: {
+          mdream: {},
+          "parallel-extract": { apiKey: "parallel-key" },
+        },
+      }
     );
 
     assert.equal(explicitResult.success, true);

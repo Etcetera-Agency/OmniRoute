@@ -254,6 +254,15 @@ export function runZizmor(workflowsDir) {
   }
 }
 
+/** Report exact zizmor version used for reproducible finding counts. */
+export function zizmorVersion() {
+  try {
+    return execFileSync("zizmor", ["--version"], { encoding: "utf8" }).trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -337,6 +346,8 @@ function main() {
   process.stdout.write(`workflowFindings=${total}\n`);
   process.stdout.write(`actionlintFindings=${actionlintCount}\n`);
   process.stdout.write(`zizmorFindings=${zizmorCount}\n`);
+  // A count is reproducible only when paired with the tool version that produced it.
+  process.stdout.write(`zizmorVersion=${hasZizmor ? zizmorVersion() : "absent"}\n`);
 
   if (STRICT && total > 0) {
     console.error(`\n[check-workflows] FAIL — ${total} workflow finding(s) total (--strict mode).`);

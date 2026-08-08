@@ -7,7 +7,7 @@
  * Response: { provider, url, content, links, metadata, screenshot_url }
  */
 
-import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
+import { errorResponse, normalizeRetryAfterSeconds } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { handleWebFetch } from "@omniroute/open-sse/handlers/webFetch.ts";
 import * as log from "@/sse/utils/logger";
@@ -82,13 +82,20 @@ export async function POST(request: Request) {
   );
 
   if (!result.success) {
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...CORS_HEADERS,
+    };
+    if (result.status === HTTP_STATUS.RATE_LIMITED) {
+      responseHeaders["Retry-After"] = toRetryAfterSeconds(result.retryAfter);
+    }
     return new Response(
       JSON.stringify({
         error: { message: result.error ?? "Web fetch failed", type: "web_fetch_error" },
       }),
       {
         status: result.status ?? 502,
-        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        headers: responseHeaders,
       }
     );
   }
@@ -105,4 +112,10 @@ function getUrlHost(url: string): string {
   } catch {
     return "invalid-url";
   }
+}
+
+export function toRetryAfterSeconds(value: string | number | Date | null | undefined): string {
+  // AICODE-NOTE: Keep this route on the shared normalizer so epoch-millisecond
+  // reset times cannot be emitted as enormous relative Retry-After values.
+  return String(normalizeRetryAfterSeconds(value, 300));
 }

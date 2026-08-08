@@ -70,7 +70,7 @@ jobs:
       packages: write # publish to npm.pkg.github.com
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           # Need full tag history to compare against highest semver when
@@ -78,7 +78,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NPM_PUBLISH_NODE_VERSION }}
           registry-url: https://registry.npmjs.org
@@ -159,6 +159,8 @@ jobs:
       # `head_sha` is the tree-equality guarantee: same commit, same tree.
       # Best-effort by design (retention is 1 day): every miss falls through to the build
       # step below, which is why the dynamic runner above matters as the backstop.
+      # AICODE-NOTE: only artifacts produced by this repository may become npm bytes;
+      # candidate presence is checked directly because unrelated CI shards can fail.
       - name: Reuse CI's next-build artifact (skips the heavy rebuild)
         if: steps.resolve.outputs.skip != 'true'
         continue-on-error: true
@@ -168,14 +170,26 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
-          RUN=$(gh api "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&per_page=100" \
-            --jq '[.workflow_runs[] | select(.name == "CI" and .conclusion == "success")] | .[0].id // empty') || RUN=""
-          if [ -z "$RUN" ]; then
-            echo "::notice::no successful CI run for $HEAD_SHA — falling back to a full build"
+          CANDIDATES=$(gh api "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&per_page=100" \
+            --jq '[.workflow_runs[]
+                   | select(.name == "CI"
+                            and .head_repository.full_name == env.REPO)]
+                  | sort_by(.run_started_at) | reverse | .[0:5] | .[].id') || CANDIDATES=""
+          if [ -z "$CANDIDATES" ]; then
+            echo "::notice::no CI run from this repository for $HEAD_SHA — falling back to a full build"
             exit 0
           fi
-          if ! gh run download "$RUN" --repo "$REPO" --name next-build --dir /tmp/next-build; then
-            echo "::notice::next-build artifact unavailable for run $RUN (expired?) — falling back to a full build"
+          RUN=""
+          for candidate in $CANDIDATES; do
+            rm -rf /tmp/next-build
+            if gh run download "$candidate" --repo "$REPO" --name next-build --dir /tmp/next-build 2>/dev/null; then
+              RUN="$candidate"
+              break
+            fi
+            echo "  run $candidate carries no usable next-build — trying the next"
+          done
+          if [ -z "$RUN" ]; then
+            echo "::notice::none of the candidate runs still carries next-build — falling back to a full build"
             exit 0
           fi
           tar -xzf /tmp/next-build/e2e-build.tar.gz -C .
@@ -203,7 +217,7 @@ jobs:
 
       - name: Upload SBOM (npm) as workflow artifact
         if: steps.resolve.outputs.skip != 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sbom-npm
           path: sbom-npm.cdx.json
@@ -222,6 +236,11 @@ jobs:
       - name: Boot-smoke the tarball before ANY publish
         if: steps.resolve.outputs.skip != 'true'
         run: npm run check:pack-boot
+
+      - name: Prove clean-install AND upgrade-over-previous both boot
+        if: steps.resolve.outputs.skip != 'true'
+        timeout-minutes: 30
+        run: npm run check:install-upgrade
 
       # WS1.3 (D2, v3.8.49 plan): STAGED publishing by default — `npm stage publish`
       # parks the exact bytes on the registry WITHOUT making them installable; the
@@ -300,14 +319,14 @@ jobs:
       id-token: write # npm provenance
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
           # Full history needed for auto-bump: git diff against previous release tag
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NPM_PUBLISH_NODE_VERSION }}
           registry-url: https://registry.npmjs.org

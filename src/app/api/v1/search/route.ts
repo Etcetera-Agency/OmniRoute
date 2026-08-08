@@ -71,7 +71,10 @@ async function postHandler(request: Request, context: unknown) {
   if (policy.rejection) return policy.rejection;
 
   // Resolve the ordered provider attempts (configured order or explicit provider).
-  const attemptsResult = await buildSearchAttempts(body);
+  const attemptsResult = await buildSearchAttempts({
+    ...body,
+    apiKeyId: policy.apiKeyInfo?.id ?? null,
+  });
   if (attemptsResult.rateLimited) {
     return rateLimitedProviderResponse(
       attemptsResult.rateLimited.providerId,
