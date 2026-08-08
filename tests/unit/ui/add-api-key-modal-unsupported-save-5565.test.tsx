@@ -84,6 +84,25 @@ afterEach(() => {
 });
 
 describe("AddApiKeyModal — 'validation not supported' is a non-blocking warning (#5565/#5567)", () => {
+  it("does not show unsupported validator responses as red save errors after Check cookie", async () => {
+    const el = render({ provider: "lmarena", providerName: "LMArena" });
+
+    const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
+    expect(apiKeyInput).toBeTruthy();
+    setInputValue(apiKeyInput, "arena-auth-prod-v1.0=abc; arena-auth-prod-v1.1=def");
+
+    const checkBtn = Array.from(el.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "Check cookie"
+    )!;
+    expect(checkBtn).toBeTruthy();
+    act(() => {
+      checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitFor(() => el.textContent?.includes("N/A") ?? false);
+    expect(el.textContent).not.toContain("Provider validation not supported");
+  });
+
   it("still calls onSave when /validate returns unsupported=true", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const el = render({ provider: "piapi", providerName: "PiAPI", onSave });

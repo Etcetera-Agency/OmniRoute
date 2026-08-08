@@ -19,6 +19,8 @@ const { getSharedCredentialProviderIds } =
   await import("../../src/lib/providers/sharedCredentials.ts");
 const providersRoute = await import("../../src/app/api/providers/route.ts");
 
+type ProviderConnectionRecord = { provider: string };
+
 function resetStorage() {
   core.resetDbInstance();
   fs.rmSync(process.env.DATA_DIR!, { recursive: true, force: true });
@@ -64,8 +66,8 @@ test("POST /api/providers stores the managed Parallel Search connection", async 
   const response = await providersRoute.POST(createRequest("parallel-search"));
   assert.equal(response.status, 201);
 
-  const connections = await providersDb.getProviderConnections();
-  const providers = connections.map((connection: any) => connection.provider).sort();
+  const connections = (await providersDb.getProviderConnections()) as ProviderConnectionRecord[];
+  const providers = connections.map((connection) => connection.provider).sort();
 
   assert.deepEqual(providers, ["parallel-search"]);
 
@@ -78,8 +80,8 @@ test("POST /api/providers spreads a Jina AI key to Jina Reader", async () => {
   const response = await providersRoute.POST(createRequest("jina-ai"));
   assert.equal(response.status, 201);
 
-  const connections = await providersDb.getProviderConnections();
-  const providers = connections.map((connection: any) => connection.provider).sort();
+  const connections = (await providersDb.getProviderConnections()) as ProviderConnectionRecord[];
+  const providers = connections.map((connection) => connection.provider).sort();
 
   assert.deepEqual(providers, ["jina-ai", "jina-reader"]);
 });
@@ -97,8 +99,8 @@ test("POST /api/providers does not duplicate existing shared credential siblings
   const response = await providersRoute.POST(createRequest("parallel-search"));
   assert.equal(response.status, 201);
 
-  const connections = await providersDb.getProviderConnections();
-  const providerCounts = connections.reduce((counts: Record<string, number>, connection: any) => {
+  const connections = (await providersDb.getProviderConnections()) as ProviderConnectionRecord[];
+  const providerCounts = connections.reduce((counts: Record<string, number>, connection) => {
     counts[connection.provider] = (counts[connection.provider] || 0) + 1;
     return counts;
   }, {});

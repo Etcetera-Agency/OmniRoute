@@ -15,6 +15,8 @@ export const freeProxyListSchema = z.object({
     .optional()
     .transform((v) => v?.toUpperCase()),
   minQuality: z.coerce.number().int().min(0).max(100).optional(),
+  search: z.string().trim().min(1).max(128).optional(),
+  sortBy: z.enum(["quality", "latency", "recent"]).optional(),
   limit: z.coerce.number().int().min(1).max(1000).optional(),
   offset: z.coerce.number().int().min(0).optional(),
   onlyNotInPool: z

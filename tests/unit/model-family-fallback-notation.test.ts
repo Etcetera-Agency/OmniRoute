@@ -10,6 +10,11 @@ import assert from "node:assert/strict";
 // removed the fabricated ids; `anthropic` genuinely serves them in dot notation.
 const { getNextFamilyFallback } = await import("../../open-sse/services/modelFamilyFallback.ts");
 
+test("Opus 5 falls back to the previous Opus tier first", () => {
+  const next = getNextFamilyFallback("cc/claude-opus-5", new Set(["cc/claude-opus-5"]));
+  assert.equal(next, "claude/claude-opus-4-8");
+});
+
 test("Fable 5 falls back to the next-best Opus tier first (not Sonnet) — cc→claude", () => {
   // `cc` is an alias parseModel normalizes to the `claude` provider.
   const next = getNextFamilyFallback("cc/claude-fable-5", new Set(["cc/claude-fable-5"]));

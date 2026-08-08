@@ -1,5 +1,20 @@
 # Completion Review
 
+## 2026-08-08
+
+- Resolved the upstream `main` merge while preserving the fork search/FMO overlays,
+  manual-only release workflow, and service-model manifest behavior.
+- Renumbered fork FMO migrations from colliding `118–120` slots to `134–136`, with
+  direct reconciliation for databases that recorded either `110–112` or `118–120`.
+- Restored provider-manifest service injection with explicit exposure gating and
+  canonical `cliproxy` storage IDs mapped to `cliproxyapi` manifest IDs.
+- Reconciled upstream and fork search providers, removed stale explicit-`any`
+  suppressions, and retained both unified `firecrawl` and fork `firecrawl-search`.
+- Applied Code Simplifier cleanup to the conflict resolutions, including shared
+  backend ID sets, explicit search result types, simpler You.com normalization,
+  type-safe Firecrawl timestamp/filter handling, and formatter-clean migration
+  directory discovery.
+
 ## 2026-07-08
 
 - Fixed Docker build bundler override wiring: `OMNIROUTE_USE_TURBOPACK=0` is now a

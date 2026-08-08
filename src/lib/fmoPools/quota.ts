@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { SearchResponse } from "@omniroute/open-sse/handlers/search.ts";
 import { getUsageForProvider } from "@omniroute/open-sse/services/usage.ts";
 import { buildSearchAttempts, runSearchChain, SearchError } from "@/lib/search/searchChain";
+import { toNumber } from "@/shared/utils/numeric";
 import { runInternalChatPipeline } from "./quotaExtractor";
 import type {
   FmoHeadCandidate,
@@ -48,14 +49,12 @@ function toRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function toNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
 function pickFirstNumber(record: Record<string, unknown>, keys: string[]): number | null {
   for (const key of keys) {
-    const value = toNumber(record[key]);
-    if (value !== null) return value;
+    const raw = record[key];
+    if (typeof raw !== "number") continue;
+    const value = toNumber(raw, Number.NaN);
+    if (Number.isFinite(value) && value >= 0) return value;
   }
   return null;
 }

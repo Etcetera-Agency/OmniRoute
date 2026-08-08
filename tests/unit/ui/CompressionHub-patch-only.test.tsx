@@ -17,6 +17,8 @@ import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../../src/i18n/messages/en.json";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -101,7 +103,11 @@ describe("CompressionHub — PUT sends patch only, not full settings", () => {
 
   it("sends only the changed field when activeComboId is updated", async () => {
     await act(async () => {
-      root.render(<CompressionHub />);
+      root.render(
+        <NextIntlClientProvider locale="en" messages={{ contextCombos: messages.contextCombos }}>
+          <CompressionHub />
+        </NextIntlClientProvider>
+      );
     });
 
     // Find the combo selector and change it to "c1"
@@ -131,7 +137,11 @@ describe("CompressionHub — PUT sends patch only, not full settings", () => {
 
   it("sends only the toggle field when contextEditing is toggled", async () => {
     await act(async () => {
-      root.render(<CompressionHub />);
+      root.render(
+        <NextIntlClientProvider locale="en" messages={{ contextCombos: messages.contextCombos }}>
+          <CompressionHub />
+        </NextIntlClientProvider>
+      );
     });
 
     // Find the context editing toggle button

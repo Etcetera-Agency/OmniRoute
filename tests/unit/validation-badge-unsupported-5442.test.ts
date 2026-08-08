@@ -13,12 +13,25 @@ test("#5442 unsupported validation → neutral N/A badge, not red Invalid", () =
   assert.deepEqual(validationBadgeProps("unsupported"), {
     variant: "info",
     labelKey: "notApplicable",
+    fallback: "N/A",
   });
 });
 
 test("#5442 success and failed badges are unchanged", () => {
-  assert.deepEqual(validationBadgeProps("success"), { variant: "success", labelKey: "valid" });
-  assert.deepEqual(validationBadgeProps("failed"), { variant: "error", labelKey: "invalid" });
+  assert.deepEqual(validationBadgeProps("success"), {
+    variant: "success",
+    labelKey: "valid",
+    fallback: "Valid",
+  });
+  assert.deepEqual(validationBadgeProps("failed"), {
+    variant: "error",
+    labelKey: "invalid",
+    fallback: "Invalid",
+  });
   // Any other/unknown result defaults to the error badge (fail-safe).
-  assert.deepEqual(validationBadgeProps("whatever"), { variant: "error", labelKey: "invalid" });
+  assert.deepEqual(validationBadgeProps("whatever"), {
+    variant: "error",
+    labelKey: "invalid",
+    fallback: "Invalid",
+  });
 });

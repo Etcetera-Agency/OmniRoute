@@ -5,8 +5,9 @@ import { randomUUID } from "crypto";
  * Handles POST /v1/search requests.
  * Routes to configured search providers with automatic failover:
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
- *   google-pse-search, linkup-search, searchapi-search, youcom-search, searxng-search,
- *   ollama-search, zai-search, parallel-search, firecrawl-search, gemini-grounded-search
+ *   firecrawl, google-pse-search, linkup-search, searchapi-search, youcom-search,
+ *   searxng-search, ollama-search, zai-search, parallel-search, firecrawl-search,
+ *   gemini-grounded-search, duckduckgo-free
  *
  * Request format:
  * {
@@ -18,6 +19,9 @@ import { randomUUID } from "crypto";
  */
 
 import { getSearchProvider, type SearchProviderConfig } from "../config/searchRegistry.ts";
+import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
+import * as fcSearch from "./search/firecrawlSearch.ts";
+import type { FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -26,7 +30,64 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 
-// ── Types ────────────────────────────────────────────────────────────────
+type SearchJsonObject = Record<string, unknown>;
+
+interface SearchLogger {
+  info?: (tag: string, message: string) => void;
+  warn?: (tag: string, message: string) => void;
+  error?: (tag: string, message: string) => void;
+}
+
+function asSearchObject(value: unknown): SearchJsonObject | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  return value as SearchJsonObject;
+}
+
+function readSearchValue(value: unknown, key: string): unknown {
+  return asSearchObject(value)?.[key];
+}
+
+function readSearchObject(value: unknown, key: string): SearchJsonObject | undefined {
+  return asSearchObject(readSearchValue(value, key));
+}
+
+function readSearchArray(value: unknown): unknown[] | undefined {
+  return Array.isArray(value) ? value : undefined;
+}
+
+function readSearchString(value: unknown, key: string): string | undefined {
+  const property = readSearchValue(value, key);
+  return typeof property === "string" ? property : undefined;
+}
+
+function readSearchNumber(value: unknown, key: string): number | undefined {
+  const property = readSearchValue(value, key);
+  return typeof property === "number" ? property : undefined;
+}
+
+function firstSearchString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value) return value;
+  }
+  return undefined;
+}
+
+function readSearchStringArray(value: unknown, key: string): string[] {
+  const values = readSearchArray(readSearchValue(value, key)) ?? [];
+  return values.filter((item): item is string => typeof item === "string");
+}
+
+function getSearchErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  const message = readSearchValue(error, "message");
+  return typeof message === "string" ? message : String(error);
+}
+
+function getSearchErrorName(error: unknown): string | undefined {
+  if (error instanceof Error) return error.name;
+  const name = readSearchValue(error, "name");
+  return typeof name === "string" ? name : undefined;
+}
 
 export interface SearchResult {
   title: string;
@@ -92,12 +153,12 @@ interface SearchHandlerOptions {
   };
   strictFilters?: boolean;
   providerOptions?: Record<string, unknown>;
-  credentials: Record<string, any>;
+  credentials: SearchJsonObject;
   providerConfig?: SearchProviderConfig;
   alternateProvider?: string;
   alternateProviderConfig?: SearchProviderConfig | null;
-  alternateCredentials?: Record<string, any> | null;
-  log?: any;
+  alternateCredentials?: SearchJsonObject | null;
+  log?: SearchLogger;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -133,7 +194,7 @@ function makeResult(
     url?: string;
     snippet?: string;
     score?: number;
-    published_at?: string;
+    published_at?: string | null;
     favicon_url?: string;
     author?: string;
     source_type?: string;
@@ -180,7 +241,9 @@ function isValidResultUrl(url: unknown): url is string {
 
 function joinStringArray(value: unknown): string {
   return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim()).join("\n\n")
+    ? value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .join("\n\n")
     : "";
 }
 
@@ -193,22 +256,25 @@ function normalizeUrlForDedupe(url: string): string {
 }
 
 function normalizeSerperResponse(
-  data: any,
+  data: unknown,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = searchType === "news" ? data.news : data.organic;
+  const items = readSearchArray(readSearchValue(data, searchType === "news" ? "news" : "organic"));
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item: any, idx: number) =>
+  const results = items.map((item, idx) =>
     makeResult(
       "serper-search",
       {
-        title: item.title,
-        url: item.link,
-        snippet: item.snippet || item.description,
-        published_at: item.date,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "link"),
+        snippet: firstSearchString(
+          readSearchString(item, "snippet"),
+          readSearchString(item, "description")
+        ),
+        published_at: readSearchString(item, "date"),
       },
       idx,
       now
@@ -218,40 +284,47 @@ function normalizeSerperResponse(
   return {
     results,
     totalResults:
-      typeof data.searchParameters?.totalResults === "number"
-        ? data.searchParameters.totalResults
-        : null,
+      readSearchNumber(readSearchObject(data, "searchParameters"), "totalResults") ?? null,
   };
 }
 
 function normalizeBraveResponse(
-  data: any,
+  data: unknown,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
   // Brave news endpoint returns { results: [...] } directly,
   // while web endpoint returns { web: { results: [...] } }
-  const container = searchType === "news" ? data.news || data : data.web;
-  const items = container?.results;
+  const container =
+    searchType === "news"
+      ? (readSearchObject(data, "news") ?? asSearchObject(data))
+      : readSearchObject(data, "web");
+  const items = readSearchArray(readSearchValue(container, "results"));
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item: any, idx: number) =>
+  const results = items.map((item, idx) =>
     makeResult(
       "brave-search",
       {
-        title: item.title,
-        url: item.url,
-        snippet: item.description,
-        published_at: item.page_age || item.age,
-        favicon_url: item.meta_url?.favicon || item.favicon,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet: readSearchString(item, "description"),
+        published_at: firstSearchString(
+          readSearchString(item, "page_age"),
+          readSearchString(item, "age")
+        ),
+        favicon_url: firstSearchString(
+          readSearchString(readSearchObject(item, "meta_url"), "favicon"),
+          readSearchString(item, "favicon")
+        ),
       },
       idx,
       now
     )
   );
 
-  return { results, totalResults: container?.totalCount ?? null };
+  return { results, totalResults: readSearchNumber(container, "totalCount") ?? null };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -367,24 +440,6 @@ function buildBraveRequest(
     init: {
       method: "GET",
       headers: { Accept: "application/json", "X-Subscription-Token": params.token },
-    },
-  };
-}
-
-function buildPerplexityRequest(
-  config: SearchProviderConfig,
-  params: SearchRequestParams
-): { url: string; init: RequestInit } {
-  const body: Record<string, unknown> = { query: params.query, max_results: params.maxResults };
-  if (params.country) body.country = params.country;
-  if (params.language) body.search_language_filter = [params.language];
-  if (params.domainFilter?.length) body.search_domain_filter = params.domainFilter;
-  return {
-    url: config.baseUrl,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${params.token}` },
-      body: JSON.stringify(body),
     },
   };
 }
@@ -783,6 +838,7 @@ function buildRequest(
   if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
   if (config.id === "exa-search") return buildExaRequest(config, params);
   if (config.id === "tavily-search") return buildTavilyRequest(config, params);
+  if (config.id === "firecrawl") return fcSearch.buildFirecrawlSearchRequest(config, params);
   if (config.id === "google-pse-search") return buildGooglePseRequest(config, params);
   if (config.id === "linkup-search") return buildLinkupRequest(config, params);
   if (config.id === "searchapi-search") return buildSearchApiRequest(config, params);
@@ -812,22 +868,25 @@ function buildRequest(
 }
 
 function normalizePerplexityResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = data.results;
+  const items = readSearchArray(readSearchValue(data, "results"));
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item: any, idx: number) =>
+  const results = items.map((item, idx) =>
     makeResult(
       "perplexity-search",
       {
-        title: item.title,
-        url: item.url,
-        snippet: item.snippet,
-        published_at: item.date || item.last_updated,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet: readSearchString(item, "snippet"),
+        published_at: firstSearchString(
+          readSearchString(item, "date"),
+          readSearchString(item, "last_updated")
+        ),
       },
       idx,
       now
@@ -837,55 +896,58 @@ function normalizePerplexityResponse(
 }
 
 function normalizeExaResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = data.results;
+  const items = readSearchArray(readSearchValue(data, "results"));
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item: any, idx: number) =>
-    makeResult(
+  const results = items.map((item, idx) => {
+    const highlights = readSearchArray(readSearchValue(item, "highlights"));
+    const firstHighlight = highlights?.find((value) => typeof value === "string");
+    return makeResult(
       "exa-search",
       {
-        title: item.title,
-        url: item.url,
-        snippet: item.highlights?.[0] || item.text?.slice(0, 300) || "",
-        score: item.score,
-        published_at: item.publishedDate,
-        favicon_url: item.favicon,
-        author: item.author,
-        image_url: item.image,
-        full_text: item.text,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet:
+          firstSearchString(firstHighlight) || readSearchString(item, "text")?.slice(0, 300) || "",
+        score: readSearchNumber(item, "score"),
+        published_at: readSearchString(item, "publishedDate"),
+        favicon_url: readSearchString(item, "favicon"),
+        author: readSearchString(item, "author"),
+        image_url: readSearchString(item, "image"),
+        full_text: readSearchString(item, "text"),
         text_format: "text",
       },
       idx,
       now
-    )
-  );
+    );
+  });
   return { results, totalResults: results.length };
 }
 
 function normalizeTavilyResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = data.results;
+  const items = readSearchArray(readSearchValue(data, "results"));
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item: any, idx: number) =>
+  const results = items.map((item, idx) =>
     makeResult(
       "tavily-search",
       {
-        title: item.title,
-        url: item.url,
-        snippet: item.content || "",
-        score: item.score,
-        published_at: item.published_date,
-        full_text: item.raw_content,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet: readSearchString(item, "content") || "",
+        score: readSearchNumber(item, "score"),
+        published_at: readSearchString(item, "published_date"),
+        full_text: readSearchString(item, "raw_content"),
         text_format: "text",
       },
       idx,
@@ -896,33 +958,52 @@ function normalizeTavilyResponse(
 }
 
 function normalizeGooglePseResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = Array.isArray(data.items) ? data.items : [];
-  const results = items.map((item: any, idx: number) =>
+  const items = readSearchArray(readSearchValue(data, "items")) ?? [];
+  const results = items.map((item, idx) =>
     makeResult(
       "google-pse-search",
       {
-        title: item.title,
-        url: item.link,
-        snippet: item.snippet,
-        image_url:
-          item.pagemap?.cse_image?.[0]?.src ||
-          item.pagemap?.cse_thumbnail?.[0]?.src ||
-          item.pagemap?.metatags?.[0]?.["og:image"],
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "link"),
+        snippet: readSearchString(item, "snippet"),
+        image_url: firstSearchString(
+          readSearchString(
+            readSearchArray(readSearchObject(item, "pagemap")?.cse_image)?.[0],
+            "src"
+          ),
+          readSearchString(
+            readSearchArray(readSearchObject(item, "pagemap")?.cse_thumbnail)?.[0],
+            "src"
+          ),
+          readSearchString(
+            readSearchArray(readSearchObject(item, "pagemap")?.metatags)?.[0],
+            "og:image"
+          )
+        ),
       },
       idx,
       now
     )
   );
 
+  const searchInformation = readSearchObject(data, "searchInformation");
+  const queries = readSearchObject(data, "queries");
+  const request = readSearchArray(readSearchValue(queries, "request"));
   const totalResultsRaw =
-    data.searchInformation?.totalResults ?? data.queries?.request?.[0]?.totalResults ?? null;
+    readSearchValue(searchInformation, "totalResults") ??
+    readSearchValue(request?.[0], "totalResults") ??
+    null;
   const totalResults =
-    typeof totalResultsRaw === "string" ? Number(totalResultsRaw) : totalResultsRaw;
+    typeof totalResultsRaw === "string"
+      ? Number(totalResultsRaw)
+      : typeof totalResultsRaw === "number"
+        ? totalResultsRaw
+        : null;
 
   return {
     results,
@@ -931,22 +1012,27 @@ function normalizeGooglePseResponse(
 }
 
 function normalizeLinkupResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = Array.isArray(data.results) ? data.results : [];
-  const results = items.map((item: any, idx: number) =>
+  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
+  const results = items.map((item, idx) =>
     makeResult(
       "linkup-search",
       {
-        title: item.name || item.title,
-        url: item.url,
-        snippet: item.content || item.snippet || "",
-        source_type: item.type || "web",
-        image_url: item.image_url || item.imageUrl || null,
-        full_text: item.content,
+        title: firstSearchString(readSearchString(item, "name"), readSearchString(item, "title")),
+        url: readSearchString(item, "url"),
+        snippet:
+          firstSearchString(readSearchString(item, "content"), readSearchString(item, "snippet")) ||
+          "",
+        source_type: readSearchString(item, "type") || "web",
+        image_url: firstSearchString(
+          readSearchString(item, "image_url"),
+          readSearchString(item, "imageUrl")
+        ),
+        full_text: readSearchString(item, "content"),
         text_format: "text",
       },
       idx,
@@ -958,39 +1044,49 @@ function normalizeLinkupResponse(
 }
 
 function normalizeSearchApiResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = Array.isArray(data.organic_results)
-    ? data.organic_results
-    : Array.isArray(data.top_stories)
-      ? data.top_stories
-      : [];
+  const items =
+    readSearchArray(readSearchValue(data, "organic_results")) ??
+    readSearchArray(readSearchValue(data, "top_stories")) ??
+    [];
 
-  const results = items.map((item: any, idx: number) =>
+  const results = items.map((item, idx) =>
     makeResult(
       "searchapi-search",
       {
-        title: item.title,
-        url: item.link,
-        snippet: item.snippet || item.description || "",
-        published_at: item.date || item.published_at,
-        favicon_url: item.favicon,
-        author: item.source || null,
-        image_url: item.thumbnail || null,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "link"),
+        snippet:
+          firstSearchString(
+            readSearchString(item, "snippet"),
+            readSearchString(item, "description")
+          ) || "",
+        published_at: firstSearchString(
+          readSearchString(item, "date"),
+          readSearchString(item, "published_at")
+        ),
+        favicon_url: readSearchString(item, "favicon"),
+        author: readSearchString(item, "source"),
+        image_url: readSearchString(item, "thumbnail"),
       },
       idx,
       now
     )
   );
 
+  const totalResultsRaw = readSearchValue(
+    readSearchObject(data, "search_information"),
+    "total_results"
+  );
   const totalResults =
-    typeof data.search_information?.total_results === "number"
-      ? data.search_information.total_results
-      : typeof data.search_information?.total_results === "string"
-        ? Number(data.search_information.total_results)
+    typeof totalResultsRaw === "number"
+      ? totalResultsRaw
+      : typeof totalResultsRaw === "string"
+        ? Number(totalResultsRaw)
         : null;
 
   return {
@@ -1000,43 +1096,36 @@ function normalizeSearchApiResponse(
 }
 
 function normalizeYouComResponse(
-  data: any,
+  data: unknown,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const resultsContainer =
-    data?.results && typeof data.results === "object" ? data.results : undefined;
+  const resultsContainer = readSearchObject(data, "results");
   const section =
-    searchType === "news" ? resultsContainer?.news || [] : resultsContainer?.web || [];
-  const items = Array.isArray(section) ? section : [];
+    searchType === "news"
+      ? readSearchArray(readSearchValue(resultsContainer, "news"))
+      : readSearchArray(readSearchValue(resultsContainer, "web"));
+  const items = section ?? [];
 
-  const results = items.map((item: any, idx: number) => {
-    const firstSnippet = Array.isArray(item.snippets)
-      ? item.snippets.find((value: unknown) => typeof value === "string")
-      : null;
-    const livecrawlText =
-      typeof item.markdown === "string"
-        ? item.markdown
-        : typeof item.html === "string"
-          ? item.html
-          : undefined;
-    const livecrawlFormat = typeof item.markdown === "string" ? "markdown" : "html";
+  const results = items.map((item, idx) => {
+    const firstSnippet = readSearchStringArray(item, "snippets").find(
+      (value) => typeof value === "string"
+    );
+    const markdown = readSearchString(item, "markdown");
+    const html = readSearchString(item, "html");
+    const livecrawlText = markdown ?? html;
+    const livecrawlFormat = markdown !== undefined ? "markdown" : "html";
 
     return makeResult(
       "youcom-search",
       {
-        title: item.title,
-        url: item.url,
-        snippet:
-          typeof firstSnippet === "string"
-            ? firstSnippet
-            : typeof item.description === "string"
-              ? item.description
-              : "",
-        published_at: item.page_age,
-        favicon_url: item.favicon_url,
-        image_url: item.thumbnail_url,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet: firstSnippet ?? readSearchString(item, "description") ?? "",
+        published_at: readSearchString(item, "page_age"),
+        favicon_url: readSearchString(item, "favicon_url"),
+        image_url: readSearchString(item, "thumbnail_url"),
         source_type: searchType,
         full_text: livecrawlText,
         text_format: livecrawlText ? livecrawlFormat : undefined,
@@ -1050,50 +1139,60 @@ function normalizeYouComResponse(
 }
 
 function normalizeSearxngResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = Array.isArray(data.results) ? data.results : [];
+  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
 
-  const results = items.map((item: any, idx: number) =>
-    makeResult(
+  const results = items.map((item, idx) => {
+    const engines = readSearchArray(readSearchValue(item, "engines"));
+    const sourceType = engines
+      ? engines.filter((engine): engine is string => typeof engine === "string").join(", ")
+      : firstSearchString(readSearchString(item, "engine"), readSearchString(item, "category"));
+    return makeResult(
       "searxng-search",
       {
-        title: item.title,
-        url: item.url,
-        snippet: item.content || item.snippet || "",
-        published_at: item.publishedDate || item.published_date || null,
-        source_type: Array.isArray(item.engines)
-          ? item.engines.join(", ")
-          : item.engine || item.category || null,
-        image_url: item.thumbnail || item.img_src || null,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet:
+          firstSearchString(readSearchString(item, "content"), readSearchString(item, "snippet")) ||
+          "",
+        published_at: firstSearchString(
+          readSearchString(item, "publishedDate"),
+          readSearchString(item, "published_date")
+        ),
+        source_type: sourceType,
+        image_url: firstSearchString(
+          readSearchString(item, "thumbnail"),
+          readSearchString(item, "img_src")
+        ),
       },
       idx,
       now
-    )
-  );
+    );
+  });
 
   return { results, totalResults: results.length };
 }
 
 function normalizeOllamaResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = Array.isArray(data?.results) ? data.results : [];
+  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
 
-  const results = items.map((item: any, idx: number) =>
+  const results = items.map((item, idx) =>
     makeResult(
       "ollama-search",
       {
-        title: item?.title,
-        url: item?.url,
-        snippet: item?.content || "",
-        full_text: item?.content,
+        title: readSearchString(item, "title"),
+        url: readSearchString(item, "url"),
+        snippet: readSearchString(item, "content") || "",
+        full_text: readSearchString(item, "content"),
         text_format: "text",
       },
       idx,
@@ -1105,24 +1204,24 @@ function normalizeOllamaResponse(
 }
 
 export function normalizeParallelSearchResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = Array.isArray(data?.results) ? data.results : [];
+  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
 
   const results = items
-    .filter((item: any) => isValidResultUrl(item?.url))
-    .map((item: any, idx: number) => {
-      const excerpts = joinStringArray(item.excerpts);
+    .filter((item) => isValidResultUrl(readSearchString(item, "url")))
+    .map((item, idx) => {
+      const excerpts = joinStringArray(readSearchValue(item, "excerpts"));
       return makeResult(
         "parallel-search",
         {
-          title: item.title,
-          url: item.url,
-          snippet: excerpts || item.snippet || "",
-          published_at: item.publish_date,
+          title: readSearchString(item, "title"),
+          url: readSearchString(item, "url"),
+          snippet: excerpts || readSearchString(item, "snippet") || "",
+          published_at: readSearchString(item, "publish_date"),
           full_text: excerpts || undefined,
           text_format: "text",
         },
@@ -1135,28 +1234,36 @@ export function normalizeParallelSearchResponse(
 }
 
 export function normalizeFirecrawlSearchResponse(
-  data: any,
+  data: unknown,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const source = searchType === "news" ? data?.data?.news : data?.data?.web;
-  const items = Array.isArray(source) ? source : [];
+  const dataObject = readSearchObject(data, "data");
+  const source = readSearchValue(dataObject, searchType === "news" ? "news" : "web");
+  const items = readSearchArray(source) ?? [];
 
   const results = items
-    .filter((item: any) => isValidResultUrl(item?.url))
-    .map((item: any, idx: number) =>
+    .filter((item) => isValidResultUrl(readSearchString(item, "url")))
+    .map((item, idx) =>
       makeResult(
         "firecrawl-search",
         {
-          title: item.title,
-          url: item.url,
-          snippet: item.description || item.snippet || "",
-          published_at: item.date,
-          image_url: item.imageUrl,
-          source_type: item.category || searchType,
-          full_text: item.markdown || item.html,
-          text_format: item.markdown ? "markdown" : "html",
+          title: readSearchString(item, "title"),
+          url: readSearchString(item, "url"),
+          snippet:
+            firstSearchString(
+              readSearchString(item, "description"),
+              readSearchString(item, "snippet")
+            ) || "",
+          published_at: readSearchString(item, "date"),
+          image_url: readSearchString(item, "imageUrl"),
+          source_type: readSearchString(item, "category") || searchType,
+          full_text: firstSearchString(
+            readSearchString(item, "markdown"),
+            readSearchString(item, "html")
+          ),
+          text_format: readSearchString(item, "markdown") ? "markdown" : "html",
         },
         idx,
         now
@@ -1166,28 +1273,28 @@ export function normalizeFirecrawlSearchResponse(
   return { results, totalResults: results.length };
 }
 
-function extractGeminiAnswerText(data: any): string {
-  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+function extractGeminiAnswerText(data: unknown): string {
+  const candidates = readSearchArray(readSearchValue(data, "candidates")) ?? [];
   return candidates
-    .flatMap((candidate: any) =>
-      Array.isArray(candidate?.content?.parts) ? candidate.content.parts : []
-    )
-    .map((part: any) => (typeof part?.text === "string" ? part.text.trim() : ""))
+    .flatMap((candidate) => {
+      const content = readSearchObject(candidate, "content");
+      return readSearchArray(readSearchValue(content, "parts")) ?? [];
+    })
+    .map((part) => readSearchString(part, "text")?.trim() || "")
     .filter(Boolean)
     .join("\n\n");
 }
 
-function extractGeminiGroundingChunks(data: any): any[] {
-  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
-  return candidates.flatMap((candidate: any) =>
-    Array.isArray(candidate?.groundingMetadata?.groundingChunks)
-      ? candidate.groundingMetadata.groundingChunks
-      : []
-  );
+function extractGeminiGroundingChunks(data: unknown): unknown[] {
+  const candidates = readSearchArray(readSearchValue(data, "candidates")) ?? [];
+  return candidates.flatMap((candidate) => {
+    const groundingMetadata = readSearchObject(candidate, "groundingMetadata");
+    return readSearchArray(readSearchValue(groundingMetadata, "groundingChunks")) ?? [];
+  });
 }
 
 export function normalizeGeminiGroundedSearchResponse(
-  data: any,
+  data: unknown,
   _query: string,
   _searchType: string,
   model = DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL
@@ -1202,7 +1309,8 @@ export function normalizeGeminiGroundedSearchResponse(
   const results: SearchResult[] = [];
 
   for (const chunk of extractGeminiGroundingChunks(data)) {
-    const uri = chunk?.web?.uri;
+    const web = readSearchObject(chunk, "web");
+    const uri = readSearchString(web, "uri");
     if (!isValidResultUrl(uri)) continue;
 
     const dedupeKey = normalizeUrlForDedupe(uri);
@@ -1213,7 +1321,7 @@ export function normalizeGeminiGroundedSearchResponse(
       makeResult(
         "gemini-grounded-search",
         {
-          title: chunk.web.title || uri,
+          title: readSearchString(web, "title") || uri,
           url: uri,
           snippet: answerText,
           source_type: "web",
@@ -1338,10 +1446,13 @@ async function zaiSearchExecute(params: {
       arguments: args,
     });
 
-    const rawContent = Array.isArray(toolResult.content) ? toolResult.content : [];
+    const rawContent: unknown[] = Array.isArray(toolResult.content) ? toolResult.content : [];
     const rawText = rawContent
-      .filter((c: any) => c?.type === "text")
-      .map((c: any) => (typeof c?.text === "string" ? c.text : ""))
+      .map((content) => asSearchObject(content))
+      .filter(
+        (content): content is SearchJsonObject => content !== undefined && content.type === "text"
+      )
+      .map((content) => (typeof content.text === "string" ? content.text : ""))
       .join("\n");
 
     if (!rawText.trim()) {
@@ -1385,7 +1496,7 @@ async function tryZaiMCPProvider(
   providerSpecificData: Record<string, unknown> | undefined,
   startTime: number,
   globalStartTime: number,
-  log?: any
+  log?: SearchLogger
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
 
@@ -1438,12 +1549,13 @@ async function tryZaiMCPProvider(
         errors: [],
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timer);
 
-    const isTimeout = err.name === "AbortError";
+    const errorMessage = getSearchErrorMessage(err);
+    const isTimeout = getSearchErrorName(err) === "AbortError";
     if (log) {
-      log.error("SEARCH", `${config.id} MCP ${isTimeout ? "timeout" : "error"}: ${err.message}`);
+      log.error?.("SEARCH", `${config.id} MCP ${isTimeout ? "timeout" : "error"}: ${errorMessage}`);
     }
 
     saveCallLog({
@@ -1454,7 +1566,7 @@ async function tryZaiMCPProvider(
       provider: config.id,
       duration: Date.now() - startTime,
       requestType: "search",
-      error: err.message,
+      error: errorMessage,
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
     }).catch(() => {
       /* non-critical — logging must not block search response */
@@ -1463,14 +1575,62 @@ async function tryZaiMCPProvider(
     return {
       success: false,
       status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(err.message)}`,
+      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(errorMessage)}`,
     };
   }
 }
 
+type FirecrawlSearchHit = NonNullable<NonNullable<FirecrawlSearchEnvelope["data"]>["web"]>[number];
+type FirecrawlSearchMetadata = NonNullable<FirecrawlSearchHit["metadata"]>;
+
+function toFirecrawlSearchEnvelope(data: unknown): FirecrawlSearchEnvelope {
+  const payload = readSearchObject(data, "data");
+  if (!payload) return {};
+
+  const toHit = (value: unknown): FirecrawlSearchHit | undefined => {
+    const hit = asSearchObject(value);
+    if (!hit) return undefined;
+
+    const metadataRecord = readSearchObject(hit, "metadata");
+    const metadata: FirecrawlSearchMetadata | undefined = metadataRecord
+      ? {
+          title: readSearchString(metadataRecord, "title"),
+          sourceURL: readSearchString(metadataRecord, "sourceURL"),
+          publishedTime: readSearchString(metadataRecord, "publishedTime"),
+        }
+      : undefined;
+
+    return {
+      title: readSearchString(hit, "title"),
+      url: readSearchString(hit, "url"),
+      link: readSearchString(hit, "link"),
+      description: readSearchString(hit, "description"),
+      snippet: readSearchString(hit, "snippet"),
+      markdown: readSearchString(hit, "markdown"),
+      content: readSearchString(hit, "content"),
+      date: readSearchString(hit, "date"),
+      published_at: readSearchString(hit, "published_at"),
+      imageUrl: readSearchString(hit, "imageUrl"),
+      metadata,
+    };
+  };
+
+  const toHits = (value: unknown): FirecrawlSearchHit[] =>
+    (readSearchArray(value) ?? [])
+      .map(toHit)
+      .filter((hit): hit is FirecrawlSearchHit => hit !== undefined);
+
+  return {
+    data: {
+      web: toHits(readSearchValue(payload, "web")),
+      news: toHits(readSearchValue(payload, "news")),
+    },
+  };
+}
+
 function normalizeResponse(
   providerId: string,
-  data: any,
+  data: unknown,
   query: string,
   searchType: string,
   model?: string
@@ -1481,6 +1641,12 @@ function normalizeResponse(
     return normalizePerplexityResponse(data, query, searchType);
   if (providerId === "exa-search") return normalizeExaResponse(data, query, searchType);
   if (providerId === "tavily-search") return normalizeTavilyResponse(data, query, searchType);
+  if (providerId === "firecrawl")
+    return fcSearch.normalizeFirecrawlSearchResponse(
+      toFirecrawlSearchEnvelope(data),
+      searchType,
+      makeResult
+    );
   if (providerId === "google-pse-search")
     return normalizeGooglePseResponse(data, query, searchType);
   if (providerId === "linkup-search") return normalizeLinkupResponse(data, query, searchType);
@@ -1496,9 +1662,6 @@ function normalizeResponse(
     return normalizeGeminiGroundedSearchResponse(data, query, searchType, model);
   return { results: [], totalResults: null };
 }
-
-// ── Main Handler ────────────────────────────────────────────────────────
-
 export async function handleSearch(options: SearchHandlerOptions): Promise<SearchHandlerResult> {
   const {
     query,
@@ -1554,6 +1717,13 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     providerOptions,
   };
 
+  if (primaryConfig.id === "perplexity-search") {
+    const perplexityValidation = parsePerplexitySearchOptions(requestParams);
+    if (perplexityValidation.error) {
+      return { success: false, status: 400, error: perplexityValidation.error };
+    }
+  }
+
   // 4. Try primary provider
   const result = await tryProvider(primaryConfig, requestParams, credentials, startTime, log);
 
@@ -1568,7 +1738,7 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   ) {
     if (log) {
       const reason = result.success ? "returned no usable results" : `failed (${result.status})`;
-      log.warn("SEARCH", `${primaryConfig.id} ${reason}, trying ${alternateConfig.id}`);
+      log.warn?.("SEARCH", `${primaryConfig.id} ${reason}, trying ${alternateConfig.id}`);
     }
 
     const fallbackResult = await tryProvider(
@@ -1687,16 +1857,16 @@ async function tryDuckDuckGoFreeProvider(
 async function tryProvider(
   config: SearchProviderConfig,
   params: Omit<SearchRequestParams, "token">,
-  credentials: Record<string, any>,
+  credentials: SearchJsonObject,
   globalStartTime: number,
-  log?: any
+  log?: SearchLogger
 ): Promise<SearchHandlerResult> {
   const startTime = Date.now();
-  const providerSpecificData =
-    credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
-      ? credentials.providerSpecificData
-      : undefined;
-  const token = credentials.apiKey || credentials.accessToken || undefined;
+  const providerSpecificData = asSearchObject(readSearchValue(credentials, "providerSpecificData"));
+  const token = firstSearchString(
+    readSearchValue(credentials, "apiKey"),
+    readSearchValue(credentials, "accessToken")
+  );
 
   if (config.authType !== "none" && !token) {
     return {
@@ -1732,11 +1902,12 @@ async function tryProvider(
     url = builtRequest.url;
     init = builtRequest.init;
     requestModel = "model" in builtRequest ? builtRequest.model : undefined;
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMessage = getSearchErrorMessage(err);
     return {
       success: false,
       status: 400,
-      error: err?.message || `Invalid search configuration for provider: ${config.id}`,
+      error: errorMessage || `Invalid search configuration for provider: ${config.id}`,
     };
   }
 
@@ -1747,7 +1918,7 @@ async function tryProvider(
   const timer = setTimeout(() => controller.abort(), timeout);
 
   if (log) {
-    log.info("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
+    log.info?.("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
   }
 
   try {
@@ -1757,7 +1928,7 @@ async function tryProvider(
     if (!response.ok) {
       const errorText = await response.text();
       if (log) {
-        log.error("SEARCH", `${config.id} error ${response.status}: ${errorText.slice(0, 200)}`);
+        log.error?.("SEARCH", `${config.id} error ${response.status}: ${errorText.slice(0, 200)}`);
       }
 
       saveCallLog({
@@ -1785,7 +1956,7 @@ async function tryProvider(
       };
     }
 
-    const data = await response.json();
+    const data: unknown = await response.json();
     const normalized = normalizeResponse(config.id, data, query, searchType, requestModel);
     // Enforce max_results — some providers return more than requested
     const results = normalized.results.slice(0, maxResults);
@@ -1823,12 +1994,16 @@ async function tryProvider(
         errors: [],
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timer);
 
-    const isTimeout = err.name === "AbortError";
+    const errorMessage = getSearchErrorMessage(err);
+    const isTimeout = getSearchErrorName(err) === "AbortError";
     if (log) {
-      log.error("SEARCH", `${config.id} ${isTimeout ? "timeout" : "fetch error"}: ${err.message}`);
+      log.error?.(
+        "SEARCH",
+        `${config.id} ${isTimeout ? "timeout" : "fetch error"}: ${errorMessage}`
+      );
     }
 
     saveCallLog({
@@ -1839,7 +2014,7 @@ async function tryProvider(
       provider: config.id,
       duration: Date.now() - startTime,
       requestType: "search",
-      error: err.message,
+      error: errorMessage,
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
     }).catch(() => {
       /* non-critical — logging must not block search response */
@@ -1848,7 +2023,7 @@ async function tryProvider(
     return {
       success: false,
       status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(err.message)}`,
+      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(errorMessage)}`,
     };
   }
 }

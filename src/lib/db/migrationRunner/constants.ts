@@ -72,19 +72,37 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
   {
     fromVersion: "110",
     fromName: "fmo_pools",
-    toVersion: "118",
+    toVersion: "134",
     toName: "fmo_pools",
   },
   {
     fromVersion: "111",
     fromName: "fmo_pool_decisions",
-    toVersion: "119",
+    toVersion: "135",
     toName: "fmo_pool_decisions",
   },
   {
     fromVersion: "112",
     fromName: "fmo_pool_live_seam",
-    toVersion: "120",
+    toVersion: "136",
+    toName: "fmo_pool_live_seam",
+  },
+  {
+    fromVersion: "118",
+    fromName: "fmo_pools",
+    toVersion: "134",
+    toName: "fmo_pools",
+  },
+  {
+    fromVersion: "119",
+    fromName: "fmo_pool_decisions",
+    toVersion: "135",
+    toName: "fmo_pool_decisions",
+  },
+  {
+    fromVersion: "120",
+    fromName: "fmo_pool_live_seam",
+    toVersion: "136",
     toName: "fmo_pool_live_seam",
   },
 ] as const;

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getDbInstance, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
+import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
 import { getKeyGroupsForApiKey, checkKeyModelAccess } from "./apiKeyGroups";
 import { API_KEY_COLUMN_FALLBACKS } from "./apiKeyColumnFallbacks";
 import {
@@ -16,6 +17,7 @@ import {
 } from "./apiKeyUsageLimitFields";
 import { setNoLog } from "../compliance/noLog";
 import { resolveModelAlias } from "@omniroute/open-sse/services/modelDeprecation.ts";
+import { getProviderAlias, resolveProviderId } from "@/shared/constants/providers";
 import { getSyncedAvailableModelsByConnection, getCustomModels, getModelIsHidden } from "./models";
 import {
   CLAUDE_CODE_PROVIDER_PREFIXES,
@@ -23,6 +25,7 @@ import {
   stripExtendedContextSuffix,
   isPotentialUnprefixedClaudeCodeModel,
   addModelCandidate,
+  addProviderAliasScopedCandidates,
   modelPatternMatches,
   hasClaudeCodeWildcardPermission,
   matchesWildcardPattern,
@@ -43,6 +46,7 @@ import {
   parseNullableTimestamp,
   parseIsBanned,
   parseStreamDefaultMode,
+  parseChaosModeEnabled,
 } from "./apiKeys/rowParsers";
 import type { AccessSchedule, RateLimitRule } from "./apiKeys/types";
 
@@ -95,6 +99,7 @@ interface ApiKeyMetadata {
   usageLimitEnabled: boolean;
   dailyUsageLimitUsd: number | null;
   weeklyUsageLimitUsd: number | null;
+  chaosModeEnabled: boolean;
 }
 
 interface ApiKeyRow extends JsonRecord {
@@ -134,6 +139,8 @@ interface ApiKeyRow extends JsonRecord {
   dailyUsageLimitUsd?: unknown;
   weekly_usage_limit_usd?: unknown;
   weeklyUsageLimitUsd?: unknown;
+  chaos_mode_enabled?: unknown;
+  chaosModeEnabled?: unknown;
 }
 
 interface StatementLike<TRow = unknown> {
@@ -180,6 +187,7 @@ interface ApiKeyView extends JsonRecord {
   usageLimitEnabled?: boolean;
   dailyUsageLimitUsd?: number | null;
   weeklyUsageLimitUsd?: number | null;
+  chaosModeEnabled?: boolean;
 }
 
 // LRU cache for API key validation (valid keys only)
@@ -237,7 +245,7 @@ async function deleteRedisAuthCacheEntry(keyHash: unknown): Promise<void> {
   try {
     const { getRedisClient, isRedisConfigured } = await import("@/shared/utils/rateLimiter");
     if (!isRedisConfigured()) return;
-    const redis = getRedisClient();
+    const redis = await getRedisClient();
     await redis.del(`auth:api_key:${keyHash}`);
   } catch {
     // Redis is an optimization for auth caching; SQLite remains authoritative.
@@ -300,6 +308,15 @@ async function getModelPermissionCandidates(modelId: string): Promise<string[]> 
       addModelCandidate(candidates, providerScopedModel);
       addModelCandidate(candidates, `cc/${providerScopedModel}`);
       addModelCandidate(candidates, `claude/${providerScopedModel}`);
+    }
+    if (providerScopedModel) {
+      addProviderAliasScopedCandidates(
+        candidates,
+        providerOrAlias,
+        providerScopedModel,
+        resolveProviderId,
+        getProviderAlias
+      );
     }
     return Array.from(candidates);
   }
@@ -393,7 +410,7 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
       "SELECT id, expires_at, revoked_at, is_active, is_banned FROM api_keys WHERE key = ? OR key_hash = ?"
     );
     _stmtGetKeyMetadata = db.prepare<ApiKeyRow>(
-      "SELECT id, name, machine_id, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, proxy_id FROM api_keys WHERE key = ? OR key_hash = ?"
+      "SELECT id, name, machine_id, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, chaos_mode_enabled, proxy_id FROM api_keys WHERE key = ? OR key_hash = ?"
     );
     _stmtInsertKey = db.prepare(
       "INSERT INTO api_keys (id, name, key, machine_id, allowed_models, no_log, created_at, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -422,10 +439,16 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
   };
 }
 
-export async function getApiKeys() {
+export async function getApiKeys(limit?: number, offset?: number) {
   const db = getDbInstance() as ApiKeysDbLike;
-  const stmt = getPreparedStatements(db);
-  const rows = stmt.getAllKeys.all();
+  let rows: ApiKeyRow[];
+  if (limit !== undefined) {
+    const sql = "SELECT * FROM api_keys ORDER BY created_at LIMIT ? OFFSET ?";
+    rows = db.prepare(sql).all(limit, offset ?? 0) as ApiKeyRow[];
+  } else {
+    const stmt = getPreparedStatements(db);
+    rows = stmt.getAllKeys.all();
+  }
   return rows.map((row) => {
     const camelRow = toRecord(rowToCamel(row)) as ApiKeyView;
     camelRow.allowedModels = parseAllowedModels(camelRow.allowedModels);
@@ -446,12 +469,19 @@ export async function getApiKeys() {
       (camelRow as JsonRecord).disableNonPublicModels
     );
     camelRow.allowUsageCommand = parseAllowUsageCommand((camelRow as JsonRecord).allowUsageCommand);
+    camelRow.chaosModeEnabled = parseChaosModeEnabled((camelRow as JsonRecord).chaosModeEnabled);
     Object.assign(camelRow, parseApiKeyUsageLimitFields(camelRow));
     if (typeof camelRow.id === "string" && camelRow.id.length > 0) {
       setNoLog(camelRow.id, camelRow.noLog === true);
     }
     return camelRow;
   });
+}
+
+export function getApiKeysCount(): number {
+  const db = getDbInstance() as ApiKeysDbLike;
+  const row = db.prepare("SELECT count(*) as cnt FROM api_keys").get() as { cnt: number };
+  return row.cnt;
 }
 
 /**
@@ -549,6 +579,7 @@ export async function getApiKeyById(id: string) {
     (camelRow as JsonRecord).disableNonPublicModels
   );
   camelRow.allowUsageCommand = parseAllowUsageCommand((camelRow as JsonRecord).allowUsageCommand);
+  camelRow.chaosModeEnabled = parseChaosModeEnabled((camelRow as JsonRecord).chaosModeEnabled);
   Object.assign(camelRow, parseApiKeyUsageLimitFields(camelRow));
   if (typeof camelRow.id === "string" && camelRow.id.length > 0) {
     setNoLog(camelRow.id, camelRow.noLog === true);
@@ -675,6 +706,7 @@ export async function updateApiKeyPermissions(
         usageLimitEnabled?: boolean;
         dailyUsageLimitUsd?: number | null;
         weeklyUsageLimitUsd?: number | null;
+        chaosModeEnabled?: boolean;
       }
 ) {
   const db = getDbInstance() as ApiKeysDbLike;
@@ -713,6 +745,7 @@ export async function updateApiKeyPermissions(
           dailyUsageLimitUsd: (update as { dailyUsageLimitUsd?: number | null }).dailyUsageLimitUsd,
           weeklyUsageLimitUsd: (update as { weeklyUsageLimitUsd?: number | null })
             .weeklyUsageLimitUsd,
+          chaosModeEnabled: (update as { chaosModeEnabled?: boolean }).chaosModeEnabled,
         };
 
   if (
@@ -739,6 +772,7 @@ export async function updateApiKeyPermissions(
     (normalized as Record<string, unknown>).streamDefaultMode === undefined &&
     normalized.disableNonPublicModels === undefined &&
     normalized.allowUsageCommand === undefined &&
+    normalized.chaosModeEnabled === undefined &&
     !hasUsageLimitUpdate(normalized as Record<string, unknown>)
   ) {
     return false;
@@ -772,6 +806,7 @@ export async function updateApiKeyPermissions(
     usageLimitEnabled?: number;
     dailyUsageLimitUsd?: number | null;
     weeklyUsageLimitUsd?: number | null;
+    chaosModeEnabled?: number;
   } = { id };
 
   if (normalized.name !== undefined) {
@@ -873,6 +908,11 @@ export async function updateApiKeyPermissions(
   if (normalized.allowUsageCommand !== undefined) {
     updates.push("allow_usage_command = @allowUsageCommand");
     params.allowUsageCommand = normalized.allowUsageCommand ? 1 : 0;
+  }
+
+  if (normalized.chaosModeEnabled !== undefined) {
+    updates.push("chaos_mode_enabled = @chaosModeEnabled");
+    params.chaosModeEnabled = normalized.chaosModeEnabled ? 1 : 0;
   }
 
   appendUsageLimitUpdates(normalized as Record<string, unknown>, updates, params);
@@ -1036,6 +1076,7 @@ export async function deleteApiKey(id: string) {
 
   // Invalidate caches since a key was removed
   invalidateCaches();
+  invalidateReasoningRoutingRuleCache();
   await deleteRedisAuthCacheEntry(row?.key_hash);
 
   backupDbFile("pre-write");
@@ -1117,7 +1158,7 @@ export async function validateApiKey(key: string | null | undefined) {
     try {
       const { getRedisClient, isRedisConfigured } = await import("@/shared/utils/rateLimiter");
       if (isRedisConfigured()) {
-        const redis = getRedisClient();
+        const redis = await getRedisClient();
         const redisKey = `auth:api_key:${hashedKey}`;
         const redisData = await redis.get(redisKey);
         if (redisData) {
@@ -1170,7 +1211,7 @@ export async function validateApiKey(key: string | null | undefined) {
     try {
       const { getRedisClient, isRedisConfigured } = await import("@/shared/utils/rateLimiter");
       if (isRedisConfigured()) {
-        const redis = getRedisClient();
+        const redis = await getRedisClient();
         const redisKey = `auth:api_key:${hashedKey}`;
         await redis.set(
           redisKey,
@@ -1261,6 +1302,7 @@ export async function getApiKeyMetadata(
       usageLimitEnabled: false,
       dailyUsageLimitUsd: null,
       weeklyUsageLimitUsd: null,
+      chaosModeEnabled: false,
     };
   }
 
@@ -1333,6 +1375,9 @@ export async function getApiKeyMetadata(
     ),
     allowUsageCommand: parseAllowUsageCommand(
       (record as JsonRecord).allow_usage_command ?? (record as JsonRecord).allowUsageCommand
+    ),
+    chaosModeEnabled: parseChaosModeEnabled(
+      (record as JsonRecord).chaos_mode_enabled ?? (record as JsonRecord).chaosModeEnabled
     ),
     ...parseApiKeyUsageLimitFields(record as JsonRecord),
   };

@@ -127,16 +127,24 @@ function withNonTestEnvironment(fn) {
   const originalVitest = process.env.VITEST;
   const originalDisableAutoBackup = process.env.DISABLE_SQLITE_AUTO_BACKUP;
   const originalArgv = [...process.argv];
+  const originalExecArgv = [...process.execArgv];
 
   delete process.env.NODE_ENV;
   delete process.env.VITEST;
   delete process.env.DISABLE_SQLITE_AUTO_BACKUP;
   process.argv = process.argv.filter((arg) => !arg.includes("test"));
+  // #7359 made isAutomatedTestProcess() also scan process.execArgv (so `node --test`
+  // is caught even when NODE_ENV/VITEST/argv are clean). This harness runs under
+  // `node --test`, so execArgv always carries `--test` — strip it here too, or the
+  // "non-test" simulation is a no-op and the mass-migration safety checks under
+  // test never actually exercise their real-environment code path.
+  process.execArgv = process.execArgv.filter((arg) => !arg.includes("test"));
 
   try {
     return fn();
   } finally {
     process.argv = originalArgv;
+    process.execArgv = originalExecArgv;
 
     if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = originalNodeEnv;
@@ -1344,6 +1352,174 @@ test(
         assert.equal(row059?.name, "manifest_routing");
       } finally {
         console.error = originalError;
+      }
+    } finally {
+      db.close();
+    }
+  }
+);
+
+test(
+  "FMO migration history from 110-112 and collision slots 118-120 rehomes directly to 134-136",
+  serial,
+  async () => {
+    const runner = await importFresh("src/lib/db/migrationRunner.ts");
+    const db = createDb();
+
+    try {
+      db.exec(`
+        CREATE TABLE _omniroute_migrations (
+          version TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE fmo_pool_specs (pool_id TEXT PRIMARY KEY);
+        CREATE TABLE fmo_pool_generation_marker (
+          id INTEGER PRIMARY KEY,
+          rebalance_interval_minutes INTEGER NOT NULL DEFAULT 720
+        );
+        CREATE TABLE fmo_pool_decisions (id INTEGER PRIMARY KEY);
+      `);
+
+      // Both historical locations were shipped in the wild: 110-112 before the
+      // collision, then 118-120 while upstream claimed those numeric prefixes.
+      for (const [version, name] of [
+        ["110", "fmo_pools"],
+        ["111", "fmo_pool_decisions"],
+        ["112", "fmo_pool_live_seam"],
+        ["118", "fmo_pools"],
+        ["119", "fmo_pool_decisions"],
+        ["120", "fmo_pool_live_seam"],
+      ] as const) {
+        db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
+          version,
+          name
+        );
+      }
+
+      const count = withMockedMigrationFs(
+        {
+          "110_model_context_overrides.sql":
+            "CREATE TABLE upstream_110_model_context_overrides (id INTEGER);",
+          "111_memory_typed_decay.sql":
+            "CREATE TABLE upstream_111_memory_typed_decay (id INTEGER);",
+          "112_batch_item_checkpoints.sql":
+            "CREATE TABLE upstream_112_batch_item_checkpoints (id INTEGER);",
+          "118_provider_param_filters.sql":
+            "CREATE TABLE upstream_118_provider_param_filters (id INTEGER);",
+          "119_model_capability_overrides.sql":
+            "CREATE TABLE upstream_119_model_capability_overrides (id INTEGER);",
+          "120_interception_rules.sql":
+            "CREATE TABLE upstream_120_interception_rules (id INTEGER);",
+          "134_fmo_pools.sql":
+            "CREATE TABLE IF NOT EXISTS fmo_pool_specs (pool_id TEXT PRIMARY KEY);",
+          "135_fmo_pool_decisions.sql":
+            "CREATE TABLE IF NOT EXISTS fmo_pool_decisions (id INTEGER PRIMARY KEY);",
+          "136_fmo_pool_live_seam.sql":
+            "ALTER TABLE fmo_pool_generation_marker ADD COLUMN rebalance_interval_minutes INTEGER DEFAULT 720;",
+        },
+        () => runner.runMigrations(db)
+      );
+
+      assert.equal(count, 6, "only upstream files should execute; FMO target rows were reconciled");
+      assert.deepEqual(
+        db
+          .prepare(
+            "SELECT version, name FROM _omniroute_migrations WHERE version IN ('110','111','112','118','119','120','134','135','136') ORDER BY version"
+          )
+          .all(),
+        [
+          { version: "110", name: "model_context_overrides" },
+          { version: "111", name: "memory_typed_decay" },
+          { version: "112", name: "batch_item_checkpoints" },
+          { version: "118", name: "provider_param_filters" },
+          { version: "119", name: "model_capability_overrides" },
+          { version: "120", name: "interception_rules" },
+          { version: "134", name: "fmo_pools" },
+          { version: "135", name: "fmo_pool_decisions" },
+          { version: "136", name: "fmo_pool_live_seam" },
+        ]
+      );
+      for (const tableName of [
+        "upstream_118_provider_param_filters",
+        "upstream_119_model_capability_overrides",
+        "upstream_120_interception_rules",
+      ]) {
+        assert.ok(
+          db
+            .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+            .get(tableName),
+          `${tableName} must execute despite existing FMO schema`
+        );
+      }
+    } finally {
+      db.close();
+    }
+  }
+);
+
+test(
+  "FMO idempotency guards stay at 134-136 while upstream 118-120 still execute",
+  serial,
+  async () => {
+    const runner = await importFresh("src/lib/db/migrationRunner.ts");
+    const db = createDb();
+
+    try {
+      db.exec(`
+        CREATE TABLE _omniroute_migrations (
+          version TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE fmo_pool_specs (pool_id TEXT PRIMARY KEY);
+        CREATE TABLE fmo_pool_generation_marker (
+          id INTEGER PRIMARY KEY,
+          rebalance_interval_minutes INTEGER NOT NULL DEFAULT 720
+        );
+        CREATE TABLE fmo_pool_decisions (id INTEGER PRIMARY KEY);
+      `);
+
+      const count = withMockedMigrationFs(
+        {
+          "118_provider_param_filters.sql":
+            "CREATE TABLE upstream_118_provider_param_filters (id INTEGER);",
+          "119_model_capability_overrides.sql":
+            "CREATE TABLE upstream_119_model_capability_overrides (id INTEGER);",
+          "120_interception_rules.sql":
+            "CREATE TABLE upstream_120_interception_rules (id INTEGER);",
+          // Deliberately non-idempotent SQL: the 134-136 guards must skip these
+          // because their physical FMO schema is already present.
+          "134_fmo_pools.sql": "CREATE TABLE fmo_pool_specs (pool_id TEXT PRIMARY KEY);",
+          "135_fmo_pool_decisions.sql": "CREATE TABLE fmo_pool_decisions (id INTEGER PRIMARY KEY);",
+          "136_fmo_pool_live_seam.sql":
+            "ALTER TABLE fmo_pool_generation_marker ADD COLUMN rebalance_interval_minutes INTEGER;",
+        },
+        () => runner.runMigrations(db)
+      );
+
+      assert.equal(count, 6);
+      for (const [version, name] of [
+        ["118", "provider_param_filters"],
+        ["119", "model_capability_overrides"],
+        ["120", "interception_rules"],
+        ["134", "fmo_pools"],
+        ["135", "fmo_pool_decisions"],
+        ["136", "fmo_pool_live_seam"],
+      ] as const) {
+        assert.equal(
+          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get(version)?.name,
+          name
+        );
+      }
+      for (const tableName of [
+        "upstream_118_provider_param_filters",
+        "upstream_119_model_capability_overrides",
+        "upstream_120_interception_rules",
+      ]) {
+        assert.ok(
+          db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName)
+        );
       }
     } finally {
       db.close();

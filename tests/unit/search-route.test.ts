@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { SearchResponse } from "../../open-sse/handlers/search.ts";
+
+type SearchRouteResponse = SearchResponse & {
+  id?: string;
+  cached?: boolean;
+};
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-search-route-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -59,20 +65,24 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("v1 search GET lists all 16 search providers", async () => {
+test("v1 search GET lists all 17 search providers", async () => {
   const response = await searchRoute.GET();
-  const body = (await response.json()) as any;
+  const body = (await response.json()) as {
+    object: string;
+    data: Array<{ id: string }>;
+  };
   const ids = body.data.map((item: { id: string }) => item.id);
 
   assert.equal(response.status, 200);
   assert.equal(body.object, "list");
-  assert.equal(body.data.length, 16);
+  assert.equal(body.data.length, 17);
   assert.deepEqual(ids, [
     "serper-search",
     "brave-search",
     "perplexity-search",
     "exa-search",
     "tavily-search",
+    "firecrawl",
     "google-pse-search",
     "linkup-search",
     "searchapi-search",
@@ -126,7 +136,7 @@ test("v1 search POST uses stored Linkup credentials and returns normalized resul
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(capturedUrl, "https://api.linkup.so/v1/search");
@@ -175,7 +185,7 @@ test("v1 search POST explicit provider does not fallback by default", async () =
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as Record<string, unknown>;
 
     assert.equal(response.status, 503);
     assert.equal(capturedUrls.length, 1);
@@ -226,7 +236,7 @@ test("v1 search POST uses shared Parallel credentials and returns normalized res
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
     const requestBody = JSON.parse(String(capturedInit?.body));
 
     assert.equal(response.status, 200);
@@ -294,7 +304,7 @@ test("v1 search POST uses Firecrawl credentials and returns normalized news resu
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
     const requestBody = JSON.parse(String(capturedInit?.body));
 
     assert.equal(response.status, 200);
@@ -365,7 +375,7 @@ test("v1 search POST uses Gemini credentials and returns grounded results", asyn
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
     const requestBody = JSON.parse(String(capturedInit?.body));
 
     assert.equal(response.status, 200);
@@ -381,6 +391,72 @@ test("v1 search POST uses Gemini credentials and returns grounded results", asyn
     assert.equal(body.results[0].citation.provider, "gemini-grounded-search");
     assert.equal(body.answer.text, "Grounded answer");
     assert.equal(body.answer.model, "gemini-test-model");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("v1 search POST uses firecrawl credentials for unified firecrawl search", async () => {
+  await seedConnection("firecrawl", { apiKey: "fc-route-key" });
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+
+  globalThis.fetch = async (url, init = {}) => {
+    capturedUrl = String(url);
+    capturedInit = init;
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          web: [
+            {
+              title: "Firecrawl route hit",
+              url: "https://example.com/fc",
+              description: "From firecrawl via /v1/search",
+            },
+          ],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  try {
+    const response = await searchRoute.POST(
+      new Request("http://localhost/api/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "omniroute firecrawl",
+          provider: "firecrawl",
+          max_results: 3,
+          search_type: "web",
+        }),
+      })
+    );
+    const body = (await response.json()) as {
+      provider: string;
+      results: Array<{ title: string; snippet: string }>;
+      usage: { queries_used: number };
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(capturedUrl, "https://api.firecrawl.dev/v2/search");
+    assert.equal(
+      (capturedInit?.headers as Record<string, string>).Authorization,
+      "Bearer fc-route-key"
+    );
+    const requestBody = JSON.parse(String(capturedInit?.body || "{}"));
+    assert.equal(requestBody.query, "omniroute firecrawl");
+    assert.equal(requestBody.limit, 3);
+    assert.deepEqual(requestBody.sources, ["web"]);
+    assert.equal(body.provider, "firecrawl");
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].title, "Firecrawl route hit");
+    assert.equal(body.results[0].snippet, "From firecrawl via /v1/search");
+    assert.equal(body.usage.queries_used, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -432,7 +508,7 @@ test("v1 search POST uses stored You.com credentials and returns unified news re
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
     const url = new URL(capturedUrl);
 
     assert.equal(response.status, 200);
@@ -489,7 +565,7 @@ test("v1 search POST accepts authless SearXNG with provider_options baseUrl", as
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -537,7 +613,7 @@ test("v1 search POST accepts authless SearXNG with the built-in default base URL
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -592,7 +668,7 @@ test("v1 search POST preserves stored SearXNG baseUrl for authless providers", a
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -638,7 +714,7 @@ test("v1 search POST auto-select uses authless SearXNG when no API-key providers
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -683,7 +759,7 @@ test("v1 search POST auto-select uses configured order and skips missing credent
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(capturedUrl, "https://api.tavily.com/search");
@@ -739,7 +815,7 @@ test("v1 search POST skips disabled auto provider but still allows it explicitly
         }),
       })
     );
-    const autoBody = (await autoResponse.json()) as any;
+    const autoBody = (await autoResponse.json()) as SearchRouteResponse;
 
     assert.equal(autoResponse.status, 200);
     assert.equal(autoBody.provider, "tavily-search");
@@ -757,7 +833,7 @@ test("v1 search POST skips disabled auto provider but still allows it explicitly
         }),
       })
     );
-    const explicitBody = (await explicitResponse.json()) as any;
+    const explicitBody = (await explicitResponse.json()) as SearchRouteResponse;
 
     assert.equal(explicitResponse.status, 200);
     assert.equal(explicitBody.provider, "brave-search");
@@ -796,7 +872,7 @@ test("v1 search POST auto-select skips rate-limited first provider", async () =>
         }),
       })
     );
-    const body = (await response.json()) as any;
+    const body = (await response.json()) as SearchRouteResponse;
 
     assert.equal(response.status, 200);
     assert.equal(capturedUrl, "https://api.tavily.com/search");

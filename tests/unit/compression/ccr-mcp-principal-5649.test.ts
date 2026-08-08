@@ -11,7 +11,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { resolvePrincipalFromHeaders } from "../../../open-sse/mcp-server/mcpCallerIdentity.ts";
+import {
+  resolvePrincipalFromHeaders,
+  resolveMcpCallerApiKeyId,
+} from "../../../open-sse/mcp-server/mcpCallerIdentity.ts";
 import {
   storeBlock,
   retrieveBlock,
@@ -95,4 +98,31 @@ test("#5649 end-to-end: a block stored under the api-key id is retrievable by th
   );
   const otherResult = handleCcrRetrieve({ hash }, other);
   assert.ok("error" in otherResult, "[HIGH IDOR] cross-tenant retrieve returns error");
+});
+
+// ─── env-var fallback (stdio transport, #7883) ─────────────────────────
+
+test("#7883 resolveMcpCallerApiKeyId returns undefined when both headers and env var are absent", async () => {
+  const prev = process.env.OMNIROUTE_API_KEY;
+  delete process.env.OMNIROUTE_API_KEY;
+  try {
+    const result = await resolveMcpCallerApiKeyId();
+    assert.equal(result, undefined);
+  } finally {
+    if (prev) process.env.OMNIROUTE_API_KEY = prev;
+  }
+});
+
+test("#7883 resolveMcpCallerApiKeyId env-var fallback executes without throwing", async () => {
+  const prev = process.env.OMNIROUTE_API_KEY;
+  process.env.OMNIROUTE_API_KEY = "sk-test-env-key";
+  try {
+    // Will return undefined because sk-test-env-key isn't a real DB key,
+    // but proves the env var codepath runs without error
+    const result = await resolveMcpCallerApiKeyId();
+    assert.ok(result === undefined || typeof result === "string");
+  } finally {
+    if (prev) process.env.OMNIROUTE_API_KEY = prev;
+    else delete process.env.OMNIROUTE_API_KEY;
+  }
 });

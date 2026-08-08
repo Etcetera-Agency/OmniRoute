@@ -25,15 +25,16 @@ test("upstream search registry excludes Hermes-owned fork providers", () => {
   assert.equal(upstreamRegistry.SEARCH_PROVIDERS["parallel-search"], undefined);
   assert.equal(upstreamRegistry.SEARCH_PROVIDERS["firecrawl-search"], undefined);
   assert.equal(upstreamRegistry.SEARCH_PROVIDERS["gemini-grounded-search"], undefined);
-  assert.equal(Object.keys(upstreamRegistry.SEARCH_PROVIDERS).length, 13);
+  assert.equal(Object.keys(upstreamRegistry.SEARCH_PROVIDERS).length, 14);
 });
 
-test("overlay SEARCH_PROVIDERS has all 16 providers", () => {
+test("overlay SEARCH_PROVIDERS has all 17 providers", () => {
   assert.ok(SEARCH_PROVIDERS["serper-search"], "serper should exist");
   assert.ok(SEARCH_PROVIDERS["brave-search"], "brave should exist");
   assert.ok(SEARCH_PROVIDERS["perplexity-search"], "perplexity-search should exist");
   assert.ok(SEARCH_PROVIDERS["exa-search"], "exa should exist");
   assert.ok(SEARCH_PROVIDERS["tavily-search"], "tavily should exist");
+  assert.ok(SEARCH_PROVIDERS["firecrawl"], "firecrawl should exist");
   assert.ok(SEARCH_PROVIDERS["google-pse-search"], "google-pse should exist");
   assert.ok(SEARCH_PROVIDERS["linkup-search"], "linkup should exist");
   assert.ok(SEARCH_PROVIDERS["searchapi-search"], "searchapi should exist");
@@ -45,7 +46,7 @@ test("overlay SEARCH_PROVIDERS has all 16 providers", () => {
   assert.ok(SEARCH_PROVIDERS["firecrawl-search"], "firecrawl-search should exist");
   assert.ok(SEARCH_PROVIDERS["gemini-grounded-search"], "gemini-grounded-search should exist");
   assert.ok(SEARCH_PROVIDERS["duckduckgo-free"], "duckduckgo-free should exist");
-  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 16);
+  assert.equal(Object.keys(SEARCH_PROVIDERS).length, 17);
 });
 
 test("duckduckgo-free config is a no-key, fallback-only provider", () => {
@@ -218,7 +219,7 @@ test("excluded provider candidates are not registered", () => {
 
 test("getAllSearchProviders returns flat list", () => {
   const all = getAllSearchProviders();
-  assert.equal(all.length, 16);
+  assert.equal(all.length, 17);
   assert.ok(all.some((p) => p.id === "duckduckgo-free"));
   assert.ok(all.some((p) => p.id === "serper-search"));
   assert.ok(all.some((p) => p.id === "brave-search"));
@@ -413,11 +414,13 @@ test("v1SearchSchema validates correct input", async () => {
     provider: "serper-search",
     max_results: 10,
     search_type: "web",
+    time_range: "hour",
   });
   assert.ok(result.success);
   assert.equal(result.data.query, "test query");
   assert.equal(result.data.provider, "serper-search");
   assert.equal(result.data.max_results, 10);
+  assert.equal(result.data.time_range, "hour");
 });
 
 test("v1SearchSchema rejects empty query", async () => {
@@ -463,6 +466,7 @@ test("v1SearchSchema accepts new search providers", async () => {
     "firecrawl-search",
     "gemini-grounded-search",
     "duckduckgo-free",
+    "firecrawl",
   ] as const;
 
   for (const provider of providers) {

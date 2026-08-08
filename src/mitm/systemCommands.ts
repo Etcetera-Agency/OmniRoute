@@ -142,6 +142,7 @@ export function execFileWithPassword(
     // nosemgrep
     const child = spawn(finalCommand, finalArgs, {
       // nosemgrep
+      windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";

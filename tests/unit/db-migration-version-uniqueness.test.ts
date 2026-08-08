@@ -66,3 +66,27 @@ test("quota_pools lives at 085 (renumbered from the 077 collision)", () => {
   assert.ok(streamDefault, "api_key_stream_default_mode migration must exist");
   assert.equal(streamDefault.version, "077", "api_key_stream_default_mode stays at 077");
 });
+
+test("FMO migrations live at 134-136 after upstream claims 118-120", () => {
+  const files = migrationFiles();
+  const expected = new Map([
+    ["fmo_pools", "134"],
+    ["fmo_pool_decisions", "135"],
+    ["fmo_pool_live_seam", "136"],
+  ]);
+
+  for (const [name, version] of expected) {
+    assert.equal(
+      files.find((file) => file.name === name)?.version,
+      version,
+      `${name} must occupy ${version}`
+    );
+  }
+  assert.equal(
+    files.some(
+      (file) => file.name.startsWith("fmo_pool") && ["118", "119", "120"].includes(file.version)
+    ),
+    false,
+    "FMO migrations must not reuse upstream-owned 118-120 slots"
+  );
+});
