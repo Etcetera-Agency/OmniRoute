@@ -1,0 +1,4 @@
+# Completion Review
+
+- Corrected the archive checklist before final archival so every task reflects the completed spec merge.
+- Code Simplifier review confirmed the workflow change remains the minimal removal of the scheduled trigger.
