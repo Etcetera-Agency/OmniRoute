@@ -2,6 +2,22 @@
 
 ## 2026-09-08
 
+- Repaired four malformed upstream/fork merge resolutions: restored Firefly capability
+  normalization, removed the duplicate JWT decoder, restored Copilot request/trace IDs,
+  and restored the single-flight proxy fallback's negative-cache branch. Removed the
+  duplicate Firefly session-cookie declarations in the image/video handlers and restored
+  provider deletion re-exports required by the local DB compatibility layer. Moved the
+  fork-owned FMO migrations from the upstream-colliding 134–136 slots to 164–166. Removed
+  the merge-generated duplicate connection/api-key destructuring in the search handler and
+  removed stale imports left by the proxy-helper reshaping. Restored the merged search alias
+  and credential-fallback exports, Gemini TTS media helpers, shared media-result type guard,
+  and web-fetch provider exports needed by downstream routes.
+  Added the missing Context7 web-fetch route to the fork's provider chain while keeping it
+  explicit-only and anonymous-capable. Removed the last stale proxy resolver call from the
+  search request path and restored the missing settings import in the v1 search route. Wired
+  the existing Context7 request builder and normalizer into the merged search dispatch.
+- Applied Code Simplifier review; no additional refactor was needed beyond removing the
+  merge-generated duplicate branches.
 - Pinned the Docker build's `tls-client-node` download to `1.15.1` on the
   legacy asset path because upstream `1.16.0` renamed ARM64 releases to the
   `tls-client-xgo-*` form that the package resolver does not recognize.

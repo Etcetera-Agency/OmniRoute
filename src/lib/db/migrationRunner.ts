@@ -468,12 +468,18 @@ function isSchemaAlreadyApplied(
       // was dropped on integration; this canonical migration creates the table
       // that recordPluginExecution()/getPluginAnalytics() rely on.
       return hasTable(db, "plugin_analytics");
-    // AICODE-NOTE: FMO migrations occupy 134-136; 118-120 are upstream-owned slots.
     case "134":
-      return hasTable(db, "fmo_pool_specs") && hasTable(db, "fmo_pool_generation_marker");
-    case "135":
-      return hasTable(db, "fmo_pool_decisions");
+      // Upstream owns this slot in the merged tree. A DB that already ran the
+      // proxy egress migration must not repeat its non-idempotent ALTER TABLE.
+      return hasColumn(db, "proxy_logs", "egress_ip");
     case "136":
+      return hasTable(db, "radar_feed_cache") && hasTable(db, "radar_settings");
+    // AICODE-NOTE: FMO migrations occupy 164-166 after upstream claimed 134-136.
+    case "164":
+      return hasTable(db, "fmo_pool_specs") && hasTable(db, "fmo_pool_generation_marker");
+    case "165":
+      return hasTable(db, "fmo_pool_decisions");
+    case "166":
       return hasColumn(db, "fmo_pool_generation_marker", "rebalance_interval_minutes");
     case "117":
       // Proxy-pool rotation (#6365): the assignments table was rebuilt to add a

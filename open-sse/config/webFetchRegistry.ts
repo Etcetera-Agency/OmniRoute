@@ -5,6 +5,7 @@ export const WEB_FETCH_PROVIDER_ORDER = [
   "tavily-search",
   "tinyfish",
   "firecrawl",
+  "context7",
 ] as const;
 
 export type WebFetchProviderId = (typeof WEB_FETCH_PROVIDER_ORDER)[number];
@@ -71,6 +72,14 @@ export const WEB_FETCH_PROVIDERS: Record<WebFetchProviderId, WebFetchProviderCon
     fetchFormats: ["markdown", "html", "links", "screenshot"],
     authType: "apikey",
     quotaStatusCodes: [402, 403],
+  },
+  context7: {
+    id: "context7",
+    name: "Context7",
+    costPerQuery: 0,
+    freeMonthlyQuota: 999999,
+    fetchFormats: ["markdown"],
+    authType: "none",
   },
 };
 

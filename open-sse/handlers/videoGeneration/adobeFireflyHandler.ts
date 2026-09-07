@@ -71,16 +71,6 @@ export async function handleAdobeFireflyVideoGeneration({
         : typeof body.seed === "string" && String(body.seed).trim()
           ? Number(body.seed)
           : undefined;
-    // Keep raw paste for Cookie + sherlockToken (x-arp-session-id).
-    const psd = (credentials as { providerSpecificData?: { cookie?: string } })
-      ?.providerSpecificData;
-    const sessionCookie =
-      (typeof psd?.cookie === "string" && psd.cookie.trim()) ||
-      (typeof credentials?.apiKey === "string" && credentials.apiKey.trim()) ||
-      (typeof credentials?.accessToken === "string" && credentials.accessToken.includes(";")
-        ? credentials.accessToken
-        : undefined);
-
     // Kling i2v / Veo ref / Sora frame: upload reference images first.
     const { id: videoModelId } = resolveAdobeVideoModel(String(model));
     const maxFrames = videoModelId.includes("kling") || videoModelId.includes("sora") ? 2 : 3;

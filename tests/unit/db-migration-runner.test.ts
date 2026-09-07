@@ -1370,7 +1370,7 @@ test(
 );
 
 test(
-  "FMO migration history from 110-112 and collision slots 118-120 rehomes directly to 134-136",
+  "FMO migration history from 110-112 and collision slots 118-120 rehomes directly to 164-166",
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
@@ -1421,11 +1421,11 @@ test(
             "CREATE TABLE upstream_119_model_capability_overrides (id INTEGER);",
           "120_interception_rules.sql":
             "CREATE TABLE upstream_120_interception_rules (id INTEGER);",
-          "134_fmo_pools.sql":
+          "164_fmo_pools.sql":
             "CREATE TABLE IF NOT EXISTS fmo_pool_specs (pool_id TEXT PRIMARY KEY);",
-          "135_fmo_pool_decisions.sql":
+          "165_fmo_pool_decisions.sql":
             "CREATE TABLE IF NOT EXISTS fmo_pool_decisions (id INTEGER PRIMARY KEY);",
-          "136_fmo_pool_live_seam.sql":
+          "166_fmo_pool_live_seam.sql":
             "ALTER TABLE fmo_pool_generation_marker ADD COLUMN rebalance_interval_minutes INTEGER DEFAULT 720;",
         },
         () => runner.runMigrations(db)
@@ -1435,7 +1435,7 @@ test(
       assert.deepEqual(
         db
           .prepare(
-            "SELECT version, name FROM _omniroute_migrations WHERE version IN ('110','111','112','118','119','120','134','135','136') ORDER BY version"
+            "SELECT version, name FROM _omniroute_migrations WHERE version IN ('110','111','112','118','119','120','164','165','166') ORDER BY version"
           )
           .all(),
         [
@@ -1445,9 +1445,9 @@ test(
           { version: "118", name: "provider_param_filters" },
           { version: "119", name: "model_capability_overrides" },
           { version: "120", name: "interception_rules" },
-          { version: "134", name: "fmo_pools" },
-          { version: "135", name: "fmo_pool_decisions" },
-          { version: "136", name: "fmo_pool_live_seam" },
+          { version: "164", name: "fmo_pools" },
+          { version: "165", name: "fmo_pool_decisions" },
+          { version: "166", name: "fmo_pool_live_seam" },
         ]
       );
       for (const tableName of [
@@ -1469,7 +1469,7 @@ test(
 );
 
 test(
-  "FMO idempotency guards stay at 134-136 while upstream 118-120 still execute",
+  "FMO idempotency guards stay at 164-166 while upstream 118-120 still execute",
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
@@ -1498,11 +1498,11 @@ test(
             "CREATE TABLE upstream_119_model_capability_overrides (id INTEGER);",
           "120_interception_rules.sql":
             "CREATE TABLE upstream_120_interception_rules (id INTEGER);",
-          // Deliberately non-idempotent SQL: the 134-136 guards must skip these
+          // Deliberately non-idempotent SQL: the 164-166 guards must skip these
           // because their physical FMO schema is already present.
-          "134_fmo_pools.sql": "CREATE TABLE fmo_pool_specs (pool_id TEXT PRIMARY KEY);",
-          "135_fmo_pool_decisions.sql": "CREATE TABLE fmo_pool_decisions (id INTEGER PRIMARY KEY);",
-          "136_fmo_pool_live_seam.sql":
+          "164_fmo_pools.sql": "CREATE TABLE fmo_pool_specs (pool_id TEXT PRIMARY KEY);",
+          "165_fmo_pool_decisions.sql": "CREATE TABLE fmo_pool_decisions (id INTEGER PRIMARY KEY);",
+          "166_fmo_pool_live_seam.sql":
             "ALTER TABLE fmo_pool_generation_marker ADD COLUMN rebalance_interval_minutes INTEGER;",
         },
         () => runner.runMigrations(db)
@@ -1513,9 +1513,9 @@ test(
         ["118", "provider_param_filters"],
         ["119", "model_capability_overrides"],
         ["120", "interception_rules"],
-        ["134", "fmo_pools"],
-        ["135", "fmo_pool_decisions"],
-        ["136", "fmo_pool_live_seam"],
+        ["164", "fmo_pools"],
+        ["165", "fmo_pool_decisions"],
+        ["166", "fmo_pool_live_seam"],
       ] as const) {
         assert.equal(
           db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get(version)?.name,

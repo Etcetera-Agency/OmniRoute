@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 /**
  * Search Handler
  *
@@ -20,7 +19,6 @@ import { randomUUID } from "crypto";
 
 import {
   getSearchProvider,
-  isUnconfiguredLoopbackSearchProvider,
   type SearchProviderConfig,
 } from "../config/searchRegistry.ts";
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
@@ -40,8 +38,6 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { isValidContext7LibraryId } from "../executors/context7-fetch.ts";
-import { resolveSearchProxy, executeProviderFetch } from "./search/searchProxy.ts";
-import { formatSearchProviderFailure } from "./search/providerFailure.ts";
 
 type SearchJsonObject = Record<string, unknown>;
 
@@ -909,6 +905,7 @@ function buildRequest(
   if (config.id === "searxng-search") return buildSearxngRequest(config, params);
   if (config.id === "ollama-search") return buildOllamaRequest(config, params);
   if (config.id === "parallel-search") return buildParallelSearchRequest(config, params);
+  if (config.id === "context7") return buildContext7Request(config, params);
   if (config.id === "gemini-grounded-search")
     return buildGeminiGroundedSearchRequest(config, params);
   // Fallback for future providers: POST with bearer auth
@@ -1704,6 +1701,7 @@ function normalizeResponse(
   if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
   if (providerId === "parallel-search")
     return normalizeParallelSearchResponse(data, query, searchType);
+  if (providerId === "context7") return normalizeContext7Response(data, query, searchType);
   if (providerId === "gemini-grounded-search")
     return normalizeGeminiGroundedSearchResponse(data, query, searchType, model);
   return { results: [], totalResults: null };
@@ -1778,8 +1776,6 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     alternateProviderConfig,
     alternateCredentials,
     log,
-    connectionId,
-    apiKeyId,
   } = options;
   const startTime = Date.now();
 
@@ -2052,10 +2048,6 @@ async function tryProvider(
       error: errorMessage || `Invalid search configuration for provider: ${config.id}`,
     };
   }
-
-  // Resolve proxy for the selected connection (see search/searchProxy.ts for the
-  // resolveProxyForConnection precedence chain: per-key, account, provider, combo, global).
-  const { proxy, proxyLevel } = await resolveSearchProxy(connectionId, apiKeyId, config.id);
 
   // Timeout: min of provider timeout and remaining global timeout
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);

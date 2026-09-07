@@ -8,12 +8,12 @@
 
 import { getProviderCredentialsWithQuotaPreflight } from "@/sse/services/auth";
 import { getInterceptionRules, type FetchInterceptionBackend } from "@/lib/db/interceptionRules";
+import { WEB_FETCH_PROVIDER_ORDER } from "@omniroute/open-sse/config/webFetchRegistry.ts";
 import {
-  handleWebFetch,
   type WebFetchCredentials,
   type WebFetchFormat,
   type WebFetchResponse,
-  WEB_FETCH_PROVIDERS,
+  handleWebFetch,
   EXPLICIT_ONLY_WEB_FETCH_PROVIDERS,
   ANONYMOUS_CAPABLE_WEB_FETCH_PROVIDERS,
   type WebFetchProviderId,
@@ -54,7 +54,7 @@ export class WebFetchExecutionError extends Error {
 }
 
 function isKnownWebFetchProvider(value: unknown): value is WebFetchProviderId {
-  return typeof value === "string" && (WEB_FETCH_PROVIDERS as readonly string[]).includes(value);
+  return typeof value === "string" && (WEB_FETCH_PROVIDER_ORDER as readonly string[]).includes(value);
 }
 
 function resolvePinnedBackend(input: ExecuteWebFetchInput): WebFetchProviderId | undefined {
@@ -102,7 +102,7 @@ async function autoSelectProvider(): Promise<{
   provider: WebFetchProviderId;
   credentials: WebFetchCredentials;
 } | null> {
-  for (const providerId of WEB_FETCH_PROVIDERS) {
+  for (const providerId of WEB_FETCH_PROVIDER_ORDER) {
     if (EXPLICIT_ONLY_PROVIDERS.has(providerId)) continue;
     const credentials = await resolveCredentials(providerId);
     if (credentials) return { provider: providerId, credentials };
@@ -128,7 +128,7 @@ async function resolveProviderAndCredentials(
   const auto = await autoSelectProvider();
   if (!auto) {
     throw new WebFetchExecutionError(
-      `No credentials configured for any web-fetch provider. Add an API key for one of: ${WEB_FETCH_PROVIDERS.join(", ")}.`,
+      `No credentials configured for any web-fetch provider. Add an API key for one of: ${WEB_FETCH_PROVIDER_ORDER.join(", ")}.`,
       400
     );
   }

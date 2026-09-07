@@ -16,6 +16,7 @@
  */
 
 import { type WebFetchProviderId } from "../config/webFetchRegistry.ts";
+import { context7Fetch } from "../executors/context7-fetch.ts";
 import { runWebFetchChain } from "./webFetchChain.ts";
 
 export type WebFetchFormat = "markdown" | "html" | "links" | "screenshot";
@@ -65,6 +66,23 @@ export interface WebFetchCredentials {
   providerCredentials?: Partial<Record<WebFetchProviderId, WebFetchCredentials>>;
 }
 
+/** Public provider catalog for MCP/tool consumers. */
+export const WEB_FETCH_PROVIDERS = Object.freeze([
+  "firecrawl",
+  "jina-reader",
+  "tavily-search",
+  "tinyfish",
+  "context7",
+] as const);
+
+export const EXPLICIT_ONLY_WEB_FETCH_PROVIDERS: ReadonlySet<WebFetchProviderId> = new Set([
+  "context7",
+]);
+
+export const ANONYMOUS_CAPABLE_WEB_FETCH_PROVIDERS: ReadonlySet<WebFetchProviderId> = new Set([
+  "context7",
+]);
+
 interface WebFetchLogger {
   info(tag: string, message: string, data?: unknown): void;
 }
@@ -85,5 +103,19 @@ export async function handleWebFetch(
   credentials: WebFetchCredentials,
   resolvedProvider?: WebFetchProviderId
 ): Promise<WebFetchResult> {
+  if ((resolvedProvider ?? req.provider) === "context7") {
+    if (req.format && req.format !== "markdown") {
+      return {
+        success: false,
+        status: 400,
+        error: `Provider 'context7' only supports format 'markdown', got '${req.format}'`,
+      };
+    }
+    return context7Fetch({
+      url: req.url,
+      includeMetadata: req.include_metadata ?? false,
+      credentials,
+    });
+  }
   return runWebFetchChain(req, credentials, resolvedProvider);
 }

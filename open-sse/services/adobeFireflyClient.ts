@@ -342,27 +342,6 @@ export function adobeFireflyBalanceApiKey(): string {
   return resolvePublicCred("adobe_firefly_balance_api_key", "ADOBE_FIREFLY_BALANCE_API_KEY");
 }
 
-/** Decode IMS JWT payload (no signature verification — client-side claim read only). */
-export function decodeAdobeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    // Do not call extractAdobeCredentialToken here (would recurse via guest checks).
-    let raw = String(token || "")
-      .trim()
-      .replace(/^bearer\s+/i, "")
-      .trim();
-    // If a blob was passed, take the first JWT-shaped segment.
-    const m = raw.match(/eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}/);
-    if (m) raw = m[0];
-    const part = raw.split(".")[1];
-    if (!part) return null;
-    const json = Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
-    const obj = JSON.parse(json);
-    return obj && typeof obj === "object" ? (obj as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-
 /** AdobeID subject for x-account-id on balance / account_cluster calls. */
 export function extractAdobeAccountIdFromToken(token: string): string {
   const payload = decodeAdobeJwtPayload(token);

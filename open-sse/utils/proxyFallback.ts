@@ -362,11 +362,7 @@ export async function findWorkingProxy(
       return proxyUrl;
     }
 
-  const working = results.find((r) => r.status === "fulfilled" && r.value.ok);
-
-  if (working && working.status === "fulfilled") {
-    const proxyUrl = working.value.proxyUrl;
-    // Cache the working proxy
+    // All failed — cache the negative result to avoid re-probing too often
     PROXY_FALLBACK_CACHE.set(cacheKey, {
       proxyUrl: "",
       expiresAt: Date.now() + CACHE_TTL_MS,

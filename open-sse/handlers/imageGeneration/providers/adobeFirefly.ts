@@ -96,17 +96,6 @@ export async function handleAdobeFireflyImageGeneration({
           ? Number(body.seed)
           : undefined;
 
-    // Keep the raw credential blob for Cookie + sherlockToken (x-arp-session-id).
-    // JWT may be embedded in the same paste as cookies (HAR / multi-line).
-    const psd = (credentials as { providerSpecificData?: { cookie?: string } })
-      ?.providerSpecificData;
-    const sessionCookie =
-      (typeof psd?.cookie === "string" && psd.cookie.trim()) ||
-      (typeof credentials?.apiKey === "string" && credentials.apiKey.trim()) ||
-      (typeof credentials?.accessToken === "string" && credentials.accessToken.includes(";")
-        ? credentials.accessToken
-        : undefined);
-
     // Cap uploads by model family (matches MediaViewModel GetSourceImageLimit).
     const { id: resolvedId } = resolveAdobeImageModel(model);
     const maxRefs = resolvedId.includes("nano-banana") || resolvedId.includes("gpt-image") ? 4 : 2;

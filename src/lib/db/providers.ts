@@ -1035,6 +1035,13 @@ export async function cleanupProviderConnections() {
   return 0;
 }
 
+export {
+  deleteProviderConnection,
+  deleteProviderConnections,
+  deleteProviderConnectionsByProvider,
+  reorderProviderConnections,
+} from "./providers/deletion";
+
 export async function getDistinctGroups(): Promise<string[]> {
   const db = getDbInstance() as unknown as DbLike;
   const rows = db

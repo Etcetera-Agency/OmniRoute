@@ -232,61 +232,26 @@ function normalizeCapabilities(row: AdobeFireflyDiscoveredModel): AdobeFireflyMe
     }
   }
 
-  for (const r of rows) {
-    if (r.modality !== "image" && r.modality !== "video") continue;
-    const id = slugifyAdobeModel(r.modelId, r.modelVersion);
-    if (seen.has(id)) continue;
-    // Skip if already covered by a friendly alias with same upstream
-    if (
-      out.some((o) => o.upstreamModelId === r.modelId && o.upstreamModelVersion === r.modelVersion)
-    ) {
-      continue;
-    }
-    seen.add(id);
-    out.push({
-      id,
-      name: r.displayName || id,
-      modality: r.modality,
-      upstreamModelId: r.modelId,
-      upstreamModelVersion: r.modelVersion,
-      inputModalities: r.modality === "image" ? ["text", "image"] : ["text"],
-    });
-  }
-
-  return out;
-}
-
-export function getAdobeFireflyFallbackCatalog(
-  modality?: "image" | "video"
-): AdobeFireflyCatalogModel[] {
-  if (!modality) return [...ADOBE_FIREFLY_FALLBACK_MODELS];
-  return ADOBE_FIREFLY_FALLBACK_MODELS.filter((m) => m.modality === modality);
-}
-
-/**
- * Live discovery when credentials resolve; otherwise static fallback from get_models capture.
- */
-export async function resolveAdobeFireflyCatalog(opts: {
-  credentials?: {
-    apiKey?: string;
-    accessToken?: string;
-    providerSpecificData?: Record<string, unknown> | null;
-  } | null;
-  modality?: "image" | "video";
-  fetchImpl?: typeof fetch;
-}): Promise<{ models: AdobeFireflyCatalogModel[]; source: "api" | "fallback" }> {
-  const fetchImpl = opts.fetchImpl || fetch;
-  try {
-    if (opts.credentials) {
-      const token = await resolveAdobeAccessToken(opts.credentials, fetchImpl);
-      const discovered = await discoverAdobeFireflyModels(token, fetchImpl);
-      let catalog = mapDiscoveredToCatalog(discovered);
-      if (opts.modality) catalog = catalog.filter((m) => m.modality === opts.modality);
-      if (catalog.length > 0) return { models: catalog, source: "api" };
-    }
-  } catch {
-    // fall through to static catalog
-  }
+  const supportedSizes = [
+    ...new Set(
+      schemaBranches(schema.properties.size)
+        .flatMap((branch) => (Array.isArray(branch.enum) ? branch.enum : []))
+        .map(asRecord)
+        .filter((size) => finiteInteger(size.width) !== null && finiteInteger(size.height) !== null)
+        .map((size) => `${size.width}x${size.height}`)
+    ),
+  ];
+  const supportedAspectRatios = [
+    ...new Set(
+      schemaBranches(schema.properties.generationSettings).flatMap((branch) =>
+        enumStrings(asRecord(asRecord(branch.properties).aspectRatio))
+      )
+    ),
+  ];
+  const duration = integerBranch(schema.properties.duration);
+  const outputCount = integerBranch(schema.properties.n);
+  const prompt =
+    schemaBranches(schema.properties.prompt).find((branch) => branch.type === "string") || {};
 
   return {
     inputMediaUseCases: [...row.inputMediaUseCases],

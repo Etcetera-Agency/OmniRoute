@@ -309,9 +309,13 @@ export class CopilotM365WebExecutor extends BaseExecutor {
 
           try {
             const wsUrlParts = new URL(input.wsUrl);
-            const traceId =
+            // #10718 — the invocation must echo the ids riding in the WS URL query
+            // (conversationId is cross-checked server-side). traceId is a fresh GUID
+            // per turn, as in the browser capture.
+            const requestId =
+              wsUrlParts.searchParams.get("chatsessionid") ??
               wsUrlParts.searchParams.get("clientrequestid") ??
-              crypto.randomUUID().replace(/-/g, "");
+              crypto.randomUUID();
             const sessionId = wsUrlParts.searchParams.get("X-SessionId") ?? crypto.randomUUID();
             const conversationId =
               wsUrlParts.searchParams.get("ConversationId") ?? crypto.randomUUID();

@@ -1,6 +1,7 @@
 import {
   SEARCH_AUTO_PROVIDER_ORDER as UPSTREAM_SEARCH_AUTO_PROVIDER_ORDER,
   SEARCH_CREDENTIAL_FALLBACKS as UPSTREAM_SEARCH_CREDENTIAL_FALLBACKS,
+  SEARCH_PROVIDER_ALIASES as UPSTREAM_SEARCH_PROVIDER_ALIASES,
   SEARCH_PROVIDERS as UPSTREAM_SEARCH_PROVIDERS,
   type SearchProviderConfig,
 } from "@omniroute/open-sse/config/searchRegistry.ts";
@@ -67,12 +68,27 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
   ...(UPSTREAM_DUCKDUCKGO_PROVIDER ? { "duckduckgo-free": UPSTREAM_DUCKDUCKGO_PROVIDER } : {}),
 };
 
-export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
+export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string | string[]> = {
   ...UPSTREAM_SEARCH_CREDENTIAL_FALLBACKS,
   "parallel-search": "parallel",
   "firecrawl-search": "firecrawl",
   "gemini-grounded-search": "gemini",
 };
+
+export function resolveSearchProviderId(providerId: string): string {
+  return UPSTREAM_SEARCH_PROVIDER_ALIASES[providerId] || providerId;
+}
+
+/** Resolve request aliases against the merged upstream + Hermes catalog. */
+export function resolveSearchProvider(providerId: string): SearchProviderConfig | null {
+  return SEARCH_PROVIDERS[resolveSearchProviderId(providerId)] || null;
+}
+
+export function getSearchCredentialFallbacks(providerId: string): string[] {
+  const fallback = SEARCH_CREDENTIAL_FALLBACKS[resolveSearchProviderId(providerId)];
+  if (!fallback) return [];
+  return Array.isArray(fallback) ? fallback : [fallback];
+}
 
 export const SEARCH_AUTO_PROVIDER_ORDER = [
   ...UPSTREAM_SEARCH_AUTO_PROVIDER_ORDER.filter((id) => id !== "perplexity-search"),
@@ -100,7 +116,7 @@ export function supportsSearchType(
   searchType: string
 ): boolean {
   const provider =
-    typeof providerOrId === "string" ? getSearchProvider(providerOrId) : providerOrId || null;
+    typeof providerOrId === "string" ? resolveSearchProvider(providerOrId) : providerOrId || null;
   if (!provider) return false;
   return provider.searchTypes.includes(searchType);
 }
@@ -122,7 +138,7 @@ export function selectProvider(
   searchType?: string
 ): SearchProviderConfig | null {
   if (explicitProvider) {
-    const provider = SEARCH_PROVIDERS[explicitProvider] || null;
+    const provider = resolveSearchProvider(explicitProvider);
     if (!provider) return null;
     if (searchType && !supportsSearchType(provider, searchType)) return null;
     return provider;

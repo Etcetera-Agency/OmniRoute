@@ -16,6 +16,21 @@ type MediaModelListEntry = {
 type MediaGenerationResult =
   { success: true; data: unknown } | { success: false; error: unknown; status: number };
 
+type MediaGenerationFailure = Extract<MediaGenerationResult, { success: false }>;
+
+export type MediaGenerationResultLike = {
+  success: boolean;
+  data?: unknown;
+  error?: unknown;
+  status?: number;
+};
+
+export function isMediaGenerationFailure(
+  result: MediaGenerationResultLike
+): result is MediaGenerationFailure {
+  return result.success === false && "error" in result && typeof result.status === "number";
+}
+
 type MediaGenerationBody = {
   model: string;
   prompt?: unknown;

@@ -19,6 +19,7 @@ import { jinaReaderFetch } from "../executors/jina-reader-fetch.ts";
 import { mdreamFetch } from "../executors/mdream-fetch.ts";
 import { parallelExtractFetch } from "../executors/parallel-extract.ts";
 import { tinyfishFetch } from "../executors/tinyfish-fetch.ts";
+import { context7Fetch } from "../executors/context7-fetch.ts";
 import { resolveEffectiveProviderOrder } from "@/lib/routing/routingOverrides";
 import type {
   WebFetchCredentials,
@@ -166,6 +167,9 @@ function isProviderCompatible(provider: WebFetchProviderId, req: WebFetchRequest
   if (provider === "jina-reader" || provider === "tavily-search") {
     return format !== "screenshot" && depth === 0 && !req.wait_for_selector;
   }
+  if (provider === "context7") {
+    return format === "markdown" && depth === 0 && !req.wait_for_selector;
+  }
   return true;
 }
 
@@ -290,6 +294,13 @@ async function tryWebFetchProvider(
         return await tinyfishFetch({
           url: req.url,
           format,
+          includeMetadata,
+          credentials,
+        });
+
+      case "context7":
+        return await context7Fetch({
+          url: req.url,
           includeMetadata,
           credentials,
         });

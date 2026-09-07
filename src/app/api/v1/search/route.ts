@@ -19,6 +19,7 @@ import {
 import { rateLimitedProviderResponse } from "@/app/api/v1/_shared/rateLimit";
 import { withInjectionGuard } from "@/middleware/promptInjectionGuard";
 import { buildSearchAttempts, runSearchChain, SearchError } from "@/lib/search/searchChain";
+import { getSettings } from "@/lib/db/settings";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

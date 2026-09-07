@@ -70,8 +70,8 @@ describe("migrationRunner/constants — exact small-table snapshots", () => {
 // ── large tables — count + shape + spot-checks (corruption guard) ─────────────
 
 describe("migrationRunner/constants — large-table integrity", () => {
-  it("RENAMED_MIGRATION_COMPATIBILITY has 16 well-formed entries", () => {
-    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 16);
+  it("RENAMED_MIGRATION_COMPATIBILITY has 19 well-formed entries", () => {
+    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 19);
     for (const e of RENAMED_MIGRATION_COMPATIBILITY) {
       assert.equal(typeof e.fromVersion, "string");
       assert.equal(typeof e.fromName, "string");
@@ -95,12 +95,15 @@ describe("migrationRunner/constants — large-table integrity", () => {
     assert.deepEqual(
       fmo.map((e) => `${e.fromVersion}->${e.toVersion}:${e.toName}`),
       [
-        "110->134:fmo_pools",
-        "111->135:fmo_pool_decisions",
-        "112->136:fmo_pool_live_seam",
-        "118->134:fmo_pools",
-        "119->135:fmo_pool_decisions",
-        "120->136:fmo_pool_live_seam",
+        "110->164:fmo_pools",
+        "111->165:fmo_pool_decisions",
+        "112->166:fmo_pool_live_seam",
+        "118->164:fmo_pools",
+        "119->165:fmo_pool_decisions",
+        "120->166:fmo_pool_live_seam",
+        "134->164:fmo_pools",
+        "135->165:fmo_pool_decisions",
+        "136->166:fmo_pool_live_seam",
       ]
     );
   });
