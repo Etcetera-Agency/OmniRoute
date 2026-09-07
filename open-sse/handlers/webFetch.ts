@@ -37,7 +37,7 @@ export interface WebFetchResponse {
   url: string;
   content: string;
   links: string[];
-  metadata: { title: string | null; description: string | null } | null;
+  metadata: { title: string | null; description: string | null; truncated?: boolean } | null;
   screenshot_url: string | null;
 }
 

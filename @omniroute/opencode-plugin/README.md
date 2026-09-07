@@ -30,7 +30,7 @@ omniroute setup opencode --auth
 # 3. Restart OpenCode — /models lists the full live catalog
 ```
 
-The `--auth` flag runs `opencode auth login --provider omniroute` automatically.
+The `--auth` flag runs `opencode auth login --provider opencode-omniroute` automatically.
 Use `--base-url` to point at a non-default OmniRoute address:
 
 ```sh
@@ -84,7 +84,7 @@ Peer dep: `@opencode-ai/plugin` (managed by your OpenCode install).
 ```
 
 ```sh
-opencode auth login --provider omniroute
+opencode auth login --provider opencode-omniroute
 # prompts for the OmniRoute API key, writes to ~/.local/share/opencode/auth.json
 ```
 
@@ -164,8 +164,8 @@ Then in `~/.config/opencode/opencode.json` reference each directory by absolute 
 Paths are relative to `~/.config/opencode/`. Each entry now resolves to a distinct module file, so OC loads them as two separate plugin instances. Authenticate each:
 
 ```sh
-opencode auth login --provider omniroute
-opencode auth login --provider omniroute-preprod
+opencode auth login --provider opencode-omniroute
+opencode auth login --provider opencode-omniroute-preprod
 ```
 
 Each entry gets its own provider id, its own model picker entry, its own slot in `auth.json`, and its own TTL cache. Closures are isolated per plugin instance — no cross-talk.
@@ -298,7 +298,45 @@ If you want a narrower-scoped Bearer for MCP (different from the chat/inference 
 - `compressionMetadata: true` annotates combo display names with their pipeline using traffic-light emoji for intensity (e.g. `Combo: claude-primary [rtk🟡 → caveman🟠]`) so the picker advertises which compression each combo applies and how heavy it is at a glance. Palette: 🟢 lite/minimal · 🟡 standard · 🟠 aggressive/full · 🔴 ultra. Unknown intensities fall through to raw text (`[rtk:custom-thing]`) so the plugin never hides a value OmniRoute knows but the plugin doesn't.
 - `providerTag: true` (default) prepends a short upstream-provider label so the picker shows `Claude - Claude Opus 4.7` for `cc/claude-opus-4-7`, `Kiro - Claude Opus 4.7` for `kr/claude-opus-4-7`, and `GHM - GPT 5` for `ghm/gpt-5` (slot.name `GitHub Models` > 8 chars → abbreviated). Critical when the same model id is sold through multiple upstream connections with different cost/auth/rate-limit profiles. Set to `false` to keep the pre-v3.8.3 unsuffixed format.
 
-## Comparison vs `@omniroute/opencode-provider`
+#### Example — curating the model picker (allowlist + blocklist)
+
+A typical OmniRoute instance serves 600+ models. The OpenCode TUI/CLI picker becomes unusable when you need to scroll through hundreds of entries to find the ~30 models you actually use. `visibleModels` and `hiddenModels` let you curate the picker to a fixed set of model IDs that persists in `opencode.json` across config resets.
+
+```jsonc
+{
+  "plugin": [
+    [
+      "@omniroute/opencode-plugin",
+      {
+        "providerId": "omniroute",
+        "baseURL": "https://or.example.com",
+        "features": {
+          "combos": true,
+          "enrichment": true,
+          "usableOnly": true,
+          "visibleModels": [
+            "claude-opus-4-7",     // bare suffix: matches cc/claude-opus-4-7, kr/claude-opus-4-7, etc.
+            "cc/claude-sonnet-4-6", // exact: only the cc/ alias
+            "gemini-2.5-pro",
+            "gpt-5",
+            "o3",
+            "o3-pro",
+            "o4-mini",
+          ],
+          "hiddenModels": [
+            "o3-mini",  // hide the mini variant even if visibleModels is unset
+          ],
+        },
+      },
+    ],
+  ],
+}
+```
+
+- `visibleModels` is an allowlist — only models whose raw ID matches are emitted. Bare IDs (no slash) match any provider prefix; full IDs (with slash) match exactly.
+- `hiddenModels` is a blocklist — listed models are dropped. When a model is in both lists, the blocklist wins (deny takes precedence).
+- Both compose with `usableOnly` (all filters AND together: a model must pass usableOnly AND visibleModels AND not be in hiddenModels).
+- Unset or empty = no filter (current behavior).
 
 [`@omniroute/opencode-provider`](https://github.com/diegosouzapw/OmniRoute/tree/main/%40omniroute/opencode-provider) is the existing config-generator package — it writes a frozen `provider.<id>` block into `opencode.json` at build time. This plugin is the runtime integration.
 

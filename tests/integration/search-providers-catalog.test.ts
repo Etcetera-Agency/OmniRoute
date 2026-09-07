@@ -109,7 +109,7 @@ async function seedRateLimitedConnection(provider: string) {
 /** Reset DB state between tests. */
 async function resetStorage() {
   core.resetDbInstance();
-  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 }
 
@@ -123,7 +123,7 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   await resetStorage();
-  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 // ---------------------------------------------------------------------------
@@ -330,7 +330,7 @@ test("search-providers-catalog: fetch providers have correct metadata", async ()
   );
 
   const jina = fetchProviders.find((p: { id: string }) => p.id === "jina-reader");
-  assert.equal(jina.name, "Jina Reader");
+  assert.equal(jina.name, "Jina Reader (r.jina.ai)");
   assert.equal(jina.costPerQuery, 0.0005);
   assert.ok(jina.fetchFormats.includes("text"), "jina fetchFormats must include text");
 
@@ -379,6 +379,11 @@ test("search-providers-catalog: search providers have correct fields", async () 
   assert.equal(firecrawlSearch.freeMonthlyQuota, 1000);
   assert.ok(firecrawlSearch.searchTypes.includes("web"), "firecrawl must support web");
   assert.ok(firecrawlSearch.searchTypes.includes("news"), "firecrawl must support news");
+
+  const xSearch = searchProviders.find((p: { id: string }) => p.id === "x-search");
+  assert.ok(xSearch, "x-search must be in search providers");
+  assert.equal(xSearch.kind, "search");
+  assert.deepEqual(xSearch.searchTypes, ["x"]);
 });
 
 test("search-providers-catalog: response validates against SearchProviderCatalogResponseSchema", async () => {

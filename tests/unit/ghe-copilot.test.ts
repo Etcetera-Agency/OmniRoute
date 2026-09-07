@@ -71,7 +71,7 @@ test("buildUrl uses responses endpoint for gpt-5.4-mini and gpt-5.6-sol", () => 
   );
 });
 
-test("buildUrl uses chat/completions endpoint for claude and gemini models", () => {
+test("buildUrl routes Claude to the native /v1/messages shim (not chat/completions)", () => {
   const executor = new GheCopilotExecutor({
     gheUrl: "https://ghe.company.com",
     clientId: "test-client",
@@ -164,6 +164,8 @@ test("executor extends GithubExecutor", () => {
     clientSecret: "test-secret",
   });
   assert.strictEqual(executor.constructor.name, "GheCopilotExecutor");
+  assert.strictEqual(executor.getProvider(), "ghe-copilot");
+  assert.strictEqual(executor.config.baseUrl, "https://api.githubcopilot.com/chat/completions");
 });
 
 test("isValidGheUrl accepts https enterprise hosts and rejects malformed or non-https input", async () => {

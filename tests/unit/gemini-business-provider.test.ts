@@ -44,6 +44,22 @@ test("GeminiBusinessExecutor constructs with the correct provider", () => {
   assert.equal((ex as unknown as { provider: string }).provider, "gemini-business");
 });
 
+test("Gemini Business preserves supported legacy cookie credential placements", () => {
+  assert.equal(
+    resolveGeminiBusinessCookie({ cookie: "  __Secure-1PSID=legacy  " }),
+    "__Secure-1PSID=legacy"
+  );
+  assert.equal(
+    resolveGeminiBusinessCookie({
+      providerSpecificData: {
+        "__Secure-1PSID": "__Secure-1PSID=psid",
+        "__Secure-1PSIDTS": "__Secure-1PSIDTS=psidts",
+      },
+    }),
+    "__Secure-1PSID=psid; __Secure-1PSIDTS=psidts"
+  );
+});
+
 test("GeminiBusinessExecutor.execute returns 401 when no cookies are provided", async () => {
   const ex = new GeminiBusinessExecutor();
   const result = await ex.execute({

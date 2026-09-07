@@ -1,20 +1,21 @@
 ---
 title: "Provider Reference"
-version: 3.8.49
-lastUpdated: 2026-07-28
+version: 3.8.50
+lastUpdated: 2026-08-25
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-07-28
+> **Last generated:** 2026-08-25
 
-Total providers: **290**. See category breakdown below.
+Total providers: **352**. See category breakdown below.
 
 ## Categories
 
 - **Free** — free tier with API key (configured via dashboard)
+- **No-auth** — public endpoints that require no key or sign-in at all
 - **OAuth** — sign-in flow handled by OmniRoute, no API key needed
 - **Web cookie** — wraps the provider's web app via cookie auth
 - **API key** — paid provider configured via API key (free credits may apply)
@@ -33,7 +34,25 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 ---
 
-## OAuth Providers (23)
+## No-auth Providers (no key required) (13)
+
+| ID | Alias | Name | Tags | Website | Notes | Tool calling |
+|----|-------|------|------|---------|-------|--------------|
+| `aihorde` | `horde` | AI Horde | No-auth | [link](https://aihorde.net) | No API key required — uses AI Horde's documented anonymous key. Adding a free aihorde.net key is optional and only buys higher queue priority (kudos). | — |
+| `auggie` | `aug` | Augment (Auggie CLI) | No-auth | [link](https://augmentcode.com) | No API key stored by OmniRoute. Install the Auggie CLI and run `auggie login` on this machine, then OmniRoute spawns it locally for each request. | — |
+| `chipotle` | `pepper` | Chipotle Pepper AI (Free) | No-auth | [link](https://amelia.chipotle.com) | No credentials required. Uses Chipotle's public support chatbot via reverse-engineered SockJS/STOMP protocol. | — |
+| `cloudflare-playground` | `cfp` | Cloudflare AI Playground | No-auth | [link](https://playground.ai.cloudflare.com) | No credentials required — anonymous browser sessions over a reverse-engineered cf_agent WebSocket protocol (Playwright transport). | — |
+| `codex-app-server` | `cxa` | OpenAI Codex (App-Server) | No-auth | [link](https://developers.openai.com/codex/cli) | No token stored by OmniRoute. The Codex CLI app-server manages its own ChatGPT sign-in (~/.codex/auth.json, auto-refreshed). Use “Sign in with ChatGPT” if the CLI is not yet authenticated. | — |
+| `devin-cli-agentic` | `dva` | Devin CLI Agentic Bridge | No-auth | [link](https://docs.devin.ai/work-with-devin/devin-cli) | Authentication is owned by the official Devin CLI in its isolated bridge volume. | emulated |
+| `duckduckgo-web` | `ddgw` | DuckDuckGo AI Chat | No-auth | [link](https://duckduckgo.com/duckchat) | No credentials required — DuckDuckGo AI Chat is anonymous and free. | emulated |
+| `felo-web` | `felo` | Felo | No-auth | [link](https://felo.ai) | No credentials required — Felo is a free, no-signup chat/search aggregator. | — |
+| `opencode` | `oc` | OpenCode Free | No-auth | [link](https://opencode.ai) | No API key required — uses OpenCode's public free endpoint. | — |
+| `theoldllm` | `tllm` | The Old LLM (Free) | No-auth | [link](https://theoldllm.vercel.app) | No credentials required. The executor auto-generates access tokens via an embedded Playwright browser instance. | — |
+| `uncloseai` | `unc` | UncloseAI | No-auth | [link](https://uncloseai.com) | No auth required. API accepts any non-empty string as key for identification. If older built-in models return 404, use Available Models → Import from /models or Auto-Sync; verified live model: solidrust/Hermes-3-Llama-3.1-8B-AWQ. | — |
+| `veoaifree-web` | `veo-free` | Veo AI Free | No-auth, video | [link](https://veoaifree.com) | No auth required. Rate limited to 6 requests/hour per IP. | — |
+| `zcode` | `zc` | ZCode (GLM Coding Plan) | No-auth | [link](https://zcode.z.ai) | No API key stored by OmniRoute. The local ZCode app-server uses the existing builtin:zai-coding-plan login. | — |
+
+## OAuth Providers (25)
 
 | ID             | Alias         | Name                      | Tags  | Website                                                                   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | -------------- | ------------- | ------------------------- | ----- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,7 +80,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zed`          | `zd`          | Zed IDE                   | OAuth | [link](https://zed.dev)                                                   | Zed stores LLM provider credentials (OpenAI, Anthropic, Google, Mistral, xAI) in the OS keychain. Use the Import button below to discover and import them automatically.                                                                                                                                                                                                                                                                                                                |
 | `zed-hosted`   | —             | Zed Hosted Models         | OAuth | [link](https://zed.dev)                                                   | Sign in with your Zed account (native-app sign-in). OmniRoute generates a one-time RSA keypair and opens zed.dev to authorize it — on a remote/headless install, copy the resulting 127.0.0.1 callback URL from your browser's address bar and paste it back here. Distinct from the 'Zed IDE' credential-import entry above: this proxies chat completions through Zed's own hosted model aggregator (cloud.zed.dev), fronting Anthropic/OpenAI/Google/xAI models under your Zed plan. |
 
-## Web Cookie Providers (31)
+## Web Cookie Providers (35)
 
 | ID                       | Alias           | Name                                    | Tags       | Website                                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                               | Tool calling |
 | ------------------------ | --------------- | --------------------------------------- | ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
@@ -97,7 +116,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web`                | `zw`            | Z.ai Web (Free)                         | Web cookie | [link](https://chat.z.ai)                       | Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie)                                                                                                                                                                                                                                                                                                                                   | —            |
 | `zenmux-free`            | `zmf`           | ZenMux Free (Web)                       | Web cookie | [link](https://zenmux.ai)                       | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days.                                                                                                                                                                                                                                                             | —            |
 
-## API Key Providers (paid / paid-with-free-credits) (195)
+## API Key Providers (paid / paid-with-free-credits) (233)
 
 | ID                       | Alias          | Name                            | Tags                       | Website                                                                                                  | Notes                                                                                                                                                                                                                                                                               |
 | ------------------------ | -------------- | ------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -297,7 +316,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai`                    | `zai`          | Z.AI                            | API key                    | [link](https://open.bigmodel.cn)                                                                         | —                                                                                                                                                                                                                                                                                   |
 | `zenmux`                 | `zm`           | ZenMux                          | API key                    | [link](https://zenmux.ai)                                                                                | Use your ZenMux API key in Authorization: Bearer <key>. ZenMux is fully OpenAI-compatible. Base URL: https://zenmux.ai/api/v1.                                                                                                                                                      |
 
-## Local Providers (12)
+## Local Providers (14)
 
 | ID                    | Alias        | Name                | Tags               | Website                                                         | Notes                                                                                                                                                                                                                                                                |
 | --------------------- | ------------ | ------------------- | ------------------ | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -314,7 +333,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `vllm`                | `vllm`       | vLLM                | Local, self-hosted | [link](https://github.com/vllm-project/vllm)                    | API key optional. Configure the local vLLM OpenAI-compatible base URL (default: http://localhost:8000/v1).                                                                                                                                                           |
 | `xinference`          | `xinference` | XInference          | Local, self-hosted | [link](https://inference.readthedocs.io)                        | API key optional. Configure the local XInference OpenAI-compatible base URL (default: http://localhost:9997/v1).                                                                                                                                                     |
 
-## Search Providers (12)
+## Search Providers (14)
 
 | ID                  | Alias           | Name                       | Tags   | Website                                                         | Notes                                                                                                 |
 | ------------------- | --------------- | -------------------------- | ------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -331,7 +350,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `tavily-search`     | `tavily-search` | Tavily Search              | Search | [link](https://tavily.com)                                      | API key from app.tavily.com (format: tvly-...)                                                        |
 | `youcom-search`     | `youcom-search` | You.com Search             | Search | [link](https://you.com/business/api/)                           | X-API-Key from the You.com platform dashboard                                                         |
 
-## Audio-only Providers (11)
+## Audio-only Providers (12)
 
 | ID             | Alias       | Name         | Tags  | Website                               | Notes                                                                                           |
 | -------------- | ----------- | ------------ | ----- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -372,7 +391,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 - Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)
 - Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)
-- Executors: [`open-sse/executors/`](../../open-sse/executors/) (31 files)
+- Executors: [`open-sse/executors/`](../../open-sse/executors/) (109 implementations)
 - Translators: [`open-sse/translator/`](../../open-sse/translator/)
 
 ## See Also

@@ -6,16 +6,12 @@ import {
 } from "../../open-sse/services/errorClassifier.ts";
 
 // #6315 / #6345 — a single generic upstream 403 on a no-credential ("authType:
-// none") provider like mimocode or theoldllm was permanently banning the whole
+// none") provider was permanently banning the whole
 // connection (classified as FORBIDDEN, a terminal type). These providers are
 // free/stateless — there is no real account/credential to revoke, so a bare
 // 403 should be RECOVERABLE (null) and handled by the existing connection
 // cooldown/retry layer, same as apikey providers already are.
 
-test("#6315: mimocode 'high-frequency non-compliant' 403 -> recoverable (null), not FORBIDDEN", () => {
-  const body = { error: "Detected high-frequency non-compliant requests, please slow down." };
-  assert.equal(classifyProviderError(403, body, "mimocode"), null);
-});
 
 test("#6345: theoldllm 'Request blocked'/access_denied 403 -> recoverable (null), not FORBIDDEN", () => {
   const body = { error: "Request blocked", type: "access_denied" };
@@ -33,3 +29,12 @@ test("control: recognized ban phrase on a no-credential provider still terminal 
     PROVIDER_ERROR_TYPES.ACCOUNT_DEACTIVATED
   );
 });
+
+test("#8813: chatgpt-web SENTINEL_BLOCKED 403 with raw 'Sentinel blocked' text → FORBIDDEN (terminal)", () => {
+  // Edge case: when the raw text includes "Sentinel" and 403, classify as terminal.
+  assert.equal(
+    classifyProviderError(403, "Sentinel blocked the request", "chatgpt-web"),
+    PROVIDER_ERROR_TYPES.FORBIDDEN
+  );
+});
+

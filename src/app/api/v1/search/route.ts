@@ -5,7 +5,11 @@ import * as log from "@/sse/utils/logger";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
 import { v1SearchSchema } from "@/shared/validation/schemas";
-import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import {
+  formatValidationMessage,
+  isValidationFailure,
+  validateBody,
+} from "@/shared/validation/helpers";
 import { recordCost } from "@/domain/costRules";
 import {
   computeCacheKey,
@@ -32,7 +36,9 @@ export async function OPTIONS() {
  * GET /v1/search — list available search providers
  */
 export async function GET() {
-  const providers = getAllSearchProviders();
+  const settings = await getSettings().catch(() => ({}) as any);
+  const blockedProviders = settings?.blockedProviders || [];
+  const providers = getAllSearchProviders(blockedProviders);
   const timestamp = Math.floor(Date.now() / 1000);
 
   const data = providers.map((p) => ({
@@ -62,9 +68,11 @@ async function postHandler(request: Request, context: unknown) {
 
   const validation = validateBody(v1SearchSchema, rawBody);
   if (isValidationFailure(validation)) {
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, validation.error.message);
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, formatValidationMessage(validation.error));
   }
   const body = validation.data;
+  if (body.provider === "x_search") body.provider = "x-search";
+  if (body.provider === "x-search") body.search_type = "x";
 
   // Enforce API key policies — use "search" as model identifier for consistent policy config
   const policy = await enforceApiKeyPolicy(request, "search");

@@ -48,9 +48,9 @@ test("dynamically-synced OpenAI *-pro ids resolve to openai-responses", () => {
 });
 
 test("the -pro heuristic is scoped to the openai alias only", () => {
-  // blackbox ships gpt-5.4-pro as a plain chat entry — other providers must not
-  // inherit OpenAI's endpoint semantics.
-  assert.equal(getModelTargetFormat("blackbox", "gpt-5.4-pro"), null);
+  // An unregistered dynamic id on another provider must not inherit OpenAI's
+  // endpoint semantics. Explicit provider catalog metadata remains authoritative.
+  assert.equal(getModelTargetFormat("blackbox", "future-unlisted-pro"), null);
 });
 
 // --- chatCore wire format resolution ---

@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { checkQueueAdmission } from "../../open-sse/services/rateLimitManager/admission.ts";
+import { getTrustedLocalRateLimitError } from "../../open-sse/services/rateLimitManager/errors.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-rl-admission-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -53,7 +54,7 @@ test.afterEach(async () => {
 
 test.after(() => {
   core.resetDbInstance();
-  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 // --- Pure unit tests for the extracted admission check -------------------
@@ -78,6 +79,10 @@ test("#6593 checkQueueAdmission: rejects with a typed error at/over the cap", ()
   // also risks tripping the whole-provider circuit breaker for a purely local
   // admission decision.
   assert.equal(err?.status, 429);
+  assert.deepEqual(getTrustedLocalRateLimitError(err), {
+    code: "RATE_LIMIT_QUEUE_FULL",
+    status: 429,
+  });
   assert.match(err?.message ?? "", /maxQueueDepth/);
   assert.match(err?.message ?? "", /openai\/gpt-4o/);
 
@@ -134,6 +139,10 @@ test("#6593 withRateLimit: fast-fails once the queue is at the configured maxQue
     (err: Error & { code?: string; status?: number }) => {
       assert.equal(err.code, "RATE_LIMIT_QUEUE_FULL");
       assert.equal(err.status, 429);
+      assert.deepEqual(getTrustedLocalRateLimitError(err), {
+        code: "RATE_LIMIT_QUEUE_FULL",
+        status: 429,
+      });
       assert.match(err.message, /maxQueueDepth/);
       return true;
     }
@@ -166,7 +175,7 @@ test("#6593 withRateLimit: default maxQueueDepth=0 preserves unbounded-queue beh
   assert.deepEqual(results, ["job1", "job2", "job3", "job4"]);
 });
 
-// --- Default maxWaitMs lowered 120000 -> 15000 ----------------------------
+// --- Default maxWaitMs ----------------------------------------------------
 
 test("#6593 DEFAULT_REQUEST_QUEUE_MAX_WAIT_MS is 15s absent RATE_LIMIT_MAX_WAIT_MS", () => {
   assert.equal(process.env.RATE_LIMIT_MAX_WAIT_MS, undefined);

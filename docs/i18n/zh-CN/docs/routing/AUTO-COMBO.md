@@ -102,11 +102,11 @@ handleComboChat（与持久化 Combo 相同的引擎）
 
 ## 工作原理（持久化 Auto-Combo）
 
-Auto-Combo 引擎使用**12 因子评分函数**（定义在 `open-sse/services/autoCombo/scoring.ts` → `DEFAULT_WEIGHTS`）为每次请求动态选择最佳服务商/模型。所有权重之和为 **1.0**。
+Auto-Combo 引擎使用**13 因子评分函数**（定义在 `open-sse/services/autoCombo/scoring.ts` → `DEFAULT_WEIGHTS`）为每次请求动态选择最佳服务商/模型。所有权重之和为 **1.0**。
 
-![Auto-Combo 12-factor scoring](../diagrams/exported/auto-combo-12factor.svg)
+![Auto-Combo 13-factor scoring](../diagrams/exported/auto-combo-12factor.svg)
 
-> 来源：[diagrams/auto-combo-12factor.mmd](../diagrams/auto-combo-12factor.mmd)（通过 `npm run docs:render-diagrams` 重新生成）。
+> 来源：[diagrams/auto-combo-12factor.mmd](../diagrams/auto-combo-12factor.mmd)（通过 `npm run docs:render-diagrams` 重新生成）。文件名为历史名称；当前图表包含全部 13 个因子。
 
 | 因子                  | 默认权重 | 描述                                                                       |
 | :-------------------- | :------- | :------------------------------------------------------------------------- |
@@ -150,7 +150,7 @@ Auto-Combo 引擎使用**12 因子评分函数**（定义在 `open-sse/services/
 
 ## 全部路由策略
 
-OmniRoute 的 Combo 引擎支持 **17 种路由策略**（声明在 `src/shared/constants/routingStrategies.ts` → `ROUTING_STRATEGY_VALUES`）。Auto Combo 引擎本身以 `auto` 策略对外暴露；其余策略供持久化 Combo 使用。
+OmniRoute 的 Combo 引擎支持 **19 种公开路由策略**（声明在 `src/shared/constants/routingStrategies.ts` → `ROUTING_STRATEGY_VALUES`）。Auto Combo 引擎本身以 `auto` 策略对外暴露；其余策略供持久化 Combo 使用。
 
 | 策略                | 描述                                                             |
 | :------------------ | :--------------------------------------------------------------- |
@@ -230,7 +230,7 @@ Auto Combo 引擎不需要预定义的 Combo。相反，`open-sse/services/autoC
 3. 与 `getProviderRegistry()` 交叉引用以获取模型可用性 + 定价
 4. 为每个 `(provider, model, connection)` 元组建构 `VirtualAutoComboCandidate`
 5. 选取 `connection.defaultModel`（或注册表中的第一个模型）作为调度目标
-6. 使用 9 因子 `scorePool()` 和变体的权重包对每个候选评分
+6. 使用 13 因子 `scorePool()` 和变体的权重包对每个候选评分
 7. 将生成的仅内存 `AutoComboConfig` 返回给 `handleComboChat()`——从不持久化到数据库
 
 这意味着**添加一个启用 `auto/*` 的新服务商会自动扩展候选池**——无需手动修改 Combo。虚拟 Combo 按请求重建，因此新增或新恢复健康的连接会立即被识别。
@@ -524,7 +524,7 @@ SLA-aware 字段：
 
 ## 层级如何融入 Auto-Combo
 
-12 因子评分函数（`open-sse/services/autoCombo/scoring.ts`）将层级归属作为两个信号：`tierPriority`（0.05）和 `tierAffinity`（0.05）。完整 `DEFAULT_WEIGHTS` 集合见上文[规范评分因子表](#工作原理持久化-auto-combo)——各模式包的覆盖（ship-fast/cost-saver/quality-first/offline-friendly）列在"每种模式包的权重"表中。
+13 因子评分函数（`open-sse/services/autoCombo/scoring.ts`）将层级归属作为两个信号：`tierPriority`（0.05）和 `tierAffinity`（0.05）。完整 `DEFAULT_WEIGHTS` 集合见上文[规范评分因子表](#工作原理持久化-auto-combo)——各模式包的覆盖（ship-fast/cost-saver/quality-first/offline-friendly）列在"每种模式包的权重"表中。
 
 仅凭层级**不**强制 Tier 1 优先——如果 Tier 1 延迟不佳或成本性价比不理想，Tier 2 胜出。要强制按层级排序，使用 Combo 策略 `priority` 并按层级排列服务商。
 
@@ -543,9 +543,9 @@ SLA-aware 字段：
 
 ### 确定性路由决策矩阵（`npm run test:combo:matrix`）
 
-`tests/integration/combo-matrix/*.test.ts` 通过完整的 Combo 管线以端到端方式（使用模拟上游）验证了全部 17 种公开策略的路由**决策**。覆盖范围包括：
+`tests/integration/combo-matrix/*.test.ts` 通过完整的 Combo 管线以端到端方式（使用模拟上游）验证了全部 19 种公开策略的路由**决策**。覆盖范围包括：
 
-- 全部 17 种 `ROUTING_STRATEGY_VALUES` 策略（ordered、weighted、cost、context、fusion 等）。
+- 全部 19 种 `ROUTING_STRATEGY_VALUES` 公开策略（ordered、weighted、cost、context、fusion、pipeline 等）。
 - `quota-share`（内部）端到端：通过真实的 `selectQuotaShareTarget` 接缝（`registerQuotaFetcher` / `setLKGP` / `__setHeadroomSaturationFetcherForTests`）验证 DRR 公平性 + 饱和降优。
 - `context-relay` 在所有目标数量上通用的跨上下文交换覆盖。
 

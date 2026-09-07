@@ -19,7 +19,7 @@
 
 import React, { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import {
   matchesAccountQuery,
   filterConnectionsByQuery,
@@ -115,6 +115,18 @@ vi.stubGlobal("fetch", fetchStub);
 describe("useProviderConnections — accountSearch (#7937)", () => {
   let container: HTMLElement;
   let root: ReturnType<typeof createRoot>;
+
+  // The hook pulls in a large Next/dashboard module graph; letting each `it()`
+  // do the `await import()` bills Vite's first-time transform of that graph to
+  // the 5s per-test budget and made the first test time out. Loading it once in
+  // beforeAll (with its own generous hook budget) keeps the per-test budget for
+  // the behaviour under test — no assertion is relaxed.
+  let useProviderConnections: (typeof import("@/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections"))["useProviderConnections"];
+
+  beforeAll(async () => {
+    ({ useProviderConnections } =
+      await import("@/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections"));
+  }, 60_000);
 
   beforeEach(() => {
     (

@@ -15,14 +15,14 @@ const caps = await import("../../src/lib/modelCapabilities.ts");
 
 beforeEach(() => {
   coreDb.resetDbInstance();
-  fs.rmSync(moduleDataDir, { recursive: true, force: true });
+  fs.rmSync(moduleDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   fs.mkdirSync(moduleDataDir, { recursive: true });
   coreDb.getDbInstance();
 });
 
 after(() => {
   coreDb.resetDbInstance();
-  fs.rmSync(moduleDataDir, { recursive: true, force: true });
+  fs.rmSync(moduleDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe("getModelContextLimit override precedence (5004)", () => {
@@ -51,7 +51,40 @@ describe("getModelContextLimit override precedence (5004)", () => {
     assert.equal(caps.getModelContextLimit("custom-local", "my-7b-128k"), 131072);
   });
 
-  it("leaves getResolvedModelCapabilities override-free (so the reconciler sees the catalog)", () => {
+  it("resolves exact raw aliases after canonical rows, without effort inheritance", () => {
+    const provider = "github";
+    const rawAlias = "claude-opus-4.5";
+    const canonical = "claude-opus-4-5-20251101";
+
+    assert.equal(mco.setModelContextOverride(provider, rawAlias, 333333), true);
+    assert.equal(
+      caps.getResolvedModelCapabilities({ provider, model: rawAlias }).contextWindow,
+      333333,
+      "an exact raw alias override must be effective"
+    );
+    assert.notEqual(
+      caps.getResolvedModelCapabilities(
+        { provider, model: rawAlias },
+        { persistedOverrides: false }
+      ).contextWindow,
+      333333,
+      "override-free resolution must not read the raw alias row"
+    );
+
+    assert.equal(mco.setModelContextOverride(provider, canonical, 444444), true);
+    assert.equal(
+      caps.getResolvedModelCapabilities({ provider, model: rawAlias }).contextWindow,
+      444444,
+      "the canonical row must win over the exact raw alias row"
+    );
+    assert.notEqual(
+      caps.getResolvedModelCapabilities({ provider, model: `${rawAlias}-high` }).contextWindow,
+      444444,
+      "an exact alias override must not inherit to an effort variant"
+    );
+  });
+
+  it("default getResolvedModelCapabilities reflects the override; persistedOverrides:false returns the catalog", () => {
     mco.setModelContextOverride("openai", "gpt-4o", 999999, "auto:discovery");
     const catalog = caps.getResolvedModelCapabilities({
       provider: "openai",

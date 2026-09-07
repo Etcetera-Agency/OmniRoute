@@ -15,10 +15,10 @@ import { saveImageErrorResult, saveImageSuccessResult } from "../../imageGenerat
 import {
   AdobeFireflyError,
   adobeFireflyGenerateImage,
-  resolveAdobeAccessToken,
   resolveAdobeSourceImageIds,
   resolveAdobeImageModel,
 } from "../../../services/adobeFireflyClient.ts";
+import { ensureAdobeFireflySession } from "../../../services/adobeFireflySession.ts";
 
 function normalizePositiveNumber(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -51,7 +51,17 @@ export async function handleAdobeFireflyImageGeneration({
     images?: unknown;
     [key: string]: unknown;
   };
-  credentials: { apiKey?: string; accessToken?: string };
+  credentials: {
+    apiKey?: string;
+    accessToken?: string;
+    connectionId?: string;
+    providerSpecificData?: {
+      cookie?: unknown;
+      access_token?: unknown;
+      accessToken?: unknown;
+      browserSessionKey?: unknown;
+    } | null;
+  };
   log?: { info?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
   fetchImpl?: typeof fetch;
 }) {
@@ -68,7 +78,16 @@ export async function handleAdobeFireflyImageGeneration({
   }
 
   try {
-    const accessToken = await resolveAdobeAccessToken(credentials, fetchImpl);
+    // Durable session: JWT + Cookie once → auto-rebuild ARP from forter/arkose,
+    // cache, optional Playwright warm-up. Submit path rotates ARP on 408.
+    const session = await ensureAdobeFireflySession({
+      credentials,
+      fetchImpl,
+      log,
+    });
+    const accessToken = session.accessToken;
+    const sessionCookie = session.cookie || undefined;
+    const arpSessionId = session.arpSessionId;
     const timeoutMs = normalizePositiveNumber(body.timeout_ms, 180_000);
     const seed =
       typeof body.seed === "number"
@@ -97,6 +116,7 @@ export async function handleAdobeFireflyImageGeneration({
       body,
       max: maxRefs,
       sessionCookie,
+      arpSessionId,
       prompt,
       fetchImpl,
       log,
@@ -105,7 +125,8 @@ export async function handleAdobeFireflyImageGeneration({
     log?.info?.(
       "IMAGE",
       `${provider}/${model} (adobe-firefly) | prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? "..." : ""}"` +
-        (sourceImageIds.length ? ` | refs: ${sourceImageIds.length}` : "")
+        (sourceImageIds.length ? ` | refs: ${sourceImageIds.length}` : "") +
+        ` | session=${session.source}`
     );
 
     const result = await adobeFireflyGenerateImage({
@@ -119,6 +140,9 @@ export async function handleAdobeFireflyImageGeneration({
       negativePrompt: typeof body.negative_prompt === "string" ? body.negative_prompt : undefined,
       sourceImageIds: sourceImageIds.length ? sourceImageIds : undefined,
       sessionCookie,
+      arpSessionId,
+      sessionFingerprint: session.fingerprint,
+      sessionBrowserKey: session.browserSessionKey,
       timeoutMs,
       fetchImpl,
       log,

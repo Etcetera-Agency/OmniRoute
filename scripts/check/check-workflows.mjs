@@ -42,6 +42,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { findProvenanceOnSelfHosted, formatProvenanceFinding } from "./lib/provenanceRunner.mjs";
 
 const ROOT = process.cwd();
 const WORKFLOWS_DIR = path.join(ROOT, ".github", "workflows");
@@ -235,6 +236,23 @@ export function runActionlint(files) {
  * @param {string} workflowsDir - Path to .github/workflows
  * @returns {{ count: number, diagnostics: unknown[], skipped: boolean }}
  */
+/**
+ * The zizmor version actually doing the auditing, or "unknown".
+ *
+ * Emitted next to the count because the two must be read together. The GitHub runner measured
+ * 1 finding MORE than the devbox on the identical commit (190 vs 189) during the v3.8.49 cycle,
+ * which cost a second rebaseline push: CI installed whatever PyPI served that day while the
+ * devbox had an older build. A count without the version that produced it is not a
+ * reproducible number, and rebaselining against it just moves the disagreement.
+ */
+export function zizmorVersion() {
+  try {
+    return execFileSync("zizmor", ["--version"], { encoding: "utf8" }).trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export function runZizmor(workflowsDir) {
   const args = ["--format", "json"];
   if (fs.existsSync(ZIZMOR_CONFIG)) {
@@ -266,6 +284,23 @@ export function zizmorVersion() {
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
+
+/**
+ * Hard rule (not a lint count): `--provenance` inside a job that runs on a
+ * self-hosted runner. npm answers 422 at the registry, and in v3.8.50 that
+ * answer only came after the tag, the GitHub Release and the Docker images were
+ * already out. Blocks under --strict AND --ratchet (the CI mode); plain mode
+ * reports it like everything else.
+ * @param {string[]} files absolute workflow paths
+ */
+export function runProvenanceRunnerCheck(files) {
+  const findings = [];
+  for (const file of files) {
+    const text = fs.readFileSync(file, "utf8");
+    findings.push(...findProvenanceOnSelfHosted(text, path.relative(ROOT, file)));
+  }
+  return findings;
+}
 
 function main() {
   const hasActionlint = isBinaryAvailable("actionlint");
@@ -340,6 +375,16 @@ function main() {
     if (!QUIET) {
       console.log("[check-workflows] zizmor: SKIP (not in PATH)");
     }
+  }
+
+  const provenanceFindings = runProvenanceRunnerCheck(workflowFiles);
+  if (provenanceFindings.length > 0) {
+    console.error(
+      `[check-workflows] provenance×self-hosted: ${provenanceFindings.length} finding(s) — HARD RULE:`
+    );
+    provenanceFindings.forEach((f) => console.error(`  ${formatProvenanceFinding(f)}`));
+  } else if (!QUIET) {
+    console.log("[check-workflows] provenance×self-hosted: OK (0 findings)");
   }
 
   const total = actionlintCount + zizmorCount;

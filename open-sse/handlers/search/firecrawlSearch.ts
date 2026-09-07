@@ -1,10 +1,13 @@
 import type { SearchProviderConfig } from "../../config/searchRegistry.ts";
+import { parseAndValidatePublicUrl } from "@/shared/network/outboundUrlGuard";
 
 export interface FirecrawlSearchParams {
   query: string;
   searchType: string;
   maxResults: number;
   token?: string;
+  baseUrl?: string;
+  providerSpecificData?: Record<string, unknown>;
   country?: string;
   language?: string;
   timeRange?: string;

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "release/v*"
     tags:
       - "v*"
     paths-ignore:
@@ -59,6 +60,7 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           INPUT_VERSION: ${{ inputs.version }}
           PROMOTE_INPUT: ${{ inputs.promote_latest }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
 
@@ -184,15 +186,76 @@ jobs:
         env:
           DOCKER_BUILDKIT_INLINE_CACHE: 1
 
+      - name: Build and push BUN base platform image by digest
+        id: build-bun-base
+        # Bun is a best-effort compatibility target, not a supported runtime
+        # (AGENTS.md -> Environment). Its `bun run build` has been OOM-killing on
+        # both arches; letting that sink the whole publish means the SUPPORTED
+        # runner-base / runner-web images never reach the registry either. The
+        # image is still built and pushed whenever it succeeds — only its power to
+        # block the release is removed.
+        continue-on-error: true
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: Dockerfile.bun
+          target: runner-base
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          tags: |
+            ${{ env.IMAGE_NAME }}
+            ${{ env.GHCR_IMAGE_NAME }}
+          cache-from: type=gha,scope=docker-bun-base-${{ matrix.arch }}
+          cache-to: type=gha,scope=docker-bun-base-${{ matrix.arch }},mode=max
+          no-cache: false
+        env:
+          DOCKER_BUILDKIT_INLINE_CACHE: 1
+
+      - name: Build and push BUN web platform image by digest
+        id: build-bun-web
+        # Bun is a best-effort compatibility target, not a supported runtime
+        # (AGENTS.md -> Environment). Its `bun run build` has been OOM-killing on
+        # both arches; letting that sink the whole publish means the SUPPORTED
+        # runner-base / runner-web images never reach the registry either. The
+        # image is still built and pushed whenever it succeeds — only its power to
+        # block the release is removed.
+        continue-on-error: true
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: Dockerfile.bun
+          target: runner-web
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          tags: |
+            ${{ env.IMAGE_NAME }}
+            ${{ env.GHCR_IMAGE_NAME }}
+          cache-from: type=gha,scope=docker-bun-web-${{ matrix.arch }}
+          cache-to: type=gha,scope=docker-bun-web-${{ matrix.arch }},mode=max
+          no-cache: false
+        env:
+          DOCKER_BUILDKIT_INLINE_CACHE: 1
+
       - name: Export digests
         env:
           DIGEST_BASE: ${{ steps.build.outputs.digest }}
           DIGEST_WEB: ${{ steps.build-web.outputs.digest }}
+          DIGEST_BUN_BASE: ${{ steps.build-bun-base.outputs.digest }}
+          DIGEST_BUN_WEB: ${{ steps.build-bun-web.outputs.digest }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/digests/base /tmp/digests/web
+          mkdir -p /tmp/digests/base /tmp/digests/web /tmp/digests/bun-base /tmp/digests/bun-web
           touch "/tmp/digests/base/${DIGEST_BASE#sha256:}"
           touch "/tmp/digests/web/${DIGEST_WEB#sha256:}"
+          # Empty when the (non-blocking) bun build produced no image. `if` blocks,
+          # not `[ -n ] && touch`: under `set -e` a failing AND-list aborts the step,
+          # which is precisely the case being handled here.
+          if [ -n "$DIGEST_BUN_BASE" ]; then
+            touch "/tmp/digests/bun-base/${DIGEST_BUN_BASE#sha256:}"
+          fi
+          if [ -n "$DIGEST_BUN_WEB" ]; then
+            touch "/tmp/digests/bun-web/${DIGEST_BUN_WEB#sha256:}"
+          fi
 
       - name: Upload base digests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -208,6 +271,30 @@ jobs:
           name: digests-web-${{ matrix.arch }}
           path: /tmp/digests/web/*
           if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload bun-base digests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: digests-bun-base-${{ matrix.arch }}
+          path: /tmp/digests/bun-base/*
+          # `ignore`, not `error`: the bun build is non-blocking, so an absent
+          # digest is the expected outcome of a failed/skipped bun image — the
+          # manifest step already treats these tags as optional. Leaving `error`
+          # here just relocates the blocker from the manifest to the upload.
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Upload bun-web digests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: digests-bun-web-${{ matrix.arch }}
+          path: /tmp/digests/bun-web/*
+          # `ignore`, not `error`: the bun build is non-blocking, so an absent
+          # digest is the expected outcome of a failed/skipped bun image — the
+          # manifest step already treats these tags as optional. Leaving `error`
+          # here just relocates the blocker from the manifest to the upload.
+          if-no-files-found: ignore
           retention-days: 1
 
   merge:
@@ -264,12 +351,32 @@ jobs:
           path: /tmp/digests/web
           merge-multiple: true
 
+      - name: Download bun-base digests
+        # Non-blocking: the bun image is best-effort, so its artifact may not
+        # exist at all. The manifest step treats these tags as optional.
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: digests-bun-base-*
+          path: /tmp/digests/bun-base
+          merge-multiple: true
+
+      - name: Download bun-web digests
+        # Non-blocking: the bun image is best-effort, so its artifact may not
+        # exist at all. The manifest step treats these tags as optional.
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: digests-bun-web-*
+          path: /tmp/digests/bun-web
+          merge-multiple: true
+
       - name: Create Docker Hub manifest
         run: |
           set -euo pipefail
 
           create_manifest() {
-            local image="$1" suffix="$2" dir="$3"
+            local image="$1" suffix="$2" dir="$3" optional="${4:-}"
             local tags=(-t "${image}:${VERSION}${suffix}")
             if [ "$PROMOTE_LATEST" = "true" ]; then
               tags+=(-t "${image}:latest${suffix}")
@@ -279,6 +386,10 @@ jobs:
               refs+=("${image}@sha256:$(basename "$digest_file")")
             done < <(find "$dir" -type f | sort)
             if [ "${#refs[@]}" -eq 0 ]; then
+              if [ -n "$optional" ]; then
+                echo "::warning::No image digests in $dir — skipping optional tag ${image}:${VERSION}${suffix}" >&2
+                return 0
+              fi
               echo "No image digests in $dir" >&2
               exit 1
             fi
@@ -287,13 +398,15 @@ jobs:
 
           create_manifest "${IMAGE_NAME}" "" /tmp/digests/base
           create_manifest "${IMAGE_NAME}" "-web" /tmp/digests/web
+          create_manifest "${IMAGE_NAME}" "-bun" /tmp/digests/bun-base optional
+          create_manifest "${IMAGE_NAME}" "-web-bun" /tmp/digests/bun-web optional
 
       - name: Create GHCR manifest
         run: |
           set -euo pipefail
 
           create_manifest() {
-            local image="$1" suffix="$2" dir="$3"
+            local image="$1" suffix="$2" dir="$3" optional="${4:-}"
             local tags=(-t "${image}:${VERSION}${suffix}")
             if [ "$PROMOTE_LATEST" = "true" ]; then
               tags+=(-t "${image}:latest${suffix}")
@@ -303,6 +416,10 @@ jobs:
               refs+=("${image}@sha256:$(basename "$digest_file")")
             done < <(find "$dir" -type f | sort)
             if [ "${#refs[@]}" -eq 0 ]; then
+              if [ -n "$optional" ]; then
+                echo "::warning::No image digests in $dir — skipping optional tag ${image}:${VERSION}${suffix}" >&2
+                return 0
+              fi
               echo "No image digests in $dir" >&2
               exit 1
             fi
@@ -311,6 +428,8 @@ jobs:
 
           create_manifest "${GHCR_IMAGE_NAME}" "" /tmp/digests/base
           create_manifest "${GHCR_IMAGE_NAME}" "-web" /tmp/digests/web
+          create_manifest "${GHCR_IMAGE_NAME}" "-bun" /tmp/digests/bun-base optional
+          create_manifest "${GHCR_IMAGE_NAME}" "-web-bun" /tmp/digests/bun-web optional
 
       - name: Inspect image
         if: needs.prepare.outputs.version != 'main'
@@ -369,6 +488,9 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+          # Explicit: the advisory scan above already points at it, and the blocking
+          # gate must honour the same accepted-risk list (#12084).
+          trivyignores: .trivyignore
 
       - name: Upload Trivy SARIF to Security tab
         if: needs.prepare.outputs.version != 'main'
@@ -380,7 +502,7 @@ jobs:
 
       - name: Update Docker Hub description
         # Only refresh README/description when we actually promote :latest
-        # (avoids overwriting from main pushes or back-fill builds).
+        # (avoids overwriting from main, next, or back-fill builds).
         if: needs.prepare.outputs.promote_latest == 'true'
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5
         with:

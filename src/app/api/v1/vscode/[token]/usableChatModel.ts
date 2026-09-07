@@ -44,6 +44,12 @@ function excludesTextOutputModality(model: UsableChatModelCandidate) {
   );
 }
 
+function isBuiltinAutoModel(model: UsableChatModelCandidate): boolean {
+	const id = model.id || model.root || model.name || "";
+	const normalized = id.trim().toLowerCase();
+	return normalized === "auto" || normalized.startsWith("auto/");
+}
+
 export function isUsableChatModel(model: UsableChatModelCandidate) {
   if (typeof model.owned_by === "string" && model.owned_by.trim().toLowerCase() === "combo") {
     return false;

@@ -1,5 +1,6 @@
-// #8407: devin-cli must not be treated as refresh-capable, so the health sweep
-// never force-expires local CLI connections that legitimately have no refresh token.
+// Devin CLI and Devin Desktop use CLI-owned/import-only credentials. Neither provider
+// should be treated as refresh-capable, so the health sweep must not force-expire
+// connections that legitimately have no refresh token.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -19,7 +20,7 @@ const { supportsTokenRefresh } = await import("../../open-sse/services/tokenRefr
 async function resetStorage() {
   core.resetDbInstance();
   if (fs.existsSync(TEST_DATA_DIR)) {
-    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 }
@@ -31,19 +32,20 @@ function getCreatedConnectionId(connection: { id?: unknown }): string {
 
 test.after(async () => {
   core.resetDbInstance();
-  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
-test("supportsTokenRefresh excludes devin-cli (#8407)", () => {
-  // Root fix: drop "devin-cli" from the explicit set so the health sweep's
-  // supportsTokenRefresh=false guard applies (same idea as not listing a
-  // non-refresh local-CLI provider). windsurf stays refresh-capable.
+test("supportsTokenRefresh excludes import-only Devin providers", () => {
   assert.equal(
     supportsTokenRefresh("devin-cli"),
     false,
     "devin-cli is local import-token / CLI-owned — not refresh-capable"
   );
-  assert.equal(supportsTokenRefresh("windsurf"), true);
+  assert.equal(
+    supportsTokenRefresh("devin-desktop"),
+    false,
+    "devin-desktop accepts an imported API key — not a refreshable OAuth token"
+  );
 });
 
 test("checkConnection leaves a devin-cli connection with no refresh token untouched (#8407)", async () => {

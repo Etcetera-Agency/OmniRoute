@@ -44,7 +44,11 @@ test("(a) strips a single trailing assistant (model) turn for Claude models", as
   assert.equal(contents.at(-1)?.role, "user");
 });
 
-test("(b) does NOT strip a trailing model turn for non-Claude (native Gemini) models", async () => {
+test("(b) strips a trailing model turn for native Gemini models too (#10104)", async () => {
+  // Newer Gemini endpoints reject a request ending on a `model` turn with the same
+  // class of 400 Claude hits via Vertex ("Requests ending with a model turn are not
+  // supported"), so native Gemini models routed through Antigravity get the same
+  // guarded strip as the Claude path.
   const request = await transform("antigravity/gemini-3.1-pro", [
     { role: "user", parts: [{ text: "Hello" }] },
     { role: "model", parts: [{ text: "Hi there" }] },

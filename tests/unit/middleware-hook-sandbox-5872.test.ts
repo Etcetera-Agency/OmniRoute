@@ -43,6 +43,19 @@ function ctx() {
   });
 }
 
+test("createHookContext copies typed API-key metadata into the hook context", () => {
+  const apiKeyInfo = { id: "key-1", name: "test key", scopes: ["chat"] };
+  const context = createHookContext({
+    body: { messages: [] },
+    headers: {},
+    model: "gpt-4o",
+    apiKeyInfo,
+  });
+
+  assert.deepEqual(context.apiKeyInfo, apiKeyInfo);
+  assert.notStrictEqual(context.apiKeyInfo, apiKeyInfo);
+});
+
 beforeEach(() => {
   clearAllHooks();
 });

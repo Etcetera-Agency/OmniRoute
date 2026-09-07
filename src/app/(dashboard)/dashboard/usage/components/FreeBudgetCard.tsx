@@ -96,6 +96,7 @@ interface FreeBudgetLabels {
   credit: (tokens: string) => string;
   freeTypes: Record<string, string>;
   tosTitles: Record<string, string>;
+  noApiKey: string;
 }
 
 const DEFAULT_LABELS: FreeBudgetLabels = {
@@ -117,6 +118,7 @@ const DEFAULT_LABELS: FreeBudgetLabels = {
   type: "Type",
   tokensMonth: "Tokens/mo",
   credit: (tokens) => `${tokens} credit`,
+  noApiKey: "No API key required",
   freeTypes: {
     "recurring-daily": "daily",
     "recurring-monthly": "monthly",
@@ -351,7 +353,7 @@ export function FreeBudgetView({
   // "No API key required" — derived from routing behaviour, NOT from
   // freeType: "keyless". That field means "free access not quantifiable in
   // tokens"; probing the endpoints showed several of those rows (blackbox,
-  // puter, iflytek, sparkdesk, friendliai, muse-spark-web) answering 401/403
+  // iflytek, sparkdesk, friendliai, muse-spark-web) answering 401/403
   // with no credential. Listing them here would invite users to call providers
   // that reject them.
   const keylessModels = perModel.filter((m) => noCredentialProviders.includes(m.provider));
@@ -611,7 +613,7 @@ export default function FreeBudgetCard() {
           data-testid="budget-provider-select"
           className="rounded border border-border bg-surface px-1.5 py-1 text-[11px] text-text-main"
         >
-          <option value="all">All providers</option>
+          <option value="all">{t("allProviders")}</option>
           {providers.map((p) => (
             <option key={p} value={p}>
               {p}
@@ -672,6 +674,7 @@ export default function FreeBudgetCard() {
           type: t("type"),
           tokensMonth: t("tokensMonth"),
           credit: (tokens) => t("credit", { tokens }),
+          noApiKey: t("noApiKeyRequired"),
           freeTypes: {
             "recurring-daily": t("freeType.daily"),
             "recurring-monthly": t("freeType.monthly"),
