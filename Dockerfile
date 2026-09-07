@@ -113,13 +113,17 @@ RUN test -f package-lock.json \
 # otherwise succeed silently with an empty bin/ and only fail at first request
 # in production (TlsClientUnavailableError, #7802). Run it explicitly here so
 # a broken/rate-limited fetch fails the BUILD loudly instead of shipping a
-# broken image.
+# broken image. The 1.16.0 release renamed ARM assets to `tls-client-xgo-*`,
+# while this package still requests the legacy `tls-client-linux-arm64-*` name;
+# pin the last release that exposes the expected filename until the package
+# updates its resolver.
+ARG TLS_CLIENT_VERSION=1.15.1
 RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-npm-cache,target=/root/.npm \
   npm ci --include=optional --no-audit --no-fund --legacy-peer-deps --ignore-scripts \
   && (cd node_modules/better-sqlite3 \
       && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild) \
   && node -e "require('better-sqlite3')(':memory:').close()" \
-  && node node_modules/tls-client-node/scripts/postinstall.js \
+  && TLS_CLIENT_VERSION="$TLS_CLIENT_VERSION" node node_modules/tls-client-node/scripts/postinstall.js \
   && (test -n "$(find node_modules/tls-client-node/bin -mindepth 1 -print -quit 2>/dev/null)" \
       || (echo "tls-client-node native binary missing after postinstall — GitHub API fetch likely rate-limited or failed (#7802)" >&2 && exit 1))
 

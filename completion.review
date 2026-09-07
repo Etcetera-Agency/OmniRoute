@@ -1,5 +1,11 @@
 # Completion Review
 
+## 2026-09-08
+
+- Pinned the Docker build's `tls-client-node` download to `1.15.1` on the
+  legacy asset path because upstream `1.16.0` renamed ARM64 releases to the
+  `tls-client-xgo-*` form that the package resolver does not recognize.
+
 ## 2026-08-08
 
 - Resolved the upstream `main` merge while preserving the fork search/FMO overlays,
