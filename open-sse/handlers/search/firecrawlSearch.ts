@@ -17,7 +17,6 @@ export interface FirecrawlSearchParams {
     format?: string;
   };
   providerOptions?: Record<string, unknown>;
-  providerSpecificData?: Record<string, unknown>;
 }
 
 export type FirecrawlSearchVariant = {

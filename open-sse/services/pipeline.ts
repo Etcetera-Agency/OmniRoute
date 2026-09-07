@@ -235,10 +235,10 @@ export async function handlePipelineChat({
       const json = await res.clone().json();
       prevOutput = extractPanelText(json);
     } catch {
-      log.warn("PIPELINE", `Step ${i + 1} (${step.model}) returned an unparseable body`);
+      log.warn("PIPELINE", `Step ${i + 1} (${stepModel}) returned an unparseable body`);
       return errorResponse(
         502,
-        `Pipeline step ${i + 1} (${step.model}) returned an unparseable body`
+        `Pipeline step ${i + 1} (${stepModel}) returned an unparseable body`
       );
     }
     if (!prevOutput.trim()) {

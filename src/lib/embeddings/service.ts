@@ -10,7 +10,11 @@ import { errorResponse, unavailableResponse } from "@omniroute/open-sse/utils/er
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import * as log from "@/sse/utils/logger";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
-import { getProviderCredentials, clearRecoveredProviderState } from "@/sse/services/auth";
+import {
+  getProviderCredentials,
+  clearRecoveredProviderState,
+  markAccountUnavailable,
+} from "@/sse/services/auth";
 import {
   getCachedProviderNodes,
   getComboByName,

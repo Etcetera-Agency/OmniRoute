@@ -605,10 +605,48 @@ export async function prepareVirtualAutoComboInputs(
   for (const conn of [...connections, ...disabledNoAuthConnections]) {
     connectionsById.set(conn.id, conn);
   }
-  const resilienceFilteredPool = filterResilienceBlockedCandidates(candidatePool, connectionsById);
-  if (resilienceFilteredPool !== candidatePool) {
-    candidatePool.length = 0;
-    candidatePool.push(...resilienceFilteredPool);
+
+  const connectedProviders = new Set(validConnections.map((conn) => conn.provider));
+  const buildPreparedPool = (bypassNoAuthAllowlist: boolean) => {
+    let pool = [
+      ...candidatePool,
+      ...getNoAuthCandidates(
+        connectedProviders,
+        blockedProviders,
+        disabledNoAuthProviders,
+        noAuthProviderSpecificData,
+        hiddenModelsMap,
+        bypassNoAuthAllowlist
+      ),
+    ];
+
+    const resilienceFilteredPool = filterResilienceBlockedCandidates(pool, connectionsById);
+    if (resilienceFilteredPool !== pool) pool = resilienceFilteredPool;
+
+    // #6512: hide paid-only backends from every auto/* pool when opted in.
+    const paidFilteredPool = filterPaidOnlyCandidates(pool, settings.hidePaidModels === true);
+    if (paidFilteredPool !== pool) pool = paidFilteredPool;
+
+    // STRICT_ZERO_COST is opt-in and keeps only connections with usable free quota.
+    const strictFilteredPool = filterStrictZeroCostCandidates(pool, {
+      enabled: settings.freeAccessPolicy === "strict",
+      resolveFreeAccessState,
+      minRemainingAllowance: 1,
+      maxStateAgeMs: toNumber(settings.autoRefreshProviderQuotaInterval, 180) * 1000,
+    });
+    if (strictFilteredPool !== pool) pool = strictFilteredPool;
+
+    const tosFilteredPool = filterTosAvoidCandidates(pool, settings.excludeTosAvoid === true);
+    if (tosFilteredPool !== pool) pool = tosFilteredPool;
+
+    return pool;
+  };
+
+  const regularCandidates = buildPreparedPool(false);
+  // #6453/#8183: family selectors bypass the reliability-curated no-auth allowlist.
+  const familyCandidates = buildPreparedPool(true);
+  if (!options.includeResolvedCapabilities) {
+    return { regularCandidates, familyCandidates };
   }
 
   // One uninterrupted bulk read of all three capability tables for this prepare only.

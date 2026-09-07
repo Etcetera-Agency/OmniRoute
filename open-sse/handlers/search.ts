@@ -24,6 +24,8 @@ import {
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
 import type { FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
+import { buildJinaSearchRequest, extractJinaSearchItems } from "./search/jinaSearch.ts";
+import * as xSearch from "./search/xSearch.ts";
 export {
   buildFirecrawlSearchRequest,
   normalizeFirecrawlSearchResponse,

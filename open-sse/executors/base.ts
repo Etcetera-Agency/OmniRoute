@@ -253,6 +253,8 @@ import {
   clampNestedThinkingBudget,
 } from "../utils/thinkingBudget.ts";
 
+const CLAUDE_TOOL_MODEL_PREFIXES = ["cc/", "claude/"] as const;
+
 /**
  * Strip the OmniRoute provider prefix from tool model fields (e.g.
  * `cc/claude-opus-4-8` → `claude-opus-4-8`). Versioned built-in tool types carry

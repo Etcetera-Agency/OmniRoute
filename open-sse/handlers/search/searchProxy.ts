@@ -3,10 +3,10 @@ import { logProxyEvent } from "@/lib/proxyLogger";
 import { runWithDirectProxyContext, runWithProxyContext } from "../../utils/proxyFetch.ts";
 
 type SearchProxyConfig = {
-  type?: unknown;
-  host?: unknown;
-  port?: unknown;
-  family?: unknown;
+  type: string;
+  host: string;
+  port: number | string;
+  family?: string;
 };
 
 export type SearchProxyAttempt = {
@@ -53,7 +53,14 @@ function safeTargetUrl(rawUrl: string): string {
 
 function sanitizeProxy(proxy: unknown): SearchProxyConfig | null {
   if (!proxy || typeof proxy !== "object") return null;
-  const value = proxy as SearchProxyConfig;
+  const value = proxy as Record<string, unknown>;
+  if (
+    typeof value.type !== "string" ||
+    typeof value.host !== "string" ||
+    (typeof value.port !== "number" && typeof value.port !== "string")
+  ) {
+    return null;
+  }
   return {
     type: value.type,
     host: value.host,

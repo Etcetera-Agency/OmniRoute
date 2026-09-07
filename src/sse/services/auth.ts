@@ -109,7 +109,16 @@ import {
   WEB_COOKIE_PROVIDERS,
   isSelfHostedChatProvider,
 } from "@/shared/constants/providers";
-import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
+import {
+  isModelExcludedByConnection,
+  isModelAdvertisedByConnection,
+} from "@/domain/connectionModelRules";
+import {
+  getSyncedAvailableModelsByConnection,
+  SYNCED_AVAILABLE_MODELS_MALFORMED,
+  type SyncedAvailableModelsByConnection,
+} from "@/lib/db/models";
+import { isFreeModel } from "@/shared/utils/freeModels";
 import { getSharedCredentialProviderIds } from "@/lib/providers/sharedCredentials";
 import {
   applySessionAffinityPin,

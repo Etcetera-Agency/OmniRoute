@@ -1,5 +1,22 @@
 # Completion Review
 
+## 2026-09-08 (runtime follow-up)
+
+- Fixed post-merge runtime gaps exposed by standalone smoke: restored proxy-health
+  probe resolver imports, rebuilt the auto-combo regular/family candidate pools,
+  and restored model capability/context, auth/catalog, search, embedding, and
+  web-fetch symbols removed by the merge resolution.
+- Corrected the combo connection-reference cleanup predicate, pipeline step
+  diagnostics, parallel-extract type guard, and typed search-proxy sanitization;
+  removed the duplicate Firecrawl field and restored the Claude tool-prefix
+  constant.
+- Code Simplifier review completed: changes are direct upstream-compatible
+  restorations and narrow type/runtime fixes; no additional refactor was needed.
+- Verification: `npm run typecheck:core`, `OMNIROUTE_USE_TURBOPACK=0 npm run
+  build:backend`, targeted catalog/auto-combo tests, and standalone runtime
+  smoke (`/healthz` and `/api/monitoring/health`) passed. Docker image smoke was
+  unavailable because the local Docker daemon was not running.
+
 ## 2026-09-08
 
 - Repaired four malformed upstream/fork merge resolutions: restored Firefly capability

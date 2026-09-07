@@ -29,6 +29,11 @@ import {
 } from "@omniroute/open-sse/utils/proxyDispatcher";
 import { fetch as undiciFetch } from "undici";
 import { decideProxyHealthAction, type ProxyProbeOutcome } from "./decision.ts";
+import {
+  resolveProbeConcurrency,
+  resolveProbeStaggerMs,
+  resolveProbeTarget,
+} from "./probeTarget.ts";
 
 // #6246: a HEAD to the public probe target through a legit (often loaded) proxy
 // can exceed a few seconds; the old 5s ceiling produced false negatives that

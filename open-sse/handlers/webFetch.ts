@@ -19,6 +19,8 @@ import { type WebFetchProviderId } from "../config/webFetchRegistry.ts";
 import { context7Fetch } from "../executors/context7-fetch.ts";
 import { runWebFetchChain } from "./webFetchChain.ts";
 
+export type { WebFetchProviderId } from "../config/webFetchRegistry.ts";
+
 export type WebFetchFormat = "markdown" | "html" | "links" | "screenshot";
 
 export interface WebFetchRequest {

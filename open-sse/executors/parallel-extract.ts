@@ -16,7 +16,9 @@ function normalizeParallelContent(result: Record<string, unknown>): string {
     return result.full_content.trim();
   }
   const excerpts = Array.isArray(result.excerpts)
-    ? result.excerpts.filter((item): item is string => typeof item === "string" && item.trim())
+    ? result.excerpts.filter(
+        (item): item is string => typeof item === "string" && item.trim().length > 0
+      )
     : [];
   return excerpts.join("\n\n").trim();
 }
