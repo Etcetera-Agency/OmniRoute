@@ -107,6 +107,12 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
   },
   {
     fromVersion: "134",
+    fromName: "ccr_blocks",
+    toVersion: "139",
+    toName: "ccr_blocks",
+  },
+  {
+    fromVersion: "134",
     fromName: "fmo_pools",
     toVersion: "164",
     toName: "fmo_pools",

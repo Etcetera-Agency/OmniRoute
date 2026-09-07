@@ -1,5 +1,20 @@
 # Completion Review
 
+## 2026-09-08 (migration/runtime follow-up)
+
+- Added the missing `134_ccr_blocks` → `139_ccr_blocks` migration compatibility
+  mapping so existing CCR tables free the upstream `134_proxy_logs_egress_ip`
+  slot without losing data or skipping the egress column migration.
+- Restored proxy-health's merged egress-summary imports (`getRecentEgressSharingSummary`,
+  its summary types, and the redaction flag helper); the sweep now executes the
+  persisted egress summary path without a runtime `ReferenceError`.
+- Strengthened the CCR renumber regression with an integrity check and a
+  row-preservation assertion. Code Simplifier review: direct compatibility/import
+  restorations; no further refactor needed.
+- Verification: migration-numbering check, CCR renumber regression, migration
+  constants snapshot, proxy-health egress-summary tests, core typecheck, and
+  backend build passed.
+
 ## 2026-09-08 (runtime follow-up)
 
 - Fixed post-merge runtime gaps exposed by standalone smoke: restored proxy-health

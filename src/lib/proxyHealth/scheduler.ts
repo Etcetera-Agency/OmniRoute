@@ -24,6 +24,12 @@
 
 import { deleteProxyById, listProxies, updateProxy } from "@/lib/localDb";
 import {
+  getRecentEgressSharingSummary,
+  type EgressSharingSummary,
+  type EgressSharingWarning,
+} from "@/lib/proxyEgress";
+import { isProxyLogIncludeIps } from "@/lib/proxyLogger";
+import {
   createProxyDispatcher,
   clearDispatcherCache,
 } from "@omniroute/open-sse/utils/proxyDispatcher";
