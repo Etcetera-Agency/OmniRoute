@@ -295,6 +295,10 @@ Fly will automatically perform a rolling update of machines.
 
 ### 9.1 Tracking Upstream Repository Updates While Preserving Your Fork's `fly.toml`
 
+For this fork's tag-based release and production workflow, see the [Fork Release
+and Deployment guide](./FORK_RELEASE_AND_DEPLOYMENT.md). The steps below cover
+Fly hosting configuration.
+
 If the current repository is a fork and you want to sync updates from the upstream `https://github.com/diegosouzapw/OmniRoute`, follow the workflow below.
 
 First, verify your remotes:

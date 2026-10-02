@@ -48,4 +48,6 @@ Shared upstream integration points: `suffixComposition.ts` and
 ## Follow-up checks
 
 Required production and integration checks, deploy-playbook work, and deferred
-Hermes profile migration are tracked in [`TODO.md`](TODO.md).
+Hermes profile migration are tracked in [`TODO.md`](TODO.md). Fork rebase,
+deploy-tag, and production-target procedures are documented in the
+[Fork Release and Deployment guide](../docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md).
