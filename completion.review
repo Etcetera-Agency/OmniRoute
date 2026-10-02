@@ -1,0 +1,45 @@
+# Completion review: approved auto-quality-band OpenSpec packages
+
+Date: 2026-10-03
+Scope: activation and publication preparation for the three approved packages
+in `openspec/changes/`, plus repository-level deferred work in
+`openspec/TODO.md`.
+
+## Recorded decisions
+
+- Band channels default to `thrifty` only while `OMNIROUTE_AUTO_BANDS` is on.
+  With the flag off, omitted tier stays unset for upstream default handling;
+  explicit tiers retain upstream behavior.
+- Unrated models pass only `low`; they receive no synthetic fitness score and
+  remain outside mid/high calibration populations.
+- The old `agt` role maps to `general + tools`.
+- Enabled band `thrifty` channels order eligible rungs `free → keyless →
+  subscription → cheap → premium`. Plain upstream `auto:thrifty` ordering is
+  unchanged. The flag-off path bypasses band order, quality/capability filters,
+  reserve, and account narrowing.
+- Reserve removes reserved account IDs before band rung ordering and dispatch;
+  it retains candidates with at least one account left and drops candidates
+  whose allowed IDs are all reserved.
+- Explicit `:free` preserves upstream provider/model classification, including
+  eligible keyless OpenCode models. It is not a per-connection zero-spend
+  guarantee.
+- The shared upstream integration points are `suffixComposition.ts` and
+  `virtualFactory.ts`; runtime implementation remains deferred.
+
+## Validation
+
+- Code Simplifier skill review applied to the docs-only change: clarified
+  degraded-category pseudocode without changing behavior or approved decisions.
+- Strict OpenSpec validation passed directly in the repository for all three
+  packages using the standard `openspec/changes/<id>` layout:
+  `add-auto-band-seam`, `add-auto-quality-band-filter`, and
+  `add-auto-band-demand-reserve` (after the final edits).
+- Production/database, calibration coverage, factory-hook and reserve shadow
+  checks are listed in `openspec/TODO.md` and remain unrun.
+
+## Scope status
+
+No runtime code was changed. Packages are active in `openspec/changes/` and
+their approved index is `openspec/README.md`. Documentation commit
+was created; remote push is pending. No `completion.review` existed in this
+repository before this review record was created.
