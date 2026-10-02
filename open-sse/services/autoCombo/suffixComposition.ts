@@ -21,6 +21,7 @@ import { classifyTier } from "../tierResolver";
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { isVisionBridgeForcedModel } from "@/shared/constants/visionBridgeDefaults";
+import { buildBandCheck, isBandsEnabled, parseBandCategory } from "./bands";
 
 export type AutoCategory = "coding" | "reasoning" | "vision" | "chat" | "multimodal";
 export type AutoTier =
@@ -78,6 +79,26 @@ export function parseAutoSuffix(suffix: string | null | undefined): ParsedAutoSu
   const parts = suffix.split(":");
   if (parts.length > 2) return { valid: false };
   const [head, tail] = parts;
+
+  // AICODE-NOTE: bands seam — recognize fork channel categories before the
+  // upstream category set while leaving tier parsing and native categories intact.
+  const band = parseBandCategory(head);
+  if (band) {
+    if (tail !== undefined && !TIER_SET.has(tail)) return { valid: false };
+
+    const enabled = isBandsEnabled();
+    let upstreamCategory: AutoCategory;
+    if (band.hasVision) upstreamCategory = "vision";
+    else if (band.hasReasoning) upstreamCategory = "reasoning";
+    else if (band.task === "coding") upstreamCategory = "coding";
+    else upstreamCategory = "chat";
+
+    return {
+      valid: true,
+      category: enabled ? (band.category as AutoCategory) : upstreamCategory,
+      tier: (enabled ? (tail ?? "thrifty") : tail) as AutoTier | undefined,
+    };
+  }
 
   if (tail !== undefined) {
     if (!CATEGORY_SET.has(head) || !TIER_SET.has(tail)) return { valid: false };
@@ -167,6 +188,11 @@ export function buildAutoCandidateFilter(
   if (tier === "pro") {
     checks.push((c) => safeClassifyTier(c) === "premium");
   }
+
+  // AICODE-NOTE: bands seam — append fork-only hard checks after upstream tier
+  // filters so the existing category/tier behavior retains its precedence.
+  const bandCheck = buildBandCheck(category);
+  if (bandCheck) checks.push(bandCheck);
 
   if (checks.length === 0) return null;
   return (candidate: PoolCandidate) => checks.every((fn) => fn(candidate));

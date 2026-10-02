@@ -37,10 +37,16 @@ import { filterPaidOnlyCandidatesWithDiagnosis } from "./paidModelFilter";
 import { filterLockoutCandidates, warnPoolDrop } from "./modelLockoutFilter";
 import { filterModelExposureCandidates } from "./modelExposureFilter";
 import {
+  assignRung,
   filterSubscriptionOnlyCandidates,
   orderPoolByRung,
   type LadderOptions,
 } from "./subscriptionLadder";
+import {
+  buildBandBillingPriority,
+  orderBandPoolByThriftyRung,
+  type BandBillingPriority,
+} from "./bands";
 import {
   classifyStrictZeroCostCandidate,
   describeStrictExclusions,
@@ -164,6 +170,7 @@ type VirtualAutoCombo = AutoComboConfig & {
     weights: ScoringWeights;
     explorationRate: number;
     routerStrategy: string;
+    bandBillingPriority?: BandBillingPriority;
   };
   config: {
     auto: {
@@ -171,6 +178,7 @@ type VirtualAutoCombo = AutoComboConfig & {
       weights: ScoringWeights;
       explorationRate: number;
       routerStrategy: string;
+      bandBillingPriority?: BandBillingPriority;
     };
     chaos?: {
       enabled: true;
@@ -1012,6 +1020,7 @@ export async function createVirtualAutoComboFromPrepared(
   // connected. Operators who want the old "never break routing, lose the bias"
   // behavior can opt back in via the env var below.
   let effectivePool = candidatePool;
+  let bandBillingPriority: BandBillingPriority | null = null;
   // #6453: `auto/<family>` narrows by model family instead of category/tier. The
   // two overlays are mutually exclusive on the spec (family takes precedence when
   // both are somehow present, which callers never do in practice).
@@ -1086,6 +1095,35 @@ export async function createVirtualAutoComboFromPrepared(
         "auto/subscription",
         "auto/subscription: no plan-included connection has verified quota headroom; " +
           "returning an empty pool rather than falling back to paid capacity."
+      );
+    }
+
+    if (spec.tier === "thrifty") {
+      // AICODE-NOTE: Snapshot the current post-filter account allowlist so the
+      // final selector can retain each account's billing rung without widening it.
+      // AICODE-TODO: Keep this snapshot below quota-reservation narrowing when
+      // that stage is wired into the virtual factory.
+      const resolveBandRung = (candidate: VirtualAutoComboCandidate, connectionId: string) =>
+        assignRung(
+          candidate,
+          {
+            provider: candidate.provider,
+            authType: ladderOptions.resolveAuthType(connectionId),
+            connectionId,
+          },
+          ladderOptions
+        );
+      bandBillingPriority = buildBandBillingPriority(
+        effectivePool,
+        spec.category,
+        spec.tier,
+        resolveBandRung
+      );
+      effectivePool = orderBandPoolByThriftyRung(
+        effectivePool,
+        spec.category,
+        spec.tier,
+        resolveBandRung
       );
     }
   }
@@ -1167,6 +1205,7 @@ export async function createVirtualAutoComboFromPrepared(
     weights,
     explorationRate,
     routerStrategy,
+    ...(bandBillingPriority ? { bandBillingPriority } : {}),
   };
 
   // Chaos mode fans out to the top-N most stable models in parallel. Panel size
