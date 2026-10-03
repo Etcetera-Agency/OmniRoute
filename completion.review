@@ -481,17 +481,51 @@ report.
   `/home/node/.cache/ms-playwright`, and wraps the official permission-check
   entrypoint in Xvfb. Spec now selects `runtime-web`: shared dependency stage,
   backend compile child, browser packages from the shared stage, Chromium +
-  Xvfb/Xauth, existing official CMD/HEALTHCHECK and permission check preserved,
-  with a non-root headed Playwright `about:blank` acceptance smoke. All three
+  Xvfb/Xauth, explicit redeclaration of the official CMD after the Xvfb
+  entrypoint, pinned-base HEALTHCHECK and permission check preserved, with a
+  non-root headed Playwright `about:blank` acceptance smoke. All three
   active Compose inputs and final digest override must be reconciled; retain
   current browser-capable digest for rollback. The browser runtime, main
-  workflow target, and candidate smoke are now implemented locally. The
-  browser regression failed before the fix; focused tests pass 8/8. Scoped
-  ESLint with `--no-ignore`, Prettier, generated-browser-script syntax, and
+  workflow target, and candidate smoke were implemented locally. The browser
+  regression failed before the fix; focused tests pass 8/8. Scoped ESLint with
+  `--no-ignore`, Prettier, generated-browser-script syntax, and
   `git diff --check` pass. Code Simplifier and independent static review found
-  no further simplifications or high-confidence findings. The actual native
-  `runtime-web` image build and GUI launch, GHCR publication/public pull, and
-  server acceptance remain open; no production mutation occurred.
+  no further simplifications or high-confidence findings.
+- Main run `37138784470` built the backend and Playwright Chromium, then the
+  candidate Docker healthcheck became unhealthy with
+  `172.17.0.3: fetch failed`; GHCR login/publication were skipped. The logs do
+  not expose image command config, and API, browser, and UI checks are not
+  proven. Static inspection found that `runtime-web` replaced `ENTRYPOINT`
+  without redeclaring `CMD`; Docker clears the base image's command in this
+  case. The selected correction explicitly declares
+  `CMD ["node", "dev/run-standalone.mjs"]` and preflights exact `USER`,
+  `ENTRYPOINT`, and `CMD` before candidate startup. This confirmed image-config
+  defect does not prove the cause of the observed healthcheck failure. Focused
+  manual tests pass 9/9; scoped ESLint `--no-ignore`, Prettier, and
+  `git diff --check` pass. Code Simplifier found no extra abstraction.
+  Independent static review returned `GREEN[]`, confirming the command matches
+  the official image and preflight runs before any candidate container while
+  reading only the allowlisted fields. No image was published or deployed.
+- The actual `runtime-web` native build completed in run `37138784470`, but
+  corrected startup and GUI launch, GHCR publication/public pull, and server
+  acceptance remain open; no production mutation occurred. Dockerfile `COPY .`
+  also includes OpenSpec and completion metadata, so metadata-only changes can
+  invalidate backend compile cache; scoped build-context exclusions are
+  deferred and tracked in `openspec/TODO.md`.
+- Production Compose inspection confirms `HostConfig.Init=true`, with
+  `docker-init` as PID 1. In the same old-backend disposable verifier fixture,
+  only `--init` changed: without it, Xvfb stalled before Node; with it, the
+  `node` user process ran healthy. Direct UI root returned HTTP 200 after
+  redirect, `GET /api/v1/models` returned exactly HTTP 401 `AUTH_002`, and
+  headed Chromium opened/closed `about:blank` under Xvfb as UID 1000. This
+  differential confirms init behavior for that fixture, not the new
+  `runtime-web` artifact or original main run, whose logs omit command/init
+  config. Candidate service startup now uses `docker run --init`; browser
+  smoke remains `docker exec` inside the started container. The focused startup
+  regression failed before the change and the suite passes 9/9 after it. Scoped
+  ESLint `--no-ignore`, Prettier, `git diff --check`, Code Simplifier, and
+  independent review (`GREEN[]`) pass. Native image health, browser,
+  publication, public pull, and server acceptance remain open.
 - After successful deployment and health acceptance, the user-authorized
   build-cache cleanup will verify no build is active, remove the isolated
   16.31-GB OmniRoute builder, and run `docker builder prune --all --force` for

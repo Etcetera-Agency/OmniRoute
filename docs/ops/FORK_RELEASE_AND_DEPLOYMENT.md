@@ -396,6 +396,18 @@ the catalog handler runs. The workflow and Docker builder do not run unit or
 static test gates; invoke
 task-specific checks manually when requested.
 
+The browser stage explicitly declares `CMD ["node", "dev/run-standalone.mjs"]`
+after its Xvfb entrypoint: Docker clears an inherited command when an entrypoint
+is redefined. Before starting any candidate container, verification checks the
+actual image's `User`, `Entrypoint`, and `Cmd`; it does not rely on assumed
+inheritance.
+
+Start the disposable candidate with `docker run --init`, matching the server's
+Compose `init: true`. Without init, the Xvfb wrapper can wait for its readiness
+signal before it reaches the Node launcher. Keep `init: true` in the server's
+effective Compose configuration when changing the image. The headed browser
+check runs through `docker exec` with its own Xvfb display.
+
 After those checks pass, Actions publishes the full source SHA tag. It moves
 `:main` only if the source commit is still the current main commit when
 publishing; a rerun for an older main commit leaves the alias unchanged. The

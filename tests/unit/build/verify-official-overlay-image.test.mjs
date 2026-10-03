@@ -16,6 +16,21 @@ const EXPECTED = {
   baseDigest: "sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96",
 };
 
+function makeRuntimeConfig() {
+  return {
+    User: "node",
+    Entrypoint: [
+      "/usr/bin/xvfb-run",
+      "-a",
+      "-s",
+      "-screen 0 1920x1080x24 -nolisten tcp",
+      "/app/check-permissions.sh",
+    ],
+    Cmd: ["node", "dev/run-standalone.mjs"],
+    Env: ["PRIVATE_VALUE=do-not-log"],
+  };
+}
+
 function makeUi() {
   return {
     buildId: "stock-build-id",
@@ -36,7 +51,6 @@ function makeEvidence() {
   return {
     candidate: {
       architecture: "arm64",
-      runtimeUser: "node",
       labels: {
         "org.opencontainers.image.source": EXPECTED.source,
         "org.opencontainers.image.revision": EXPECTED.revision,
@@ -77,6 +91,12 @@ function requireSmokeHelpers() {
   return verifier;
 }
 
+function requireRuntimeConfigVerifier() {
+  assert.ok(verifier, "official overlay image verifier must exist");
+  assert.equal(typeof verifier.verifyCandidateRuntimeConfiguration, "function");
+  return verifier.verifyCandidateRuntimeConfiguration;
+}
+
 test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
@@ -84,13 +104,6 @@ test("verifier accepts a healthy ARM64 overlay that preserves official UI", () =
 
 test("verifier requires headed non-root Chromium smoke to close on about:blank", () => {
   const verifyCandidateEvidence = requireVerifier();
-  const rootDefaultUser = makeEvidence();
-  rootDefaultUser.candidate.runtimeUser = "root";
-  assert.throws(
-    () => verifyCandidateEvidence(rootDefaultUser, EXPECTED),
-    /default runtime user.*non-root node/i
-  );
-
   const invalidBrowserProofs = [
     [
       "missing",
@@ -141,11 +154,59 @@ test("verifier requires headed non-root Chromium smoke to close on about:blank",
   }
 });
 
-test("smoke data uses isolated tmpfs writable by the image default user", () => {
+test("runtime image config preflight rejects bad user, Xvfb entrypoint, and server command safely", () => {
+  const verifyRuntimeConfiguration = requireRuntimeConfigVerifier();
+  assert.doesNotThrow(() => verifyRuntimeConfiguration(makeRuntimeConfig()));
+
+  const missingUser = makeRuntimeConfig();
+  delete missingUser.User;
+  assert.throws(
+    () => verifyRuntimeConfiguration(missingUser),
+    (error) => {
+      assert.match(error.message, /config User mismatch.*expected.*node.*observed/i);
+      assert.doesNotMatch(error.message, /PRIVATE_VALUE|do-not-log|Env/);
+      assert.ok(error.message.length < 1024);
+      return true;
+    }
+  );
+
+  const rootUser = makeRuntimeConfig();
+  rootUser.User = "root";
+  assert.throws(() => verifyRuntimeConfiguration(rootUser), /config User mismatch.*node.*root/i);
+
+  const noisyUser = makeRuntimeConfig();
+  noisyUser.User = `bad\n${"x".repeat(200)}`;
+  assert.throws(
+    () => verifyRuntimeConfiguration(noisyUser),
+    (error) => {
+      assert.match(error.message, /config User mismatch/i);
+      assert.doesNotMatch(error.message, /\n|x{65}/);
+      assert.ok(error.message.length < 1024);
+      return true;
+    }
+  );
+
+  const missingXvfb = makeRuntimeConfig();
+  missingXvfb.Entrypoint = ["/app/check-permissions.sh"];
+  assert.throws(
+    () => verifyRuntimeConfiguration(missingXvfb),
+    /config Entrypoint mismatch.*xvfb-run/i
+  );
+
+  const emptyCommand = makeRuntimeConfig();
+  emptyCommand.Cmd = [];
+  assert.throws(
+    () => verifyRuntimeConfiguration(emptyCommand),
+    /config Cmd mismatch.*dev\/run-standalone\.mjs/i
+  );
+});
+
+test("smoke startup enables init and uses isolated tmpfs writable by the image default user", () => {
   const { buildSmokeContainerArguments } = requireSmokeHelpers();
   const args = buildSmokeContainerArguments("candidate:image", "smoke-test");
   const tmpfsIndex = args.indexOf("--tmpfs");
 
+  assert.equal(args.includes("--init"), true, "Xvfb readiness requires init before the app starts");
   assert.notEqual(tmpfsIndex, -1);
   assert.equal(args[tmpfsIndex + 1], "/app/data:rw,nosuid,nodev,noexec,mode=1777");
   assert.equal(args.includes("--mount"), false);
