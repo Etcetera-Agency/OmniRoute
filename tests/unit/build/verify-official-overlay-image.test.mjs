@@ -62,9 +62,102 @@ function requireVerifier() {
   return verifier.verifyCandidateEvidence;
 }
 
+function requireSmokeHelpers() {
+  assert.ok(verifier, "official overlay image verifier must exist");
+  assert.equal(typeof verifier.buildSmokeContainerArguments, "function");
+  assert.equal(typeof verifier.withCleanup, "function");
+  return verifier;
+}
+
 test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
+});
+
+test("smoke data uses isolated tmpfs writable by the image default user", () => {
+  const { buildSmokeContainerArguments } = requireSmokeHelpers();
+  const args = buildSmokeContainerArguments("candidate:image", "smoke-test");
+  const tmpfsIndex = args.indexOf("--tmpfs");
+
+  assert.notEqual(tmpfsIndex, -1);
+  assert.equal(args[tmpfsIndex + 1], "/app/data:rw,nosuid,nodev,noexec,mode=1777");
+  assert.equal(args.includes("--mount"), false);
+  assert.equal(args.includes("--user"), false);
+  assert.equal(args.at(-1), "candidate:image");
+});
+
+test("cleanup errors retain primary verification error and collect every cleanup failure", async () => {
+  const { withCleanup } = requireSmokeHelpers();
+  const primaryError = new Error("health check failed");
+  const firstCleanupError = new Error("container removal failed");
+  const secondCleanupError = new Error("temporary extraction removal failed");
+  const cleanupOrder = [];
+
+  await assert.rejects(
+    withCleanup(async () => {
+      throw primaryError;
+    }, [
+      async () => {
+        cleanupOrder.push("container");
+        throw firstCleanupError;
+      },
+      async () => {
+        cleanupOrder.push("extraction");
+        throw secondCleanupError;
+      },
+    ]),
+    (error) => {
+      assert.ok(error instanceof AggregateError);
+      assert.strictEqual(error.cause, primaryError);
+      assert.strictEqual(error.errors[0], primaryError);
+      assert.strictEqual(error.errors[1], firstCleanupError);
+      assert.strictEqual(error.errors[2], secondCleanupError);
+      const primaryPosition = error.message.indexOf(primaryError.message);
+      const firstCleanupPosition = error.message.indexOf(firstCleanupError.message);
+      const secondCleanupPosition = error.message.indexOf(secondCleanupError.message);
+      assert.ok(primaryPosition >= 0 && primaryPosition < firstCleanupPosition);
+      assert.ok(firstCleanupPosition < secondCleanupPosition);
+      return true;
+    }
+  );
+
+  assert.deepEqual(cleanupOrder, ["container", "extraction"]);
+});
+
+test("cleanup-only failures still fail verification and do not skip later cleanup", async () => {
+  const { withCleanup } = requireSmokeHelpers();
+  const firstCleanupError = new Error("container removal failed");
+  const secondCleanupError = new Error("temporary extraction removal failed");
+  const cleanupOrder = [];
+
+  await assert.rejects(
+    withCleanup(
+      async () => "verified",
+      [
+        async () => {
+          cleanupOrder.push("container");
+          throw firstCleanupError;
+        },
+        async () => {
+          cleanupOrder.push("extraction");
+          throw secondCleanupError;
+        },
+      ]
+    ),
+    (error) => {
+      assert.ok(error instanceof AggregateError);
+      assert.strictEqual(error.cause, firstCleanupError);
+      assert.strictEqual(error.errors[0], firstCleanupError);
+      assert.strictEqual(error.errors[1], secondCleanupError);
+      assert.ok(
+        error.message.indexOf(firstCleanupError.message) <
+          error.message.indexOf(secondCleanupError.message)
+      );
+      return true;
+    }
+  );
+
+  assert.deepEqual(cleanupOrder, ["container", "extraction"]);
 });
 
 test("verifier rejects wrong architecture and source provenance", () => {

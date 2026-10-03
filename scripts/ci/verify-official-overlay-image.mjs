@@ -18,6 +18,52 @@ function requireEvidence(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function describeError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function withCleanup(action, cleanups) {
+  let result;
+  let hasPrimaryError = false;
+  let primaryError;
+  try {
+    result = await action();
+  } catch (error) {
+    hasPrimaryError = true;
+    primaryError = error;
+  }
+
+  const cleanupErrors = [];
+  for (const cleanup of cleanups) {
+    try {
+      await cleanup();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+
+  if (hasPrimaryError && cleanupErrors.length > 0) {
+    const cleanupMessages = cleanupErrors.map((error) => `cleanup failed: ${describeError(error)}`);
+    throw new AggregateError(
+      [primaryError, ...cleanupErrors],
+      `${describeError(primaryError)}; ${cleanupMessages.join("; ")}`,
+      { cause: primaryError }
+    );
+  }
+  if (hasPrimaryError) throw primaryError;
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(
+      cleanupErrors,
+      cleanupErrors.map((error) => `cleanup failed: ${describeError(error)}`).join("; "),
+      { cause: cleanupErrors[0] }
+    );
+  }
+  return result;
+}
+
+// AICODE-NOTE: Nested verification stages retain primary and cleanup errors so
+// later cleanup failures cannot hide earlier image-check failures.
+
 function canonicalJson(value) {
   if (Array.isArray(value)) return value.map(canonicalJson);
   if (!value || typeof value !== "object") return value;
@@ -144,9 +190,10 @@ function imageMetadata(image) {
 async function extractUi(image, name, root) {
   const container = `${name}-${randomBytes(5).toString("hex")}`;
   const destination = path.join(root, name);
-  await fs.mkdir(destination, { recursive: true });
   let id;
-  try {
+
+  await withCleanup(async () => {
+    await fs.mkdir(destination, { recursive: true });
     id = docker(["create", "--platform", "linux/arm64", "--name", container, image]);
     for (const item of [
       "BUILD_ID",
@@ -158,9 +205,7 @@ async function extractUi(image, name, root) {
       await fs.mkdir(path.dirname(target), { recursive: true });
       docker(["cp", `${id}:${OFFICIAL_UI_ROOT}/${item}`, target]);
     }
-  } finally {
-    if (id) docker(["rm", "--force", id]);
-  }
+  }, [() => (id ? docker(["rm", "--force", id]) : undefined)]);
 
   const staticFiles = [];
   async function collect(directory) {
@@ -245,47 +290,49 @@ async function waitForHealth(baseUrl, container) {
   throw new Error(`candidate healthcheck timed out${lastError ? `: ${lastError.message}` : ""}`);
 }
 
+export function buildSmokeContainerArguments(candidate, container) {
+  // AICODE-NOTE: Per-container tmpfs avoids host/container UID cleanup conflicts
+  // while mode 1777 keeps the image's default runtime user able to write.
+  return [
+    "run",
+    "--detach",
+    "--platform",
+    "linux/arm64",
+    "--name",
+    container,
+    "--publish",
+    "127.0.0.1::20128",
+    "--tmpfs",
+    "/app/data:rw,nosuid,nodev,noexec,mode=1777",
+    "--env",
+    "DATA_DIR=/app/data",
+    "--env",
+    "HOSTNAME=0.0.0.0",
+    "--env",
+    "PORT=20128",
+    "--env",
+    "DASHBOARD_PORT=20128",
+    "--env",
+    "API_PORT=20129",
+    "--env",
+    "REDIS_URL=redis://127.0.0.1:1",
+    "--env",
+    "REQUIRE_API_KEY=true",
+    "--env",
+    "INITIAL_PASSWORD",
+    candidate,
+  ];
+}
+
 async function smokeCandidate(candidate) {
   const container = `omni-overlay-smoke-${randomBytes(6).toString("hex")}`;
-  const dataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "omni-overlay-data-"));
   const password = randomBytes(32).toString("base64url");
   let containerId;
 
-  try {
-    await fs.chmod(dataDirectory, 0o777);
-    containerId = docker(
-      [
-        "run",
-        "--detach",
-        "--platform",
-        "linux/arm64",
-        "--name",
-        container,
-        "--publish",
-        "127.0.0.1::20128",
-        "--mount",
-        `type=bind,source=${dataDirectory},target=/app/data`,
-        "--env",
-        "DATA_DIR=/app/data",
-        "--env",
-        "HOSTNAME=0.0.0.0",
-        "--env",
-        "PORT=20128",
-        "--env",
-        "DASHBOARD_PORT=20128",
-        "--env",
-        "API_PORT=20129",
-        "--env",
-        "REDIS_URL=redis://127.0.0.1:1",
-        "--env",
-        "REQUIRE_API_KEY=true",
-        "--env",
-        "INITIAL_PASSWORD",
-        candidate,
-      ],
-      { env: { ...process.env, INITIAL_PASSWORD: password } }
-    );
-
+  return withCleanup(async () => {
+    containerId = docker(buildSmokeContainerArguments(candidate, container), {
+      env: { ...process.env, INITIAL_PASSWORD: password },
+    });
     const publishedPort = docker(["port", container, "20128/tcp"]);
     const hostPort = publishedPort.split(":").at(-1);
     requireEvidence(
@@ -317,10 +364,7 @@ async function smokeCandidate(candidate) {
         body,
       },
     };
-  } finally {
-    if (containerId) docker(["rm", "--force", containerId]);
-    await fs.rm(dataDirectory, { recursive: true, force: true });
-  }
+  }, [() => (containerId ? docker(["rm", "--force", containerId]) : undefined)]);
 }
 
 export async function verifyImages(options) {
@@ -341,7 +385,7 @@ export async function verifyImages(options) {
   const candidateMetadata = imageMetadata(options.candidate);
   const candidateLabels = candidateMetadata.Config?.Labels ?? {};
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omni-overlay-ui-"));
-  try {
+  return withCleanup(async () => {
     const sqlite = runNativeSqliteCheck(options.candidate);
     const runtime = await smokeCandidate(options.candidate);
     const candidateUi = await extractUi(options.candidate, "candidate", tempRoot);
@@ -372,9 +416,7 @@ export async function verifyImages(options) {
       staticFileCount: candidateUi.staticFiles.length,
       nonApiRouteCount: Object.keys(candidateUi.nonApiAppPaths).length,
     };
-  } finally {
-    await fs.rm(tempRoot, { recursive: true, force: true });
-  }
+  }, [() => fs.rm(tempRoot, { recursive: true, force: true })]);
 }
 
 async function main() {

@@ -126,25 +126,40 @@ must pass before the image gate closes.
 
 The main image workflow SHALL start and inspect its local candidate before
 GHCR authentication or publication. It SHALL check ARM64 architecture and
-source/revision/base metadata, native SQLite operation, health, dashboard
-response, direct API behavior, and official UI preservation by comparing
+source/revision/base metadata, native SQLite operation, configured Docker
+`HEALTHCHECK` status, direct UI root response, API behavior, and official UI
+preservation by comparing
 `BUILD_ID`, the full static tree, page manifest, and every non-API app-path
 entry with the pinned official image. The direct Next UI listener SHALL return
 HTTP 401 with `error.code: "invalid_api_key"` for unauthenticated
 `GET /api/v1/models`. Smoke checks SHALL use disposable runner-local data and
 SHALL NOT access production credentials or data. A failed artifact check SHALL
 stop the workflow before registry authentication and SHALL publish no image.
+The direct UI listener on port `20128` SHALL return HTTP 200 for `/`; health
+SHALL be checked through Docker's configured `HEALTHCHECK`. The verifier SHALL
+NOT treat an API-proxy response on port `20129` as UI health.
+The candidate SHALL mount `/app/data` as container-scoped tmpfs with mode
+`1777`, preserve the image's default `USER`, and SHALL NOT bind host temporary
+data to the candidate. Verifier cleanup SHALL collect errors without replacing
+an earlier verification error. A verification error SHALL remain primary and
+be reported with every cleanup error. If artifact checks pass but cleanup
+fails, verification SHALL still fail before registry authentication.
 
 #### Scenario: Candidate passes artifact verification
 
 - **GIVEN** the candidate has matching architecture, source, revision, and
   official-base identity
-- **AND** disposable native SQLite and health checks pass
-- **AND** dashboard and direct API behavior pass
+- **AND** disposable native SQLite check passes
+- **AND** Docker reports the configured `HEALTHCHECK` as healthy
+- **AND** direct UI listener `20128` returns HTTP 200 for `/`
+- **AND** direct API behavior passes
 - **AND** unauthenticated `GET /api/v1/models` on the direct UI listener
   returns HTTP 401 with `error.code: "invalid_api_key"`
 - **AND** all checked UI build assets and non-API paths match the pinned
   official image
+- **AND** candidate `/app/data` uses container-scoped tmpfs mode `1777` with
+  the image's default `USER`
+- **AND** every verifier cleanup action completes without error
 - **WHEN** artifact verification completes
 - **THEN** the publisher may authenticate and publish that candidate
 
@@ -154,6 +169,21 @@ stop the workflow before registry authentication and SHALL publish no image.
 - **WHEN** the main image workflow evaluates the candidate
 - **THEN** the workflow fails before GHCR login
 - **AND** no tag is published or updated
+
+#### Scenario: Verification and cleanup both fail
+
+- **GIVEN** a primary artifact-verification error and one or more cleanup errors
+- **WHEN** the verifier completes cleanup
+- **THEN** it reports the primary verification error first
+- **AND** it reports every cleanup error without replacing the primary error
+- **AND** publication is blocked
+
+#### Scenario: Cleanup fails after artifact checks pass
+
+- **GIVEN** all artifact checks pass but a cleanup action fails
+- **WHEN** the verifier completes
+- **THEN** verification fails and reports the cleanup error
+- **AND** GHCR authentication and publication do not occur
 
 ### Requirement: Publish a traceable main image
 
@@ -203,7 +233,11 @@ migrations.
 - **THEN** the resolved digest, architecture, and OCI labels match the main
   workflow summary
 - **AND** the operator starts the image with `docker compose up -d --no-build`
-- **AND** server health, native SQLite, dashboard, and API checks pass
+- **AND** the configured Docker `HEALTHCHECK` reports healthy
+- **AND** `http://127.0.0.1:20128/` returns HTTP 200
+- **AND** native SQLite and API route checks pass independently
+- **AND** UI health checks do not rely on paths sent to the API proxy on port
+  `20129`
 
 #### Scenario: Server acceptance fails
 

@@ -74,6 +74,8 @@
       synchronization.
 - [x] 3.7 Complete independent low-effort review of the final image-workflow
       policy and implementation; no correctness findings remain.
+- [x] 3.8 Complete independent low-effort review of candidate tmpfs and
+      cleanup-error handling; no correctness findings remain.
 
 ## 4. Main image and server acceptance
 
@@ -95,26 +97,44 @@
       set `NODE_ENV=development` for `npm ci` and left it set for compilation;
       the installed Next CLI preserved it, and build logs showed React
       development warnings. The exact minified callsite was not isolated.
-- [ ] 4.6 After the `NODE_ENV` correction reaches main, pass the next native
-      ARM64 image build and container artifact verification; retain exact logs
-      and measured evidence if it fails again.
-- [ ] 4.7 After the first successful publication, change the GHCR package to
+- [x] 4.6 Record PR #13 (`b6cfc9ad`) and main run `37126849223`: native ARM64
+      image build and backend compile completed successfully in about 9 minutes
+      (13:38:48–13:47:41 UTC). This verifies compilation passed after the heap
+      and production-mode environment changes; it does not mean container
+      verification or image publication passed.
+- [x] 4.7 Complete read-only diagnosis of the verifier failure. The verifier
+      host-bound `/app/data`; container UID 1000 created the cache file and
+      runner UID 1001 could not unlink it. A `finally` cleanup can mask a
+      primary verification error, so this log does not prove earlier checks
+      passed. Record selected tmpfs and error-aggregation correction.
+- [x] 4.8 Mount candidate `/app/data` as container-scoped tmpfs mode `1777`,
+      preserve image default `USER`, and remove host data bind. Collect cleanup
+      errors without replacing primary verification error; fail on cleanup-only
+      errors too. Manually test default-user data writes and both error cases;
+      focused tests pass 7/7. Scoped ESLint, Prettier, `git diff --check`, and
+      Code Simplifier pass. Tests remain manual, outside automatic workflows.
+- [ ] 4.9 After the verifier correction reaches main, pass complete native
+      candidate artifact verification. Only then may the workflow authenticate
+      to GHCR and publish; record exact results if any check fails.
+- [ ] 4.10 After the first successful publication, change the GHCR package to
       public in GitHub Packages. Verify anonymous pull and record run URL,
       commit SHA, tags, digest, labels, and result in TODO and
       `completion.review`.
-- [ ] 4.8 Before server pull, record current digest, Compose config, health,
-      and database-migration state. Pull `:main`, compare its digest and
-      labels with the main run, verify ARM64, then run
-      `docker compose up -d --no-build`.
-- [ ] 4.9 Verify server health, native SQLite, dashboard, and API behavior. On
+- [ ] 4.11 Before server pull, record current digest, Compose config, Docker
+      `HEALTHCHECK`, direct UI root response, and database-migration state.
+      Verify `http://127.0.0.1:20128/` returns HTTP 200; do not probe UI health
+      through API proxy port `20129`. Pull `:main`, compare digest and labels,
+      verify ARM64, then run `docker compose up -d --no-build`.
+- [ ] 4.12 Verify Docker healthcheck, native SQLite, direct UI root, and API
+      routes separately. On
       failure, restore the prior digest with `docker compose up -d --no-build`
       and verify prior health. Record outcome in TODO and `completion.review`.
 
 ## 5. Future maintenance
 
-- [ ] 5.1 If a main build after task 4.6's acceptance attempt fails, use exact
-      logs and measured evidence to scope any further correction; do not
-      preselect a fix or add speculative resource limits.
+- [ ] 5.1 If image acceptance fails after task 4.9's verifier repair and retry,
+      use exact logs and measured evidence to scope any further correction; do
+      not preselect a fix or add speculative resource limits.
 - [ ] 5.2 Before changing the official base, verify its provenance and repeat
       native SQLite, health, API, and official-UI parity checks on the new
       digest.

@@ -21,7 +21,17 @@ warnings. The exact minified callsite was not isolated. Set builder-only
 `NODE_ENV=production` after `npm ci` and before
 `npm run build:backend`; keep the runtime stage unchanged. The next main build
 is the acceptance test, not proof in advance that the diagnosis covers the
-exact internal callsite.
+exact internal callsite. PR #13 merged this correction. The third main run
+`37126849223` successfully built and compiled the native ARM64 candidate, then
+failed in verification cleanup with `EACCES` unlinking a cache file from
+host-bound `/app/data`. The verifier used a host temporary data directory;
+container default user `node` (UID 1000) created the file, while the GitHub
+runner user (UID 1001) could not unlink it. Cleanup in `finally` may also mask
+an earlier verification error, so the log does not prove earlier checks
+passed. Use container-scoped tmpfs for `/app/data` with mode `1777`, preserve
+the image's default user, and collect cleanup errors without replacing the
+primary verification error. The next main run must pass full candidate
+verification before publication.
 
 ## What Changes
 
@@ -39,11 +49,18 @@ exact internal callsite.
   Compile backend routes once, preserve the official UI, and load the
   candidate locally. Do not run a unit-test gate as part of the image workflow.
 - Before GHCR authentication/publication, verify the built container artifact:
-  ARM64 architecture and source/base metadata, native SQLite, health, direct
-  UI API behavior, and byte-level official UI parity. The direct Next UI
-  listener (`20128`) must return HTTP 401 with
+  ARM64 architecture and source/base metadata, native SQLite, the configured
+  Docker `HEALTHCHECK`, direct UI root response, API behavior, and byte-level
+  official UI parity. The UI root on `127.0.0.1:20128/` must return HTTP 200;
+  the direct Next UI listener (`20128`) must return HTTP 401 with
   `error.code: "invalid_api_key"` for unauthenticated
   `GET /api/v1/models`. Any failed artifact check stops publication.
+- Mount candidate `/app/data` as a container-scoped tmpfs with mode `1777`;
+  keep the image's default `USER` and do not bind host temporary data into the
+  candidate. Collect cleanup errors without replacing an earlier verification
+  error. If verification passes but cleanup fails, fail the verifier and block
+  publication; if both fail, report the primary verification error and all
+  cleanup errors.
 - Publish the already verified image to
   `ghcr.io/etcetera-agency/omniroute` under its full source SHA and `:main`.
   Only the main workflow writes `:main`. Record the manifest digest, source
@@ -71,7 +88,8 @@ exact internal callsite.
   manual exact-main dispatch.
 - `scripts/ci/verify-official-overlay-image.mjs` and
   `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
-  artifact verifier and manually invoked focused tests.
+  artifact verifier, container-scoped test data, cleanup error reporting, and
+  manually invoked focused tests.
 - `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: single
   backend-only compile using the pinned official base, production `NODE_ENV`
   after dependency installation, and explicit 12288-MiB builder-stage Node
@@ -102,8 +120,20 @@ remained active through backend compilation; build logs showed React
 development warnings. The exact minified callsite was not isolated. Set
 builder-only `NODE_ENV=production` after
 `npm ci` and before `npm run build:backend`. The next main run must validate
-this correction and complete container checks before publication. The server
-then pulls the main-built image instead of building on the VPS.
+this correction and complete container checks before publication. The third
+main run `37126849223` completed the native ARM64 candidate build and backend
+compile after PR #13, then failed in verifier cleanup with `EACCES` unlinking
+`/tmp/omni-overlay-data-uR7ulC/cache/openrouter-provider-stats.json`. A read-only
+diagnosis traced the cleanup failure to host-bound `/app/data`: container user
+`node` (UID 1000) created the cache file and runner user UID 1001 could not
+unlink it. The `finally` cleanup may mask a primary verifier error; no earlier
+error appeared in the available output, so prior checks cannot be assumed to
+have passed. Use a container-scoped `/app/data` tmpfs in mode `1777`, preserve
+the image's default user, and report cleanup errors alongside any primary
+verification error. A cleanup-only failure must still fail verification. No
+GHCR login or publication occurred. The next main run must complete every
+artifact check before publication. The server then pulls the main-built image
+instead of building on the VPS.
 
 Public runner hardware details do not guarantee this compiler fits. Preserve
 actual run evidence and do not add speculative resource caps.
@@ -157,6 +187,18 @@ settings; anonymous pull must succeed before server use.
   After `npm ci`, set builder-only `NODE_ENV=production` before
   `npm run build:backend`; keep it out of the fresh runtime stage. The next
   main build and artifact verification remain the acceptance gate.
+- Third main run `37126849223` completed the native ARM64 candidate build and
+  backend compilation in about 9 minutes after PR #13, then failed in verifier
+  cleanup with `EACCES` unlinking
+  `/tmp/omni-overlay-data-uR7ulC/cache/openrouter-provider-stats.json`. The
+  candidate's `/app/data` was host-bound; container UID 1000 created the file,
+  while runner UID 1001 could not unlink it. The available log does not show
+  whether an earlier verifier error occurred because `finally` cleanup can
+  mask it. No GHCR login or publication occurred. Replace the host data bind
+  with a container-scoped `/app/data` tmpfs in mode `1777`, keep the image's
+  default user, and preserve primary verification errors while reporting every
+  cleanup error. Fail publication even when verification succeeds but cleanup
+  fails. Full artifact acceptance remains open.
 - Verify public package access, anonymous server pull, digest, container
   health, native SQLite, dashboard/API behavior, and rollback before closing
   the production image transition.
