@@ -37,7 +37,6 @@ RUN test -f package-lock.json \
 COPY . ./
 
 RUN mkdir -p /app/data \
-  && node --test tests/unit/build/merge-official-backend-overlay.test.mjs \
   && npm run build:backend \
   && test -s /app/.build/backend-overlay/server/app-paths-manifest.json \
   && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \

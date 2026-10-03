@@ -4,29 +4,43 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## GitHub overlay-image build
 
-- Implementation of `add-github-overlay-image-build` is complete on the
-  feature branch. The PR to `main` must include the already reviewed runtime
-  work and eligible completed OpenSpec archives, not a CI-only change.
-- Keep Docker construction and backend compilation main-only: automatic push
-  to `refs/heads/main` and manual dispatch selected on exact main. PR and
-  feature checks run ordinary unit, OpenSpec, workflow syntax, and static
-  validation only; they do not build images, compile the backend, publish, or
-  receive registry write permission. Require review and green checks before
-  merge.
-- Focused verification passed 12/12 tests (9 new policy/verifier/Compose and
-  freshness tests plus 3 manifest-merger tests), ESLint, Prettier, actionlint,
-  the workflow-security ratchet (210 findings versus 233 at baseline), strict
-  OpenSpec validation (7/7), and `git diff --check`. Independent low-effort
-  code review found no high-confidence bugs. Code Simplifier removed redundant
-  `Promise.all` usage, reused fixtures, and made the expected digest explicit.
+- The reviewed image implementation and final workflow policy update are on
+  the feature branch: only the fork image workflow is active, on main push or
+  manual exact-main dispatch. It builds and verifies the container artifact
+  before publication, without unit-test gates. Do not run general, unit,
+  static, or workflow checks automatically on feature push, PR, main, or a
+  schedule. Tests may be invoked manually for a specific task. The PR to `main` must
+  include the already reviewed runtime work and eligible completed OpenSpec
+  archives, not a CI-only change; review it manually before merge.
+- Final manual verification passed 13/13 focused tests, scoped ESLint,
+  Prettier, actionlint (0 findings), the full workflow audit (209 findings
+  against a baseline of 233), and `git diff --check`. Independent low-effort
+  review found no correctness findings. Code Simplifier reviewed the final
+  trigger/job policy and test-gate removal; no further simplification was
+  needed. OpenSpec validation passes strictly (7/7).
   CI commit `38cae506dcfb54a4e01fb5b4828fbd37b29e4d18` is created locally;
   feature push and PR are pending. No GitHub Actions run, image publication, or
   production change has occurred.
 - The local Docker daemon did not respond, so no local image build or
-  Docker-backed candidate acceptance ran. The first real native ARM64 image
+  Docker-backed candidate acceptance ran. Earlier feature-push and PR check
+  runs were cancelled after routine workflows were disabled; no native image
+  build or publication has occurred. The first real native ARM64 image
   build remains open on main after the PR merges.
-- After merge, verify only the new fork-image workflow is enabled if the
-  existing manually disabled workflows prevent its run. Do not enable
+- On GitHub, keep the auxiliary `api-route-typecheck.yml`,
+  `test-quarantine.yml`, and `release-acceptance.yml` workflows manual-only.
+  Keep all remaining routine check workflows disabled in repository settings;
+  preserve only the fork image workflow as active. The deployment playbook now
+  instructs operators to keep routine checks disabled after upstream sync.
+- GitHub settings update completed: the Actions API previously listed 27
+  workflows, with 25 upstream workflows already disabled and API Route
+  Typecheck plus the fork image workflow active. API Route Typecheck was
+  disabled; the current API reports 26 workflows `disabled_manually` and only
+  the fork image workflow active. Feature push run `37121740387` and PR run
+  `37121831813` from the old automatic checks were cancelled. API typecheck PR
+  run `37121831856` had completed before its workflow was disabled. The source
+  YAML changes that make the three auxiliary workflows manual-only are in the
+  feature tree; verify the settings remain correct after the PR merges.
+- After merge, verify only the fork-image workflow is enabled. Do not enable
   unrelated upstream workflows. Complete the first actual native ARM64 main
   build and candidate checks before treating an image as ready.
 - Record the successful run URL, full source SHA, pinned official base digest,
@@ -53,7 +67,7 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   not connect to production, deploy automatically, or run migrations.
 - Fresh main archive is pushed and verified: `archive/main-before-main-image-pr-2026-10-03` points to `f2bddef27ed0807dd5a5e2712bc26536edda8138`; `main` remained at that SHA through the pre-integration fetch. The feature records this `main` history with an ours-strategy merge, preserving the reviewed upstream-aligned source tree; the broad upstream delta and retired fork behavior are described in the PR. Do not restore old fork behavior without an explicit reviewed requirement.
 - Pre-PR audit completed against current `main` `f2bddef27ed0807dd5a5e2712bc26536edda8138`, pre-integration feature `11a54874b7e236df5935e54f17a7ffcb5564d88d`, and deployed runtime `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree intentionally follows official OmniRoute upstream v3.8.52 (`23a11484862b3bb589a55e85b00e4ac53ffeb234`). Its PR diff against `main` is intentionally broad: 17,350 paths (+4,914,997/-536,172), replacing the stale fork tree with the upstream-aligned source plus reviewed overlays. Against the selected upstream release, the overlay is 88 paths (+16,137/-151). Inventory found no generated build/cache/dependency outputs; environment files are examples, and no private-key, certificate, or database artifacts were found. All 98 tracked blobs larger than 1,000,000 bytes are byte-identical to the upstream release. The tree retires legacy fork-only web-fetch/search/routing/FMO behavior. Do not restore old fork behavior without an explicit reviewed requirement.
-- GitHub settings were checked read-only: Actions are enabled, all actions are allowed, and the default workflow token permission is write. The new workflow declares scoped permissions. Neither branch protection nor repository/inherited rulesets are configured for `main`, so verify review and green PR checks manually before merge. No GHCR package exists yet; after the first publish, set the package public in GitHub Packages UI and verify anonymous pull. GitHub documents no package-visibility REST or GraphQL mutation; public visibility cannot be reverted to private.
+- GitHub settings were checked read-only: Actions are enabled, all actions are allowed, and the default workflow token permission is write. The image workflow declares scoped permissions. Neither branch protection nor repository/inherited rulesets are configured for `main`; perform manual PR review before merge. No GHCR package exists yet; after first publish, set it public in GitHub Packages UI and verify anonymous pull. GitHub exposes no package-visibility REST or GraphQL mutation; public visibility cannot be reverted to private.
 - If the first hosted build fails, preserve exact logs and measured resource/
   disk evidence before preparing a capacity fix through a follow-up PR. Do not
   invent memory, swap, process, disk, or build-time limits. Reverify upstream

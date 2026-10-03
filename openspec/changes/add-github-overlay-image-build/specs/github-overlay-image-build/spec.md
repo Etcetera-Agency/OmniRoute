@@ -7,138 +7,148 @@ container from a reviewed main commit without compiling source on the server.
 
 ## ADDED Requirements
 
-### Requirement: Build images only from the canonical main branch
+### Requirement: Keep the main image workflow as the only automatic test-related workflow
 
-The repository SHALL run Docker image construction and the backend-only
-compiler only for a push to `refs/heads/main` or a manual dispatch whose
-selected ref is exactly `refs/heads/main` in `Etcetera-Agency/OmniRoute`.
-Pull requests and feature branches MAY run ordinary unit, OpenSpec, workflow
-syntax, and static checks, but SHALL NOT build Docker images, invoke the
-backend-only compiler, authenticate for publication, or receive registry
-write permission. A PR to main SHALL pass review and its required checks
-before merge.
+The repository SHALL NOT automatically run general, unit, static-check, or
+workflow-check jobs on feature pushes, pull requests, main pushes, or
+schedules. The fork image workflow SHALL run only on a push to
+`refs/heads/main` or a manual dispatch selected on exact
+`refs/heads/main`. Other test workflows SHALL remain manually invocable when
+needed for a task or otherwise disabled; they SHALL NOT have push, pull
+request, or schedule triggers. The routine check workflows
+`api-route-typecheck.yml`, `test-quarantine.yml`, and
+`release-acceptance.yml` SHALL be manual-dispatch-only. Keep routine check
+workflows disabled in repository settings; if a specific task requires one,
+enable and dispatch it manually, then return it to disabled. Preserve only the
+fork image workflow as active between such task-specific runs. Review code
+changes manually before merge.
 
-#### Scenario: Main push
+#### Scenario: Main push builds the image
 
 - **GIVEN** a commit reaches `refs/heads/main` in the canonical repository
 - **WHEN** the image workflow runs
-- **THEN** it builds and verifies one native ARM64 candidate from that commit
-- **AND** it publishes only after every candidate gate passes
+- **THEN** it builds and verifies one native ARM64 candidate
+- **AND** it publishes only after every container artifact check passes
 
-#### Scenario: Manual main dispatch
+#### Scenario: Manual main image dispatch
 
-- **GIVEN** a user manually dispatches the workflow with selected ref exactly
-  `refs/heads/main`
+- **GIVEN** a user manually dispatches the fork image workflow with selected
+  ref exactly `refs/heads/main`
 - **WHEN** the workflow runs
 - **THEN** it builds and verifies the selected main commit
-- **AND** it may publish only after every candidate gate passes
+- **AND** it may publish only after every container artifact check passes
 
-#### Scenario: Pull request to main
+#### Scenario: Feature push, pull request, or schedule
 
-- **GIVEN** a pull request targets main
-- **WHEN** its required checks run
-- **THEN** they perform ordinary unit, OpenSpec, workflow syntax, and static
-  validation only
-- **AND** they do not invoke Docker or the backend-only compiler
-- **AND** they have no registry write permission and publish no image
+- **GIVEN** a feature push, pull request, main push for an auxiliary test
+  workflow, or scheduled time occurs
+- **WHEN** GitHub evaluates the repository workflows
+- **THEN** no general, unit, static-check, or workflow-check job starts
+- **AND** no image is built or published by those events
 
-#### Scenario: Feature branch or manual non-main ref
+#### Scenario: Manual non-main image dispatch
 
-- **GIVEN** a feature branch is pushed or a manual dispatch selects a ref
-  other than exact main
-- **WHEN** the repository checks run
-- **THEN** no Docker image or backend compilation runs
-- **AND** no image is published
+- **GIVEN** a user manually dispatches the image workflow on a ref other than
+  exact `refs/heads/main`
+- **WHEN** GitHub evaluates the workflow
+- **THEN** no image build or publication job runs
 
-### Requirement: Build from the pinned official UI image
+#### Scenario: Task-specific manual test
 
-The main workflow SHALL use native `ubuntu-24.04-arm` and
+- **GIVEN** a task requires a focused test or check
+- **WHEN** an operator runs the relevant test command or explicitly enables
+  and dispatches a manual-only workflow for that task
+- **THEN** only that requested task-specific test runs
+- **AND** it does not become a push, pull-request, main, or scheduled gate
+
+### Requirement: Build from the pinned official UI image without test gates
+
+The image workflow SHALL use native `ubuntu-24.04-arm` and
 `docker/official-backend-overlay.Dockerfile` with official base
 `ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
-It SHALL run the focused manifest-merger test before compilation, compile
-backend routes once, preserve the official dashboard and runtime, and load
-one `linux/arm64` candidate for verification and publication. It SHALL NOT
-use QEMU, a paid larger runner, or a self-hosted runner.
+It SHALL compile backend routes exactly once, preserve the official dashboard
+and runtime, and load one `linux/arm64` candidate. The image workflow and
+Docker builder SHALL NOT run unit, general, or static test gates. They SHALL
+NOT use QEMU, a paid larger runner, or a self-hosted runner.
 
 #### Scenario: Main candidate build
 
 - **GIVEN** a checked-out canonical main commit and the pinned official base
-- **WHEN** the Docker builder creates its candidate
-- **THEN** the merger test passes before one backend-only compiler invocation
+- **WHEN** the image builder creates its candidate
+- **THEN** it performs one backend-only compilation without invoking unit-test
+  commands
 - **AND** the candidate retains the official dashboard, static files, and
   runtime configuration
-- **AND** the same locally verified candidate is the one published
+- **AND** one local candidate is loaded for artifact verification
 
 #### Scenario: Cache unavailable
 
 - **GIVEN** no reusable ref-scoped BuildKit cache exists
-- **WHEN** the main image job builds
+- **WHEN** the main image workflow builds
 - **THEN** it performs a clean build
 - **AND** cache absence does not change build correctness
 
-### Requirement: Verify the main candidate before registry authentication
+### Requirement: Verify the actual container artifact before publication
 
-The main workflow SHALL verify the local ARM64 candidate before GHCR login or
-publication. It SHALL check architecture and source/revision/base metadata,
-native SQLite operation, health, dashboard response, API dispatch, and exact
-official UI preservation by comparing `BUILD_ID`, the full static tree, page
-manifest, and every non-API app-path entry with the pinned official image.
-The direct Next UI listener SHALL return HTTP 401 with
-`error.code: "invalid_api_key"` for unauthenticated `GET /api/v1/models`.
-Smoke checks SHALL use disposable runner-local data and SHALL NOT access
-production credentials or data. A failed gate SHALL fail the workflow before
-registry authentication and SHALL publish no image.
+The main image workflow SHALL start and inspect its local candidate before
+GHCR authentication or publication. It SHALL check ARM64 architecture and
+source/revision/base metadata, native SQLite operation, health, dashboard
+response, direct API behavior, and official UI preservation by comparing
+`BUILD_ID`, the full static tree, page manifest, and every non-API app-path
+entry with the pinned official image. The direct Next UI listener SHALL return
+HTTP 401 with `error.code: "invalid_api_key"` for unauthenticated
+`GET /api/v1/models`. Smoke checks SHALL use disposable runner-local data and
+SHALL NOT access production credentials or data. A failed artifact check SHALL
+stop the workflow before registry authentication and SHALL publish no image.
 
-#### Scenario: Candidate passes all gates
+#### Scenario: Candidate passes artifact verification
 
-- **GIVEN** the merger test passes and the local candidate has matching
-  `linux/arm64`, source, revision, and official base identity
-- **AND** disposable native SQLite, health, dashboard, and API dispatch
-  checks pass
+- **GIVEN** the candidate has matching architecture, source, revision, and
+  official-base identity
+- **AND** disposable native SQLite and health checks pass
+- **AND** dashboard and direct API behavior pass
 - **AND** unauthenticated `GET /api/v1/models` on the direct UI listener
   returns HTTP 401 with `error.code: "invalid_api_key"`
-- **AND** the full UI comparison matches the pinned official image
-- **WHEN** candidate verification completes
+- **AND** all checked UI build assets and non-API paths match the pinned
+  official image
+- **WHEN** artifact verification completes
 - **THEN** the publisher may authenticate and publish that candidate
 
-#### Scenario: Candidate gate fails
+#### Scenario: Candidate artifact check fails
 
-- **GIVEN** any identity, merger, native SQLite, health, route, or UI check
-  fails
-- **WHEN** the main workflow evaluates the candidate
+- **GIVEN** any identity, native SQLite, health, route, or UI comparison fails
+- **WHEN** the main image workflow evaluates the candidate
 - **THEN** the workflow fails before GHCR login
 - **AND** no tag is published or updated
 
 ### Requirement: Publish a traceable main image
 
-After all candidate checks pass, the canonical main publisher SHALL publish
-`ghcr.io/etcetera-agency/omniroute` under the full source commit SHA and
-`main` tags. Only a verified `refs/heads/main` run SHALL update `:main`; both
-tags SHALL refer to the tested candidate. The publisher SHALL use only
-`GITHUB_TOKEN`, scoped to `contents: read` and `packages: write`, and SHALL
-record the actual registry manifest digest, canonical source URL, source SHA,
-pinned base digest, and Actions run URL. OCI source, revision, and base-digest
-labels SHALL match those values. A tag SHALL NOT be treated as immutable; the
-manifest digest is the image identity. The workflow SHALL NOT change package
-visibility or add a signed-attestation service.
+The canonical main image publisher SHALL, only after all container artifact
+checks pass, publish `ghcr.io/etcetera-agency/omniroute` under the full source
+commit SHA and `main` tags. Only a verified `refs/heads/main` run SHALL update
+`:main`; both tags SHALL refer to the verified candidate. The publisher SHALL
+use only `GITHUB_TOKEN` scoped to `contents: read` and `packages: write`, and
+SHALL record the actual registry manifest digest, canonical source URL,
+source SHA, pinned base digest, and Actions run URL. OCI source, revision, and
+base-digest labels SHALL match those values. Tags SHALL NOT be treated as
+immutable; the manifest digest is the image identity. The workflow SHALL NOT
+change package visibility or add signed-attestation infrastructure.
 
 #### Scenario: Main publication succeeds
 
-- **GIVEN** all main candidate gates pass
+- **GIVEN** all container artifact checks pass for a main candidate
 - **WHEN** the publisher completes
 - **THEN** the full-SHA and `:main` tags resolve to the same manifest digest
-- **AND** the workflow summary records digest, source, revision, base digest,
-  and run URL
-- **AND** the OCI labels match the summary
+- **AND** the run summary records digest, source, revision, base digest, and
+  workflow run URL
+- **AND** OCI labels match the summary
 
-#### Scenario: New package visibility
+#### Scenario: First package publication
 
-- **GIVEN** GHCR creates the package during its first publish
-- **WHEN** the image is published
-- **THEN** the workflow leaves the package's default private visibility
-  unchanged
+- **GIVEN** GHCR creates the fork package on its first image publication
+- **WHEN** the workflow publishes the image
+- **THEN** it leaves the default private visibility unchanged
 - **AND** the owner changes package visibility to public in GitHub Packages
-  after a successful first main publication
 - **AND** an anonymous pull is verified before the server consumes the image
 
 ### Requirement: Pull the main image on the server without building source
@@ -153,14 +163,13 @@ migrations.
 
 #### Scenario: Operator accepts the main image
 
-- **GIVEN** the main workflow published and recorded a candidate digest
+- **GIVEN** the main workflow published and recorded the candidate digest
 - **AND** the GHCR package is public and an anonymous pull succeeds
 - **WHEN** the operator pulls `:main`
 - **THEN** the resolved digest, architecture, and OCI labels match the main
   workflow summary
 - **AND** the operator starts the image with `docker compose up -d --no-build`
-- **AND** server health, native SQLite, dashboard, and API dispatch checks
-  pass
+- **AND** server health, native SQLite, dashboard, and API checks pass
 
 #### Scenario: Server acceptance fails
 
