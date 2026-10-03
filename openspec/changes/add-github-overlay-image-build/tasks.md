@@ -46,22 +46,26 @@
       and rollback.
 - [x] 2.8 Run Code Simplifier after the policy/workflow update and record the
       result in `completion.review`.
+- [ ] 2.9 Set builder-stage `NODE_OPTIONS=--max-old-space-size=12288` before
+      `npm run build:backend` in `docker/official-backend-overlay.Dockerfile`.
+      Keep it out of the runtime stage and do not change shared build helpers.
 
 ## 3. Manual validation and review
 
 - [x] 3.1 Manually run the focused tests and relevant static/workflow syntax
       tools for this task. Record results; they are not automatic GitHub gates.
-- [ ] 3.2 Assemble one PR from the feature branch to `main`, including the
-      already reviewed runtime work and its eligible completed OpenSpec
-      archives. Do not submit a CI-only change.
+- [x] 3.2 Assemble the runtime/CI PR from the feature branch to `main`,
+      including eligible completed OpenSpec archives. PR #11 merged as
+      `3a484460`.
 - [x] 3.3 Audit the branch against current `main` and the deployed upstream
       base; document the intentional upstream-aligned tree and omitted legacy
       fork behavior.
 - [x] 3.4 Disable or keep disabled all routine test/check workflows in GitHub
-      settings and leave only the fork image workflow active. The API now
-      reports 26 workflows disabled and only the fork image workflow active.
-- [ ] 3.5 Review the actual PR manually before merge, without requiring
-      automatic test-status gates.
+      settings and leave only the fork image workflow active. The post-merge
+      Actions API reports 29 workflows total, 28 disabled, and only the fork
+      image workflow active.
+- [ ] 3.5 Review the builder-heap correction PR manually before merge, without
+      requiring automatic test-status gates.
 - [x] 3.6 Confirm auxiliary check YAMLs are manual-dispatch-only and update
       the server playbook to preserve this policy after upstream
       synchronization.
@@ -70,29 +74,34 @@
 
 ## 4. Main image and server acceptance
 
-- [ ] 4.1 After merge, verify only the fork image workflow is active. Do not
+- [x] 4.1 After merge, verify only the fork image workflow is active. Do not
       enable upstream or auxiliary routine-check workflows.
-- [ ] 4.2 Run the first actual native `linux/arm64` main image build and
-      candidate-artifact verification. If it fails, preserve exact logs and
-      measured evidence and fix through a follow-up PR; do not infer capacity
-      fit.
-- [ ] 4.3 After the first successful publication, change the GHCR package to
+- [x] 4.2 Record first main run `37124029642`: it failed after 4m17 in
+      `npm run build:backend` with V8 old-space near 1043 MiB. No image was
+      published; failed-run process RSS/cgroup peak and Node version were not
+      measured.
+- [ ] 4.3 Apply the builder-only 12288-MiB Node heap correction through a
+      manually reviewed follow-up PR.
+- [ ] 4.4 After that correction reaches main, pass the native ARM64 image build
+      and container artifact verification; retain exact logs and measured
+      evidence if it fails again. Do not infer capacity fit.
+- [ ] 4.5 After the first successful publication, change the GHCR package to
       public in GitHub Packages. Verify anonymous pull and record run URL,
       commit SHA, tags, digest, labels, and result in TODO and
       `completion.review`.
-- [ ] 4.4 Before server pull, record current digest, Compose config, health,
+- [ ] 4.6 Before server pull, record current digest, Compose config, health,
       and database-migration state. Pull `:main`, compare its digest and
       labels with the main run, verify ARM64, then run
       `docker compose up -d --no-build`.
-- [ ] 4.5 Verify server health, native SQLite, dashboard, and API behavior. On
+- [ ] 4.7 Verify server health, native SQLite, dashboard, and API behavior. On
       failure, restore the prior digest with `docker compose up -d --no-build`
       and verify prior health. Record outcome in TODO and `completion.review`.
 
 ## 5. Future maintenance
 
-- [ ] 5.1 If a main build fails, use its logs and measured resource/disk
-      evidence to scope a follow-up capacity correction; do not add speculative
-      resource limits.
+- [ ] 5.1 If the corrected main build fails, use its logs and measured
+      resource/disk evidence to scope any further correction; do not add
+      speculative resource limits.
 - [ ] 5.2 Before changing the official base, verify its provenance and repeat
       native SQLite, health, API, and official-UI parity checks on the new
       digest.

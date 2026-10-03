@@ -4,45 +4,54 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## GitHub overlay-image build
 
-- The reviewed image implementation and final workflow policy update are on
-  the feature branch: only the fork image workflow is active, on main push or
-  manual exact-main dispatch. It builds and verifies the container artifact
-  before publication, without unit-test gates. Do not run general, unit,
+- PR #11 merged at `3a484460`. Only the fork image workflow is active, on a
+  main push or manual exact-main dispatch. It verifies the built container
+  before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests may be invoked manually for a specific task. The PR to `main` must
-  include the already reviewed runtime work and eligible completed OpenSpec
-  archives, not a CI-only change; review it manually before merge.
+  schedule. Tests are invoked manually for a specific task. The first
+  post-merge image run failed; a builder-only heap correction and follow-up PR
+  are required before publishing an image.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
   review found no correctness findings. Code Simplifier reviewed the final
   trigger/job policy and test-gate removal; no further simplification was
-  needed. OpenSpec validation passes strictly (7/7).
-  CI commit `38cae506dcfb54a4e01fb5b4828fbd37b29e4d18` is created locally;
-  feature push and PR are pending. No GitHub Actions run, image publication, or
-  production change has occurred.
-- The local Docker daemon did not respond, so no local image build or
-  Docker-backed candidate acceptance ran. Earlier feature-push and PR check
-  runs were cancelled after routine workflows were disabled; no native image
-  build or publication has occurred. The first real native ARM64 image
-  build remains open on main after the PR merges.
+  needed. OpenSpec validation passes strictly (7/7). These manual test and
+  audit results preceded the heap correction; no successful image publication
+  or production change has occurred.
+- First main image run `37124029642` failed after 4m17 in
+  `npm run build:backend` with repeated V8 ineffective mark-compacts and
+  allocation failure at an effective old-space limit near 1043 MiB. No image
+  was published. The Dockerfile had no `NODE_OPTIONS`; the build helper only
+  defaults to 8192 when no option is inherited, so the official base's
+  inherited option prevailed. The failed run has no process RSS/cgroup peak or
+  Node-version measurement; do not claim those values.
+- Correct the builder only: set
+  `NODE_OPTIONS=--max-old-space-size=12288` in the backend build stage before
+  `npm run build:backend`. Do not change the shared helper or final runtime
+  stage. This matches a prior successful remote compile of the same backend
+  with a 12-GiB heap and about 15.72-GB measured peak, against the public ARM64
+  runner's stated 16 GB. The next main image run must verify whether it fits;
+  this setting is not a guarantee. Merge the manually reviewed follow-up PR,
+  then rerun the main image workflow.
 - On GitHub, keep the auxiliary `api-route-typecheck.yml`,
   `test-quarantine.yml`, and `release-acceptance.yml` workflows manual-only.
   Keep all remaining routine check workflows disabled in repository settings;
   preserve only the fork image workflow as active. The deployment playbook now
   instructs operators to keep routine checks disabled after upstream sync.
-- GitHub settings update completed: the Actions API previously listed 27
+- GitHub settings update completed: before merge, the Actions API listed 27
   workflows, with 25 upstream workflows already disabled and API Route
   Typecheck plus the fork image workflow active. API Route Typecheck was
-  disabled; the current API reports 26 workflows `disabled_manually` and only
-  the fork image workflow active. Feature push run `37121740387` and PR run
+  disabled; after merge, the current API reports 29 workflows total, 28
+  disabled, and only the fork image workflow active. Feature push run
+  `37121740387` and PR run
   `37121831813` from the old automatic checks were cancelled. API typecheck PR
-  run `37121831856` had completed before its workflow was disabled. The source
-  YAML changes that make the three auxiliary workflows manual-only are in the
-  feature tree; verify the settings remain correct after the PR merges.
-- After merge, verify only the fork-image workflow is enabled. Do not enable
-  unrelated upstream workflows. Complete the first actual native ARM64 main
-  build and candidate checks before treating an image as ready.
+  run `37121831856` had completed before its workflow was disabled. The merged
+  source YAML makes the three auxiliary workflows manual-only. Preserve this
+  settings state after every upstream sync; do not enable unrelated workflows.
+- The first actual native ARM64 main build has run and failed as described
+  above. The next run after the builder-only heap fix must pass container
+  acceptance and publish before an image is considered ready.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in
