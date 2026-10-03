@@ -1,8 +1,6 @@
 name: Release acceptance
 
 on:
-  push:
-    branches: ["release/v*"]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +13,6 @@ concurrency:
 jobs:
   acceptance:
     name: Release acceptance
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

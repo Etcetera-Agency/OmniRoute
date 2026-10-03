@@ -44,4 +44,8 @@ test("fork release guide verifies digest and starts without source builds", () =
     /rollback[\s\S]{0,500}(?:previous|prior)[\s\S]{0,500}digest/i.test(releaseGuide),
     "guide must retain a prior digest for rollback"
   );
+  assert.match(releaseGuide, /Routine tests and static checks run only when/);
+  assert.match(releaseGuide, /The image workflow is the only automatic\s+workflow/);
+  assert.match(releaseGuide, /manual-dispatch-only/);
+  assert.match(releaseGuide, /do not run unit or static test gates/);
 });

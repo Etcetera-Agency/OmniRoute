@@ -16,21 +16,14 @@ const workflow = fs.existsSync(workflowPath)
   ? yaml.load(fs.readFileSync(workflowPath, "utf8"))
   : null;
 
-test("fork overlay image workflow builds and publishes only from canonical main", () => {
+test("fork overlay image workflow runs only on canonical main or manual dispatch", () => {
   assert.ok(workflow, "fork image workflow must exist");
-  assert.ok(workflow.on?.push, "feature pushes must receive ordinary CI checks");
-  assert.ok(workflow.on?.pull_request?.branches?.includes("main"));
+  assert.deepEqual(workflow.on?.push?.branches, ["main"]);
+  assert.equal(workflow.on?.pull_request, undefined);
+  assert.equal(workflow.on?.schedule, undefined);
   assert.deepEqual(workflow.on?.workflow_dispatch?.inputs?.ref?.options, ["refs/heads/main"]);
 
-  const checks = workflow.jobs?.checks;
-  assert.ok(checks, "feature and PR refs must run normal checks");
-  const checksSource = JSON.stringify(checks);
-  assert.ok(/test:unit:ci/.test(checksSource), "checks must run the normal unit suite");
-  assert.ok(/@fission-ai\/openspec@\d+\.\d+\.\d+ validate --all --strict/.test(checksSource));
-  assert.ok(
-    /check:workflows/.test(checksSource),
-    "checks must validate workflow syntax and security"
-  );
+  assert.deepEqual(Object.keys(workflow.jobs ?? {}), ["publish-main-image"]);
 
   const publishers = Object.values(workflow.jobs ?? {}).filter(
     (job) => job.permissions?.packages === "write"
@@ -43,7 +36,7 @@ test("fork overlay image workflow builds and publishes only from canonical main"
   assert.match(publisher.if ?? "", /refs\/heads\/main/);
   assert.match(publisher.if ?? "", /push/);
   assert.match(publisher.if ?? "", /workflow_dispatch/);
-  assert.deepEqual(publisher.needs, ["checks"]);
+  assert.equal(publisher.needs, undefined);
   const build = publisher.steps.find((step) => step.uses?.includes("docker/build-push-action@"));
   assert.ok(build, "main publisher must build through Buildx");
   assert.equal(build.with.platforms, "linux/arm64");
@@ -91,18 +84,30 @@ test("fork overlay image workflow builds and publishes only from canonical main"
   );
   assert.ok(shaTagIndex > loginIndex && freshnessIndex > shaTagIndex);
   assert.ok(mainTagIndex > freshnessIndex, "a stale workflow must not move the main tag");
-  assert.ok(
-    !/pull_request_target/.test(JSON.stringify(workflow)),
-    "untrusted PRs must not reach a write-token workflow"
+  assert.doesNotMatch(
+    JSON.stringify(workflow),
+    /test:unit:ci|test:vitest|eslint|prettier|check:workflows|openspec.*validate/i
   );
 });
 
-test("backend builder runs the isolated overlay regression before its only compile", () => {
+test("routine test and check workflows remain manual-dispatch only", () => {
+  for (const file of [
+    ".github/workflows/api-route-typecheck.yml",
+    ".github/workflows/test-quarantine.yml",
+    ".github/workflows/release-acceptance.yml",
+  ]) {
+    const auxiliary = yaml.load(fs.readFileSync(path.join(root, file), "utf8"));
+    assert.deepEqual(
+      Object.keys(auxiliary.on ?? {}),
+      ["workflow_dispatch"],
+      `${file} is manual only`
+    );
+  }
+});
+
+test("backend builder compiles once without running unit tests", () => {
   const builder = dockerfile.split("FROM scratch AS prebuilt-backend")[0];
   const install = builder.indexOf("npm ci ");
-  const mergerTest = builder.indexOf(
-    "node --test tests/unit/build/merge-official-backend-overlay.test.mjs"
-  );
   const compile = builder.indexOf("npm run build:backend");
 
   assert.ok(install >= 0, "backend builder installs its pinned dependencies");
@@ -112,13 +117,15 @@ test("backend builder runs the isolated overlay regression before its only compi
     ),
     "build rejects a base image that differs from the labelled pinned digest"
   );
-  assert.ok(mergerTest > install, "merger regression runs after dependencies install");
-  assert.ok(compile > mergerTest, "backend compile starts only after merger regression passes");
+  assert.ok(compile > install, "backend compile starts after dependencies install");
+  assert.doesNotMatch(builder, /(?:node\s+--test|npm\s+run\s+test)/);
   assert.equal(builder.match(/npm run build:backend/g)?.length, 1);
 
   const dockerignore = fs.readFileSync(path.join(root, ".dockerignore"), "utf8");
-  assert.match(dockerignore, /!tests\//);
-  assert.match(dockerignore, /!tests\/unit\//);
-  assert.match(dockerignore, /!tests\/unit\/build\//);
-  assert.match(dockerignore, /!tests\/unit\/build\/merge-official-backend-overlay\.test\.mjs/);
+  assert.match(dockerignore, /^tests$/m, "the Docker context excludes unit tests");
+  assert.doesNotMatch(
+    dockerignore,
+    /^!tests\//m,
+    "no test files are re-included in the build context"
+  );
 });

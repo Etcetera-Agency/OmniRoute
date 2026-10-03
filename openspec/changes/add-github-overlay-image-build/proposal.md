@@ -1,47 +1,48 @@
 # Change: Build and Pull OmniRoute Overlay Image from GitHub
 
-**Status:** Approved for implementation after the user's request to build the
-image from GitHub and have the server pull the main-built image.
+**Status:** Approved for implementation under the user's main-only image-build
+and no-automatic-tests policy.
 
 ## Why
 
 The full dashboard build repeatedly exhausted memory on the deployment server.
-The accepted delivery already uses the upstream official ARM64 image for its
-dashboard and adds only the fork's compiled API server. The deployment server
-must stop compiling OmniRoute source and consume the reviewed image published
-from the fork's `main` branch.
+The approved runtime keeps the upstream dashboard and overlays the fork's
+backend API. GitHub should produce that ARM64 image from the reviewed `main`
+revision, verify the actual container artifact, and publish only a candidate
+that passes those runtime checks. The server should pull the published image
+instead of compiling source.
 
 ## What Changes
 
-- Add a publisher workflow that runs Docker/backend compilation only for
-  `push` to `main` and manual dispatch with the selected ref exactly
-  `refs/heads/main`. Feature branches and pull requests do not build Docker
-  images or run the backend-only compiler.
-- Keep pull-request validation to ordinary unit tests, strict OpenSpec checks,
-  workflow syntax checks, and static checks. Pull-request jobs receive no
-  registry write permission. Review and merge the runtime work and eligible
-  completed OpenSpec archives already on the feature branch through one PR;
-  do not submit a CI-only PR that omits this runtime work.
-- On the native `ubuntu-24.04-arm` runner, build the existing
-  `docker/official-backend-overlay.Dockerfile` against the pinned official
-  digest
+- Keep one GitHub Actions workflow for the fork image. It runs on push to
+  `refs/heads/main` and manual dispatch only when the selected ref is exactly
+  `refs/heads/main`. Feature pushes, pull requests, and schedules do not run
+  automatic unit, static, or general check jobs. Tests may be run manually for
+  a specific task; they are not scheduled or attached to GitHub events.
+- On native `ubuntu-24.04-arm`, build the existing
+  `docker/official-backend-overlay.Dockerfile` from the pinned official image
   `ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
-  Compile backend routes once and preserve the official UI.
-- Before GHCR publication, run focused merger tests, ARM64/runtime/native
-  SQLite checks, container health and route smoke, and byte-level official UI
-  parity checks. Publish that same tested image under its full-SHA tag and
-  `:main`; record the manifest digest and source/base/run metadata. Only
-  `refs/heads/main` updates `:main`.
-- Configure the server to pull `ghcr.io/etcetera-agency/omniroute:main`, verify
-  its resolved digest against the main workflow, and start with
-  `docker compose up -d --no-build`. Keep deployment operator-run, with a
-  recorded prior digest and rollback procedure. Do not build source on the
-  VPS.
-- Use only `GITHUB_TOKEN` for main image publication. Do not add Docker Hub
-  credentials, upstream write permission, or production deployment secrets.
-  The workflow does not change package visibility. After the first successful
-  main publication, the owner switches the new GHCR package from its default
-  private state to public and verifies anonymous pull access.
+  Compile backend routes once, preserve the official UI, and load the
+  candidate locally. Do not run a unit-test gate as part of the image workflow.
+- Before GHCR authentication/publication, verify the built container artifact:
+  ARM64 architecture and source/base metadata, native SQLite, health, direct
+  UI API behavior, and byte-level official UI parity. The direct Next UI
+  listener (`20128`) must return HTTP 401 with
+  `error.code: "invalid_api_key"` for unauthenticated
+  `GET /api/v1/models`. Any failed artifact check stops publication.
+- Publish the already verified image to
+  `ghcr.io/etcetera-agency/omniroute` under its full source SHA and `:main`.
+  Only the main workflow writes `:main`. Record the manifest digest, source
+  URL/SHA, pinned base digest, and Actions run URL; treat the digest as the
+  artifact identity.
+- Configure the server to pull `ghcr.io/etcetera-agency/omniroute:main`,
+  verify its digest, and start with `docker compose up -d --no-build`. Keep
+  deployment operator-run and retain a prior-digest rollback procedure.
+- Use only `GITHUB_TOKEN` for publication. Do not add Docker Hub credentials,
+  upstream write access, or production deployment secrets. The workflow
+  leaves package visibility unchanged. After first successful main
+  publication, the owner changes the new GHCR package from private to public
+  and verifies anonymous pull access.
 
 ## Impact
 
@@ -51,30 +52,35 @@ from the fork's `main` branch.
 
 ### Affected Code
 
-- `.github/workflows/omni-overlay-image.yml`: main-only native ARM64 build,
-  verification, and GHCR publication.
+- `.github/workflows/omni-overlay-image.yml`: only automatic fork image build,
+  runtime verification, and GHCR publication; triggers are main push and
+  manual exact-main dispatch.
 - `scripts/ci/verify-official-overlay-image.mjs` and
-  `tests/unit/build/verify-official-overlay-image.test.mjs`: local candidate
-  identity, UI-parity, native SQLite, health, and route checks.
-- `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: run the
-  focused merger test after dependencies are installed and before the one
-  backend compile.
+  `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
+  artifact verifier and manually invoked focused tests.
+- `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: single
+  backend-only compile using the pinned official base, without an automatic
+  unit-test gate in the builder.
 - `docker-compose.yml` and `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md`: pull the
   fork `:main` image and document digest verification, no-build start, health
   checks, and rollback.
+- GitHub Actions settings and the server playbook: keep routine test/check
+  workflows disabled; preserve only the fork main-image workflow. Updating the
+  playbook is required so a later upstream synchronization does not turn
+  automatic checks back on.
 
 ### User Impact
 
-The PR is validated without the expensive Docker/backend compile. After the PR
-merges, the first real image build happens on `main`; the image cannot be
-considered ready until that Actions run passes. The server then pulls the
-main-built GHCR image instead of building on the VPS. If the first main build
-fails for a real capacity or runtime reason, the correction goes through a
-follow-up PR.
+No automatic unit/static test suite runs on feature pushes, PRs, main pushes,
+or a schedule. The only automatic project workflow builds the main image and
+verifies the actual candidate container before publication. Code changes are
+reviewed manually; tests can be invoked for a specific task. The first actual
+image build happens after the reviewed PR reaches `main`; the image is not
+ready until that run succeeds. The server then pulls the main-built image
+instead of building on the VPS.
 
-GitHub documents the standard public ARM64 runner as 4 CPU, 16 GB RAM, and
-14 GB SSD. Those figures do not guarantee this compiler fits. Preserve actual
-run evidence; do not introduce speculative capacity caps.
+Public runner hardware details do not guarantee this compiler fits. Preserve
+actual run evidence and do not add speculative resource caps.
 
 ### API Changes
 
@@ -85,32 +91,30 @@ None. This packages the existing backend overlay.
 - [ ] Database migration
 - [ ] API version bump
 - [ ] Production deployment
-- [x] GitHub image build and container smoke required before publication
+- [x] GitHub image build and container artifact verification before publication
 
 ## Security and Registry Access
 
-The main publisher job has `contents: read` and `packages: write`; its
-`GITHUB_TOKEN` is used only after candidate checks. PR validation has
-`contents: read` only. Checkout credentials are not persisted. OCI source,
-revision, and base-digest labels plus the registry digest and Actions run URL
-provide traceability; the package does not add a signed-attestation service.
-Package visibility is an external GitHub setting. The user must choose it
-after the first successful main publication by changing the package to public.
-The workflow leaves visibility unchanged, and no server registry credential
-is required after anonymous pull access has been verified.
+The image publisher has `contents: read` and `packages: write`; the token is
+used only after artifact verification. The workflow does not execute a
+pull-request job, and checkout credentials are not persisted. OCI source,
+revision, and base-digest labels plus registry digest and Actions run URL
+provide traceability; no signed-attestation service is added. The first GHCR
+publication defaults private. After it succeeds, the owner changes package
+visibility to public in GitHub Packages. The workflow does not change package
+settings; anonymous pull must succeed before server use.
 
 ## Risks and Open Gates
 
-- Merge only after strict OpenSpec, workflow syntax, unit, and static checks
-  pass in the PR. No image build or backend full compile runs on feature/PR.
+- Review the runtime/spec PR manually before merge. Do not rely on automated
+  test or static-check statuses; automatic test/check workflows are disabled.
 - Verify the first actual native ARM64 image build and publication on `main`.
   If it fails, retain logs and measured capacity evidence and prepare a
   follow-up PR; do not infer success from runner specifications.
-- Verify package access, server pull digest, container health, native SQLite,
-  dashboard/API behavior, and rollback to the prior digest before closing the
-  production image transition.
-- Verify upstream image provenance and rerun overlay compatibility whenever
-  the official digest changes.
-- Check whether the new Actions workflow is disabled. If activation is needed,
-  activate only this fork workflow; leave unrelated upstream workflows
-  disabled.
+- Verify public package access, anonymous server pull, digest, container
+  health, native SQLite, dashboard/API behavior, and rollback before closing
+  the production image transition.
+- Verify upstream image provenance and rerun artifact compatibility whenever
+  the official base digest changes.
+- Keep unrelated routine-check workflows disabled after any upstream sync;
+  preserve only the fork image workflow.

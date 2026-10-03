@@ -6,11 +6,11 @@ lastUpdated: 2026-10-03
 # OmniRoute Fork Release and Deployment
 
 This guide is the release and server-deployment procedure for the OmniRoute
-fork carrying auto quality bands. GitHub Actions runs checks on branch pushes
-and pull requests, but builds the fork image only from the canonical `main`
-branch. Production pulls that image by verified digest through Docker Compose;
-the server does not build application source. Upstream rebases and pre-merge
-gates are covered below.
+fork carrying auto quality bands. Routine tests and static checks run only when
+a specific task calls for them. The only automatic GitHub workflow builds and
+verifies the fork image on canonical `main` pushes; it can also be started
+manually on exact `main`. Production pulls the image by verified digest through
+Docker Compose; the server does not build application source.
 
 ## Pinned baseline
 
@@ -47,19 +47,20 @@ git rebase --onto "$new_upstream_tag" "$old_upstream_tag" feat/auto-quality-band
 ```
 
 Require a clean working tree before rebasing. Resolve conflicts against the new
-upstream contracts, then inspect the fork-only diff and rerun every pre-promotion
-gate below. Do not merge upstream `main` as a substitute for this tag-based
-rebase. Any push of the rewritten branch requires explicit user approval; if
-approved, push only `feat/auto-quality-bands` with lease protection. A merge to
-`main` also requires explicit approval.
+upstream contracts, then inspect the fork-only diff. Run task-specific tests or
+static checks manually only when the current task calls for them; the main image
+workflow verifies its built container before publication. Do not merge upstream
+`main` as a substitute for this tag-based rebase. Any push of the rewritten
+branch requires explicit user approval; if approved, push only
+`feat/auto-quality-bands` with lease protection. A merge to `main` also
+requires explicit approval.
 
-## Pre-promotion gates
+## Historical production-promotion evidence and open follow-up
 
-Before merging a release candidate to `main`, require the applicable gates
-below and verify the exact source commit. The production ledger conflict had an
-approved one-time repair, which is complete as recorded below. The current
-candidate passed supported-runtime build/start, isolated-copy migration checks,
-and production cutover; do not repeat its ledger rekey.
+The evidence below records the initial production rollout. It is historical
+operator context, not a recurring or automated test gate. The production ledger
+conflict had an approved one-time repair, which is complete as recorded below;
+do not repeat its ledger rekey.
 
 - Rebased branch matches the selected upstream tag and has no unintended fork
   delta.
@@ -75,9 +76,8 @@ and production cutover; do not repeat its ledger rekey.
 - With `OMNIROUTE_AUTO_BANDS` unset and with it set to `0`, verify the full
   upstream-routing fallback: band quality/capability filters, band ordering,
   and reserve/account narrowing are bypassed.
-- Complete the live combo identity check: request
-  `auto/general_mid:free`, confirm routing as `auto/chat:free`, and confirm
-  `call_logs.combo_name` retains `auto/general_mid:free`.
+- The live combo identity check remains tracked follow-up work; run it as a
+  separate task rather than an automatic workflow gate.
 
 ### Current validation record
 
@@ -377,14 +377,20 @@ one-time migration runbook.
 
 ## Build and publish the main image
 
-The fork workflow runs ordinary unit, OpenSpec, workflow-security, and static
-checks for branch pushes and pull requests. Only a push to the canonical
-`Etcetera-Agency/OmniRoute` `main` branch, or a manual run selected on the exact
-`refs/heads/main`, may build a Docker image. The image job uses the native
-`ubuntu-24.04-arm` runner and the pinned official OmniRoute base digest. It runs
-the isolated manifest-merger regression before one backend compile, loads the
+Keep routine test/check workflows disabled. After upstream synchronization,
+leave them disabled and keep only `.github/workflows/omni-overlay-image.yml`
+active. The API route typecheck, quarantine, and release acceptance workflow
+files are manual-dispatch-only. The image workflow is the only automatic
+workflow and only runs on a push to the canonical `Etcetera-Agency/OmniRoute`
+`main` branch; a manual image run must select exact `refs/heads/main`. Feature
+pushes, pull requests, and schedules run no automatic tests or checks.
+
+The image workflow uses the native `ubuntu-24.04-arm` runner and the pinned
+official OmniRoute base digest. It compiles backend routes once, loads the
 candidate locally, and checks ARM64, OCI labels, native SQLite, health, direct
-UI/API dispatch, and full official-UI parity before logging in to GHCR.
+UI/API behavior, and full official-UI parity before logging in to GHCR. The
+workflow and Docker builder do not run unit or static test gates; invoke
+task-specific checks manually when requested.
 
 After those checks pass, Actions publishes the full source SHA tag. It moves
 `:main` only if the source commit is still the current main commit when

@@ -1,9 +1,8 @@
-name: OmniRoute fork checks and main image
+# AICODE-NOTE: Keep this as the sole active automatic workflow; task tests and checks are manual-only.
+name: OmniRoute fork main image
 
 on:
   push:
-    branches: ["**"]
-  pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -21,72 +20,8 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    name: Unit, OpenSpec, workflow and static checks
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 26
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --include=optional --no-audit --no-fund --legacy-peer-deps
-
-      - name: Unit tests
-        run: npm run test:unit:ci
-
-      - name: Validate OpenSpec changes
-        run: npx --yes @fission-ai/openspec@1.14.0 validate --all --strict --no-interactive
-
-      - name: Install workflow scanners
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.local/bin"
-          actionlint_version=v1.7.12
-          bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/${actionlint_version}/scripts/download-actionlint.bash") "${actionlint_version#v}" "$HOME/.local/bin"
-          pipx install zizmor==1.25.2 || pip install --user zizmor==1.25.2
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Lint workflow syntax and security
-        run: npm run check:workflows -- --ratchet
-
-      - name: Lint implementation slice
-        run: >-
-          npx eslint --no-ignore
-          scripts/ci/check-main-image-current.mjs
-          scripts/ci/verify-official-overlay-image.mjs
-          tests/unit/build/fork-release-compose-policy.test.mjs
-          tests/unit/build/main-image-freshness.test.mjs
-          tests/unit/build/omni-overlay-workflow-policy.test.mjs
-          tests/unit/build/verify-official-overlay-image.test.mjs
-
-      - name: Check implementation formatting
-        run: >-
-          npx prettier --check
-          .github/workflows/omni-overlay-image.yml
-          docker-compose.yml
-          docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md
-          scripts/ci/check-main-image-current.mjs
-          scripts/ci/verify-official-overlay-image.mjs
-          tests/unit/build/fork-release-compose-policy.test.mjs
-          tests/unit/build/main-image-freshness.test.mjs
-          tests/unit/build/omni-overlay-workflow-policy.test.mjs
-          tests/unit/build/verify-official-overlay-image.test.mjs
-
   publish-main-image:
     name: Build, verify and publish the main image
-    needs: [checks]
     if: >-
       github.repository == 'Etcetera-Agency/OmniRoute' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
