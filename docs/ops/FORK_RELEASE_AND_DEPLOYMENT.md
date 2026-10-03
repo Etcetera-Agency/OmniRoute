@@ -6,10 +6,11 @@ lastUpdated: 2026-10-03
 # OmniRoute Fork Release and Deployment
 
 This guide is the release and server-deployment procedure for the OmniRoute
-fork carrying auto quality bands. It governs upstream rebases, fork deploy tags,
-pre-promotion checks, and production targeting. Hosting-specific commands stay
-in their provider guides; the active production checkout and deploy mechanism
-must be verified before use.
+fork carrying auto quality bands. GitHub Actions runs checks on branch pushes
+and pull requests, but builds the fork image only from the canonical `main`
+branch. Production pulls that image by verified digest through Docker Compose;
+the server does not build application source. Upstream rebases and pre-merge
+gates are covered below.
 
 ## Pinned baseline
 
@@ -54,11 +55,11 @@ approved, push only `feat/auto-quality-bands` with lease protection. A merge to
 
 ## Pre-promotion gates
 
-For a future promotion, do not create or promote a deploy tag until every
-applicable gate passes and the exact release commit is verified. The production
-ledger conflict had an approved one-time repair, which is complete as recorded
-below. The current candidate passed supported-runtime build/start, isolated-
-copy migration checks, and production cutover; do not repeat its ledger rekey.
+Before merging a release candidate to `main`, require the applicable gates
+below and verify the exact source commit. The production ledger conflict had an
+approved one-time repair, which is complete as recorded below. The current
+candidate passed supported-runtime build/start, isolated-copy migration checks,
+and production cutover; do not repeat its ledger rekey.
 
 - Rebased branch matches the selected upstream tag and has no unintended fork
   delta.
@@ -374,49 +375,76 @@ as required by that deployment mechanism. Verify that POST again returns the
 catch-all JSON `404` with no upstream call. Keep database recovery under the
 one-time migration runbook.
 
-## Deploy tag and promotion
+## Build and publish the main image
 
-Name each immutable fork deploy tag:
+The fork workflow runs ordinary unit, OpenSpec, workflow-security, and static
+checks for branch pushes and pull requests. Only a push to the canonical
+`Etcetera-Agency/OmniRoute` `main` branch, or a manual run selected on the exact
+`refs/heads/main`, may build a Docker image. The image job uses the native
+`ubuntu-24.04-arm` runner and the pinned official OmniRoute base digest. It runs
+the isolated manifest-merger regression before one backend compile, loads the
+candidate locally, and checks ARM64, OCI labels, native SQLite, health, direct
+UI/API dispatch, and full official-UI parity before logging in to GHCR.
 
-```text
-<upstream-tag>-bands.<n>
-```
+After those checks pass, Actions publishes the full source SHA tag. It moves
+`:main` only if the source commit is still the current main commit when
+publishing; a rerun for an older main commit leaves the alias unchanged. The
+workflow summary records the actual manifest digest, source commit, pinned base,
+and run URL. A SHA tag is a convenient reference; deploy by digest because tags
+can move.
 
-Use the next unused positive integer for `<n>` under the same upstream tag. Tag
-only the exact commit that passed all pre-promotion gates, and pin production to
-that tag. Do not move or overwrite a published deploy tag.
+The first successful GHCR package remains private. After that first main image
+is published, the package owner must switch it to public and verify an
+anonymous pull; the workflow never changes package visibility. Until then, use
+authorized registry access. Public images can be pulled without a supporter
+key or other application credential.
 
-Use the user's current authorization for this deployment and activation. Push
-only the reviewed feature branch and exact deploy tag; never push `main`, all
-branches, or wildcard tags. A future rebase, history rewrite, new release scope,
-or merge to `main` requires its own explicit approval.
+## Pull the image on the server
 
-After every gate passes within the user's current deployment authorization,
-create an annotated tag on the exact verified commit. Set `deploy_tag` to the
-selected upstream tag followed by `-bands.` and the next unused number; set
-`verified_commit` to the full commit SHA:
+Use the server's existing Docker Compose checkout and the `base` profile. Before
+changing the image, record the currently configured image digest, service
+health, and the database migration state using the existing migration runbook.
+Confirm that the new main workflow run passed image acceptance and that its
+summary says the `:main` alias was updated. Compare its commit, base digest, and
+published digest with the run you intend to deploy.
+
+Resolve and pin the published digest, then pull and start without building
+source:
 
 ```bash
-deploy_tag='vX.Y.Z-bands.1'
-verified_commit='FULL_VERIFIED_COMMIT_SHA'
-git tag --annotate "$deploy_tag" "$verified_commit" --message "OmniRoute fork deploy $deploy_tag"
-git show --no-patch --format='%H %D' "$deploy_tag"
+docker buildx imagetools inspect ghcr.io/etcetera-agency/omniroute:main
+export OMNIROUTE_IMAGE='ghcr.io/etcetera-agency/omniroute@sha256:PASTE_VERIFIED_DIGEST'
+docker compose --profile base pull omniroute-base
+docker compose --profile base up -d --no-build omniroute-base
 ```
 
-Publish only the reviewed feature branch if needed, then publish only that
-deploy tag within the current authorization. Use lease protection only when a
-separately approved history rewrite is part of the operation:
+Use the `sha256:` digest recorded by `imagetools inspect` and compare it with
+the successful main workflow summary before continuing. The Compose service has
+no `build` definition, and its image can be overridden with the digest above.
+
+Check the service health, the dashboard on the configured dashboard port, and
+the direct UI listener's `/api/v1/models` dispatch according to the current
+authentication configuration. A disposable native SQLite check can run inside
+the container without touching the application database:
 
 ```bash
-git push --force-with-lease origin feat/auto-quality-bands
-git push origin "$deploy_tag"
+docker inspect --format '{{.State.Health.Status}}' omniroute
+curl --fail --silent --show-error "http://127.0.0.1:${DASHBOARD_PORT:-20128}/healthz"
+curl --fail --silent --show-error --output /dev/null "http://127.0.0.1:${DASHBOARD_PORT:-20128}/"
+models_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:${DASHBOARD_PORT:-20128}/api/v1/models")"
+case "$models_status" in
+  200|401) echo "Direct UI models route returned HTTP $models_status" ;;
+  *) echo "Unexpected direct UI models status: $models_status"; exit 1 ;;
+esac
+docker exec omniroute node -e 'const d=require("better-sqlite3")(":memory:"); console.log(d.prepare("select sqlite_version() as version").get()); d.close()'
 ```
 
-Never use `git push --all`, `git push --tags`, or `--force`.
+For rollback, set `OMNIROUTE_IMAGE` to the previously recorded full digest and
+run `docker compose --profile base up -d --no-build omniroute-base`; verify the
+prior health before closing the incident. Restore database state only through
+the separate migration recovery procedure. This workflow does not deploy
+automatically and does not reverse migrations.
 
 Enable band routing only after its production gates pass by setting
 `OMNIROUTE_AUTO_BANDS=1`. Leaving it unset or setting it to `0` disables band
-filters, band-specific ordering, and reserve/account narrowing. For code
-rollback, redeploy the previous verified deploy tag. Handle database recovery
-under the one-time migration runbook; this guide assumes no automatic migration
-reversal.
+filters, band-specific ordering, and reserve/account narrowing.

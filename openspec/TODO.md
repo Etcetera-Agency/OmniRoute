@@ -2,6 +2,64 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+## GitHub overlay-image build
+
+- Implementation of `add-github-overlay-image-build` is complete on the
+  feature branch. The PR to `main` must include the already reviewed runtime
+  work and eligible completed OpenSpec archives, not a CI-only change.
+- Keep Docker construction and backend compilation main-only: automatic push
+  to `refs/heads/main` and manual dispatch selected on exact main. PR and
+  feature checks run ordinary unit, OpenSpec, workflow syntax, and static
+  validation only; they do not build images, compile the backend, publish, or
+  receive registry write permission. Require review and green checks before
+  merge.
+- Focused verification passed 12/12 tests (9 new policy/verifier/Compose and
+  freshness tests plus 3 manifest-merger tests), ESLint, Prettier, actionlint,
+  the workflow-security ratchet (210 findings versus 233 at baseline), strict
+  OpenSpec validation (7/7), and `git diff --check`. Independent low-effort
+  code review found no high-confidence bugs. Code Simplifier removed redundant
+  `Promise.all` usage, reused fixtures, and made the expected digest explicit.
+  No commit, push, GitHub Actions run, image publication, or production change
+  has occurred.
+- The local Docker daemon did not respond, so no local image build or
+  Docker-backed candidate acceptance ran. The first real native ARM64 image
+  build remains open on main after the PR merges.
+- After merge, verify only the new fork-image workflow is enabled if the
+  existing manually disabled workflows prevent its run. Do not enable
+  unrelated upstream workflows. Complete the first actual native ARM64 main
+  build and candidate checks before treating an image as ready.
+- Record the successful run URL, full source SHA, pinned official base digest,
+  full-SHA and `:main` tag equality, registry manifest digest, OCI
+  source/revision/base labels, and run-summary consistency here and in
+  `completion.review`. The manifest digest is image identity; do not assume
+  SHA tags are immutable. Preserve real capacity evidence without inferring
+  fit from runner specifications.
+- After first publication, change
+  `ghcr.io/etcetera-agency/omniroute` from GHCR's default private visibility
+  to public in GitHub Packages; the workflow does not change package settings.
+  Verify an anonymous pull succeeds and record its result. No server pull
+  credential is used.
+- Before the operator-run server pull, record current digest, Compose config,
+  health, and database migration state. Pull `:main`, compare resolved digest
+  and labels to the successful main run, verify ARM64, then start with
+  `docker compose up -d --no-build`. Check health, native SQLite, dashboard,
+  and direct UI listener `20128` API dispatch: unauthenticated
+  `GET /api/v1/models` returns HTTP 401 with `error.code: "invalid_api_key"`.
+  This is the Next route-handler response; `AUTH_002` belongs to the separate
+  API-listener proxy. Record the deployed digest.
+- Exercise rollback by restoring the previous digest and running
+  `docker compose up -d --no-build`; verify prior health. The workflow does
+  not connect to production, deploy automatically, or run migrations.
+- Pre-PR audit completed against current `main` `f2bddef27ed0807dd5a5e2712bc26536edda8138`, feature `11a54874b7e236df5935e54f17a7ffcb5564d88d`, and deployed runtime `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree intentionally follows official OmniRoute upstream v3.8.52. The PR includes a 1,147-file tree delta (40,769 additions and 22,230 deletions) relative to `main`, including the upstream sync; it intentionally retires legacy fork-only web-fetch/search/routing/FMO behavior. Preserve current `main` at a fresh archive ref before recording it as an ancestor of the feature branch, and explain the full delta in the PR body. Do not restore old fork behavior without an explicit reviewed requirement.
+- GitHub settings were checked read-only: Actions are enabled, all actions are allowed, and the default workflow token permission is write. The new workflow declares scoped permissions. Neither branch protection nor repository/inherited rulesets are configured for `main`, so verify review and green PR checks manually before merge. No GHCR package exists yet; after the first publish, set the package public in GitHub Packages UI and verify anonymous pull. GitHub documents no package-visibility REST or GraphQL mutation; public visibility cannot be reverted to private.
+- If the first hosted build fails, preserve exact logs and measured resource/
+  disk evidence before preparing a capacity fix through a follow-up PR. Do not
+  invent memory, swap, process, disk, or build-time limits. Reverify upstream
+  provenance and overlay compatibility whenever the official base digest
+  changes.
+- Automated production deployment is a separate future scope. Record its
+  design and selected target in a separate OpenSpec package before adding it.
+
 ## Deferred Items
 
 - Active FMO pool migration slices from the 2026-07-01 concept audit:

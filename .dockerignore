@@ -43,6 +43,10 @@ yarn-error.log*
 
 # Test suites
 tests
+!tests/
+!tests/unit/
+!tests/unit/build/
+!tests/unit/build/merge-official-backend-overlay.test.mjs
 test-results
 playwright-report
 blob-report
