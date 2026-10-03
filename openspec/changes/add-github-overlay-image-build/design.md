@@ -28,6 +28,13 @@ static assets, and runtime configuration. Do not run unit or static test
 gates in the image workflow or Docker builder. Load one candidate locally and
 verify that actual container before GHCR authentication or publication.
 
+The backend builder installs dependencies first, then compiles with
+`NODE_ENV=production` and `NODE_OPTIONS=--max-old-space-size=12288`. Setting
+`NODE_ENV` after `npm ci` lets dependency installation use the Dockerfile's
+existing development setting, then switches Next to production mode for the
+backend build. Both overrides remain in the builder stage; the final image
+starts from a fresh pinned-base stage.
+
 ## Workflow pseudocode
 
 ```text
@@ -36,8 +43,12 @@ or workflow_dispatch where ref == refs/heads/main:
     grant the image job contents:read
     checkout the triggering main commit
     build one linux/arm64 candidate from the pinned official base
-    in the backend builder stage, set NODE_OPTIONS=--max-old-space-size=12288
-    before npm run build:backend; do not export this to the runtime stage
+    in the backend builder stage:
+        RUN npm ci
+        ENV NODE_ENV=production
+        ENV NODE_OPTIONS=--max-old-space-size=12288
+        RUN npm run build:backend
+    do not export either build environment setting to the runtime stage
     compile backend routes exactly once; do not run unit-test commands
     load the candidate locally
     inspect candidate architecture and OCI source/revision/base labels
@@ -95,14 +106,15 @@ Any failed artifact check stops before GHCR login or publication. The verifier
 must not contact production data or credentials. Capacity must be based on
 actual run evidence, not inferred from runner specifications.
 
-## First main build failure and correction
+## Main build failures and selected correction
 
 PR #11 merged at `3a484460`. First main workflow run `37124029642` failed
 after 4 minutes 17 seconds in `npm run build:backend`. Its V8 GC output showed
 repeated ineffective mark-compacts and allocation failure at an effective
-old-space limit of approximately 1043 MiB. No image was published. The
-Dockerfile had no `NODE_OPTIONS`; the build helper sets 8192 only when no
-option is inherited, so the official base's existing setting took precedence.
+old-space limit of approximately 1043 MiB. No image was published. At the
+time, the Dockerfile had no `NODE_OPTIONS`; the build helper sets 8192 only
+when no option is inherited, so the official base's existing setting took
+precedence.
 
 Set `ENV NODE_OPTIONS=--max-old-space-size=12288` in the Docker builder stage
 before the backend compiler. Keep this environment override out of the runtime
@@ -110,20 +122,35 @@ stage and do not change the shared build helper. The chosen 12288-MiB heap is
 grounded in a prior successful remote compile of the same backend using a
 12-GiB heap with approximately 15.72 GB measured peak, and the public
 `ubuntu-24.04-arm` runner's stated 16 GB. The failed run did not measure process
-RSS, cgroup peak, or Node version; do not claim those values. Treat the next
-main workflow run as the acceptance test of this correction. If it fails,
-retain its evidence and make a further narrowly scoped, manually reviewed PR;
-do not claim the heap setting guarantees a fit.
+RSS, cgroup peak, or Node version; do not claim those values. PR #12 merged
+this heap correction. Run `37125217705` did not repeat the heap failure, but
+did not complete the build.
+
+The second main run failed after 6m18 during prerendering `/_global-error`:
+`TypeError: Cannot read properties of null (reading 'use')`, followed by
+`Export encountered an error on /_global-error/page`; the Next worker exited 1
+at about 214.4 seconds. The workflow did not log in to GHCR or publish an
+image. Read-only diagnosis found the Dockerfile sets `NODE_ENV=development`
+for `npm ci` and leaves it set for compilation; the installed Next CLI
+preserved it, and the logs showed React development warnings. The exact
+minified callsite was not isolated. After `npm ci`, set builder-only
+`NODE_ENV=production` before `npm run build:backend`; keep the final runtime
+stage on its fresh base environment.
+
+This environment correction responds to observed build state; it does not
+prove the exact minified null-`use` callsite is identified. The next main image
+build and container artifact checks remain open acceptance gates. Retain its
+exact logs and measured evidence if it fails; do not add speculative resource
+limits.
 
 ## Review and server acceptance
 
 Review and merge the feature branch manually. The PR includes the already
 reviewed runtime changes and eligible completed OpenSpec archives, not a
 CI-only change. Do not depend on automatic unit, static, or workflow checks;
-run tests manually when the task requires them. After the reviewed change
-reaches main, the image workflow performs the first actual ARM64 image build.
-If it fails, retain logs and measured evidence and correct it through a
-follow-up PR.
+run tests manually when the task requires them. The next accepted builder
+correction must reach main before image publication can pass its native
+ARM64 build and container-artifact gates.
 
 GHCR creates a package as private. After the first successful main
 publication, the owner changes it to public in GitHub Packages. Workflow code

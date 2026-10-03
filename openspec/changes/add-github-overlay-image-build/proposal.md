@@ -1,7 +1,7 @@
 # Change: Build and Pull OmniRoute Overlay Image from GitHub
 
-**Status:** Approved for the measured builder-only Node heap correction after
-the first main image build failed.
+**Status:** Approved. Main image publication remains gated on successful
+native build and artifact verification.
 
 ## Why
 
@@ -10,10 +10,18 @@ The approved runtime keeps the upstream dashboard and overlays the fork's
 backend API. GitHub should produce that ARM64 image from the reviewed `main`
 revision, verify the actual container artifact, and publish only a candidate
 that passes those runtime checks. The server should pull the published image
-instead of compiling source. The first main run built the image backend but
-failed during `npm run build:backend` because the effective V8 old-space limit
-was about 1043 MiB. The correction sets a measured 12-GiB Node heap explicitly
-in the Docker builder stage only.
+instead of compiling source. First main build failed during
+`npm run build:backend` at an effective V8 old-space limit near 1043 MiB; PR
+#12 added builder-only `NODE_OPTIONS=--max-old-space-size=12288`. The next main
+run passed that heap failure but failed while prerendering `/_global-error`
+with a null React `use` error. Read-only diagnosis found that the Dockerfile
+set `NODE_ENV=development` for `npm ci` and left it set during compilation;
+the installed Next CLI preserved it, and build logs showed React development
+warnings. The exact minified callsite was not isolated. Set builder-only
+`NODE_ENV=production` after `npm ci` and before
+`npm run build:backend`; keep the runtime stage unchanged. The next main build
+is the acceptance test, not proof in advance that the diagnosis covers the
+exact internal callsite.
 
 ## What Changes
 
@@ -25,10 +33,11 @@ in the Docker builder stage only.
 - On native `ubuntu-24.04-arm`, build the existing
   `docker/official-backend-overlay.Dockerfile` from the pinned official image
   `ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
-  Set builder-stage `NODE_OPTIONS=--max-old-space-size=12288` before
-  `npm run build:backend`; keep this setting out of the runtime stage. Compile
-  backend routes once, preserve the official UI, and load the candidate
-  locally. Do not run a unit-test gate as part of the image workflow.
+  Install dependencies with `npm ci`, then set builder-stage
+  `NODE_ENV=production` and `NODE_OPTIONS=--max-old-space-size=12288` before
+  `npm run build:backend`; keep both settings out of the runtime stage.
+  Compile backend routes once, preserve the official UI, and load the
+  candidate locally. Do not run a unit-test gate as part of the image workflow.
 - Before GHCR authentication/publication, verify the built container artifact:
   ARM64 architecture and source/base metadata, native SQLite, health, direct
   UI API behavior, and byte-level official UI parity. The direct Next UI
@@ -64,8 +73,9 @@ in the Docker builder stage only.
   `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
   artifact verifier and manually invoked focused tests.
 - `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: single
-  backend-only compile using the pinned official base and explicit 12288-MiB
-  builder-stage Node heap, without an automatic unit-test gate.
+  backend-only compile using the pinned official base, production `NODE_ENV`
+  after dependency installation, and explicit 12288-MiB builder-stage Node
+  heap, without an automatic unit-test gate.
 - `docker-compose.yml` and `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md`: pull the
   fork `:main` image and document digest verification, no-build start, health
   checks, and rollback.
@@ -80,12 +90,19 @@ No automatic unit/static test suite runs on feature pushes, PRs, main pushes,
 or a schedule. The only automatic project workflow builds the main image and
 verifies the actual candidate container before publication. Code changes are
 reviewed manually; tests can be invoked for a specific task. PR #11 merged at
-`3a484460`, and first main workflow run `37124029642` failed after 4m17 during
-backend compilation with V8 old-space near 1043 MiB. A prior successful remote
-compile of the same backend used a 12-GiB heap and measured about 15.72 GB peak;
-the public ARM64 runner advertises 16 GB. The selected fix explicitly raises
-the builder-only heap to 12288 MiB. The next real main run must prove whether
-this fits; the heap setting does not guarantee a successful build. The server
+`3a484460`; first main run `37124029642` failed at an effective V8 old-space
+limit near 1043 MiB. A prior successful remote compile of the same backend
+used a 12-GiB heap with about 15.72 GB measured peak; the public ARM64 runner
+advertises 16 GB. PR #12 raised the builder-only heap to 12288 MiB. Second main
+run `37125217705` then failed during `/_global-error` prerender with
+`TypeError: Cannot read properties of null (reading 'use')`; the worker exited
+1 at about 214.4s, and the heap-limit failure did not recur. Read-only
+diagnosis found the Dockerfile's `NODE_ENV=development` setting for `npm ci`
+remained active through backend compilation; build logs showed React
+development warnings. The exact minified callsite was not isolated. Set
+builder-only `NODE_ENV=production` after
+`npm ci` and before `npm run build:backend`. The next main run must validate
+this correction and complete container checks before publication. The server
 then pulls the main-built image instead of building on the VPS.
 
 Public runner hardware details do not guarantee this compiler fits. Preserve
@@ -118,19 +135,28 @@ settings; anonymous pull must succeed before server use.
 - PR #11 was reviewed and merged at `3a484460`. The first main image run,
   `37124029642`, failed after 4m17 in `npm run build:backend`: V8 reported
   repeated ineffective mark-compacts and allocation failure at an effective
-  old-space limit of about 1043 MiB. No image was published. The Dockerfile
-  currently has no `NODE_OPTIONS`; build helper code supplies 8192 only when
+  old-space limit of about 1043 MiB. No image was published. At that time, the
+  Dockerfile had no `NODE_OPTIONS`; build helper code supplies 8192 only when
   no option is inherited, so the official base's inherited setting prevailed.
 - Set `NODE_OPTIONS=--max-old-space-size=12288` in the builder stage before
   `npm run build:backend`; do not apply it to the runtime stage or change shared
   build helpers. This matches a prior successful remote compile of the same
   backend at 12 GiB heap (about 15.72 GB measured peak) against the public
   runner's stated 16 GB. The failed runner's RSS/cgroup peak and Node version
-  were not measured. Rerun the image workflow on main after the manually
-  reviewed correction PR; do not treat the setting as proof of fit.
-- Verify public package access, anonymous server pull, digest, container
-  health, native SQLite, dashboard/API behavior, and rollback before closing
-  the production image transition.
+  were not measured. PR #12 merged this builder-only correction; the second
+  main run showed that this setting alone did not complete the build.
+- Second main run `37125217705` passed the prior heap failure but failed while
+  prerendering `/_global-error`: `TypeError: Cannot read properties of null
+(reading 'use')`, then `Export encountered an error on /_global-error/page`;
+  the Next worker exited 1 at about 214.4s. It did not log in to GHCR or
+  publish an image. Read-only diagnosis found the Dockerfile's
+  `NODE_ENV=development` setting for `npm ci` persisted through backend
+  compilation; the installed Next CLI preserved it, and the build log showed
+  React development warnings. Diagnosis did not isolate the exact minified
+  callsite.
+  After `npm ci`, set builder-only `NODE_ENV=production` before
+  `npm run build:backend`; keep it out of the fresh runtime stage. The next
+  main build and artifact verification remain the acceptance gate.
 - Verify public package access, anonymous server pull, digest, container
   health, native SQLite, dashboard/API behavior, and rollback before closing
   the production image transition.

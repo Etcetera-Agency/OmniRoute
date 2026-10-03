@@ -395,13 +395,26 @@ report.
   version. A prior successful remote compile of the same backend used a
   12-GiB heap with about 15.72 GB measured peak; the public ARM runner states
   16 GB.
-- The selected correction is builder-stage-only
+- PR #12 (`a06fcfb3`) applied the builder-stage-only
   `NODE_OPTIONS=--max-old-space-size=12288` before `npm run build:backend`;
-  do not modify the runtime stage or shared build helper. The next main run
-  must verify this setting fits and passes the artifact checks before image
-  publication. The follow-up fix PR from main is in progress. No image,
-  anonymous public pull, or production change has occurred. Automated
-  production deployment remains separate future scope.
+  it does not alter the runtime stage or shared build helper.
+- Second main run `37125217705`, after PR #12, failed after 6m18 while
+  prerendering `/_global-error`. Next reported
+  `TypeError: Cannot read properties of null (reading 'use')`, followed by
+  `Export encountered an error on /_global-error/page`; the Next worker exited
+  1 at about 214.4 seconds. The prior V8 heap-limit error did not recur. The
+  workflow did not log in to GHCR, publish an image, or change production.
+  Read-only diagnosis found that the Dockerfile set `NODE_ENV=development` for
+  `npm ci` and left it set during backend compilation; the installed Next CLI
+  preserved it, and build logs showed React development warnings. The exact
+  minified callsite was not isolated. The builder now sets
+  `NODE_ENV=production` after `npm ci` and before `npm run build:backend`; the
+  final runtime stage starts from the fresh pinned base. Stage-order inspection,
+  `git diff --check`, and Code Simplifier review passed; no tests were rerun and
+  no local image build was performed. The correction is not yet validated by a
+  successful main image build and container artifact checks. Package visibility,
+  anonymous pull, and server acceptance remain open. Automated production
+  deployment remains separate future scope.
 - Pre-PR history audit: remote `main` is `f2bddef27ed0807dd5a5e2712bc26536edda8138`; pre-integration feature is `11a54874b7e236df5935e54f17a7ffcb5564d88d`; deployed runtime source is `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree follows official upstream v3.8.52 (`23a11484862b3bb589a55e85b00e4ac53ffeb234`). Its PR diff against current `main` is intentionally broad: 17,350 paths (+4,914,997/-536,172), replacing the stale fork tree with the upstream-aligned source plus reviewed overlays. The overlay against the selected upstream release is 88 paths (+16,137/-151). Inventory found no generated build/cache/dependency outputs; environment files are examples, and no private-key, certificate, or database artifacts were found. All 98 tracked blobs larger than 1,000,000 bytes are byte-identical to the upstream release. This tree intentionally removes legacy fork-only web-fetch/search/routing/FMO behavior. Preserve the exact main SHA on the archive ref before integrating its ancestry; call out the broad upstream delta in the PR.
 - Read-only GitHub settings: Actions enabled, allowed actions `all`, default workflow token permission `write`; the image workflow uses narrower explicit permissions. No main branch protection or repo/inherited rulesets are configured, so require manual PR review before merge without automatic test statuses. GHCR has no `omniroute` package yet. After first publish, make it public in GitHub Packages UI and verify anonymous pull; official REST/GraphQL surfaces no package-visibility mutation, and public cannot be reverted to private.
 - Fresh main archive is pushed and verified: `archive/main-before-main-image-pr-2026-10-03` points to `f2bddef27ed0807dd5a5e2712bc26536edda8138`; `main` remained at that SHA through the pre-integration fetch. The feature records this `main` history with an ours-strategy merge, retaining the reviewed upstream-aligned source tree.
