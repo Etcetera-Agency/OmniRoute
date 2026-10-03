@@ -1,135 +1,129 @@
-# Completion review: auto-band first-slice implementation checkpoint
+# Completion review: Auto bands and SystemOne implementation checkpoint
 
 Date: 2026-10-03
-Scope: first `add-auto-band-seam` implementation slice and its current validation
-state. Reserve scope decisions, controller/integration, calibration, production
-deployment, and OpenSpec archiving remain outstanding.
+Scope: reviewed local implementation of `add-auto-band-seam`,
+`add-auto-quality-band-filter`, `add-auto-band-demand-reserve`, and
+`add-systemone-decisions-route`. Production rollout, live-service validation,
+calibration execution, and OpenSpec archiving remain open.
 
-## Decisions retained
+## Decisions and implemented behavior
 
 - Band channels default to `thrifty` only while `OMNIROUTE_AUTO_BANDS` is on.
-  With the flag off, omitted tier stays unset for upstream default handling;
-  explicit tiers retain upstream behavior.
-- Unrated models pass only `low`; they receive no synthetic fitness score and
-  remain outside mid/high calibration populations.
-- The old `agt` role maps to `general + tools`.
+  With the flag off, an omitted tier stays unset for upstream handling and an
+  explicit tier keeps upstream behavior.
+- Unrated models pass only `low`; they receive no synthetic score and stay out
+  of `mid` and `high`. The old `agt` role maps to `general + tools`.
 - Enabled band `thrifty` channels order eligible rungs `free → keyless →
-subscription → cheap → premium`. Plain upstream `auto:thrifty` ordering is
-  unchanged. The flag-off path bypasses band order, quality/capability filters,
-  reserve, and account narrowing.
-- Reserve removes reserved account IDs before band rung ordering and dispatch;
-  it retains candidates with at least one account left and drops candidates
-  whose allowed IDs are all reserved.
-- Explicit `:free` keeps upstream provider/model classification, including
-  eligible keyless OpenCode models. It is not a per-connection zero-spend
-  guarantee.
+subscription → cheap → premium`. Plain upstream `auto:thrifty` behavior is
+  unchanged. Explicit `:free` retains upstream provider/model classification,
+  including eligible keyless OpenCode models; it is not a per-connection
+  zero-spend guarantee.
+- Calibration cut points use sorted distinct numeric scores from observed
+  rated models. The user approved nearest-rank selection:
+  `c1 = scores[ceil(0.33*N)-1]`, `c2 = scores[ceil(0.67*N)-1]`; for nine
+  distinct values, select the third and seventh. The rule is recorded in the
+  quality design/spec. Calibration implementation, tests, and report remain
+  pending.
+- The user approved maximum known positive monthly capacity per
+  `(account, provider, poolKey)`. The disabled reserve state is a full stop:
+  no source reads, calculations, refresh, diagnostics, or account narrowing.
+- The user approved the one-time migration-ledger repair procedure and
+  isolated-copy rehearsal only. Production migration changes and deployment
+  have not occurred.
 
-## First-slice implementation
+## Implementation and review
 
-Band grammar, flag-controlled parser/filter seams, band-only `thrifty`
-ordering, exact account-rung metadata, disabled-path pass-through hooks, and the
-quality/capability filter hook are implemented. Independent review found no
-remaining quality-hook findings. Reserve configuration is implemented, but
-capacity policy remains unfinalized pending source-contract tracing: the
-initial 1B/500M example came from a UI test, and mixed monthly limits in a
-production pool are unconfirmed. The reserve writer is tracing
-`shared_pool.tokensPerMonth` versus per-model `monthlyTokens` before the user
-chooses scope. The user resolved disabled-reserve behavior to a full stop for
-calculations, refresh, and diagnostics; its spec update and regression test are
-pending. The reserve controller and quality/reserve integration remain
-incomplete.
+Band grammar, quality/capability filters, the selector and fallback ordering,
+exact provider/model/account mappings, quota reservation, account allowlist
+narrowing, reserve configuration, demand/capacity calculations, and reserve
+refresh diagnostics are implemented. Disabled paths preserve upstream routing.
+The account selector retains account B when a stale direct pin names A but the
+authoritative allowlist is `[B]`; quota-blocked accounts remain after routable
+rungs and preserve the existing final 429 when all candidates are blocked.
 
-The initial implementation report records 23 band tests and 284 upstream
-Auto-Combo tests passing, plus Prettier and diff checks passing. The fork release
-and deployment guide now records the upstream rebase/tag procedure; its
-documentation link check passed for 168 documents and 1174 links. The confirmed
-selection defect is fixed in the final `resolveAutoStrategyOrder` path: the
-router strategy now runs within each billing rung, and exact mapped accounts
-retain rung order through score fallback. The regression covers a premium LKGP
-pin, a higher-scoring premium model, LKGP within a rung, a stale direct account
-pin against an allowlist, an unresolved null-connection target, and flag-off
-upstream behavior. A further regression covers a quota-cutoff-blocked free
-account beside a routable premium account; blocked accounts stay as terminal
-fallbacks after every routable rung. The focused routing suite passes 7/7, and
-27 direct resolver, stream, and quota tests pass. The independent reviewer
-closed both routing findings.
+The confirmed quality-selection issue is fixed: strategies now run within each
+billing rung, rather than allowing a global premium score or LKGP pin to outrank
+eligible free candidates. The quota-cutoff regression also passes. Independent
+review closed both routing findings, the quality hook, reserve configuration,
+capacity behavior, and reserve integration. The identical-positive daily-cap
+regression now retains one known daily axis in either catalog order; differing
+positive caps still fail refresh and preserve the prior snapshot.
 
-## Validation and environment limits
+Three independently confirmed SystemOne defects are fixed and closed:
 
-- Before the routing repair, fresh validation passed typecheck with zero
-  diagnostics, ESLint on 8 files with zero errors, and 31 regression files / 284
-  tests. Scoped results: routing 7/7, direct upstream resolver/stream/quota
-  27/27, quality E2E 4/4, config 13/13, capabilities 8/8, filter 8/8, and five
-  focused band suites 37/37 before the reserve-config extension. The quality
-  owner reported 201/201 across 28 files before WIP reserve tests. A later
-  partial run passed 208 tests but could not import the in-progress reserve
-  module. Reserve files/tests are excluded from the first commit, and these
-  counts do not certify reserve. ESLint and Prettier pass on the changed routing
-  source and regression test; the last reported OpenSSE typecheck had zero
-  diagnostics.
-- Independent reviews cleared the quality hook and reserve configuration.
-  Reserve scope is not final: the policy for accounts in one pool with different
-  monthly limits remains undecided. Disabled-reserve full-stop behavior is
-  approved but needs a spec update and regression test. Controller/integration
-  and calibration remain incomplete.
-- A separate configuration recovery finding is fixed and independently
-  verified: 7/7 focused tests cover same-mtime `EACCES` recovery and malformed
-  range warning deduplication; typecheck, lint, and Prettier passed for that
-  fix.
-- The isolated-copy rehearsal passed its three-row migration-ledger rekey;
-  missing upstream migrations were replayed, and the second init reported 0
-  pending; FMO data/schema stayed unchanged; trigger
-  savepoint rollback checks and SQLite `quick_check` passed. It used a fresh
-  read-only snapshot in a task-owned temporary directory and did not modify or
-  restart production. The procedure and results are documented in
+- Bounded BYOB reads copy small chunks without retaining near-1 MiB backing
+  buffers.
+- A late upstream success cannot clear a newer concurrent failure cooldown.
+- Upstream error text is not persisted into call-log summaries; client error
+  responses keep their specified shape.
+
+The earlier config recovery finding is also fixed and independently verified:
+7/7 focused tests cover same-mtime `EACCES` recovery and malformed-range
+warning deduplication. SystemOne routing/auth alias checks found no auth seam.
+
+## Verification
+
+- Auto-Combo suite: 40 files / 353 tests passed; core and OpenSSE typechecks
+  passed. Scoped checks: quality E2E 4/4, reserve source tests 25/25 across
+  three suites, reserve account-routing E2E 4/4, config 13/13, capabilities
+  8/8, filter 8/8, billing-rung routing 7/7, and direct upstream
+  resolver/stream/quota tests 27/27. Independent review closed these slices.
+- SystemOne: schema/dispatch/route tests 46/46; OpenAPI coverage 8/8; route
+  checker reports 276 baseline entries and 0 new findings. Core/OpenSSE
+  typechecks, ESLint, Prettier, Code Simplifier, and diff checks passed.
+- OpenAPI, environment references, `.env.example`, and the fork deployment
+  guide were updated. `npm run check:docs-all` passed, including environment
+  sync, fabricated-reference checks, and 1,180 internal links. Prettier passes
+  for all changed Markdown/spec docs. Markdownlint reports the same 706
+  findings in three long reference/operations docs at HEAD and in the working
+  tree; changed OpenSpec/TODO docs have no findings. Repository-wide
+  `npm run lint:md` reports 1,738 existing findings across 164 of 182 files.
+- OpenAPI coverage passed at 97.2%; route and security-tier checks passed.
+  `check:openapi-breaking` was skipped because `oasdiff` is absent and the gate
+  is advisory; run it before release when the tool is available.
+- The isolated-copy database rehearsal passed the three-row ledger rekey;
+  missing upstream migrations were replayed and a second init reported 0
+  pending. FMO data/schema remained unchanged; trigger rollback checks and
+  SQLite `quick_check` passed. The runbook is
   [docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md](docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md).
-- The unmodified optimized Next build remains incomplete. An earlier local
-  attempt stopped near 1.4 GB free disk. Later preflight began at 19 GiB free
-  with a 14 GiB guard and ended at 19,480,548 KiB after both initialization
-  passes. The `--rm` container metadata is gone and the exact-container Docker
-  journal query returned no records, so the precise build exit cause cannot be
-  recovered. Do not retry or take production action from this checkpoint;
-  OpenSpec task 1.4 remains unchecked.
-- The observed migration overlap is fork IDs 164–166 (`fmo_pools`,
-  `fmo_pool_decisions`, `fmo_pool_live_seam`) versus upstream migration names
-  `retire_microsoft_designer_web`, `retire_felo_web`, and
-  `retire_gpl_derived_providers`. The runner also reconciled a rename from 163
-  to 169 and warned that version-only tracking can skip and rerun migrations.
-  The isolated-copy repair/rehearsal results are recorded above. Production
-  changes remain unauthorized, and permanent migration mapping/compatibility
-  code is forbidden.
+  Production files and data were untouched.
+- The first quality/seam/config/docs checkpoint was pushed to the feature
+  branch as `bba0bfec75c6b43faa3141e58b25186c8a323fb1`; its hooks passed. Later
+  reserve and SystemOne implementation is not included in that commit.
 
-## Remaining scope
+## Remaining gates
 
-- Complete remaining reserve controller/integration, then validate the enabled
-  reserve in shadow mode and verify account-level routing. Preserve the verified
-  invariants: exact provider/model/account mappings, authoritative allowlists,
-  blocked quota accounts after all routable rungs, and unchanged ordinary
-  upstream behavior.
-- Trace the authoritative monthly-limit contract (`shared_pool.tokensPerMonth`
-  versus per-model `monthlyTokens`) and ask the user to confirm scope; production
-  pools with mixed limits are not verified. Update the spec and add a regression
-  for the approved disabled-reserve full stop across calculations, refresh, and
-  diagnostics. Keep the pool-scope decision in TODO; do not add unapproved
-  alternatives to the spec.
-- Complete OpenSpec tasks 1.4 and 4.3: baseline build/start and live full-ID
-  logging. Task 4.5 is complete in
-  `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md`; its documentation link check passed
-  for 168 documents and 1174 links. Extend the guide with calibration, reserve
-  rollout, and rollback before production rollout.
-- Calibration remains blocked until the user chooses the percentile method for
-  the 33rd/67th cut points. That decision must precede the calibration report.
-- Correct the declared `QuotaSnapshotRow` contract in a separate upstream
-  contract slice. The live getter returns camelCase fields, and `isExhausted`
-  remains numeric `0 | 1`; the exported type still declares snake_case fields.
-  Reserve currently uses a local strict camelCase boundary without a
-  dual-shape shim.
-- `add-systemone-decisions-route` was approved and frozen on 2026-10-03 with 23
-  tasks, 9 requirements, and 27 scenarios; OpenSpec validation passed. Its
-  separately owned runtime implementation has started.
-- Reconcile migration history and refresh the deployment source reference
-  before deployment.
-- Deploy and validate before archiving the OpenSpec packages.
-
-This checkpoint is ready for the authorized feature-branch commit; production
-deployment remains unauthorized.
+- Implement/test nearest-rank calibration, prepare the report, and measure rated
+  source coverage, structured-output coverage, and candidate counts before
+  production enforcement. Keep manual ranges for a week before considering
+  automatic recalibration.
+- Validate band chat routing and full-ID `call_logs.combo_name` in a safe live
+  request. Check production catalog/usage ID matches and aggregate-read cost;
+  confirm candidate pools are non-empty and
+  `OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL` is unset.
+- Before production reserve enforcement, inspect shared daily metadata shape,
+  measure refresh/read cost, and compare proposed exclusions with observed
+  quota exhaustion using approved read-only validation. Keep disabled reserve
+  as a full stop.
+- Complete the unmodified Node 24 build/start smoke at
+  `23a11484862b3bb589a55e85b00e4ac53ffeb234` on a supported isolated host. An
+  earlier build's `--rm` container metadata and exact exit cause are gone. The
+  diagnostic retry did not run because free disk was 17.67 GiB, below the
+  24 GiB minimum; available memory was 10.14 GiB. No disk cleanup or retry was
+  performed. OpenSpec task 1.4 remains unchecked.
+- SystemOne live gates remain: confirm OpenRouter request/response shape;
+  test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
+  small request; collect 50-request direct/proxy latency; verify allowed-model
+  policy and production flag-off; monitor deployment variables, rollback, and
+  error rows. Laya deployment and the Hermes caller switch are outside this
+  repository.
+- Resolve the deployment reference `/opt/apps/omniroute/source` in
+  `/Users/theDay/.ssh/config.md`; only timestamped backups were found. Keep the
+  migration collision repaired only in the isolated rehearsal copy; permanent
+  migration compatibility code is forbidden.
+- Correct the upstream `QuotaSnapshotRow` declaration/getter contract in a
+  separate slice. The runtime getter returns camelCase fields and numeric
+  `isExhausted` (`0 | 1`); the reserve code currently uses a strict local
+  camelCase boundary without a compatibility shim.
+- After the remaining implementation and operational gates pass, archive the
+  four OpenSpec packages. Do not archive or deploy based only on local tests.

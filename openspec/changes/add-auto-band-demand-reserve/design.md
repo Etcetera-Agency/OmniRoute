@@ -48,15 +48,18 @@ Radar off, only `monthlyTokens` and `poolKey` are available.
 
 ### Scope
 
-Capacity is tracked per account scope:
+Capacity is tracked per account scope using the existing source-specific
+capacity keys:
 
 ```
 scope = (connectionId, capacityKey)
-capacityKey = "pool:" + poolKey      when the catalog entry has a poolKey
-            = "model:" + provider + "/" + modelId   otherwise
+capacityKey = "pool:" + poolKey                  when the catalog entry has a poolKey
+            = "model:" + provider + "/" + modelId otherwise
 ```
 
-Catalog figures are treated as per-account allowances.
+Catalog figures are treated as per-account allowances. The monthly axis adds a
+provider component to its shared-pool aggregation key; existing daily capacity
+grouping remains unchanged.
 
 ### Demand
 
@@ -82,6 +85,25 @@ For a scope, the first available source decides; the rest are ignored:
 
 Live wins because it is a measured fact about the whole account, including
 traffic OmniRoute did not route.
+
+For monthly capacity, group catalog entries by `(connectionId, provider,
+poolKey)` before applying precedence. Visit entries in deterministic
+`(provider, modelId)` order and take the maximum known positive
+`monthlyTokens` value for each shared pool. Count that result once for the
+scope; never sum repeated model-level values. A zero or absent value is unknown
+and is ignored. If a pool has no known positive value, it supplies no monthly
+capacity. Entries without a pool key remain model-scoped. Existing daily
+`rpd`/`tpd` capacity grouping is unchanged.
+
+```ts
+for (const entry of catalogEntries.sort(byProviderThenModelId)) {
+  const key = entry.poolKey
+    ? `${connectionId}:monthly-pool:${entry.provider}:${entry.poolKey}`
+    : `${connectionId}:monthly-model:${entry.provider}:${entry.modelId}`;
+  if (entry.monthlyTokens == null || entry.monthlyTokens <= 0) continue;
+  monthlyCapacity.set(key, Math.max(monthlyCapacity.get(key) ?? 0, entry.monthlyTokens));
+}
+```
 
 ### Reserve rule — absolute axes (daily, monthly)
 
@@ -121,21 +143,28 @@ non-increasing run avoids reading a quota reset as negative burn.
 ### Predicate
 
 ```ts
-function applyReserve(candidate, band) {
-  if (!isBandsEnabled() || !reserve.enabled || band === "high") return candidate;
-  const allowed = candidate.allowedConnectionIds ?? [candidate.connectionId];
-  const remaining = allowed.filter(
-    (connectionId) => !isReserved(band, scopeFor(connectionId, candidate))
-  );
-  if (remaining.length === 0) return null;
-  return candidate.allowedConnectionIds
-    ? { ...candidate, allowedConnectionIds: remaining }
-    : candidate;
-}
+const parsedBand = parseBandId(requestedId); // syntax adapter remains active
+const target = parsedBand
+  ? { category: nativeCategory(parsedBand.task), tier: parsedBand.explicitTier }
+  : parseUpstreamTarget(requestedId);
 
-candidatePool = candidatePool.map((candidate) => applyReserve(candidate, band)).filter(Boolean);
-// Then apply the agreed band-only rung order and dispatch.
+if (!isBandsEnabled()) return routeWithUpstreamBehavior(target, upstreamCandidatePool);
+if (!reserve.enabled) return applyBandRungOrder(candidatePool, band);
+
+const narrowedPool = candidatePool
+  .map((candidate) => applyReserve(candidate, band))
+  .filter(Boolean);
+return applyBandRungOrder(narrowedPool, band);
 ```
+
+The syntax adapter remains active with `OMNIROUTE_AUTO_BANDS` off: it recognizes
+band IDs, maps them to the native category, preserves an explicitly requested
+tier, and leaves an omitted tier unset for the upstream default. In this mode,
+disable band quality/capability filters, custom band-only ordering, reserve
+calculations, and reserve account narrowing. When bands are enabled but
+`reserve.enabled` is false, retain static band behavior and skip all reserve
+calculations, source reads, refreshes, and diagnostics. Evaluate both gates
+before any reserve work.
 
 - Top band (`high`): `isReserved` is always false.
 - Single-connection candidate: reserved when its scope is reserved.
@@ -152,9 +181,12 @@ channels do not run this band-specific narrowing or ordering.
 
 ### Snapshot and refresh
 
-- One immutable in-memory snapshot: `{ builtAt, reserved: Map<band, Set<scopeKey>>, diagnostics }`.
-- Read synchronously. A read past `refreshMinutes` (default 10) starts one
-  background refresh; concurrent reads reuse it. No timer, no startup hook.
+- One immutable in-memory snapshot while enabled:
+  `{ builtAt, reserved: Map<band, Set<scopeKey>>, diagnostics }`.
+- With reserve enabled, read synchronously. A read past `refreshMinutes`
+  (default 10) starts one background refresh; concurrent reads reuse it. No
+  timer, no startup hook. With reserve disabled, do not read reserve sources,
+  calculate reserve state, refresh, or emit diagnostics.
 - Past `maxAgeMinutes` (default 60) the snapshot is ignored.
 - First requests after start see no reserve.
 
@@ -188,22 +220,25 @@ history, so its demand forecast is zero.
 - Community-tier Radar limits can be a month old; shipped baseline can be a
   release old. A wrong limit can only over- or under-reserve, never admit a paid
   model.
-- Three aggregate reads on `call_logs` per refresh. Mitigation: monthly axis can
-  be disabled; refresh interval is config; measure on production before enabling.
-- Reserve is fail-open when snapshot data is unavailable; production shadow
-  checks must confirm account-level narrowing uses the same connection IDs as
-  dispatch.
+- Aggregate reads on `call_logs` occur only during refresh while reserve is
+  enabled. Measure them against the production database before enabling.
+- Reserve is fail-open when snapshot data is unavailable; pre-enable checks
+  must confirm account-level narrowing uses the same connection IDs as dispatch.
 - Linear forecast lags a sudden demand change by up to the lookback.
 
 ## Migration Plan
 
-1. Deploy with `reserve.enabled: false`. Call the diagnostics once per refresh
-   interval in shadow mode and compare with real quota exhaustion events.
-2. Enable with `axes.live` only.
-3. Decide on Radar: enable `RADAR_ENABLED` and opt in to get `rpd`/`tpd`, or run
-   without and rely on live + monthly.
-4. Enable `axes.daily`, then `axes.monthly`.
-5. Rollback: `reserve.enabled: false`. Static bands keep working.
+1. Deploy with `reserve.enabled: false`. This performs no reserve calculation,
+   source reads, refresh, or diagnostics; static bands continue to work.
+2. Start reserve work only after explicitly setting `reserve.enabled: true`.
+   Active refresh diagnostics then describe the sources and scopes used.
+3. With Radar off, use live quota data and known shipped monthly catalog
+   values. Existing daily `rpd`/`tpd` handling remains unchanged.
+4. Rollback reserve by setting `reserve.enabled: false`; this stops reserve
+   reads, calculations, refreshes, diagnostics, and account narrowing. Setting
+   `OMNIROUTE_AUTO_BANDS` off disables quality/capability filters, custom band
+   ordering, and reserve narrowing. The syntax adapter still maps band IDs to
+   native categories, retains explicit tiers, and leaves omitted tiers unset.
 
 ## Deferred work
 

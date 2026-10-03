@@ -24,9 +24,17 @@ them gives a forecast-driven reserve without FMO and without combo rewrites.
 - The virtual-factory pool seam narrows a multi-account candidate's
   `allowedConnectionIds` to accounts not reserved for a higher band before the
   band-only rung order and dispatch; candidates with no remaining IDs are
-  removed. The seam does not run while `OMNIROUTE_AUTO_BANDS` is off.
+  removed. With `OMNIROUTE_AUTO_BANDS` off, the parser adapter still recognizes
+  band IDs, degrades them to the native category, and preserves an explicit
+  tier; omitted tiers remain unset for the upstream default. Quality/capability
+  filters, custom band ordering, and reserve narrowing are disabled.
 - Config block `reserve` in the bands config file; off by default.
-- Read-only diagnostics: exported snapshot and one log line per refresh.
+- While reserve is disabled, do no reserve calculations, source reads,
+  background refreshes, or diagnostics. Read-only diagnostics are available
+  only for a refresh started while reserve is explicitly enabled.
+- When bands are disabled, disable band quality/capability filters,
+  custom ordering, and reserve narrowing while retaining the approved syntax
+  adapter and upstream routing behavior.
 
 The catalog is read through `getRadarCatalog()`, which returns the shipped
 baseline when `RADAR_ENABLED` is off. The feature never triggers a Radar sync
@@ -44,4 +52,7 @@ and never writes Radar tables.
 - Reads (no writes): `call_logs`, `quota_snapshots`, Radar cache.
 - Behavior change only when both `OMNIROUTE_AUTO_BANDS` and `reserve.enabled`
   are on, and only for band channels below the top band.
+- A shared monthly catalog pool uses the maximum known positive
+  `monthlyTokens` value once per account, provider, and pool key. Missing and
+  zero values are unknown and do not create capacity.
 - Depends on: `add-auto-band-seam`, `add-auto-quality-band-filter`.

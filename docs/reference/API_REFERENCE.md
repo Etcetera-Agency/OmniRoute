@@ -25,6 +25,7 @@ For the focused OpenAI-compatible protocol and provider capability matrix, see
 - [List Models](#list-models)
 - [Provider Plugin Manifest](#provider-plugin-manifest)
 - [Compatibility Endpoints](#compatibility-endpoints)
+- [SystemOne Decisions](#systemone-decisions)
 - [Files API](#files-api)
 - [Batches API](#batches-api)
 - [Search API](#search-api)
@@ -608,6 +609,8 @@ Use this endpoint when a sidecar runs out-of-process and cannot import
 | POST   | `/v1/classify`                            | Jina classify (`api.jina.ai`)      |
 | POST   | `/v1/segment`                             | Jina segmenter (`segment.jina.ai`) |
 | POST   | `/v1/moderations`                         | OpenAI Moderations                 |
+| POST   | `/v1/systemone`                           | TypeSafe-compatible decisions      |
+| OPTIONS | `/v1/systemone`                          | Standard CORS preflight             |
 | GET    | `/v1/models`                              | OpenAI                             |
 | POST   | `/v1/models/query`                        | Filtered model shortlist           |
 | POST   | `/v1/messages/count_tokens`               | Anthropic                          |
@@ -621,7 +624,90 @@ Use this endpoint when a sidecar runs out-of-process and cannot import
 | POST   | `/api/v1/vscode/{token}/api/chat`         | Ollama tokenized alias             |
 | GET    | `/api/v1/vscode/{token}/api/tags`         | Ollama tags tokenized alias        |
 
-All POST routes follow the same shape: `Bearer your-api-key` + Zod-validated JSON body (`v1RerankSchema`, `v1ModerationSchema`, `v1AudioSpeechSchema`, etc., see `src/shared/validation/schemas.ts`). 4xx is returned on schema failure.
+Most POST routes use `Bearer your-api-key` and a Zod-validated JSON body. The SystemOne route has its own request schema, documented below. Invalid requests return a 4xx response.
+
+### SystemOne Decisions
+
+`POST /v1/systemone` accepts a TypeSafe/Laya decision request. The route is
+disabled unless `OMNIROUTE_SYSTEMONE=1` or `true`; while disabled it returns the
+same JSON `404` shape as an unknown `/v1/*` route. Configure one or more
+upstreams and their order in the [environment reference](ENVIRONMENT.md#28-systemone-decision-route).
+
+Authenticate with the usual OmniRoute client API key:
+
+```http
+POST /v1/systemone
+Authorization: Bearer <omniroute-api-key>
+Content-Type: application/json
+```
+
+The route applies the existing API-key model policy to
+`systemone/<requested-model>`; when `model` is omitted, the checked model is
+`systemone/auto`. If the API key has an `allowedModels` restriction, it must
+permit that checked model identifier. No separate key policy is introduced for
+this endpoint.
+
+Request body:
+
+```json
+{
+  "state": "State supplied by the caller",
+  "questions": {
+    "continue": {
+      "type": "noul",
+      "instructions": "Should the agent continue?"
+    }
+  },
+  "model": "auto"
+}
+```
+
+`state` may be a string, array, or object. `questions` must be a non-empty
+object. Each question requires a non-empty `instructions` string and `type`
+`choice`, `score`, or `noul`; `choice` and `score` also require `criteria`, whose
+contents are passed through without OmniRoute validation. Additional question
+fields also pass through unchanged. The optional `model` selects chain or
+pinned mode:
+
+| Request `model`                                   | Behavior                                                                                                                                        |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Omitted, `auto`, `systemone/auto`, or any `jev-*` | Try configured upstreams in configured order. A `jev-*` value is sent unchanged to TypeSafe; Laya and OpenRouter use their configured defaults. |
+| `laya` or `laya/<checkpoint>`                     | Pin Laya. `laya` uses its configured model, if any; the suffix pins one checkpoint.                                                             |
+| `typesafe/<id>`                                   | Pin TypeSafe and send `<id>` as its model.                                                                                                      |
+| `openrouter/<id>`                                 | Pin OpenRouter and send `<id>` as its model.                                                                                                    |
+
+Unknown model forms and pins to unconfigured upstreams return `400`. Only
+`state`, `questions`, and the selected outgoing `model` are sent upstream; other
+top-level request fields are not forwarded. If the feature is enabled but no
+configured upstream is selected, the route returns `503`; when none are
+configured, the error names the required environment variables. Malformed JSON, invalid question
+shapes, and unsupported model forms return `400` in the OmniRoute JSON error
+envelope; a request over the size limit returns `413`. The route intentionally
+does not apply the prompt-injection guard.
+
+The route reads at most 1 MiB plus one byte from the body stream, regardless of
+`Content-Length`. Bodies over 1 MiB return `413` without calling an upstream.
+`OPTIONS /v1/systemone` returns the standard OmniRoute CORS preflight response
+regardless of the feature flag and never calls an upstream.
+
+In chain mode, network errors, timeouts, `5xx`, `429`, `401`, and `403` move to
+the next configured upstream and place the failed upstream in cooldown. A Laya
+`413` or `422` also moves to the next upstream but does not start a cooldown.
+Other upstream `4xx` responses stop the chain. A `429` `Retry-After` value sets
+the cooldown up to four times the configured cooldown. When all chain attempts
+fail, the route returns `502` with the last upstream status in `error.details`.
+In pinned mode, there is one attempt: HTTP failures keep the upstream status and
+return a sanitized OmniRoute JSON error; transport errors return `502`.
+
+Successful responses contain a string `model`, an `answers` object, and
+`usage.input_tokens` / `usage.output_tokens` as numbers. Missing answer `type`
+values are filled from the matching question; missing usage counters become
+`0`. A missing Laya response model becomes `laya/<routing.model>`, or `laya`
+when Laya omits `routing`. Other upstream response fields pass through.
+Responses include OmniRoute meta headers and
+`X-OmniRoute-SystemOne-Attempts` (for example, `laya:503,typesafe:200`).
+`call_logs` stores one metadata row per upstream attempt, never the request or
+response body.
 
 For clients that cannot attach `Authorization: Bearer ...`, OmniRoute also accepts API keys in the URL via either query-string compatibility (`?token=...`, `?apiKey=...`, `?api_key=...`, `?key=...`) or the dedicated `/api/v1/vscode/{token}/...` endpoints documented below.
 

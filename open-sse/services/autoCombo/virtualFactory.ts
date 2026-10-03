@@ -46,7 +46,9 @@ import {
 } from "./subscriptionLadder";
 import {
   buildBandBillingPriority,
+  narrowCandidateConnections,
   orderBandPoolByThriftyRung,
+  parseBandCategory,
   type BandBillingPriority,
 } from "./bands";
 import {
@@ -1055,6 +1057,11 @@ export async function createVirtualAutoComboFromPrepared(
     }
   }
 
+  const parsedBand = parseBandCategory(spec?.category);
+  if (parsedBand) {
+    effectivePool = narrowCandidateConnections(effectivePool, parsedBand.band);
+  }
+
   // Subscription-first routing (`auto/subscription`, `auto/thrifty`). Applied
   // AFTER the category/tier narrowing above because, unlike every other tier,
   // these two select on the connection's billing class and its live quota
@@ -1089,10 +1096,8 @@ export async function createVirtualAutoComboFromPrepared(
     }
 
     if (spec.tier === "thrifty") {
-      // AICODE-NOTE: Snapshot the current post-filter account allowlist so the
-      // final selector can retain each account's billing rung without widening it.
-      // AICODE-TODO: Keep this snapshot below quota-reservation narrowing when
-      // that stage is wired into the virtual factory.
+      // AICODE-NOTE: Snapshot only post-reserve accounts so the final selector
+      // can retain each account's billing rung without widening the allowlist.
       const resolveBandRung = (candidate: VirtualAutoComboCandidate, connectionId: string) =>
         assignRung(
           candidate,

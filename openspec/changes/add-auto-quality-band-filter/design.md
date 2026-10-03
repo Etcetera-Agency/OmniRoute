@@ -180,9 +180,13 @@ daily. Off by default.
   the tier checks, so it only sees candidates that already passed the channel
   tier. Current thresholds do not bias the next ones.
 - **Calculation**, for every task on each run: resolve the fitness of every
-  observed model for that task (off the request path), then `c1`, `c2` = 33rd
-  and 67th percentile of distinct rated scores. Ranges: `low [0, c1+overlap]`,
-  `mid [c1−overlap, c2+overlap]`, `high [c2−overlap, 1]`.
+  observed model for that task (off the request path), take the distinct
+  numeric score values from rated models, and sort them ascending. Use nearest
+  observed score values: `c1 = scores[ceil(0.33*N)-1]` and
+  `c2 = scores[ceil(0.67*N)-1]`, where `N` is the number of distinct score
+  values. For `N=9`, the cut points are the third and seventh values. Ranges:
+  `low [0, c1+overlap]`, `mid [c1−overlap, c2+overlap]`,
+  `high [c2−overlap, 1]`.
 - **Guards**, per task; a failed guard keeps the previous ranges:
   - fewer than `minRatedModels` rated models observed;
   - any band would hold fewer than `minPerBand` models;

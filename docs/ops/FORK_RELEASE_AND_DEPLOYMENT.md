@@ -112,6 +112,57 @@ Take a durable database snapshot before any approved deployment. Perform build,
 startup, and migration checks against a separate consistent copy. Keep the
 production data mount unchanged during pre-promotion validation.
 
+## SystemOne decisions route rollout
+
+`/v1/systemone` is off by default. Keep `OMNIROUTE_SYSTEMONE` unset or set to
+`0` until a separately approved cutover; only `1` or `true` enables POST
+requests. With the flag off, POST returns the catch-all JSON `404` and makes no
+upstream call. The endpoint uses the existing client API-key policy, including
+the `systemone/<model>` scope check. See the [API contract](../reference/API_REFERENCE.md#systemone-decisions).
+
+Configure credentials in the verified service secret store, never in this
+guide or a committed `.env` file. Full variable names and source defaults are
+listed in the [environment reference](../reference/ENVIRONMENT.md#28-systemone-decision-route).
+
+| Upstream   | Required setting                                                       | Optional settings and defaults                                                                        |
+| ---------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Laya       | `OMNIROUTE_SYSTEMONE_LAYA_URL` (base URL; `/v1/systemone` is appended) | `OMNIROUTE_SYSTEMONE_LAYA_API_KEY` is optional; `OMNIROUTE_SYSTEMONE_LAYA_MODEL` is unset by default. |
+| TypeSafe   | `OMNIROUTE_SYSTEMONE_TYPESAFE_API_KEY`                                 | `OMNIROUTE_SYSTEMONE_TYPESAFE_MODEL=jev-latest` by default.                                           |
+| OpenRouter | `OMNIROUTE_SYSTEMONE_OPENROUTER_API_KEY`                               | `OMNIROUTE_SYSTEMONE_OPENROUTER_MODEL=typesafe/jev-1.13` by default.                                  |
+
+`OMNIROUTE_SYSTEMONE_ORDER` defaults to `laya,typesafe,openrouter`; only
+configured upstreams participate. `OMNIROUTE_SYSTEMONE_TIMEOUT_MS` defaults to
+`5000` and `OMNIROUTE_SYSTEMONE_COOLDOWN_MS` to `30000`. Keep the default order
+until live failover and latency checks are complete.
+
+### SystemOne cutover gates and rollback
+
+Before enabling the flag, verify in the production-like test instance that:
+
+- With the flag unset or `0`, POST returns the catch-all JSON `404` and makes
+  no upstream call.
+- A successful response, pinned request, chain fallback, timeout, oversized
+  request, and all-upstreams-failed case match the API contract.
+- `call_logs` has one metadata-only row per attempt. During rollout, inspect
+  rows for `path = /v1/systemone` and `provider = laya`, and compare failures
+  with `X-OmniRoute-SystemOne-Attempts` to confirm expected fallback/cooldown.
+- OpenRouter's live request and response shape has been verified before its key
+  is configured in production.
+
+Current SystemOne evidence remains incomplete: no upstream credentials or live
+provider calls were available. Russian/Ukrainian answer checks, Laya failure and
+oversized-state fallback, OpenRouter live-shape validation, `laya` error-row
+monitoring, and the 50-request direct-versus-OmniRoute latency comparison are
+pending. Record both latency medians before production promotion. A one-off
+rehearsal database-copy check passed; the Node 24 full build/start against that
+copy remains unverified.
+
+Rollback the route switch by unsetting `OMNIROUTE_SYSTEMONE` or setting it to
+`0` through the verified service configuration, then restart the application
+as required by that deployment mechanism. Verify that POST again returns the
+catch-all JSON `404` with no upstream call. Keep database recovery under the
+separately approved migration plan.
+
 ## Deploy tag and promotion
 
 Name each immutable fork deploy tag:
