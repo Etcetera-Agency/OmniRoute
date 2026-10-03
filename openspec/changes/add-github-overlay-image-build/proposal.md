@@ -1,7 +1,7 @@
 # Change: Build and Pull OmniRoute Overlay Image from GitHub
 
-**Status:** Approved for implementation under the user's main-only image-build
-and no-automatic-tests policy.
+**Status:** Approved for the measured builder-only Node heap correction after
+the first main image build failed.
 
 ## Why
 
@@ -10,7 +10,10 @@ The approved runtime keeps the upstream dashboard and overlays the fork's
 backend API. GitHub should produce that ARM64 image from the reviewed `main`
 revision, verify the actual container artifact, and publish only a candidate
 that passes those runtime checks. The server should pull the published image
-instead of compiling source.
+instead of compiling source. The first main run built the image backend but
+failed during `npm run build:backend` because the effective V8 old-space limit
+was about 1043 MiB. The correction sets a measured 12-GiB Node heap explicitly
+in the Docker builder stage only.
 
 ## What Changes
 
@@ -22,8 +25,10 @@ instead of compiling source.
 - On native `ubuntu-24.04-arm`, build the existing
   `docker/official-backend-overlay.Dockerfile` from the pinned official image
   `ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
-  Compile backend routes once, preserve the official UI, and load the
-  candidate locally. Do not run a unit-test gate as part of the image workflow.
+  Set builder-stage `NODE_OPTIONS=--max-old-space-size=12288` before
+  `npm run build:backend`; keep this setting out of the runtime stage. Compile
+  backend routes once, preserve the official UI, and load the candidate
+  locally. Do not run a unit-test gate as part of the image workflow.
 - Before GHCR authentication/publication, verify the built container artifact:
   ARM64 architecture and source/base metadata, native SQLite, health, direct
   UI API behavior, and byte-level official UI parity. The direct Next UI
@@ -59,8 +64,8 @@ instead of compiling source.
   `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
   artifact verifier and manually invoked focused tests.
 - `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: single
-  backend-only compile using the pinned official base, without an automatic
-  unit-test gate in the builder.
+  backend-only compile using the pinned official base and explicit 12288-MiB
+  builder-stage Node heap, without an automatic unit-test gate.
 - `docker-compose.yml` and `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md`: pull the
   fork `:main` image and document digest verification, no-build start, health
   checks, and rollback.
@@ -74,10 +79,14 @@ instead of compiling source.
 No automatic unit/static test suite runs on feature pushes, PRs, main pushes,
 or a schedule. The only automatic project workflow builds the main image and
 verifies the actual candidate container before publication. Code changes are
-reviewed manually; tests can be invoked for a specific task. The first actual
-image build happens after the reviewed PR reaches `main`; the image is not
-ready until that run succeeds. The server then pulls the main-built image
-instead of building on the VPS.
+reviewed manually; tests can be invoked for a specific task. PR #11 merged at
+`3a484460`, and first main workflow run `37124029642` failed after 4m17 during
+backend compilation with V8 old-space near 1043 MiB. A prior successful remote
+compile of the same backend used a 12-GiB heap and measured about 15.72 GB peak;
+the public ARM64 runner advertises 16 GB. The selected fix explicitly raises
+the builder-only heap to 12288 MiB. The next real main run must prove whether
+this fits; the heap setting does not guarantee a successful build. The server
+then pulls the main-built image instead of building on the VPS.
 
 Public runner hardware details do not guarantee this compiler fits. Preserve
 actual run evidence and do not add speculative resource caps.
@@ -106,11 +115,22 @@ settings; anonymous pull must succeed before server use.
 
 ## Risks and Open Gates
 
-- Review the runtime/spec PR manually before merge. Do not rely on automated
-  test or static-check statuses; automatic test/check workflows are disabled.
-- Verify the first actual native ARM64 image build and publication on `main`.
-  If it fails, retain logs and measured capacity evidence and prepare a
-  follow-up PR; do not infer success from runner specifications.
+- PR #11 was reviewed and merged at `3a484460`. The first main image run,
+  `37124029642`, failed after 4m17 in `npm run build:backend`: V8 reported
+  repeated ineffective mark-compacts and allocation failure at an effective
+  old-space limit of about 1043 MiB. No image was published. The Dockerfile
+  currently has no `NODE_OPTIONS`; build helper code supplies 8192 only when
+  no option is inherited, so the official base's inherited setting prevailed.
+- Set `NODE_OPTIONS=--max-old-space-size=12288` in the builder stage before
+  `npm run build:backend`; do not apply it to the runtime stage or change shared
+  build helpers. This matches a prior successful remote compile of the same
+  backend at 12 GiB heap (about 15.72 GB measured peak) against the public
+  runner's stated 16 GB. The failed runner's RSS/cgroup peak and Node version
+  were not measured. Rerun the image workflow on main after the manually
+  reviewed correction PR; do not treat the setting as proof of fit.
+- Verify public package access, anonymous server pull, digest, container
+  health, native SQLite, dashboard/API behavior, and rollback before closing
+  the production image transition.
 - Verify public package access, anonymous server pull, digest, container
   health, native SQLite, dashboard/API behavior, and rollback before closing
   the production image transition.
