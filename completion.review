@@ -189,22 +189,36 @@ report.
   cgroup OOM event at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds
   and builder memory peaked at 9.999/10 GiB. Kernel evidence showed one Node
   MainThread at 10,220,928 KiB anonymous RSS and 0 file RSS; cgroup memory was
-  10,665,197,568 bytes anonymous and about 1 MiB file-backed. This indicates
-  anonymous Node memory pressure, with small parent processes rather than
-  multiple heavy workers or file-cache pressure. Read-only local configuration
+  10,665,197,568 bytes anonymous and about 1 MiB file-backed. Local read-only
   diagnosis found `webpackBuildWorker=1`, `webpackMemoryOptimizations=true`,
-  and Next filesystem cache `maxMemoryGenerations=Infinity`; CPU/page-worker
-  settings are already minimal. A candidate `maxMemoryGenerations=0` cap would
-  retain disk cache and full UI behavior but may reduce build speed; it is not
-  implemented or tested. The user decision whether this policy applies to all
-  production builds or is opt-in remains pending; do not amend the spec or
-  implement before it is resolved. Afterward, run syntax/native/runtime checks,
-  a full 10-GiB, CPU 1, 15-minute exact-SHA build, and isolated runtime-copy/
-  migration acceptance. No fifth build is approved or launched. No image,
-  start, cutover, or migration resulted. The earlier isolated 1.119-GB
-  npm download cache was removed; the 4.242-GB cache layer was preserved and
-  reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
-  Resource readiness and deployment remain open.
+  and filesystem-cache `maxMemoryGenerations=Infinity`; CPU/page-worker settings
+  are already minimal. The deployed [Docker Guide](docs/guides/DOCKER_GUIDE.md)
+  records the old f2 full-UI Node 26 webpack `runner-base` build passing with
+  heap 6144 MiB and two workers at 12 GiB (11.1-GiB peak); 8 GiB failed. Retry
+  5 reproduced the profile on staged db18 and OOMed; the old result is
+  version-specific. Webpack documents that `maxMemoryGenerations=0` disables
+  additional memory-cache generations but retains data until disk serialization;
+  it does not bound the live compiler object graph and cannot guarantee a
+  12-GiB fit ([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
+  The candidate remains unapproved. The default-versus-opt-in policy decision
+  must be resolved before spec amendment or source change. Retry 5 for the exact staged SHA ran 07:44:15–07:55:48 UTC. After the
+  approved OmniRoute-only stop, post-stop guards passed at 14.741 GiB RAM and
+  25.519 GiB disk; the read-only watcher dry run passed. The pinned Node 26
+  Compose `runner-base` build used a 12-GiB total cap, cpuset 0, pids 512, heap
+  6144 MiB, two workers, and `OMNIROUTE_USE_TURBOPACK=0`, with an 840-second
+  timeout. A new cgroup OOM occurred at 07:55:44 UTC; the Next worker was
+  SIGKILLed at 687.8 seconds and the build exited 1 at 07:55:48 UTC with no
+  candidate image. The 900-second restoration watchdog remained active until
+  the exact prior f2 container returned healthy at 07:56:19 UTC. OmniRoute was
+  unavailable for 12m04s; Redis remained healthy and no DB/Radar changes or
+  cutover occurred. The historical f2 12-GiB pass does not carry over to staged
+  db18. The unimplemented filesystem-cache cap (`maxMemoryGenerations=0`) is a
+  candidate; default-versus-opt-in policy remains unresolved, with no source
+  change. After that decision and an approved implementation, verify syntax,
+  native/runtime behavior, the exact full image, and isolated runtime-copy/
+  migration acceptance. Production remains at
+  `f2bddef27ed0807dd5a5e2712bc26536edda8138`; deployment and live validation
+  gates remain open.
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
   test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
   small request; collect 50-request direct/proxy latency; verify allowed-model

@@ -103,6 +103,18 @@ Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` a
 
 A third diagnostic build launched at 03:49:15 UTC after its disk and memory preflight passed, but the watcher canceled it at 03:58:53 UTC after misclassifying an approved 9.5-GiB same-container update as a builder replacement. It exited as `CANCELED` / `context canceled`, not OOM. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. Retry 4 used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The earlier isolated 1.119-GB npm download cache was removed; the 4.242-GB existing npm cache layer was preserved and reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`; no production database or service change occurred. Do not treat either migration rehearsal as a build or startup pass. Production remains gated on a successful bounded Node 26 build/start for the exact reviewed release commit.
 
+A later full-UI Node 26 `runner-base` reproduction used the documented
+12-GiB profile on the staged exact SHA: heap 6144 MiB, two workers, and
+`OMNIROUTE_USE_TURBOPACK=0`. Post-stop resource guards passed, but a cgroup OOM
+occurred at 07:55:44 UTC; the Next worker was SIGKILLed at 687.8 seconds and the
+build exited 1 at 07:55:48 UTC without an image. The restoration watchdog
+returned the old f2 container to healthy at 07:56:19 UTC after a 12m04s
+OmniRoute-only outage. Redis remained healthy; no production DB/Radar changes or
+cutover occurred. The old f2 revision passed the same 12-GiB profile, but staged
+db18 did not. The proposed `maxMemoryGenerations=0` setting disables additional
+memory-cache generations but does not bound the live compiler object graph, so
+it cannot guarantee a 12-GiB fit ([Webpack cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)). Its default-versus-opt-in scope is awaiting user decision; no implementation has been made. Production migration remains gated on a successful exact-SHA build/start against a fresh isolated copy.
+
 ## Production closeout
 
 After the successful exact-commit build/start gate and the authorized one-time production repair, retain the pre-change backup according to the production retention policy. Confirm the repaired ledger and upstream postconditions using aggregate queries, then start OmniRoute once and verify a second read-only migration-status check reports zero pending migrations. Keep the authorization reference, backup, migration summary, and integrity result in the protected operations record; do not copy database contents into this repository.
