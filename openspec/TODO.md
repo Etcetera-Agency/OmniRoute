@@ -4,21 +4,24 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## GitHub overlay-image build
 
-- PR #11 merged at `3a484460`. Only the fork image workflow is active, on a
+- PR #11 merged at `3a484460`, then builder-only heap correction PR #12 merged
+  at `a06fcfb3`. Only the fork image workflow is active, on a
   main push or manual exact-main dispatch. It verifies the built container
   before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests are invoked manually for a specific task. The first
-  post-merge image run failed; a builder-only heap correction and follow-up PR
-  are required before publishing an image.
+  schedule. Tests are invoked manually for a specific task. Both main image
+  runs failed before publication; builder-only heap correction PR #12 is
+  merged. Read-only diagnosis of the second failure selected builder-only
+  `NODE_ENV=production` after `npm ci`; this correction is implemented on the
+  follow-up branch but has not reached main. Next main build remains open.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
   review found no correctness findings. Code Simplifier reviewed the final
   trigger/job policy and test-gate removal; no further simplification was
   needed. OpenSpec validation passes strictly (7/7). These manual test and
-  audit results preceded the heap correction; no successful image publication
-  or production change has occurred.
+  audit results preceded the builder environment corrections. No local image
+  build, successful main publication, or production change has occurred.
 - First main image run `37124029642` failed after 4m17 in
   `npm run build:backend` with repeated V8 ineffective mark-compacts and
   allocation failure at an effective old-space limit near 1043 MiB. No image
@@ -26,14 +29,27 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   defaults to 8192 when no option is inherited, so the official base's
   inherited option prevailed. The failed run has no process RSS/cgroup peak or
   Node-version measurement; do not claim those values.
-- Correct the builder only: set
+- The first-run correction set the builder only to
   `NODE_OPTIONS=--max-old-space-size=12288` in the backend build stage before
   `npm run build:backend`. Do not change the shared helper or final runtime
   stage. This matches a prior successful remote compile of the same backend
   with a 12-GiB heap and about 15.72-GB measured peak, against the public ARM64
   runner's stated 16 GB. The next main image run must verify whether it fits;
-  this setting is not a guarantee. Merge the manually reviewed follow-up PR,
-  then rerun the main image workflow.
+  this setting is not a guarantee. PR #12 contains this adjustment.
+- Second main image run `37125217705`, after PR #12, failed after 6m18 while
+  prerendering `/_global-error`. Next reported
+  `TypeError: Cannot read properties of null (reading 'use')`, then
+  `Export encountered an error on /_global-error/page`; the Next worker exited
+  1 at about 214.4 seconds. The prior V8 heap-limit error did not recur. The
+  workflow did not log in to GHCR or publish an image. Read-only diagnosis
+  found that the Dockerfile set `NODE_ENV=development` for `npm ci` and left it
+  set during backend compilation; the installed Next CLI preserved it, and
+  build logs showed React development warnings. The exact minified callsite was
+  not isolated. Selected correction: set builder-only
+  `NODE_ENV=production` after `npm ci` and before `npm run build:backend`; the
+  fresh runtime stage remains unchanged. This corrects observed build state
+  without claiming the exact null-`use` callsite is known. Keep the next main
+  build and artifact gate open.
 - On GitHub, keep the auxiliary `api-route-typecheck.yml`,
   `test-quarantine.yml`, and `release-acceptance.yml` workflows manual-only.
   Keep all remaining routine check workflows disabled in repository settings;
@@ -49,9 +65,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   run `37121831856` had completed before its workflow was disabled. The merged
   source YAML makes the three auxiliary workflows manual-only. Preserve this
   settings state after every upstream sync; do not enable unrelated workflows.
-- The first actual native ARM64 main build has run and failed as described
-  above. The next run after the builder-only heap fix must pass container
-  acceptance and publish before an image is considered ready.
+- Both main image runs so far failed before publication. Merge the selected
+  builder environment correction, then pass the next native main build and
+  container acceptance before any image is considered ready.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in
@@ -77,11 +93,11 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 - Fresh main archive is pushed and verified: `archive/main-before-main-image-pr-2026-10-03` points to `f2bddef27ed0807dd5a5e2712bc26536edda8138`; `main` remained at that SHA through the pre-integration fetch. The feature records this `main` history with an ours-strategy merge, preserving the reviewed upstream-aligned source tree; the broad upstream delta and retired fork behavior are described in the PR. Do not restore old fork behavior without an explicit reviewed requirement.
 - Pre-PR audit completed against current `main` `f2bddef27ed0807dd5a5e2712bc26536edda8138`, pre-integration feature `11a54874b7e236df5935e54f17a7ffcb5564d88d`, and deployed runtime `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree intentionally follows official OmniRoute upstream v3.8.52 (`23a11484862b3bb589a55e85b00e4ac53ffeb234`). Its PR diff against `main` is intentionally broad: 17,350 paths (+4,914,997/-536,172), replacing the stale fork tree with the upstream-aligned source plus reviewed overlays. Against the selected upstream release, the overlay is 88 paths (+16,137/-151). Inventory found no generated build/cache/dependency outputs; environment files are examples, and no private-key, certificate, or database artifacts were found. All 98 tracked blobs larger than 1,000,000 bytes are byte-identical to the upstream release. The tree retires legacy fork-only web-fetch/search/routing/FMO behavior. Do not restore old fork behavior without an explicit reviewed requirement.
 - GitHub settings were checked read-only: Actions are enabled, all actions are allowed, and the default workflow token permission is write. The image workflow declares scoped permissions. Neither branch protection nor repository/inherited rulesets are configured for `main`; perform manual PR review before merge. No GHCR package exists yet; after first publish, set it public in GitHub Packages UI and verify anonymous pull. GitHub exposes no package-visibility REST or GraphQL mutation; public visibility cannot be reverted to private.
-- If the first hosted build fails, preserve exact logs and measured resource/
-  disk evidence before preparing a capacity fix through a follow-up PR. Do not
-  invent memory, swap, process, disk, or build-time limits. Reverify upstream
-  provenance and overlay compatibility whenever the official base digest
-  changes.
+- For any later hosted-build failure, preserve exact logs and measured
+  resource/disk evidence before scoping a correction through a follow-up PR.
+  Do not invent memory, swap, process, disk, or build-time limits. Reverify
+  upstream provenance and overlay compatibility whenever the official base
+  digest changes.
 - Automated production deployment is a separate future scope. Record its
   design and selected target in a separate OpenSpec package before adding it.
 

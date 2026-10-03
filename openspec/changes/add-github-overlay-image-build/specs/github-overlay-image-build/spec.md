@@ -71,14 +71,18 @@ and runtime, and load one `linux/arm64` candidate. The image workflow and
 Docker builder SHALL NOT run unit, general, or static test gates. They SHALL
 NOT use QEMU, a paid larger runner, or a self-hosted runner. Before
 `npm run build:backend`, the Docker builder SHALL set
+`NODE_ENV=production` after `npm ci` and SHALL set
 `NODE_OPTIONS=--max-old-space-size=12288` in the builder stage only. The
-runtime stage SHALL not inherit this build-only setting.
+runtime stage SHALL start from a fresh pinned-base stage and SHALL NOT copy
+the builder-stage overrides into runtime configuration.
 
 #### Scenario: Main candidate build
 
 - **GIVEN** a checked-out canonical main commit and the pinned official base
 - **WHEN** the image builder creates its candidate
-- **THEN** it sets builder-stage `NODE_OPTIONS=--max-old-space-size=12288`
+- **THEN** it runs `npm ci` before changing the build environment
+- **AND** it sets builder-stage `NODE_ENV=production` and
+  `NODE_OPTIONS=--max-old-space-size=12288` before backend compilation
 - **AND** it performs one backend-only compilation without invoking unit-test
   commands
 - **AND** the candidate retains the official dashboard, static files, and
@@ -93,6 +97,23 @@ runtime stage SHALL not inherit this build-only setting.
 - **THEN** the explicit builder-stage 12288-MiB value overrides the inherited
   option for this compile
 - **AND** no Node heap override is added to the final runtime stage
+
+#### Scenario: Builder leaves dependency-install development mode set
+
+- **GIVEN** the Dockerfile sets `NODE_ENV=development` for `npm ci`
+- **AND** `npm ci` has completed with its original environment
+- **WHEN** the builder runs `npm run build:backend`
+- **THEN** the compiler sees `NODE_ENV=production`
+- **AND** this environment setting remains confined to the builder stage
+
+The second main build `37125217705` failed during `/_global-error` prerender
+with `TypeError: Cannot read properties of null (reading 'use')` and a Next
+worker exit. Read-only diagnosis found the Dockerfile's development environment
+setting for `npm ci` persisted through dependency installation and was
+preserved by the installed Next CLI; the build log also showed React development warnings. The exact
+minified callsite was not isolated. The selected builder-only production-mode
+setting is a testable correction to that observed state; the next main build
+must pass before the image gate closes.
 
 #### Scenario: Cache unavailable
 
