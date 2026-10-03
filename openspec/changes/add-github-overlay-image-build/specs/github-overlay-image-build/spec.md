@@ -69,17 +69,30 @@ The image workflow SHALL use native `ubuntu-24.04-arm` and
 It SHALL compile backend routes exactly once, preserve the official dashboard
 and runtime, and load one `linux/arm64` candidate. The image workflow and
 Docker builder SHALL NOT run unit, general, or static test gates. They SHALL
-NOT use QEMU, a paid larger runner, or a self-hosted runner.
+NOT use QEMU, a paid larger runner, or a self-hosted runner. Before
+`npm run build:backend`, the Docker builder SHALL set
+`NODE_OPTIONS=--max-old-space-size=12288` in the builder stage only. The
+runtime stage SHALL not inherit this build-only setting.
 
 #### Scenario: Main candidate build
 
 - **GIVEN** a checked-out canonical main commit and the pinned official base
 - **WHEN** the image builder creates its candidate
-- **THEN** it performs one backend-only compilation without invoking unit-test
+- **THEN** it sets builder-stage `NODE_OPTIONS=--max-old-space-size=12288`
+- **AND** it performs one backend-only compilation without invoking unit-test
   commands
 - **AND** the candidate retains the official dashboard, static files, and
   runtime configuration
 - **AND** one local candidate is loaded for artifact verification
+
+#### Scenario: Base image has an inherited Node heap setting
+
+- **GIVEN** the official base provides an inherited `NODE_OPTIONS` value and
+  the first main build reached an effective V8 old-space limit near 1043 MiB
+- **WHEN** the builder runs `npm run build:backend`
+- **THEN** the explicit builder-stage 12288-MiB value overrides the inherited
+  option for this compile
+- **AND** no Node heap override is added to the final runtime stage
 
 #### Scenario: Cache unavailable
 

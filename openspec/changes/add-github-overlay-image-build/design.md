@@ -36,6 +36,8 @@ or workflow_dispatch where ref == refs/heads/main:
     grant the image job contents:read
     checkout the triggering main commit
     build one linux/arm64 candidate from the pinned official base
+    in the backend builder stage, set NODE_OPTIONS=--max-old-space-size=12288
+    before npm run build:backend; do not export this to the runtime stage
     compile backend routes exactly once; do not run unit-test commands
     load the candidate locally
     inspect candidate architecture and OCI source/revision/base labels
@@ -92,6 +94,26 @@ authentication:
 Any failed artifact check stops before GHCR login or publication. The verifier
 must not contact production data or credentials. Capacity must be based on
 actual run evidence, not inferred from runner specifications.
+
+## First main build failure and correction
+
+PR #11 merged at `3a484460`. First main workflow run `37124029642` failed
+after 4 minutes 17 seconds in `npm run build:backend`. Its V8 GC output showed
+repeated ineffective mark-compacts and allocation failure at an effective
+old-space limit of approximately 1043 MiB. No image was published. The
+Dockerfile had no `NODE_OPTIONS`; the build helper sets 8192 only when no
+option is inherited, so the official base's existing setting took precedence.
+
+Set `ENV NODE_OPTIONS=--max-old-space-size=12288` in the Docker builder stage
+before the backend compiler. Keep this environment override out of the runtime
+stage and do not change the shared build helper. The chosen 12288-MiB heap is
+grounded in a prior successful remote compile of the same backend using a
+12-GiB heap with approximately 15.72 GB measured peak, and the public
+`ubuntu-24.04-arm` runner's stated 16 GB. The failed run did not measure process
+RSS, cgroup peak, or Node version; do not claim those values. Treat the next
+main workflow run as the acceptance test of this correction. If it fails,
+retain its evidence and make a further narrowly scoped, manually reviewed PR;
+do not claim the heap setting guarantees a fit.
 
 ## Review and server acceptance
 

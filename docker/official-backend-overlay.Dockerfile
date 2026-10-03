@@ -36,6 +36,10 @@ RUN test -f package-lock.json \
 
 COPY . ./
 
+# AICODE-NOTE: build-next-isolated preserves inherited NODE_OPTIONS.
+# Keep the 12-GiB override in backend-builder only.
+ENV NODE_OPTIONS=--max-old-space-size=12288
+
 RUN mkdir -p /app/data \
   && npm run build:backend \
   && test -s /app/.build/backend-overlay/server/app-paths-manifest.json \
