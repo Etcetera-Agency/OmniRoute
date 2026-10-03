@@ -127,45 +127,56 @@ The 900-second restoration watchdog recovered the old f2 container, healthy at
 Radar, and cutover were untouched. The old f2 12-GiB pass does not apply to
 staged db18. User decision: apply production `cache.maxMemoryGenerations=0`
 constantly, with no feature flag. The owner implemented and reviewed it in this
-feature-branch publication; the production callback smoke and `node --check`
-passed, but full-build acceptance remains pending. This disables additional memory-cache generations but
+source commit `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; the production
+callback smoke and `node --check` passed, but full-image acceptance remains pending. This disables additional memory-cache generations but
 does not bound the live compiler object graph, so it cannot guarantee a
 12-GiB fit ([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
 Next 16.3.5 sets production `Infinity` before the custom callback; verify after
 each framework upgrade that the callback reapplies `0`. Keep build/start,
 isolated-migration, cutover, and live-validation gates open.
 
-The next rollout plan follows the latest user direction: hold the full-UI
-rebuild. The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base image
-for upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` was pulled and
-inspected at digest
-`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
-its SLSA attestation binds it to the exact source revision. Native-architecture
-query passed; inspection found Node 26.10.0, Next 16.3.5, `better-sqlite3`
-13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app payload, and 1,089
-static assets. OCI revision/version labels are absent, so use the attestation
-for source identity. This was base-image inspection only: no app overlay image
-has been built; production f2 and Redis remained healthy without outage or
-DB/Radar changes. Resolver analysis confirms `getMaybePagePath()` reads absolute
-route paths from `.next/server/app-paths-manifest.json` and `requirePage()` loads
-them directly. The selected overlay will compile API route bundles in isolation,
-include their required relative `server/chunks`, and merge only API keys into the
-official image manifest while preserving its existing UI entries and assets. The
-overlay implementation, image build, and runtime smoke remain pending. The
-reviewed cache-setting implementation and focused OpenSpec are included in this
-publication; full-build acceptance remains pending. Do
-not stop production or launch an app build until the overlay is ready. Then build
-and start the exact candidate against a fresh isolated database copy, verify
-migrations, and only then proceed to the already-authorized production migration
-and cutover.
+### Backend-overlay rollout status
 
+The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base for upstream
+commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` passed native-architecture and filesystem inspection at digest
+`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`. Its SLSA attestation binds the source revision; OCI revision/version
+labels are absent. The inspected base contains Node 26.10.0, Next 16.3.5,
+`better-sqlite3` 13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app
+payload, and 1,089 static assets. The image is a verified base only.
+
+The isolated backend overlay preserves the base UI: Next 16.3.5's resolver
+loads route paths directly from the app-path manifest, so the overlay carries
+its API route bundles and relative server chunks and merges only API entries.
+Three focused tests pass and independent review found no defects. Target-host
+Dockerfile parser/BuildKit validation remains pending because local `buildx
+--check` could not reach the Docker socket. The overlay is source-reviewed but
+no app image has been produced.
+
+The user-approved full-duration maintenance stopped only OmniRoute at
+08:51:37 UTC. Backend export for source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` began at 08:51:38 UTC and
+passed the long compile warnings; the compile phase finished at 09:04:10 UTC,
+while artifact export remained pending. At 09:09:38 UTC, step 19 still showed 38.3 MB being written and zero new route filenames; export remained pending and no artifact was verified. Resource metrics below are from 09:00:10 UTC. The builder has no memory/swap/PID cgroup caps, CPU affinity 0–3,
+and OOM score adjustment +1000 only on builder-owned processes. At that sample,
+cgroup usage had peaked at 15.72 GB and was down to 4.69 GB; host
+`MemAvailable` was 14.06 GiB, swap free 3.53 GiB, and disk free 21.3 GB. No OOM
+or failure was reported. The planned output path does not prove export completion.
+
+Production source/container remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`. OmniRoute was restored to the exact f2 container and healthy at 09:06:31 UTC after 14m54s. No candidate image, candidate runtime smoke, isolated-copy migration, cutover, Radar update, or live validation is reported. After
+export, validate the Dockerfile on the target, build/inspect the linux/arm64
+image, verify stock-UI manifest/assets parity, test SystemOne and band API routes
+plus ordinary UI, then run against a fresh isolated DB copy and verify migration
+and startup/rollback. Only then complete the already-authorized production
+migration/cutover and post-deploy Radar, calibration, routing, reserve, and
+SystemOne checks. Revalidate the upstream image digest/attestation on each Next
+upgrade. Keep deployment and live gates open.
 The successful-chat
 `call_logs.combo_name` check, public Radar sync/cache check, real-catalog
 calibration, and reserve live-read validation are also pending. The active
 production source/container is at
-`f2bddef27ed0807dd5a5e2712bc26536edda8138`. The separate staged deployment
-target is `db18a17c374506941d10fbc58132eb108d1ea5db`; it is not live. Verify
-both full SHAs against the host before cutover. No live deployment or
+`f2bddef27ed0807dd5a5e2712bc26536edda8138`. The current staged source is
+`4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; its compile phase finished at
+09:04:10 UTC, but artifact export remains pending. It is not live. Verify both
+full SHAs against the host before cutover. No live deployment or
 production ledger repair has yet been recorded here.
 
 ## Production database migration gate
@@ -190,13 +201,16 @@ directory `/opt/apps/omniroute/data` is mounted at `/app/data`; SQLite is stored
 at `/app/data/storage.sqlite` inside the application environment.
 
 The production source checkout `/opt/apps/omniroute/source` and its Git
-metadata were verified present and clean. The active production
-source/container is `f2bddef27ed0807dd5a5e2712bc26536edda8138`; the separate
-staged deployment target is `db18a17c374506941d10fbc58132eb108d1ea5db`. These
-SHAs are distinct: the staged target is not live. Before cutover, verify the
-live service/container definition, staged exact commit and image, runtime
-version, and data mount; record them in the deployment record. Keep the last
-known rollback image and database backup intact.
+metadata were verified present and clean. The production source/rollback
+version is `f2bddef27ed0807dd5a5e2712bc26536edda8138`; OmniRoute was restored
+to this exact f2 container and healthy at 09:06:31 UTC after 14m54s. The current staged source is
+`4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`, whose compile phase finished at 09:04:10 UTC but artifact export remains
+pending (step 19 still showed 38.3 MB being written and zero new route filenames at 09:09:38 UTC). The staged source is not
+live, and no candidate image is verified.
+Before cutover, verify the live service/container definition, staged exact
+commit and image digest, runtime version, and data mount; record them in the
+deployment record. Keep the last known rollback image and database backup
+intact.
 
 Take a durable database snapshot before deployment. Perform build,
 startup, and migration checks against a separate consistent copy. Keep the
