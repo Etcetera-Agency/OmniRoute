@@ -7,7 +7,7 @@ lastUpdated: 2026-10-03
 
 This runbook covers the one-time ledger repair needed when the fork's FMO migrations share numeric ledger slots with upstream migrations 164–166. It records a copy-only rehearsal against upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` (`release/v3.8.52`). It does not add runtime compatibility behavior.
 
-The rehearsal passed database initialization and migration checks on an isolated, consistent database copy. It did not modify the live database or restart the live service. The separate Node 24 Next.js build did not complete, so it is not a build/start pass. Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` failed from memory pressure: attempt 1 reported builder `OOM=true`; attempt 2 exhausted the V8 heap near 4066 MB and aborted with `SIGABRT`, without a new cgroup OOM event. Attempt 3 (03:49:15–03:58:53 UTC) exited 1 as `CANCELED` / `context canceled`, not OOM. The watcher incorrectly treated an approved 9.5-GiB same-container update as a replacement because it expected exactly 9 GiB, then canceled the build. No attempt produced an image or ran cutover/migration. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. It used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. Preserve 2-GiB host and 14-GiB disk hard floors. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`, with no database or service changes. The exact reviewed release still needs a successful Node 26 build/start against a fresh isolated copy. Node 24 remains a separate portability baseline, not a production-runtime requirement. The user has authorized this production ledger repair; execute it only after successful exact-commit build/start and a fresh verified backup.
+The rehearsal passed database initialization and migration checks on an isolated, consistent database copy. It did not modify the live database or restart the live service. The separate Node 24 Next.js build did not complete, so it is not a build/start pass. Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` failed from memory pressure: attempt 1 reported builder `OOM=true`; attempt 2 exhausted the V8 heap near 4066 MB and aborted with `SIGABRT`, without a new cgroup OOM event. Attempt 3 (03:49:15–03:58:53 UTC) exited 1 as `CANCELED` / `context canceled`, not OOM. The watcher incorrectly treated an approved 9.5-GiB same-container update as a replacement because it expected exactly 9 GiB, then canceled the build. No attempt produced an image or ran cutover/migration. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. It used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The 2-GiB host and 14-GiB disk floors above describe historical attempts only; they are not requirements for the next build. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`, with no database or service changes. The exact reviewed release still needs a successful Node 26 build/start against a fresh isolated copy. Node 24 remains a separate portability baseline, not a production-runtime requirement. The user has authorized this production ledger repair; execute it only after successful exact-commit build/start and a fresh verified backup.
 
 ## Collision and repair
 
@@ -101,7 +101,7 @@ The database runner used an isolated container with `--network none`, a read-onl
 
 Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` also failed. Attempt 1 ran 02:57:04–03:08:36 UTC with a 7-GiB total RAM/swap bound, cpuset 0, and pids limit 512; `npm run build` exited 1 at webpack step 19 and builder inspection reported `OOM=true`. Logs and diagnostics were retained. Attempt 2 ran 03:26:10–03:34:11 UTC with heap limit 4096 MiB, the same 7-GiB total RAM/swap bound, cpuset 0, pids limit 512, and cached dependencies. It exited 1 after V8 heap exhaustion near 4066 MB and `SIGABRT`; no new cgroup OOM event was recorded. Retry logs and events were retained. Neither attempt produced an image or ran production cutover/migration; the production source/container remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
 
-A third diagnostic build launched at 03:49:15 UTC after its disk and memory preflight passed, but the watcher canceled it at 03:58:53 UTC after misclassifying an approved 9.5-GiB same-container update as a builder replacement. It exited as `CANCELED` / `context canceled`, not OOM. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. Retry 4 used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The earlier isolated 1.119-GB npm download cache was removed; the 4.242-GB existing npm cache layer was preserved and reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`; no production database or service change occurred. Do not treat either migration rehearsal as a build or startup pass. Production remains gated on a successful bounded Node 26 build/start for the exact reviewed release commit.
+A third diagnostic build launched at 03:49:15 UTC after its disk and memory preflight passed, but the watcher canceled it at 03:58:53 UTC after misclassifying an approved 9.5-GiB same-container update as a builder replacement. It exited as `CANCELED` / `context canceled`, not OOM. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. Retry 4 used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The earlier isolated 1.119-GB npm download cache was removed; the 4.242-GB existing npm cache layer was preserved and reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`; no production database or service change occurred. Do not treat either migration rehearsal as a build or startup pass. Production remains gated on a successful exact-SHA Node 26 build/start using the planned next-run profile below.
 
 A later full-UI Node 26 `runner-base` reproduction used the documented
 12-GiB profile on the staged exact SHA: heap 6144 MiB, two workers, and
@@ -111,9 +111,41 @@ build exited 1 at 07:55:48 UTC without an image. The restoration watchdog
 returned the old f2 container to healthy at 07:56:19 UTC after a 12m04s
 OmniRoute-only outage. Redis remained healthy; no production DB/Radar changes or
 cutover occurred. The old f2 revision passed the same 12-GiB profile, but staged
-db18 did not. The proposed `maxMemoryGenerations=0` setting disables additional
-memory-cache generations but does not bound the live compiler object graph, so
-it cannot guarantee a 12-GiB fit ([Webpack cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)). Its default-versus-opt-in scope is awaiting user decision; no implementation has been made. Production migration remains gated on a successful exact-SHA build/start against a fresh isolated copy.
+db18 did not. User decision is to set production `cache.maxMemoryGenerations=0`
+constantly without a feature flag; the owner implemented and reviewed it in this
+feature-branch publication. The production callback smoke and `node --check`
+passed, but full-build acceptance remains pending. The setting disables additional memory-cache
+generations but does not bound the live compiler object graph, so it cannot
+guarantee a 12-GiB fit ([Webpack cache
+docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
+Next 16.3.5 sets production `Infinity` before the custom callback; reverify that
+the callback reapplies `0` after each framework upgrade. Production migration
+remains gated on a successful exact-SHA build/start against a fresh isolated
+copy.
+
+The next rollout plan follows the latest user direction: hold the full-UI
+rebuild. The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base image
+for upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` was pulled and
+inspected at digest
+`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
+its SLSA attestation binds it to the exact source revision. Native-architecture
+query passed; inspection found Node 26.10.0, Next 16.3.5, `better-sqlite3`
+13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app payload, and 1,089
+static assets. OCI revision/version labels are absent, so use the attestation
+for source identity. This was base-image inspection only: no app overlay image
+has been built; production f2 and Redis remained healthy without outage or
+DB/Radar changes. Resolver analysis confirms `getMaybePagePath()` reads absolute
+route paths from `.next/server/app-paths-manifest.json` and `requirePage()` loads
+them directly. The selected overlay will compile API route bundles in isolation,
+include their required relative `server/chunks`, and merge only API keys into the
+official image manifest while preserving its existing UI entries and assets. The
+overlay implementation, image build, and runtime smoke remain pending. The
+reviewed cache-setting implementation and focused OpenSpec are included in this
+publication; full-build acceptance remains pending. Do
+not stop production or launch an app build until the overlay is ready. Then build
+and start the exact candidate against a fresh isolated database copy, verify
+migrations, and only then proceed to the already-authorized production migration
+and cutover.
 
 ## Production closeout
 
