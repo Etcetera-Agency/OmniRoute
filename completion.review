@@ -168,15 +168,36 @@ report.
   as a full stop.
 - Production uses the reviewed stock Node 26 Dockerfile; `package.json`
   supports `>=24 <27`. Node 24 portability remains a separate unchecked
-  OpenSpec baseline, not a production-runtime blocker. The staged target
-  `db18a17c374506941d10fbc58132eb108d1ea5db` build ran 02:57:04–03:08:36 UTC
-  with a 7-GiB total RAM/swap bound, cpuset 0, and pids limit 512.
-  `npm run build` exited 1 at webpack step 19; builder inspection reported
-  `OOM=true`.
-  Logs and diagnostics were retained; no image, migration, or cutover resulted.
-  Latest reported disk is 21.37 GB, below the 24-GiB preflight. A lower-heap
-  retry is planned after disk readiness and bounded-cleanup review; it has not
-  run. Resource readiness and deployment remain open.
+  OpenSpec baseline, not a production-runtime blocker. Two builds of staged
+  target `db18a17c374506941d10fbc58132eb108d1ea5db` failed. Attempt 1
+  (02:57:04–03:08:36 UTC) used a 7-GiB total RAM/swap bound, cpuset 0, and pids
+  512; webpack step 19 exited 1 and builder inspection reported `OOM=true`.
+  Attempt 2 (03:26:10–03:34:11 UTC) used heap 4096 MiB with the same bounds and
+  cached dependencies; it exited 1 on V8 heap exhaustion near 4066 MB and
+  `SIGABRT`, with no new cgroup OOM event. Logs and diagnostics were retained;
+  neither attempt produced an image or caused migration/cutover. A third
+  diagnostic run (03:49:15–03:58:53 UTC) exited 1 as `CANCELED` /
+  `context canceled`, not OOM. The watcher expected an exact 9-GiB container
+  value, misclassified an approved 9.5-GiB same-container update as a builder
+  replacement, then canceled the build. Logs were retained; no image or
+  production DB/service changes resulted. Retry 4 ran 04:03:26–04:12:29 UTC
+  after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848
+  bytes `MemAvailable`. The watcher dry run verified the exact container ID,
+  limits, source, and digests; the container had the approved 10-GiB total
+  memory-plus-swap limit from startup. It used heap 6144 MiB, two workers,
+  webpack, cpuset 0, pids 512, and a 900-second timeout. It exited 1 after a
+  cgroup OOM event at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds
+  and builder memory peaked at 9.999/10 GiB. Kernel evidence showed one Node
+  MainThread at 10,220,928 KiB anonymous RSS and 0 file RSS; cgroup memory was
+  10,665,197,568 bytes anonymous and about 1 MiB file-backed. This indicates
+  anonymous Node memory pressure, with small parent processes rather than
+  multiple heavy workers or file-cache pressure. No image, start, cutover, or
+  migration resulted. Before any fifth build, perform read-only local
+  source/config memory diagnosis alongside the retained remote kernel evidence;
+  no fifth build is approved or launched. The earlier isolated 1.119-GB
+  npm download cache was removed; the 4.242-GB cache layer was preserved and
+  reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
+  Resource readiness and deployment remain open.
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
   test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
   small request; collect 50-request direct/proxy latency; verify allowed-model

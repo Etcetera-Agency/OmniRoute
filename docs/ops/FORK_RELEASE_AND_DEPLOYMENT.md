@@ -87,14 +87,37 @@ baseline models, 0 rated models, and no cut points on an isolated database; it
 does not validate the production catalog. The earlier 20-worker test attempt
 was resource-starved; use the passing two-worker run as final evidence.
 
-The staged Node 26 build attempt for
-`db18a17c374506941d10fbc58132eb108d1ea5db` ran 02:57:04–03:08:36 UTC with a
-7 GiB total RAM/swap bound, cpuset 0, and a 512-process limit. `npm run build`
-exited 1 at webpack step 19; builder inspection reported `OOM=true`. Logs and
-diagnostics were retained. No image was produced, and no cutover or migration
-ran. The latest reported free disk was 21.37 GB, below the 24 GiB preflight. A
-lower-heap retry is planned only after free disk reaches 24 GiB and bounded
-cleanup is reviewed; it has not run. The successful-chat
+Two builds of staged commit
+`db18a17c374506941d10fbc58132eb108d1ea5db` failed without producing an image.
+Attempt 1 ran 02:57:04–03:08:36 UTC with a 7 GiB total RAM/swap bound, cpuset
+0, and a 512-process limit. `npm run build` exited 1 at webpack step 19;
+builder inspection reported `OOM=true`. Logs and diagnostics were retained.
+Attempt 2 ran 03:26:10–03:34:11 UTC with heap limit 4096 MiB, a 7 GiB total
+RAM/swap bound, cpuset 0, pids limit 512, and cached dependencies. It exited 1
+with V8 heap out-of-memory near 4066 MB and `SIGABRT`; no new cgroup OOM event
+was recorded. Retry logs and events were retained. Neither attempt produced an
+image; no cutover or production migration ran, and production remains at
+`f2bddef27ed0807dd5a5e2712bc26536edda8138`.
+
+A third diagnostic build launched at 03:49:15 and ended at 03:58:53 UTC with
+exit 1, `CANCELED` / `context canceled`, not OOM. The watcher expected an exact
+9-GiB container value and misclassified an approved 9.5-GiB same-container
+resource update as a builder replacement, then canceled the build. This is a
+watcher guard defect, not an application compatibility change. Attempt logs
+were retained; no image or production DB/service changes resulted.
+
+Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936
+bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher
+dry run verified the exact container ID, limits, source, and digests. It used
+10 GiB total memory-plus-swap from startup, 6144 MiB Node heap, two workers,
+webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at
+04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory
+peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained
+clear. No image or start result was produced. Preserve the 2-GiB host and
+14-GiB disk hard floors. Production remains at
+`f2bddef27ed0807dd5a5e2712bc26536edda8138`, and staged source remains
+`db18a17c374506941d10fbc58132eb108d1ea5db`.
+The successful-chat
 `call_logs.combo_name` check, public Radar sync/cache check, real-catalog
 calibration, and reserve live-read validation are also pending. The active
 production source/container is at
