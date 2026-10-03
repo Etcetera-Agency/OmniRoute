@@ -115,9 +115,32 @@ report.
   SQLite `quick_check` passed. The runbook is
   [docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md](docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md).
   Production files and data were untouched.
-- The reviewed reserve/SystemOne checkpoint was pushed to the feature branch as
-  `0860cc7da532d50048058c97ccbb91d734f4719d`; remote SHA matched and commit
-  hooks passed. The calibration slice remains uncommitted.
+- The deployment playbook and migration rehearsal runbook now reflect the
+  reviewed test state, the distinct live source (`f2bddef27ed0807dd5a5e2712bc26536edda8138`)
+  and staged target (`db18a17c374506941d10fbc58132eb108d1ea5db`), approved
+  Node 26 production runtime, user-authorized migration, keyless public Radar
+  activation, post-deploy dashboard Intel-key step, calibration, reserve
+  rollout, and rollback. OpenSpec tasks mark seam verification 4.1, reserve
+  integration 4.2, quality playbook 3.7, and reserve isolation 2.6 complete.
+  Independent review closed the isolation tests without findings. Focused
+  isolation tests pass 2/2; isolation, reserve, E2E, demand, and capacity
+  suites pass 5 files / 31 tests with two workers. Default adapters, enabled
+  refresh, real catalog lookup, Radar sync/scheduler guards, and same-DB
+  `.prepare`/`exec` write traps are covered. The feed cache is empty, so the
+  real cache read uses static-baseline fallback; overlay/local-merge behavior
+  is not exercised. This is an optional future focused check if reserve later
+  depends on that branch, not a production gate.
+- Documentation checkpoint validation: `check:docs-all` passed, including
+  1,180 internal links and strict fabricated-claim checks; all four changed
+  OpenSpec packages passed strict validation; Prettier and `git diff --check`
+  passed. Targeted Markdownlint reports only the two existing MD025
+  frontmatter-title conflicts in the operations guides. The docs drift scan
+  emitted 96 potential warnings across 169 files without failing the check.
+- The reviewed reserve/SystemOne checkpoint was pushed as
+  `0860cc7da532d50048058c97ccbb91d734f4719d`. The calibration commit
+  `db18a17c374506941d10fbc58132eb108d1ea5db` was then pushed and verified by
+  exact remote SHA; publication hooks passed. That staged commit is not yet live
+  in production, which remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
 
 ## Remaining gates
 
@@ -145,12 +168,15 @@ report.
   as a full stop.
 - Production uses the reviewed stock Node 26 Dockerfile; `package.json`
   supports `>=24 <27`. Node 24 portability remains a separate unchecked
-  OpenSpec baseline, not a production-runtime blocker. A clean supported-
-  runtime build/start is still required. The latest server reading was about
-  23.17 GiB free disk, about 0.83 GiB below the 24 GiB preflight; the operator's
-  resource plan is pending.
-  A prior approved BuildKit cleanup reclaimed only 308,932 KiB of actual free
-  space; resource readiness and deployment remain open.
+  OpenSpec baseline, not a production-runtime blocker. The staged target
+  `db18a17c374506941d10fbc58132eb108d1ea5db` build ran 02:57:04–03:08:36 UTC
+  with a 7-GiB total RAM/swap bound, cpuset 0, and pids limit 512.
+  `npm run build` exited 1 at webpack step 19; builder inspection reported
+  `OOM=true`.
+  Logs and diagnostics were retained; no image, migration, or cutover resulted.
+  Latest reported disk is 21.37 GB, below the 24-GiB preflight. A lower-heap
+  retry is planned after disk readiness and bounded-cleanup review; it has not
+  run. Resource readiness and deployment remain open.
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
   test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
   small request; collect 50-request direct/proxy latency; verify allowed-model
@@ -158,9 +184,11 @@ report.
   error rows. Laya deployment and the Hermes caller switch are outside this
   repository.
 - The user explicitly authorized deployment, production migration, and
-  activation. The production source checkout `/opt/apps/omniroute/source` and
-  Git metadata were verified clean. Deployment is pending a clean supported-
-  runtime build/start. Then run the rehearsed one-time migration-ledger repair
+  activation. The production source/container is at
+  `f2bddef27ed0807dd5a5e2712bc26536edda8138`; the staged deployment target is
+  `db18a17c374506941d10fbc58132eb108d1ea5db` and is not live. Deployment is
+  pending a clean supported-runtime build/start. Then run the rehearsed
+  one-time migration-ledger repair
   against a fresh consistent backup and verify integrity, idempotence, and
   rollback. Permanent migration compatibility code is forbidden.
 - Correct the upstream `QuotaSnapshotRow` declaration/getter contract in a

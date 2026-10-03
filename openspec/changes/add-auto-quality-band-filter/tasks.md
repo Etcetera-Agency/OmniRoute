@@ -26,4 +26,4 @@
 - [ ] 3.4 Production, flag on: `GET /v1/auto-combo/<channel>/candidates` for every channel Hermes will use; none empty.
 - [ ] 3.5 Confirm `OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL` is unset in the deploy environment.
 - [ ] 3.6 After one week on manual ranges, set `calibration.mode: "auto"`; check the first run's log line and `auto-bands.state.json`.
-- [ ] 3.7 Update the deploy playbook: flag, config path, calibration mode, rollback.
+- [x] 3.7 Update `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md` with the band flag/config path, manual-to-auto calibration sequence, Radar public-catalog activation, reserve rollout/rollback, and live cutover gates. The playbook keeps production validation pending until the exact reviewed Node 26 build/start, real-catalog calibration, and live routing checks pass.
