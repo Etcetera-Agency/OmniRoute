@@ -105,6 +105,12 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   to public in GitHub Packages; the workflow does not change package settings.
   Verify an anonymous pull succeeds and record its result. No server pull
   credential is used.
+- Read-only server readiness check reports the configured Docker healthcheck
+  (`CMD node healthcheck.mjs`) healthy and direct UI
+  `http://127.0.0.1:20128/` returning HTTP 200. Prior 404s came from probing a
+  health path through API proxy port `20129`; this is not a stale UI route.
+  This checks current deployment only and does not replace candidate-image
+  acceptance. No server mutation occurred.
 - Before the operator-run server pull, record current digest, Compose config,
   Docker health status, direct UI response, and database migration state. Use
   the configured Docker `HEALTHCHECK` (currently `CMD node healthcheck.mjs`)
