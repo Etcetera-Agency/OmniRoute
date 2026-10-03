@@ -1,7 +1,7 @@
 ---
 title: "Environment Variables Reference"
-version: 3.8.50
-lastUpdated: 2026-08-18
+version: 3.8.52
+lastUpdated: 2026-10-03
 ---
 
 # Environment Variables Reference
@@ -44,6 +44,7 @@ lastUpdated: 2026-08-18
 - [23. GitHub Integration](#23-github-integration)
 - [24. Skills Sandbox (v3.8.0+)](#24-skills-sandbox-v380)
 - [27. Radar Feed (Self-Hosting)](#27-radar-feed-self-hosting)
+- [28. SystemOne Decision Route](#28-systemone-decision-route)
 - [Deployment Scenarios](#deployment-scenarios)
 - [Audit: Removed / Dead Variables](#audit-removed--dead-variables)
 
@@ -1646,6 +1647,32 @@ GET only; dismissal IDs remain in browser local storage.
 | `RADAR_CONTRIBUTOR_CLAIM_URL`  | `https://radar.omniroute.online/auth/github`     | `src/lib/radar/links.ts`      | URL the "I'm a contributor" dashboard button opens (GitHub OAuth supporter-key claim flow).      |
 | `RADAR_SUPPORTER_PLANS_URL`    | `https://radar.omniroute.online/planos`          | `src/lib/radar/links.ts`      | URL the "Support the project" dashboard button opens (payment/plans page).                       |
 | `RADAR_ADMIN_URL`              | _(unset)_                                         | `src/lib/radar/links.ts`      | Owner-only private operations-panel link. HTTPS is required except for an HTTP loopback SSH forward; unset or invalid values create no navigation item. |
+
+---
+
+## 28. SystemOne Decision Route
+
+`POST /v1/systemone` is off by default. Set `OMNIROUTE_SYSTEMONE=1` or `true`
+to enable it, and configure at least one upstream first. Only upstreams with
+their required setting are active. See the [SystemOne API contract](API_REFERENCE.md#systemone-decisions)
+and the [fork release and deployment guide](../ops/FORK_RELEASE_AND_DEPLOYMENT.md).
+
+All settings are read from the server environment. Keep API keys in the
+deployment secret store; the values below are never populated with credentials.
+
+| Variable | Default | Source File | Description |
+| --- | --- | --- | --- |
+| `OMNIROUTE_SYSTEMONE` | _(unset; off)_ | `open-sse/services/systemOne/config.ts` | Master switch. Only `1` or `true` enables `POST /v1/systemone`; unset or other values leave it disabled. |
+| `OMNIROUTE_SYSTEMONE_ORDER` | `laya,typesafe,openrouter` | `open-sse/services/systemOne/config.ts` | Ordered chain. Only configured upstreams are included; unknown names are ignored and repeated names are stably deduplicated. |
+| `OMNIROUTE_SYSTEMONE_LAYA_URL` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Required to configure Laya. Set its base URL; OmniRoute appends `/v1/systemone`. |
+| `OMNIROUTE_SYSTEMONE_LAYA_API_KEY` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Optional Laya bearer key. When unset, OmniRoute sends no Authorization header to Laya. |
+| `OMNIROUTE_SYSTEMONE_LAYA_MODEL` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Optional Laya checkpoint. When unset, OmniRoute omits `model` from an unpinned Laya request. |
+| `OMNIROUTE_SYSTEMONE_TYPESAFE_API_KEY` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Required to configure TypeSafe at `https://api.typesafe.ai/v1/systemone`. |
+| `OMNIROUTE_SYSTEMONE_TYPESAFE_MODEL` | `jev-latest` | `open-sse/services/systemOne/config.ts` | Default TypeSafe model when the request does not pin a model or provide a `jev-*` model. |
+| `OMNIROUTE_SYSTEMONE_OPENROUTER_API_KEY` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Required to configure OpenRouter at `https://openrouter.ai/api/alpha/decisions`. |
+| `OMNIROUTE_SYSTEMONE_OPENROUTER_MODEL` | `typesafe/jev-1.13` | `open-sse/services/systemOne/config.ts` | Default OpenRouter model when the request does not pin a model. |
+| `OMNIROUTE_SYSTEMONE_TIMEOUT_MS` | `5000` | `open-sse/services/systemOne/config.ts` | Positive-integer timeout per upstream request, in milliseconds. Unset or invalid values use this default. |
+| `OMNIROUTE_SYSTEMONE_COOLDOWN_MS` | `30000` | `open-sse/services/systemOne/config.ts` | Positive-integer cooldown after retryable upstream failures, in milliseconds. Unset or invalid values use this default. |
 
 ---
 

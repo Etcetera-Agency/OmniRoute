@@ -1,7 +1,8 @@
 import { buildCapabilityCheck } from "./capabilities";
 import { getBandConfig } from "./config";
 import { createQualityBandCheck } from "./filter";
-import { parseBandId, type ParsedBandId } from "./grammar";
+import { parseBandId, type ParsedBandId, type QualityBand } from "./grammar";
+import { createReserveController, type ReserveController } from "./reserve";
 
 export const BAND_THRIFTY_RUNG_ORDER = [
   "free",
@@ -35,6 +36,113 @@ export function parseBandCategory(value: string | undefined): ParsedBandCategory
 
 export function isBandsEnabled(): boolean {
   return process.env.OMNIROUTE_AUTO_BANDS === "1" || process.env.OMNIROUTE_AUTO_BANDS === "true";
+}
+
+interface ReservableBandCandidate {
+  provider: string;
+  model: string;
+  connectionId: string | null;
+  allowedConnectionIds?: string[];
+}
+
+let reserveController: ReserveController | null = null;
+
+function getReserveController(): ReserveController {
+  reserveController ??= createReserveController({
+    getSettings: () => getBandConfig().reserve,
+    isBandsEnabled,
+  });
+  return reserveController;
+}
+
+function getUnreservedConnectionIds<T extends ReservableBandCandidate>(
+  candidate: T,
+  connectionIds: string[],
+  band: QualityBand,
+  controller: ReserveController
+): string[] | null {
+  const reservedIds = new Set<string>();
+  try {
+    for (const connectionId of connectionIds) {
+      if (controller.isReserved(band, connectionId, candidate.provider, candidate.model)) {
+        reservedIds.add(connectionId);
+      }
+    }
+  } catch {
+    return null;
+  }
+  return connectionIds.filter((connectionId) => !reservedIds.has(connectionId));
+}
+
+function isConnectionReserved(
+  candidate: ReservableBandCandidate,
+  band: QualityBand,
+  controller: ReserveController
+): boolean {
+  if (candidate.connectionId === null) return false;
+  try {
+    return controller.isReserved(band, candidate.connectionId, candidate.provider, candidate.model);
+  } catch {
+    return false;
+  }
+}
+
+/** Narrow only band candidates, keeping an explicit account allowlist authoritative. */
+export function narrowCandidateConnections<T extends ReservableBandCandidate>(
+  pool: T[],
+  band: QualityBand
+): T[] {
+  if (!isBandsEnabled() || pool.length === 0) return pool;
+
+  const reserveEnabled = band !== "high" && getBandConfig().reserve.enabled;
+  const controller = reserveEnabled ? getReserveController() : null;
+  let changed = false;
+  const narrowedPool: T[] = [];
+
+  for (const candidate of pool) {
+    const allowedConnectionIds = candidate.allowedConnectionIds;
+    if (Array.isArray(allowedConnectionIds)) {
+      const remainingIds = controller
+        ? getUnreservedConnectionIds(candidate, allowedConnectionIds, band, controller)
+        : allowedConnectionIds;
+      if (remainingIds === null) {
+        narrowedPool.push(candidate);
+        continue;
+      }
+      if (controller && remainingIds.length === 0) {
+        changed = true;
+        continue;
+      }
+
+      // AICODE-NOTE: `allowedConnectionIds` is the dispatch scope; a conflicting
+      // direct pin must be cleared before subscription/thrifty inspect the candidate.
+      const directPinConflicts =
+        candidate.connectionId !== null && !remainingIds.includes(candidate.connectionId);
+      const allowlistChanged =
+        remainingIds.length !== allowedConnectionIds.length ||
+        remainingIds.some((connectionId, index) => connectionId !== allowedConnectionIds[index]);
+      if (!allowlistChanged && !directPinConflicts) {
+        narrowedPool.push(candidate);
+        continue;
+      }
+
+      changed = true;
+      narrowedPool.push({
+        ...candidate,
+        allowedConnectionIds: remainingIds,
+        ...(directPinConflicts ? { connectionId: null } : {}),
+      });
+      continue;
+    }
+
+    if (controller && isConnectionReserved(candidate, band, controller)) {
+      changed = true;
+      continue;
+    }
+    narrowedPool.push(candidate);
+  }
+
+  return changed ? narrowedPool : pool;
 }
 
 export interface BandCandidate {

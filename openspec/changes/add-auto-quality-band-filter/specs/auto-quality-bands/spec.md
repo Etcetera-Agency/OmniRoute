@@ -157,8 +157,14 @@ When the configuration sets `calibration.mode` to `auto`, the system SHALL
 recalculate band ranges per task at most once per `calibration.intervalHours`
 (default 24) from the models the band check evaluated on any band channel
 during that period. Every task SHALL be recalculated in each run, whichever
-channels carried the traffic. Ranges SHALL be derived from the 33rd and 67th percentile of distinct
-rated model scores for the task, widened by `calibration.overlap`. A
+channels carried the traffic. For each task, the system SHALL take the distinct
+numeric score values produced by observed rated models and sort them ascending.
+If that list has `N` entries, the 33rd-percentile cut point SHALL be the
+observed score at one-based index `ceil(0.33 * N)`, and the 67th-percentile cut
+point SHALL be the observed score at one-based index `ceil(0.67 * N)`; these
+are nearest-rank selections and SHALL NOT be interpolated. For `N = 9`, the
+cut points are the third and seventh distinct scores. Ranges SHALL be widened
+by `calibration.overlap`. A
 recalculation SHALL keep the previous ranges for a task when fewer than
 `minRatedModels` of the observed models are rated for that task or when a band would hold fewer than `minPerBand` models. A boundary
 SHALL NOT move more than `calibration.maxShift` in one recalculation. A per-task
@@ -173,6 +179,12 @@ without a configuration change.
 - **GIVEN** `calibration.mode` is `auto`, 24 hours have passed since the last run, 12 observed models are rated for `coding` with cut points 0.48 and 0.74, `overlap` is 0.05, and every boundary is within `maxShift` of its previous value
 - **WHEN** the next band check runs
 - **THEN** one background recalculation starts and `coding` ranges become `low [0, 0.53]`, `mid [0.43, 0.79]`, `high [0.69, 1]`
+
+#### Scenario: Cut points use observed nearest-rank distinct scores
+
+- **GIVEN** nine distinct rated score values for `coding` are sorted as `0.40, 0.48, 0.52, 0.60, 0.68, 0.72, 0.74, 0.81, 0.92`
+- **WHEN** a recalculation computes the tertile cut points
+- **THEN** `c1` is the third distinct score `0.52` and `c2` is the seventh distinct score `0.74`, with no interpolated values
 
 #### Scenario: Traffic on one channel calibrates every task
 

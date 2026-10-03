@@ -80,6 +80,8 @@ tags:
     description: OAuth flows for provider authentication
   - name: System
     description: System management (restart, shutdown, backup)
+  - name: SystemOne
+    description: TypeSafe-compatible decision requests routed to configured SystemOne upstreams
   - name: Pricing
     description: Model pricing configuration
   - name: Cloud
@@ -1623,6 +1625,116 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "502":
           description: All upstream providers failed
+
+  /api/v1/systemone:
+    post:
+      tags: [SystemOne]
+      summary: Submit a SystemOne decision request
+      description: >-
+        This route is opt-in and returns the unknown-route 404 response unless
+        `OMNIROUTE_SYSTEMONE` is `1` or `true`. When enabled, it applies the standard
+        OmniRoute API-key model policy to `systemone/<model>` (or `systemone/auto` when
+        omitted). The raw JSON request body is limited to 1 MiB total; this is a byte limit
+        for the whole body, not a per-field string limit. Additional top-level properties
+        are accepted but are not forwarded upstream. The upstream order and models are
+        configured through the `OMNIROUTE_SYSTEMONE_*` environment variables.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemOneRequest"
+      responses:
+        "200":
+          description: >-
+            Successful decision response. The route normalizes the model, each answer's
+            type when missing, and numeric usage counters before returning it.
+          headers:
+            X-OmniRoute-SystemOne-Attempts:
+              schema: { type: string }
+              description: >-
+                Ordered `<upstream>:<status>` entries for upstream attempts; present when an
+                upstream was attempted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemOneResponse"
+        "400":
+          description: Invalid JSON, request shape, model form, or unconfigured pinned upstream
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "401":
+          description: Missing or invalid OmniRoute API key
+        "403":
+          description: API key is not permitted to use the requested SystemOne model
+        "404":
+          description: SystemOne is disabled; response matches the unknown-route JSON envelope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemOneDisabledResponse"
+        "413":
+          description: Raw request body exceeds 1 MiB, regardless of Content-Length
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "502":
+          description: All chain attempts failed, or a pinned upstream transport request failed
+          headers:
+            X-OmniRoute-SystemOne-Attempts:
+              schema: { type: string }
+              description: Ordered `<upstream>:<status>` entries for attempted upstreams.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "503":
+          description: No configured upstream is selected by the configured order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        default:
+          description: >-
+            A pinned upstream HTTP failure preserves that upstream's HTTP status and returns
+            a normalized OmniRoute JSON error response.
+          headers:
+            X-OmniRoute-SystemOne-Attempts:
+              schema: { type: string }
+              description: The single pinned upstream attempt and its HTTP status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+    options:
+      tags: [SystemOne]
+      summary: SystemOne CORS preflight
+      description: >-
+        Returns the standard CORS preflight response independently of the feature flag and
+        does not authenticate or call an upstream. The allowed origin and `Vary: Origin` are
+        added by the shared CORS middleware when applicable.
+      security: []
+      responses:
+        "204":
+          description: Standard CORS preflight response with no body
+          headers:
+            Access-Control-Allow-Methods:
+              schema: { type: string }
+              description: Allowed HTTP methods.
+            Access-Control-Allow-Headers:
+              schema: { type: string }
+              description: Allowed request headers.
+            Access-Control-Allow-Origin:
+              schema: { type: string }
+              description: Echoed allowed origin when the shared CORS policy permits it.
+            Vary:
+              schema: { type: string }
+              description: Includes Origin when the shared CORS policy applies.
 
   /api/v1/ws:
     get:
@@ -13686,6 +13798,84 @@ components:
             requestId: 0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
 
   schemas:
+    SystemOneRequest:
+      type: object
+      required: [state, questions]
+      properties:
+        state:
+          description: Caller-provided decision context; accepts any JSON string, array, or object.
+          oneOf:
+            - type: string
+            - type: array
+              items: {}
+            - type: object
+              additionalProperties: true
+        questions:
+          type: object
+          minProperties: 1
+          description: Non-empty map of named decision questions.
+          additionalProperties:
+            oneOf:
+              - type: object
+                required: [type, instructions, criteria]
+                properties:
+                  type: { type: string, const: choice }
+                  instructions: { type: string, minLength: 1, pattern: '\S' }
+                  criteria: {}
+                additionalProperties: true
+              - type: object
+                required: [type, instructions, criteria]
+                properties:
+                  type: { type: string, const: score }
+                  instructions: { type: string, minLength: 1, pattern: '\S' }
+                  criteria: {}
+                additionalProperties: true
+              - type: object
+                required: [type, instructions]
+                properties:
+                  type: { type: string, const: noul }
+                  instructions: { type: string, minLength: 1, pattern: '\S' }
+                additionalProperties: true
+        model:
+          type: string
+          description: >-
+            Optional chain or pinned upstream selection: `auto`, `systemone/auto`, `jev-*`,
+            `laya`, `laya/<checkpoint>`, `typesafe/<model>`, or `openrouter/<model>`.
+      additionalProperties: true
+      description: >-
+        Extra top-level properties are accepted for compatibility with the request shape but
+        only state, questions, and the selected outgoing model are sent to an upstream.
+    SystemOneResponse:
+      type: object
+      required: [model, answers, usage]
+      properties:
+        model: { type: string }
+        answers:
+          type: object
+          description: Named decision answers; upstream-specific answer fields are preserved.
+          additionalProperties: true
+        usage:
+          type: object
+          required: [input_tokens, output_tokens]
+          properties:
+            input_tokens: { type: number }
+            output_tokens: { type: number }
+          additionalProperties: true
+      additionalProperties: true
+      description: Normalized TypeSafe-compatible decision response.
+    SystemOneDisabledResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message, type, code, path]
+          properties:
+            message: { type: string }
+            type: { type: string, const: not_found }
+            code: { type: string, const: unknown_route }
+            path: { type: string }
+      additionalProperties: false
     ExclusiveConnectionLeaseLifecycle:
       type: object
       description: >-

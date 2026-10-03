@@ -3,20 +3,39 @@
 ### Requirement: Reserve opt-in
 
 The demand reserve SHALL be active only when band enforcement is on and the
-configuration sets `reserve.enabled` to `true`. When inactive, band channels
-SHALL behave exactly as with static bands.
+configuration sets `reserve.enabled` to `true`. When reserve is disabled, the
+system SHALL perform no reserve calculations, source reads, background
+refreshes, diagnostics, or account narrowing; enabled static-band behavior
+continues. When `OMNIROUTE_AUTO_BANDS` is off, band quality/capability filters,
+custom band-only ordering, reserve calculations, and reserve narrowing SHALL
+be disabled. The syntax adapter SHALL remain active: it SHALL recognize band
+IDs, map them to the native category, preserve an explicitly requested tier,
+and leave an omitted tier unset for the upstream default.
 
 #### Scenario: Reserve off by default
 
 - **GIVEN** band enforcement is on and the config has no `reserve` block
 - **WHEN** a request targets `auto/coding_mid:free`
 - **THEN** the pool is the static `mid` band with no reserve applied
+- **AND** no reserve source is read, calculated, refreshed, or logged
 
 #### Scenario: Kill switch bypasses reserve narrowing
 
 - **GIVEN** `reserve.enabled` is true, `OMNIROUTE_AUTO_BANDS` is unset, the snapshot reserves connection A, and a candidate has `allowedConnectionIds` `[A, B]`
 - **WHEN** a request targets the band channel
-- **THEN** the reserve hook does not mutate or narrow `allowedConnectionIds`; upstream degraded routing is used
+- **THEN** the adapter maps the band ID to its native category and retains the
+  explicit `free` tier
+- **AND** quality/capability filters, custom band ordering, and reserve
+  narrowing are disabled
+- **AND** `allowedConnectionIds` remains `[A, B]`
+- **AND** no reserve hook or reserve source read runs
+
+#### Scenario: Kill switch leaves omitted tier to upstream
+
+- **GIVEN** `OMNIROUTE_AUTO_BANDS` is off and a request targets `auto/coding_low`
+- **WHEN** the syntax adapter parses the band ID
+- **THEN** it maps the request to native category `coding`
+- **AND** it leaves the tier unset so upstream tier defaults apply
 
 ### Requirement: Demand accounting per band
 
@@ -46,10 +65,15 @@ scaled linearly to the window length.
 
 ### Requirement: Capacity sources and precedence
 
-Capacity for an account scope SHALL come from the first available source in this
-order: a fresh live quota snapshot with a known reset time; catalog daily limits;
-catalog monthly token budget. A scope with none SHALL have no reserve. Models
-sharing a catalog pool key on one connection SHALL share one scope.
+Capacity SHALL come from the first available source in this order: a fresh live
+quota snapshot with a known reset time; catalog daily limits; catalog monthly
+token budget. A scope with none SHALL have no reserve. Existing daily
+`rpd`/`tpd` grouping SHALL remain unchanged. Monthly shared-pool capacity SHALL
+be keyed by `(account, provider, poolKey)` and SHALL use the maximum known
+positive `monthlyTokens` value once per key, with catalog entries visited in
+deterministic `(provider, modelId)` order. Zero and absent values SHALL be
+treated as unknown and ignored; if no positive value is known, that scope
+SHALL have no monthly capacity.
 
 #### Scenario: Live snapshot wins
 
@@ -68,6 +92,25 @@ sharing a catalog pool key on one connection SHALL share one scope.
 - **GIVEN** two models on one connection with the same catalog pool key
 - **WHEN** usage is attributed
 - **THEN** both models' usage counts against one scope
+
+#### Scenario: Shared monthly pool uses maximum known capacity once
+
+- **GIVEN** two catalog models for one provider share a pool key on one account and have positive `monthlyTokens` values 10,000 and 20,000
+- **WHEN** monthly capacity is resolved
+- **THEN** the scope capacity is 20,000 tokens, not 30,000
+- **AND** reversing catalog iteration order produces the same scope and capacity
+
+#### Scenario: Provider separates equal monthly pool keys
+
+- **GIVEN** models from two providers on one account have the same pool-key string
+- **WHEN** monthly capacity is resolved
+- **THEN** each provider has a separate monthly pool scope
+
+#### Scenario: Unknown monthly pool values are ignored
+
+- **GIVEN** catalog models in a shared pool have `monthlyTokens` absent or zero
+- **WHEN** monthly capacity is resolved
+- **THEN** those values do not create monthly capacity
 
 #### Scenario: No capacity data
 
@@ -122,9 +165,11 @@ The reserve SHALL NOT remove any candidate from a channel in the top band.
 
 ### Requirement: Non-blocking snapshot
 
-Reserve decisions SHALL be read from an in-memory snapshot without awaiting I/O.
-A read past the refresh interval SHALL start at most one background refresh. A
-snapshot older than the maximum age SHALL be ignored.
+When reserve is enabled, decisions SHALL be read from an in-memory snapshot
+without awaiting I/O. A read past the refresh interval SHALL start at most one
+background refresh. A snapshot older than the maximum age SHALL be ignored.
+When reserve is disabled, no snapshot read, source read, reserve calculation,
+refresh, or diagnostic SHALL occur.
 
 #### Scenario: Stale snapshot ignored
 
@@ -137,6 +182,13 @@ snapshot older than the maximum age SHALL be ignored.
 - **GIVEN** the snapshot is past the refresh interval
 - **WHEN** ten requests read it at once
 - **THEN** exactly one refresh starts
+
+#### Scenario: Disabled reserve starts no work
+
+- **GIVEN** band enforcement is on and `reserve.enabled` is false
+- **WHEN** a request targets a band channel
+- **THEN** no reserve source read, calculation, refresh, or diagnostic occurs
+- **AND** the static band pool is used
 
 ### Requirement: Fail-safe to static bands
 
@@ -202,9 +254,10 @@ any table, and SHALL work with `RADAR_ENABLED` off using the shipped catalog.
 
 ### Requirement: Reserve diagnostics
 
-Each refresh SHALL produce a read-only diagnostic record with: scope counts per
-capacity source, reserved scopes per band, the share of usage that could not be
-matched to a catalog entry, and the refresh duration.
+Each refresh started while reserve is enabled SHALL produce a read-only
+diagnostic record with: scope counts per capacity source, reserved scopes per
+band, the share of usage that could not be matched to a catalog entry, and the
+refresh duration. A disabled reserve SHALL produce no diagnostic record.
 
 #### Scenario: Diagnostics available
 
