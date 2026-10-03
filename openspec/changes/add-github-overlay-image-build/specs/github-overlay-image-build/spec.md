@@ -144,6 +144,12 @@ data to the candidate. Verifier cleanup SHALL collect errors without replacing
 an earlier verification error. A verification error SHALL remain primary and
 be reported with every cleanup error. If artifact checks pass but cleanup
 fails, verification SHALL still fail before registry authentication.
+If the unauthenticated catalog assertion fails, its diagnostic SHALL include
+the expected status/code, observed HTTP status, and only bounded, sanitized
+`error.type` and `error.code` values read from a JSON response. It SHALL NOT
+log response bodies, headers, credentials, model data, or serialized error
+objects. This diagnostic SHALL NOT change the auth fixture or expected HTTP
+401 / `invalid_api_key` behavior.
 
 #### Scenario: Candidate passes artifact verification
 
@@ -169,6 +175,18 @@ fails, verification SHALL still fail before registry authentication.
 - **WHEN** the main image workflow evaluates the candidate
 - **THEN** the workflow fails before GHCR login
 - **AND** no tag is published or updated
+
+#### Scenario: Catalog-auth assertion fails with safe diagnostics
+
+- **GIVEN** unauthenticated direct UI `GET /api/v1/models` does not return the
+  expected HTTP 401 and `error.code: "invalid_api_key"`
+- **WHEN** the verifier reports the failed assertion
+- **THEN** the message includes expected status/code and observed HTTP status
+- **AND** it includes only bounded, sanitized `error.type` and `error.code`
+  values from the JSON response when available
+- **AND** it does not include response bodies, headers, credentials, model
+  data, or serialized error objects
+- **AND** GHCR authentication and publication do not occur
 
 #### Scenario: Verification and cleanup both fail
 

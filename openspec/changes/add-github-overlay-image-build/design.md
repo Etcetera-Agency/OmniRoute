@@ -60,6 +60,9 @@ or workflow_dispatch where ref == refs/heads/main:
         GET http://127.0.0.1:20128/ expects HTTP 200
         GET http://127.0.0.1:20128/api/v1/models without credentials
         expect HTTP 401 and error.code == "invalid_api_key"
+        on mismatch, report expected status/code and observed HTTP status
+        plus bounded sanitized error.type/error.code fields only
+        never log response body, headers, credentials, or model data
     compare BUILD_ID, complete static tree, page manifest, and every
         non-API app-path entry with the pinned official image
     capture any verification error as the primary error
@@ -186,6 +189,27 @@ the primary error and all cleanup errors together. A cleanup failure after
 otherwise successful artifact checks still fails verification and blocks
 publication. The next main run must pass all artifact checks before GHCR
 authentication. Do not infer a verifier pass from this failed run.
+
+## Catalog-auth assertion diagnosis
+
+Fourth main run `37129219486` built the candidate in 8m28, then failed the
+unauthenticated direct UI `/api/v1/models` assertion. The run did not record
+the observed status or response fields, so actual runtime behavior remains
+unknown. Read-only source/configuration inspection predicts HTTP 401 with
+`error.code: "invalid_api_key"` for the disposable fixture: `INITIAL_PASSWORD`
+is set, `requireLogin` is true, `requireAuthForModels` opt-out is absent, and
+the bridge peer is guarded. This establishes expected source behavior only;
+it does not establish the candidate's actual response.
+
+Keep the auth fixture and HTTP 401 / `invalid_api_key` gate unchanged. Change
+only assertion-failure diagnostics: include expected status/code, observed
+HTTP status, and `error.type` / `error.code` when those are string values.
+Sanitize control characters and cap each field at 64 characters before
+including it in the failure message. Read only these allowlisted fields;
+never include response body, headers, credentials, model data, or serialized
+error objects. If JSON parsing or a field lookup fails, report `<unavailable>`
+for that field. This diagnostic explains a mismatch without weakening auth or
+claiming a response before the next native main run.
 
 ## Review and server acceptance
 
