@@ -174,6 +174,11 @@ operator configuration file, and SHALL keep the previous ranges on any error.
 With `calibration.mode` set to `manual` or unset, ranges SHALL NOT change
 without a configuration change.
 
+The `minPerBand` count SHALL count candidates retained by each band's membership
+rule. In particular, unrated candidates admitted to `low` SHALL count toward
+`minPerBand`; they SHALL NOT be excluded from that guard merely because they do
+not contribute a rated score to the percentile calculation.
+
 #### Scenario: Daily recalculation
 
 - **GIVEN** `calibration.mode` is `auto`, 24 hours have passed since the last run, 12 observed models are rated for `coding` with cut points 0.48 and 0.74, `overlap` is 0.05, and every boundary is within `maxShift` of its previous value

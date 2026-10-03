@@ -6,7 +6,7 @@
 - [x] 1.3 `bands-e2e.test.ts`: band thrifty order is `free`, `keyless`, `subscription`, `cheap`, `premium`; ordinary `auto:thrifty` keeps upstream order; explicit `:free` retains upstream provider/model classification (including `opencode/big-pickle` and `opencode/mimo-v2.5-free`, excluding `openrouter/openai/gpt-4.1` from that predicate); ordered fallback targets contain no out-of-band model (quality E2E 4/4 pass; routing 7/7 and direct upstream resolver/stream/quota 27/27 pass).
 - [x] 1.4 Empty band test: no in-band candidate → empty pool, not the full pool (covered by the quality E2E suite).
 - [x] 1.5 Flag-off test: same channel resolves to degraded native category; omitted tier remains unset; no quality/capability filter or band rung order is registered; reserve/account narrowing leaves candidate and `allowedConnectionIds` unchanged (flag-off and reserve E2E checks pass).
-- [ ] 1.6 `bands-calibrate.test.ts`: traffic on one channel recalculates every task; tertile cut points and overlap; too few rated models keeps previous ranges; thin band keeps previous ranges; boundary shift clamped to `maxShift`; per-task override wins; `mode: "manual"` never changes ranges; state file round-trip; failed run keeps previous ranges; one run for concurrent triggers; no run before `intervalHours`.
+- [x] 1.6 `bands-calibrate.test.ts`: traffic on one channel recalculates every task; nearest-rank cut points over distinct rated score values and overlap; too few rated models keeps previous ranges; thin band keeps previous ranges; boundary shift clamped to `maxShift`; per-task override wins; `mode: "manual"` never changes ranges; state file round-trip; failed run keeps previous ranges; one run for concurrent triggers; no run before `intervalHours` (19/19 focused tests pass, including the reviewed regressions).
 
 ## 2. Implementation
 
@@ -14,13 +14,13 @@
 - [x] 2.2 `bands/filter.ts`: band predicate on `getTaskFitnessWithSource`.
 - [x] 2.2a `bands/capabilities.ts`: `tools`, `so`, `reasoning`, `vision` predicates on `getResolvedModelCapabilities`; combined with the band predicate, capabilities first.
 - [x] 2.3 `bands/index.ts`: `parseBandCategory` returns the opaque category when enabled; `buildBandCheck` returns the predicate.
-- [ ] 2.4 `bands/calibrate.ts`: observed-model buffer (ids only), per-task fitness resolution and cut points at run time, guards, state file, lazy 24 h trigger.
-- [ ] 2.5 `scripts/ad-hoc/bands-calibrate.ts`: per task — rated share by source (`user_override`, `arena_elo`, tier, table, wildcard), score distribution, tertile cut points, model count per band under current config; per capability — known/unknown share and model count per band × capability cell. Report only.
-- [ ] 2.6 Run Code Simplifier on the slice.
+- [x] 2.4 `bands/calibrate.ts`: observed-model buffer (ids only), per-task fitness resolution and nearest-rank cut points, guards, persisted state and attempt throttle, lazy 24 h trigger; restore saved ranges before constructing the enabled band predicate.
+- [x] 2.5 `scripts/ad-hoc/bands-calibrate.ts`: per task — rated share by source (`user_override`, `arena_elo`, tier, table, wildcard), score distribution, tertile cut points, model count per band under current config; per capability — known/unknown share and model count per band × capability cell. Report only. Local CLI smoke produced valid JSON for 10 baseline models, 0 rated models, and no cut points; this is not a live catalog report.
+- [x] 2.6 Run Code Simplifier on the slice (final read-only review found no further cleanup).
 
 ## 3. Verification
 
-- [x] 3.1 `bands-*` tests and upstream autoCombo tests pass (40 files / 353 tests; core and OpenSSE typechecks pass).
+- [x] 3.1 `bands-*` tests and upstream autoCombo tests pass (41 files / 372 tests; core and OpenSSE typechecks pass).
 - [x] 3.2 Existing upstream integration changes stay within `suffixComposition.ts`, `virtualFactory.ts`, and the band-scoped selector extension in `resolveAutoStrategy.ts`; ordinary upstream routing remains unchanged.
 - [ ] 3.3 Production, flag off: run the calibration script, write the config.
 - [ ] 3.4 Production, flag on: `GET /v1/auto-combo/<channel>/candidates` for every channel Hermes will use; none empty.
