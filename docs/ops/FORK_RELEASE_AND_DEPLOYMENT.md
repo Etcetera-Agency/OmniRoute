@@ -113,8 +113,7 @@ dry run verified the exact container ID, limits, source, and digests. It used
 webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at
 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory
 peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained
-clear. No image or start result was produced. Preserve the 2-GiB host and
-14-GiB disk hard floors. Production remains at
+clear. No image or start result was produced. The 2-GiB host and 14-GiB disk floors described above applied to those historical attempts only; they are not requirements for the next build. Production remains at
 `f2bddef27ed0807dd5a5e2712bc26536edda8138`, and staged source remains
 `db18a17c374506941d10fbc58132eb108d1ea5db`.
 Retry 5 for staged `db18a17c374506941d10fbc58132eb108d1ea5db` used the
@@ -126,11 +125,39 @@ SIGKILLed at 687.8 seconds and build exited 1 at 07:55:48 UTC without an image.
 The 900-second restoration watchdog recovered the old f2 container, healthy at
 07:56:19 UTC after 12m04s of OmniRoute-only outage. Redis stayed healthy; DB,
 Radar, and cutover were untouched. The old f2 12-GiB pass does not apply to
-staged db18. `maxMemoryGenerations=0` remains unapproved and unimplemented.
-Webpack documents that it disables additional memory-cache generations but does
-not bound the live compiler object graph, so it cannot guarantee a 12-GiB fit
-([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
-Resolve the default-versus-opt-in scope before amending the OpenSpec or source.
+staged db18. User decision: apply production `cache.maxMemoryGenerations=0`
+constantly, with no feature flag. The owner implemented and reviewed it in this
+feature-branch publication; the production callback smoke and `node --check`
+passed, but full-build acceptance remains pending. This disables additional memory-cache generations but
+does not bound the live compiler object graph, so it cannot guarantee a
+12-GiB fit ([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
+Next 16.3.5 sets production `Infinity` before the custom callback; verify after
+each framework upgrade that the callback reapplies `0`. Keep build/start,
+isolated-migration, cutover, and live-validation gates open.
+
+The next rollout plan follows the latest user direction: hold the full-UI
+rebuild. The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base image
+for upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` was pulled and
+inspected at digest
+`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
+its SLSA attestation binds it to the exact source revision. Native-architecture
+query passed; inspection found Node 26.10.0, Next 16.3.5, `better-sqlite3`
+13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app payload, and 1,089
+static assets. OCI revision/version labels are absent, so use the attestation
+for source identity. This was base-image inspection only: no app overlay image
+has been built; production f2 and Redis remained healthy without outage or
+DB/Radar changes. Resolver analysis confirms `getMaybePagePath()` reads absolute
+route paths from `.next/server/app-paths-manifest.json` and `requirePage()` loads
+them directly. The selected overlay will compile API route bundles in isolation,
+include their required relative `server/chunks`, and merge only API keys into the
+official image manifest while preserving its existing UI entries and assets. The
+overlay implementation, image build, and runtime smoke remain pending. The
+reviewed cache-setting implementation and focused OpenSpec are included in this
+publication; full-build acceptance remains pending. Do
+not stop production or launch an app build until the overlay is ready. Then build
+and start the exact candidate against a fresh isolated database copy, verify
+migrations, and only then proceed to the already-authorized production migration
+and cutover.
 
 The successful-chat
 `call_logs.combo_name` check, public Radar sync/cache check, real-catalog

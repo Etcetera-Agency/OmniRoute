@@ -394,6 +394,12 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   webpack(config, { dev, webpack }) {
+    // AICODE-NOTE: Production filesystem-cache generations default to Infinity.
+    // Zero limits extra resident generations; keep disk caching and full app output.
+    // Entries may remain resident until serialized.
+    if (!dev && config.cache?.type === "filesystem") {
+      config.cache.maxMemoryGenerations = 0;
+    }
     config.ignoreWarnings = [
       ...(config.ignoreWarnings || []),
       isNextIntlExtractorDynamicImportWarning,
@@ -479,7 +485,10 @@ const nextConfig = {
       // does the importing.
       const replacements = [
         [/^@\/mitm\/cert\/install$/, join(projectRoot, "src/mitm/cert/install.stub.ts")],
-        [/^@\/lib\/zed-oauth\/keychain-reader$/, join(projectRoot, "src/lib/zed-oauth/keychain-reader.stub.ts")],
+        [
+          /^@\/lib\/zed-oauth\/keychain-reader$/,
+          join(projectRoot, "src/lib/zed-oauth/keychain-reader.stub.ts"),
+        ],
         [/^@\/lib\/cloudSync$/, join(projectRoot, "src/lib/cloudSync.stub.ts")],
         [
           /^@\/lib\/services\/installers\/ninerouter$/,

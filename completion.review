@@ -200,8 +200,7 @@ report.
   additional memory-cache generations but retains data until disk serialization;
   it does not bound the live compiler object graph and cannot guarantee a
   12-GiB fit ([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
-  The candidate remains unapproved. The default-versus-opt-in policy decision
-  must be resolved before spec amendment or source change. Retry 5 for the exact staged SHA ran 07:44:15–07:55:48 UTC. After the
+  That cache setting does not cap peak compiler-object memory. Retry 5 for the exact staged SHA ran 07:44:15–07:55:48 UTC. After the
   approved OmniRoute-only stop, post-stop guards passed at 14.741 GiB RAM and
   25.519 GiB disk; the read-only watcher dry run passed. The pinned Node 26
   Compose `runner-base` build used a 12-GiB total cap, cpuset 0, pids 512, heap
@@ -212,11 +211,36 @@ report.
   the exact prior f2 container returned healthy at 07:56:19 UTC. OmniRoute was
   unavailable for 12m04s; Redis remained healthy and no DB/Radar changes or
   cutover occurred. The historical f2 12-GiB pass does not carry over to staged
-  db18. The unimplemented filesystem-cache cap (`maxMemoryGenerations=0`) is a
-  candidate; default-versus-opt-in policy remains unresolved, with no source
-  change. After that decision and an approved implementation, verify syntax,
-  native/runtime behavior, the exact full image, and isolated runtime-copy/
-  migration acceptance. Production remains at
+  db18. User decision resolved: apply production `cache.maxMemoryGenerations=0`
+  constantly, without a feature flag. The owner implemented and reviewed the
+  setting in this feature-branch publication; the production callback smoke and
+  `node --check` passed, but full-build acceptance remains pending.
+  Webpack documents that `0` disables additional memory-cache generations but
+  does not bound the live compiler object graph, so a 12-GiB fit is not
+  guaranteed. Next 16.3.5 sets production `Infinity` before the custom callback;
+  after every Next/framework upgrade, verify callback order reapplies `0`.
+  Retry 5 remains RED evidence. Latest user direction puts the full-UI rebuild
+  on hold. The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base image
+  for upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` was pulled and
+  inspected at digest
+  `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
+  its SLSA attestation binds it to the exact source revision. Native-architecture
+  query passed; inspection found Node 26.10.0, Next 16.3.5, `better-sqlite3`
+  13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app payload, and 1,089
+  static assets. OCI revision/version labels are absent, so use the attestation
+  for source identity. This was base-image inspection only: no app overlay image
+  has been built; production f2 and Redis remained healthy without outage or
+  DB/Radar changes. Resolver analysis confirms `getMaybePagePath()` reads
+  absolute route paths from `.next/server/app-paths-manifest.json` and
+  `requirePage()` loads them directly. The selected overlay will compile API
+  route bundles in isolation, include their required relative `server/chunks`,
+  and merge only API keys into the official image manifest while preserving UI
+  entries and assets. The overlay implementation, image build, and runtime smoke
+  remain pending. The cache-setting implementation and focused OpenSpec are
+  included in this feature-branch publication; full-build acceptance remains
+  pending. Do not stop production or launch an app build until the overlay is ready. Then build and start the exact candidate against a
+  fresh isolated database copy, verify migrations, and only then proceed to the
+  already-authorized production migration and cutover. Production remains at
   `f2bddef27ed0807dd5a5e2712bc26536edda8138`; deployment and live validation
   gates remain open.
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
