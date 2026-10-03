@@ -8,8 +8,8 @@
       feature push, PR, main push, or schedule.
 - [x] 1.2 Add focused candidate-verifier tests for architecture, OCI source,
       revision/base labels, SQLite, health/API checks, and exact official-UI
-      parity. The direct UI listener `20128` returns HTTP 401 with
-      `error.code: "invalid_api_key"` for unauthenticated
+      parity. With `REQUIRE_API_KEY=true`, direct UI listener `20128` returns
+      HTTP 401 with `error.code: "AUTH_002"` for unauthenticated
       `GET /api/v1/models`.
 - [x] 1.3 Add focused Compose/release-policy tests for the main GHCR image,
       digest verification, `up -d --no-build`, and rollback to the prior
@@ -52,6 +52,26 @@
 - [x] 2.10 After `npm ci`, set builder-stage `NODE_ENV=production` before
       `npm run build:backend`. Keep the setting in the backend builder; the
       final runtime stage starts from the fresh pinned official base.
+- [x] 2.11 Split lockfile dependency installation into `backend-dependencies`
+      and derive `backend-builder` from it. Source builds compile backend
+      exactly once; selecting `prebuilt-backend` must not pull the compile
+      stage merely to get Playwright packages.
+- [x] 2.12 Add `runtime-web` from the merged `runtime`: copy only locked
+      `playwright` and `playwright-core`, install Chromium and OS dependencies
+      plus Xvfb/Xauth, set the browser cache path and ownership, and wrap the
+      existing permission-check entrypoint. Preserve official `CMD` and
+      `HEALTHCHECK`.
+- [x] 2.13 Configure the main image workflow to build `runtime-web`; make the
+      verifier launch non-root Playwright Chromium with `headless: false` on
+      `about:blank`, then close it without external requests. Keep UI asset and
+      manifest parity checks. The actual main image run remains an acceptance
+      task below.
+- [x] 2.14 Manually run focused verifier tests and applicable Docker/workflow
+      checks for the browser runtime. The browser regression failed before the
+      implementation and the focused suite passed 8/8 afterward. Scoped ESLint
+      with `--no-ignore`, Prettier, generated-browser-script syntax, and
+      `git diff --check` pass. Code Simplifier found no further changes; keep
+      all checks out of automatic test workflows.
 
 ## 3. Manual validation and review
 
@@ -76,6 +96,9 @@
       policy and implementation; no correctness findings remain.
 - [x] 3.8 Complete independent low-effort review of candidate tmpfs and
       cleanup-error handling; no correctness findings remain.
+- [x] 3.9 Complete independent static review of the browser-runtime workflow,
+      Dockerfile, and verifier changes. No high-confidence correctness findings
+      remain; actual native GUI-image proof stays open under task 4.9.
 
 ## 4. Main image and server acceptance
 
@@ -113,17 +136,18 @@
       errors too. Manually test default-user data writes and both error cases;
       focused tests pass 7/7. Scoped ESLint, Prettier, `git diff --check`, and
       Code Simplifier pass. Tests remain manual, outside automatic workflows.
-- [ ] 4.9 Complete native candidate artifact verification. PR #14
-      (`4d652048`) run `37129219486` built the native candidate in 8m28; the
-      prior EACCES cleanup failure did not recur. The verifier then failed its
-      `/api/v1/models must return 401 invalid_api_key without credentials`
-      assertion. Actual HTTP status, error fields, and body were not logged;
-      source/configuration diagnosis predicts 401 `invalid_api_key` but does
-      not establish runtime behavior. Keep the auth fixture and 401 gate.
-      Complete task 4.10's failure-only safe diagnostics, then require a new
-      native main run to pass the full artifact checks before publication.
+- [ ] 4.9 Complete native candidate artifact verification. Run
+      `37129219486` built the candidate in 8m28; verifier message lacked the
+      observed response. Latest run `37132155004` completed native candidate
+      image build, then observed HTTP 401, `error.code: "AUTH_002"`, and no
+      `error.type`; GHCR login/publication did not occur. Diagnosis traced the
+      request through client-API auth middleware before the catalog handler.
+      The exact auth expectation and summary quoting corrections are manually
+      verified, but no `runtime-web` image has passed its browser smoke or the
+      full artifact gate. Require a new native main run to pass every artifact
+      check before publication.
 - [x] 4.10 Improve catalog-auth assertion failure diagnostics only. Preserve
-      the disposable auth fixture and expected 401 `invalid_api_key` gate.
+      the disposable auth fixture and expected 401 gate.
       Report expected status/code, observed HTTP status, and bounded sanitized
       JSON `error.type` / `error.code` only; never log body, headers,
       credentials, model data, or serialized errors. Manually test mismatch
@@ -134,20 +158,45 @@
       public in GitHub Packages. Verify anonymous pull and record run URL,
       commit SHA, tags, digest, labels, and result in TODO and
       `completion.review`.
-- [ ] 4.12 Before server pull, record current digest, Compose config, Docker
-      `HEALTHCHECK`, direct UI root response, and database-migration state.
-      Verify `http://127.0.0.1:20128/` returns HTTP 200; do not probe UI health
-      through API proxy port `20129`. Pull `:main`, compare digest and labels,
-      verify ARM64, then run `docker compose up -d --no-build`.
+- [ ] 4.12 Before server pull, record current digest, Docker `HEALTHCHECK`,
+      direct UI root response, and database-migration state. Record all three
+      active Compose file inputs, final image-digest override, and current
+      browser-capable image digest for rollback. Confirm `runtime-web` retains
+      Chromium providers before pulling. Verify
+      `http://127.0.0.1:20128/` returns HTTP 200; do not probe UI health through
+      API proxy port `20129`. Pull `:main`, compare digest and labels, verify
+      ARM64, then run `docker compose up -d --no-build`.
 - [ ] 4.13 Verify Docker healthcheck, native SQLite, direct UI root, and API
-      routes separately. On
-      failure, restore the prior digest with `docker compose up -d --no-build`
-      and verify prior health. Record outcome in TODO and `completion.review`.
+      routes separately. On success, launch Playwright Chromium with
+      `headless: false` as non-root on `about:blank` and close it without
+      external requests. On failure, restore the prior browser-capable image
+      digest with `docker compose up -d --no-build` and verify prior health.
+      Record outcome in TODO and `completion.review`.
+- [x] 4.14 Replace backtick-containing interpolating `echo` in the published
+      image summary with single-quoted `printf` formats and separately quoted
+      value args. Manually run summary block with representative public values;
+      verify exact source/tag/digest/base/run URL and literal Markdown
+      backticks, with no command substitution. The probe preserves all values
+      and reports no substitution errors.
+- [x] 4.15 Keep the disposable candidate auth fixture at
+      `REQUIRE_API_KEY=true` and expect exactly HTTP 401 with
+      `error.code: "AUTH_002"` for direct UI `GET /api/v1/models`. Client-API
+      middleware rejects before the catalog handler; do not accept arbitrary
+      401 or `invalid_api_key`. Manually run focused regression tests; keep them
+      out of automatic workflows. The unchanged fixture with the corrected
+      expectation gave 3/7 RED before the verifier guard fix and 7/7 GREEN
+      after it; scoped ESLint, Prettier, and Code Simplifier passed.
+- [ ] 4.16 After successful server deployment and health acceptance, verify no
+      build is active, remove the unused dedicated OmniRoute builder, and run
+      `docker builder prune --all --force` for the default builder's unused
+      cache only. Record measured pre/post cache usage; preserve rollback
+      runtime images, databases, volumes, backups, Redis, and unrelated
+      services. Do not run image, system, or volume pruning.
 
 ## 5. Future maintenance
 
-- [ ] 5.1 If image acceptance fails after task 4.10's verifier diagnostic and
-      retry, use exact logs and measured evidence to scope any further
+- [ ] 5.1 If image acceptance fails after tasks 4.14/4.15 and retry, use exact
+      logs and measured evidence to scope any further
       correction; do not preselect a fix or add speculative resource limits.
 - [ ] 5.2 Before changing the official base, verify its provenance and repeat
       native SQLite, health, API, and official-UI parity checks on the new

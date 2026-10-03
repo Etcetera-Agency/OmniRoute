@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const OFFICIAL_UI_ROOT = "/app/.build/next";
 const DIRECT_UI_API_PATH = "/api/v1/models";
 const DIRECT_UI_PORT = 20128;
+const BROWSER_SMOKE_TIMEOUT_MS = 45_000;
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 
 // AICODE-NOTE: this verifier targets the direct Next UI listener. The API proxy
@@ -113,6 +114,10 @@ export function verifyCandidateEvidence(evidence, expected) {
     candidate.healthStatus === "healthy",
     "candidate container did not become healthy"
   );
+  requireEvidence(
+    candidate.runtimeUser === "node",
+    "candidate image default runtime user must remain non-root node"
+  );
   requireEvidence(candidate.dashboardStatus === 200, "candidate dashboard did not return HTTP 200");
 
   const api = candidate.apiResponse;
@@ -120,15 +125,27 @@ export function verifyCandidateEvidence(evidence, expected) {
     api?.port === DIRECT_UI_PORT && api.path === DIRECT_UI_API_PATH,
     "API smoke must target the direct UI listener at 20128/api/v1/models"
   );
+  // AICODE-NOTE: Preserved official proxy rejects this keyless request before the catalog handler.
   requireEvidence(
-    api.status === 401 && api.body?.error?.code === "invalid_api_key",
+    api.status === 401 && api.body?.error?.code === "AUTH_002",
     // AICODE-NOTE: Allowlist bounded error tags; never expose response bodies or credentials.
-    "direct UI listener /api/v1/models must return 401 invalid_api_key without credentials; " +
+    "direct UI listener /api/v1/models must return 401 AUTH_002 without credentials; " +
       `observed ${JSON.stringify({
         status: Number.isInteger(api.status) ? api.status : "<invalid>",
         type: diagnosticTag(api.body?.error?.type),
         code: diagnosticTag(api.body?.error?.code),
       })}`
+  );
+
+  const browserSmoke = candidate.browserSmoke;
+  requireEvidence(
+    browserSmoke?.ok === true &&
+      Number.isInteger(browserSmoke.userId) &&
+      browserSmoke.userId > 0 &&
+      browserSmoke.headless === false &&
+      browserSmoke.url === "about:blank" &&
+      browserSmoke.closed === true,
+    "candidate headed Playwright Chromium smoke failed, ran as root, or did not close on about:blank"
   );
 
   requireEvidence(candidate.ui?.buildId === official.ui?.buildId, "official UI BUILD_ID changed");
@@ -301,6 +318,76 @@ async function waitForHealth(baseUrl, container) {
   throw new Error(`candidate healthcheck timed out${lastError ? `: ${lastError.message}` : ""}`);
 }
 
+// AICODE-NOTE: Run headed Chromium as node under isolated Xvfb; timeout and
+// container cleanup bound failures without contacting external services.
+function runBrowserSmoke(container) {
+  const script = `
+import { chromium } from 'playwright';
+
+const userId = process.getuid?.();
+if (!Number.isInteger(userId) || userId === 0) {
+  throw new Error('browser smoke must run as non-root');
+}
+
+let browser;
+let url;
+try {
+  browser = await chromium.launch({
+    headless: false,
+    timeout: 20000,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
+  const page = await browser.newPage();
+  await page.goto('about:blank', { waitUntil: 'load', timeout: 10000 });
+  url = page.url();
+  if (url !== 'about:blank') {
+    throw new Error('browser smoke navigated away from about:blank');
+  }
+  await browser.close();
+  browser = null;
+} catch (error) {
+  if (browser) {
+    try {
+      await browser.close();
+    } catch (cleanupError) {
+      const message = [
+        String(error),
+        'browser cleanup failed: ' + String(cleanupError),
+      ].join('; ');
+      throw new AggregateError([error, cleanupError], message, { cause: error });
+    }
+  }
+  throw error;
+}
+
+process.stdout.write(JSON.stringify({
+  ok: true,
+  userId,
+  headless: false,
+  url,
+  closed: browser === null,
+}));
+`.trim();
+  const output = docker(
+    [
+      "exec",
+      "--user",
+      "node",
+      container,
+      "/usr/bin/xvfb-run",
+      "-a",
+      "-s",
+      "-screen 0 1920x1080x24 -nolisten tcp",
+      "node",
+      "--input-type=module",
+      "-e",
+      script,
+    ],
+    { timeout: BROWSER_SMOKE_TIMEOUT_MS }
+  );
+  return JSON.parse(output);
+}
+
 export function buildSmokeContainerArguments(candidate, container) {
   // AICODE-NOTE: Per-container tmpfs avoids host/container UID cleanup conflicts
   // while mode 1777 keeps the image's default runtime user able to write.
@@ -364,10 +451,12 @@ async function smokeCandidate(candidate) {
     } catch {
       body = null;
     }
+    const browserSmoke = runBrowserSmoke(container);
 
     return {
       healthStatus: "healthy",
       dashboardStatus: dashboard.status,
+      browserSmoke,
       apiResponse: {
         port: DIRECT_UI_PORT,
         path: DIRECT_UI_API_PATH,
@@ -404,6 +493,7 @@ export async function verifyImages(options) {
     const evidence = {
       candidate: {
         architecture: candidateMetadata.Architecture,
+        runtimeUser: candidateMetadata.Config?.User,
         labels: candidateLabels,
         sqlite,
         ...runtime,
@@ -419,6 +509,7 @@ export async function verifyImages(options) {
       baseDigest: candidateLabels["org.opencontainers.image.base.digest"],
       sqlite,
       dashboardStatus: runtime.dashboardStatus,
+      browserSmoke: runtime.browserSmoke,
       apiPath: runtime.apiResponse.path,
       apiPort: runtime.apiResponse.port,
       apiStatus: runtime.apiResponse.status,

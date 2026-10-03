@@ -43,11 +43,27 @@ or workflow_dispatch where ref == refs/heads/main:
     grant the image job contents:read
     checkout the triggering main commit
     build one linux/arm64 candidate from the pinned official base
+    create backend-dependencies stage from the pinned official image
+    install lockfile-resolved backend/Playwright dependencies once
+    create backend-builder FROM backend-dependencies
     in the backend builder stage:
-        RUN npm ci
         ENV NODE_ENV=production
         ENV NODE_OPTIONS=--max-old-space-size=12288
         RUN npm run build:backend
+    select backend-builder for source builds, or prebuilt-backend when supplied
+    keep backend-builder separate so prebuilt packaging does not compile it
+    create runtime from the pinned official image plus merged backend overlay
+    create runtime-web FROM runtime
+    copy playwright and playwright-core from backend-dependencies
+    set PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
+    as root, install xvfb and xauth, then run
+        node node_modules/playwright/cli.js install chromium --with-deps
+    chown browser cache to node:node, then restore USER node
+    wrap /app/check-permissions.sh in entrypoint:
+        xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp'
+        /app/check-permissions.sh
+    preserve inherited CMD and HEALTHCHECK unchanged
+    build main candidate with --target runtime-web
     do not export either build environment setting to the runtime stage
     compile backend routes exactly once; do not run unit-test commands
     load the candidate locally
@@ -59,12 +75,14 @@ or workflow_dispatch where ref == refs/heads/main:
     verify direct Next UI listener behavior:
         GET http://127.0.0.1:20128/ expects HTTP 200
         GET http://127.0.0.1:20128/api/v1/models without credentials
-        expect HTTP 401 and error.code == "invalid_api_key"
+        with REQUIRE_API_KEY=true, expect HTTP 401 and error.code == "AUTH_002"
         on mismatch, report expected status/code and observed HTTP status
         plus bounded sanitized error.type/error.code fields only
         never log response body, headers, credentials, or model data
     compare BUILD_ID, complete static tree, page manifest, and every
         non-API app-path entry with the pinned official image
+    as default non-root user, launch Playwright Chromium with headless=false
+    load about:blank only, close browser cleanly, send no external requests
     capture any verification error as the primary error
     run all cleanup actions, collecting every cleanup error
     if primary verification error or cleanup errors exist:
@@ -74,6 +92,10 @@ or workflow_dispatch where ref == refs/heads/main:
     publish tested image as ghcr.io/etcetera-agency/omniroute:<full-SHA>
     publish the same manifest as ghcr.io/etcetera-agency/omniroute:main
     record manifest digest, source URL/SHA, base digest, and Actions run URL
+    render every dynamic summary line with a single-quoted printf format
+    pass each public value as a separately quoted printf argument
+    preserve Markdown backticks as literal summary characters
+    append rendered evidence to GITHUB_STEP_SUMMARY
 
 on feature push, pull_request, or schedule:
     run no automated project test/check workflow
@@ -96,6 +118,65 @@ deployment secrets. Keep BuildKit GHA cache best-effort, ref-scoped, and
 `mode=min`; cache misses must produce a clean build. Do not export a large
 compiler cache artifact.
 
+## Published-image summary quoting
+
+Main run `37132155004` completed the native candidate image build, then failed
+artifact verification with HTTP 401, `error.code: "AUTH_002"`, and no
+`error.type`; GHCR login/publication did not run. Read-only diagnosis traces
+the request through client-API auth middleware, which rejects before the
+catalog handler. The earlier source-level `invalid_api_key` expectation missed
+this path; the exact contract is described in the catalog-auth section below.
+Preserve required-key behavior and assert the exact middleware response.
+
+The original workflow summary placed Markdown backticks inside double-quoted
+`echo` strings. Bash evaluated those backticks as command substitutions,
+producing missing source, tag, digest, base, and run URL fields. A local shell
+probe reproduced seven failed substitutions while `echo` still exited
+successfully. The workflow now uses single-quoted `printf` formats and
+separately quoted value arguments; a manual probe confirmed the values and
+literal Markdown backticks are preserved. Summary correctness remains a
+separate check from image publication.
+
+Render each line using a single-quoted static `printf` format, with each
+dynamic public value passed as its own quoted data argument. Keep Markdown
+backticks in the literal format, append to `GITHUB_STEP_SUMMARY`, and never
+place dynamic values in the format string. Manually run the summary block with
+representative repository, SHA, image tag, digest, base, and run URL values;
+compare exact output and confirm backticks remain literal and no shell
+substitution executes.
+
+## Browser-capable runtime
+
+Current production uses `omniroute:55f40468-official-overlay-web-browser-20261003`
+through the third browser Compose override. Its source copies the pinned
+`playwright` and `playwright-core` packages, installs Chromium with Playwright
+OS dependencies under `/home/node/.cache/ms-playwright`, and runs the existing
+permission-check entrypoint under `xvfb-run`. The new public `:main` image
+must retain that provider capability; the lean `runtime` target is not the
+published candidate.
+
+Split dependency installation into `backend-dependencies` and derive
+`backend-builder` from it, so the backend compiler and web runtime share the
+same lockfile-resolved packages. Keep `prebuilt-backend` packaging independent:
+when selected, it must not pull `backend-builder` into the build graph merely
+to obtain Playwright packages. Build the final candidate as `runtime-web FROM
+runtime`; copy only `playwright` and `playwright-core` from
+`backend-dependencies`, install Xvfb, Xauth, Chromium, and required OS
+libraries, set `PLAYWRIGHT_BROWSERS_PATH`, and make the browser cache readable
+by `node`. The final image keeps the pinned UI and merged manifests unchanged,
+keeps the inherited `CMD` and `HEALTHCHECK`, and wraps
+`/app/check-permissions.sh` with `xvfb-run -a -s '-screen 0 1920x1080x24
+-nolisten tcp'` as the selected entrypoint.
+
+The main workflow builds `--target runtime-web`. Before registry auth, run a
+one-shot Playwright smoke inside the candidate as its default non-root user:
+launch Chromium with `headless: false` under the image's Xvfb entrypoint, open
+`about:blank`, and close the browser. Make no external requests. Also compare
+UI assets/manifests with the pinned official image as already specified.
+Server acceptance records the three active Compose files and last digest
+override; rollback remains pinned to the current browser-capable image until
+the new image passes browser and health checks.
+
 ## Container artifact acceptance
 
 The main image workflow verifies the built candidate itself before registry
@@ -107,7 +188,8 @@ authentication:
    the configured Docker `HEALTHCHECK` reports healthy and a native SQLite
    operation succeeds.
 3. Direct Next UI listener `20128` returns HTTP 200 for `/` and HTTP 401 with
-   `error.code: "invalid_api_key"` for unauthenticated `GET /api/v1/models`.
+   `error.code: "AUTH_002"` for unauthenticated `GET /api/v1/models` when
+   `REQUIRE_API_KEY=true`.
    Keep these UI checks separate from the API listener proxy on `20129`; a 404
    from probing a health path on that proxy is not a failed UI health check.
 4. Against the pinned official image, `BUILD_ID`, full static tree, page
@@ -192,33 +274,42 @@ authentication. Do not infer a verifier pass from this failed run.
 
 ## Catalog-auth assertion diagnosis
 
-Fourth main run `37129219486` built the candidate in 8m28, then failed the
-unauthenticated direct UI `/api/v1/models` assertion. The run did not record
-the observed status or response fields, so actual runtime behavior remains
-unknown. Read-only source/configuration inspection predicts HTTP 401 with
-`error.code: "invalid_api_key"` for the disposable fixture: `INITIAL_PASSWORD`
-is set, `requireLogin` is true, `requireAuthForModels` opt-out is absent, and
-the bridge peer is guarded. This establishes expected source behavior only;
-it does not establish the candidate's actual response.
+Fourth run `37129219486` built the candidate in 8m28, then failed the
+unauthenticated direct UI `/api/v1/models` assertion without logging the actual
+response. An initial handler-level source reading predicted `401
+invalid_api_key`; this prediction was incomplete and is superseded by the next
+run and full call-path diagnosis below.
 
-Keep the auth fixture and HTTP 401 / `invalid_api_key` gate unchanged. Change
-only assertion-failure diagnostics: include expected status/code, observed
-HTTP status, and `error.type` / `error.code` when those are string values.
+Fifth main run `37132155004` completed native candidate image build, then
+observed HTTP 401, `error.code: "AUTH_002"`, and no `error.type`. GHCR login
+and publication were skipped. Read-only diagnosis follows
+`classify.ts:95` -> `proxy.ts:23` -> `runAuthzPipeline` -> `clientApi.ts:61`:
+the request is classified as client API and rejected by auth middleware
+before reaching the catalog handler. The response pipeline at `pipeline.ts:62`
+emits the code without `error.type`. This matches `REQUIRE_API_KEY=true`; the
+smoke contract had expected the unreached handler's `invalid_api_key` code.
+
+Set `REQUIRE_API_KEY=true` in the disposable smoke fixture and expect exactly
+HTTP 401 with `error.code: "AUTH_002"`. Do not accept any arbitrary 401 or
+the handler's `invalid_api_key` code. Keep assertion-failure diagnostics:
+include expected status/code, observed HTTP status, and `error.type` /
+`error.code` when those are string values.
 Sanitize control characters and cap each field at 64 characters before
 including it in the failure message. Read only these allowlisted fields;
 never include response body, headers, credentials, model data, or serialized
 error objects. If JSON parsing or a field lookup fails, report `<unavailable>`
-for that field. This diagnostic explains a mismatch without weakening auth or
-claiming a response before the next native main run.
+for that field. This reports mismatches without weakening auth or treating the
+earlier runtime result as proof of full artifact acceptance.
 
 ## Review and server acceptance
 
 Review and merge the feature branch manually. The PR includes the already
 reviewed runtime changes and eligible completed OpenSpec archives, not a
 CI-only change. Do not depend on automatic unit, static, or workflow checks;
-run tests manually when the task requires them. Native ARM64 image
-compilation now passes on run `37126849223`; the candidate verifier correction
-must reach main and pass before image publication.
+run tests manually when the task requires them. Native backend compilation
+passed on runs `37126849223` and `37132155004`, but neither produced a verified
+published image. The browser-capable `runtime-web` target still needs its first
+main build and browser smoke before image publication.
 
 GHCR creates a package as private. After the first successful main
 publication, the owner changes it to public in GitHub Packages. Workflow code
@@ -229,7 +320,8 @@ Before the operator-run pull, record current digest, Compose configuration,
 Docker health status, direct UI root (`127.0.0.1:20128/` returns HTTP 200),
 and database-migration state. API behavior is checked separately with its
 specific routes, including unauthenticated `GET /api/v1/models` on the direct
-UI listener returning HTTP 401 with `error.code: "invalid_api_key"`. Do not
+UI listener returning HTTP 401 with `error.code: "AUTH_002"` when
+`REQUIRE_API_KEY=true`. Do not
 probe UI health paths through the API listener proxy on `20129`. Pull
 `ghcr.io/etcetera-agency/omniroute:main`, compare its resolved digest and OCI
 labels with the main Actions summary, verify ARM64, then start it using

@@ -130,10 +130,12 @@ source/revision/base metadata, native SQLite operation, configured Docker
 `HEALTHCHECK` status, direct UI root response, API behavior, and official UI
 preservation by comparing
 `BUILD_ID`, the full static tree, page manifest, and every non-API app-path
-entry with the pinned official image. The direct Next UI listener SHALL return
-HTTP 401 with `error.code: "invalid_api_key"` for unauthenticated
-`GET /api/v1/models`. Smoke checks SHALL use disposable runner-local data and
-SHALL NOT access production credentials or data. A failed artifact check SHALL
+entry with the pinned official image. With `REQUIRE_API_KEY=true`, the direct
+Next UI listener SHALL return HTTP 401 with `error.code: "AUTH_002"` for
+unauthenticated `GET /api/v1/models`; client-API auth middleware rejects the
+request before the catalog handler. Smoke checks SHALL use disposable
+container-scoped data and SHALL NOT access production credentials or data. A
+failed artifact check SHALL
 stop the workflow before registry authentication and SHALL publish no image.
 The direct UI listener on port `20128` SHALL return HTTP 200 for `/`; health
 SHALL be checked through Docker's configured `HEALTHCHECK`. The verifier SHALL
@@ -148,8 +150,8 @@ If the unauthenticated catalog assertion fails, its diagnostic SHALL include
 the expected status/code, observed HTTP status, and only bounded, sanitized
 `error.type` and `error.code` values read from a JSON response. It SHALL NOT
 log response bodies, headers, credentials, model data, or serialized error
-objects. This diagnostic SHALL NOT change the auth fixture or expected HTTP
-401 / `invalid_api_key` behavior.
+objects. This diagnostic SHALL NOT weaken the auth fixture or expected HTTP
+401 / `AUTH_002` behavior.
 
 #### Scenario: Candidate passes artifact verification
 
@@ -160,7 +162,11 @@ objects. This diagnostic SHALL NOT change the auth fixture or expected HTTP
 - **AND** direct UI listener `20128` returns HTTP 200 for `/`
 - **AND** direct API behavior passes
 - **AND** unauthenticated `GET /api/v1/models` on the direct UI listener
-  returns HTTP 401 with `error.code: "invalid_api_key"`
+  returns HTTP 401 with `error.code: "AUTH_002"` when
+  `REQUIRE_API_KEY=true`
+- **AND** Chromium launches through Playwright with `headless: false` as the
+  default non-root user, opens only `about:blank`, and closes cleanly under
+  Xvfb
 - **AND** all checked UI build assets and non-API paths match the pinned
   official image
 - **AND** candidate `/app/data` uses container-scoped tmpfs mode `1777` with
@@ -171,7 +177,8 @@ objects. This diagnostic SHALL NOT change the auth fixture or expected HTTP
 
 #### Scenario: Candidate artifact check fails
 
-- **GIVEN** any identity, native SQLite, health, route, or UI comparison fails
+- **GIVEN** any identity, native SQLite, health, route, UI comparison, or
+  browser smoke fails
 - **WHEN** the main image workflow evaluates the candidate
 - **THEN** the workflow fails before GHCR login
 - **AND** no tag is published or updated
@@ -179,7 +186,7 @@ objects. This diagnostic SHALL NOT change the auth fixture or expected HTTP
 #### Scenario: Catalog-auth assertion fails with safe diagnostics
 
 - **GIVEN** unauthenticated direct UI `GET /api/v1/models` does not return the
-  expected HTTP 401 and `error.code: "invalid_api_key"`
+  expected HTTP 401 and `error.code: "AUTH_002"`
 - **WHEN** the verifier reports the failed assertion
 - **THEN** the message includes expected status/code and observed HTTP status
 - **AND** it includes only bounded, sanitized `error.type` and `error.code`
@@ -214,7 +221,12 @@ SHALL record the actual registry manifest digest, canonical source URL,
 source SHA, pinned base digest, and Actions run URL. OCI source, revision, and
 base-digest labels SHALL match those values. Tags SHALL NOT be treated as
 immutable; the manifest digest is the image identity. The workflow SHALL NOT
-change package visibility or add signed-attestation infrastructure.
+change package visibility or add signed-attestation infrastructure. It SHALL
+append source URL, full-SHA tag, manifest digest, pinned official base,
+verified OCI-label status, `:main` update status, and workflow run URL to
+`GITHUB_STEP_SUMMARY`. The workflow SHALL render dynamic values as quoted data
+arguments to a fixed, single-quoted `printf` format so Markdown backticks stay
+literal and values cannot become shell commands.
 
 #### Scenario: Main publication succeeds
 
@@ -224,6 +236,60 @@ change package visibility or add signed-attestation infrastructure.
 - **AND** the run summary records digest, source, revision, base digest, and
   workflow run URL
 - **AND** OCI labels match the summary
+
+#### Scenario: Publication summary preserves values
+
+- **GIVEN** the main image was published and the public summary values are set
+- **WHEN** the workflow writes the Actions summary
+- **THEN** each source, tag, digest, base, and run URL appears unchanged
+- **AND** Markdown backticks appear as literal characters
+- **AND** no command substitution is executed for a dynamic value
+
+### Requirement: Preserve browser providers in the main image
+
+The main workflow SHALL build the `runtime-web` target derived from the
+verified `runtime` image. It SHALL split lockfile dependency installation into
+a shared `backend-dependencies` stage, with `backend-builder` derived from
+that stage, so source compilation occurs once and the web runtime can reuse
+the pinned `playwright` and `playwright-core` packages. Selecting the
+`prebuilt-backend` artifact SHALL NOT force `backend-builder` to compile merely
+to provide browser packages.
+
+The `runtime-web` target SHALL copy only the lockfile-resolved Playwright
+packages from `backend-dependencies`, install Chromium and its required OS
+libraries with Playwright's CLI `--with-deps`, and install Xvfb and Xauth. It
+SHALL set `PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright` and make
+the browser cache available to the default `node` user. Its entrypoint SHALL
+run the existing `/app/check-permissions.sh` through
+`xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp'`. The inherited `CMD`
+and Docker `HEALTHCHECK` SHALL remain unchanged. The target SHALL preserve the
+pinned official UI and existing app manifests.
+
+Before registry authentication, candidate verification SHALL launch Chromium
+through Playwright with `headless: false` as the default non-root user, open
+only `about:blank`, and close cleanly under Xvfb without external requests.
+Any failure SHALL block publication.
+
+#### Scenario: Browser-capable main candidate passes verification
+
+- **GIVEN** the source or selected prebuilt backend overlay is merged into the
+  pinned official runtime
+- **AND** `runtime-web` contains lockfile-matched Playwright packages and
+  Chromium at the configured browser path
+- **AND** its permission-check entrypoint runs under Xvfb with the inherited
+  command and healthcheck unchanged
+- **WHEN** the verifier launches non-root Chromium with `headless: false`
+- **THEN** the browser opens `about:blank` and closes successfully
+- **AND** the official UI assets and manifests remain unchanged
+- **AND** publication may proceed only after all other artifact checks pass
+
+#### Scenario: Browser runtime is missing or cannot launch
+
+- **GIVEN** the candidate lacks required browser packages, binaries, or Xvfb
+- **OR** non-root Chromium cannot launch or close successfully
+- **WHEN** the artifact verifier checks the browser runtime
+- **THEN** verification fails before GHCR authentication
+- **AND** no image tag is published or updated
 
 #### Scenario: First package publication
 
@@ -241,7 +307,11 @@ server. An operator SHALL resolve and compare the image digest with the
 successful main workflow summary, verify ARM64 architecture and OCI labels,
 and run `docker compose up -d --no-build`. Deployment SHALL remain
 operator-run; the workflow SHALL NOT deploy to production or run database
-migrations.
+migrations. Before pulling, the operator SHALL reconcile the three active
+Compose files and final image-digest override, confirm the `runtime-web`
+browser capability is retained, and record the current browser-capable image
+digest as rollback target. If acceptance fails, rollback SHALL restore that
+browser-capable image and its existing Compose selection.
 
 #### Scenario: Operator accepts the main image
 
@@ -254,6 +324,8 @@ migrations.
 - **AND** the configured Docker `HEALTHCHECK` reports healthy
 - **AND** `http://127.0.0.1:20128/` returns HTTP 200
 - **AND** native SQLite and API route checks pass independently
+- **AND** the non-root Playwright Chromium `headless: false` smoke on
+  `about:blank` passes
 - **AND** UI health checks do not rely on paths sent to the API proxy on port
   `20129`
 
