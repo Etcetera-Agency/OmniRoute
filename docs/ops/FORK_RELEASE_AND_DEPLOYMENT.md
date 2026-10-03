@@ -54,19 +54,21 @@ approved, push only `feat/auto-quality-bands` with lease protection. A merge to
 
 ## Pre-promotion gates
 
-Do not create or promote a deploy tag until every gate passes and the production
-database migration conflict below has an approved resolution.
+Do not create or promote a deploy tag until every applicable gate passes and
+the exact release commit is verified. The production ledger conflict has an
+approved one-time repair procedure and isolated-copy rehearsal; production
+execution still waits for the supported-runtime build/start gate.
 
 - Rebased branch matches the selected upstream tag and has no unintended fork
   delta.
-- Band grammar, identity, seam, and filter tests pass, along with the unmodified
-  upstream `autoCombo` unit tests. Typecheck and lint pass.
-- Any high-priority code-review findings are fixed and reviewed. The prior
-  final-selection finding about free-before-premium band order is fixed and
-  reviewed; all remaining promotion gates below still apply.
-- A full build and start smoke completes against an isolated, consistent copy
-  of the production SQLite database. Record startup and migration output; never
-  use the live mounted database for this check.
+- Band grammar, identity, seam, filter, calibration, reserve, and unmodified
+  upstream `autoCombo` tests pass. Typecheck, scoped lint, and formatting pass.
+- Independent review findings are fixed and closed. The final-selection and
+  quota-cutoff routing findings, five calibration findings, reserve review,
+  and SystemOne review are closed; this does not replace live verification.
+- The exact release commit builds and starts with the stock Node 26 image on a
+  fresh, consistent, isolated production-database copy. Record startup and
+  migration output; never use the live mounted database for this check.
 - With `OMNIROUTE_AUTO_BANDS` unset and with it set to `0`, verify the full
   upstream-routing fallback: band quality/capability filters, band ordering,
   and reserve/account narrowing are bypassed.
@@ -76,24 +78,45 @@ database migration conflict below has an approved resolution.
 
 ### Current validation record
 
-As of 2026-10-03, typecheck has 0 errors, lint passes with 8 warnings, and 284
-tests pass. The high-priority review fix is pending. Full build/start against the
-isolated production-database copy and the live `call_logs.combo_name` check are
-also pending. These results do not authorize a deploy tag or production
-promotion.
+As of 2026-10-03, the final Auto-Combo and service regression passes 41 files /
+372 tests with two workers. Core and OpenSSE typechecks pass; scoped ESLint,
+Prettier, OpenSpec validation, and changed-doc checks pass. Review closed all
+five calibration findings, both routing findings, reserve findings, and the
+SystemOne findings. The calibration CLI smoke returned valid JSON for 10
+baseline models, 0 rated models, and no cut points on an isolated database; it
+does not validate the production catalog. The earlier 20-worker test attempt
+was resource-starved; use the passing two-worker run as final evidence.
+
+The staged Node 26 build attempt for
+`db18a17c374506941d10fbc58132eb108d1ea5db` ran 02:57:04–03:08:36 UTC with a
+7 GiB total RAM/swap bound, cpuset 0, and a 512-process limit. `npm run build`
+exited 1 at webpack step 19; builder inspection reported `OOM=true`. Logs and
+diagnostics were retained. No image was produced, and no cutover or migration
+ran. The latest reported free disk was 21.37 GB, below the 24 GiB preflight. A
+lower-heap retry is planned only after free disk reaches 24 GiB and bounded
+cleanup is reviewed; it has not run. The successful-chat
+`call_logs.combo_name` check, public Radar sync/cache check, real-catalog
+calibration, and reserve live-read validation are also pending. The active
+production source/container is at
+`f2bddef27ed0807dd5a5e2712bc26536edda8138`. The separate staged deployment
+target is `db18a17c374506941d10fbc58132eb108d1ea5db`; it is not live. Verify
+both full SHAs against the host before cutover. No live deployment or
+production ledger repair has yet been recorded here.
 
 ## Production database migration gate
 
-The overlapping migration history has a copy-only rekey procedure that passed
+The overlapping migration history has a one-time rekey procedure that passed
 an isolated database rehearsal; see
 [the FMO migration ledger rehearsal](AUTO_BANDS_MIGRATION_REHEARSAL.md). The
-rehearsal does not authorize a production ledger repair, which requires a
-separate approved maintenance change and a successful Node 24 build/start
-smoke. The fork uses migration IDs 164–166 for `fmo_pools`,
+user has authorized the production migration for this rollout. Execute it only
+after the exact release commit passes the stock Node 26 build/start smoke on an
+isolated copy and a fresh, consistent backup is verified. The fork uses
+migration IDs 164–166 for `fmo_pools`,
 `fmo_pool_decisions`, and `fmo_pool_live_seam`; upstream uses those IDs for
 `retire_microsoft_designer_web`, `retire_felo_web`, and
-`retire_gpl_derived_providers`. Do not deploy until the production repair has
-separate approval and all pre-promotion gates pass.
+`retire_gpl_derived_providers`. Follow the rehearsed transaction and post-init
+checks exactly. Do not add permanent migration mappings or compatibility
+behavior.
 
 ## Verify the production target
 
@@ -101,16 +124,92 @@ The current production SSH target alias is `etc2nd-shlink`. Its host data
 directory `/opt/apps/omniroute/data` is mounted at `/app/data`; SQLite is stored
 at `/app/data/storage.sqlite` inside the application environment.
 
-The active source checkout path is **unknown**. The previously used
-`/opt/apps/omniroute/source` path is missing; only timestamped backups were
-found. Before deployment, verify the live service/container definition, active
-checkout or image, running commit/tag, and the data mount on the host. Record the
-verified target in the deployment record. Do not assume the missing path or use
-a timestamped backup as the active source.
+The production source checkout `/opt/apps/omniroute/source` and its Git
+metadata were verified present and clean. The active production
+source/container is `f2bddef27ed0807dd5a5e2712bc26536edda8138`; the separate
+staged deployment target is `db18a17c374506941d10fbc58132eb108d1ea5db`. These
+SHAs are distinct: the staged target is not live. Before cutover, verify the
+live service/container definition, staged exact commit and image, runtime
+version, and data mount; record them in the deployment record. Keep the last
+known rollback image and database backup intact.
 
-Take a durable database snapshot before any approved deployment. Perform build,
+Take a durable database snapshot before deployment. Perform build,
 startup, and migration checks against a separate consistent copy. Keep the
 production data mount unchanged during pre-promotion validation.
+
+## Auto quality bands and Radar rollout
+
+Keep `OMNIROUTE_AUTO_BANDS` unset or set to `0` through image build, database
+migration, and initial application startup. This preserves upstream routing
+until production data and candidate checks pass. Keep
+`OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL` unset; it would let an empty
+`:free` pool fall back to paid candidates.
+
+### Enable the public Radar catalog
+
+The built-in client targets `https://radar.omniroute.online` by default. In the
+verified OmniRoute Settings/DB, enable the `RADAR_ENABLED` feature flag to
+expose Radar screens. Then open `/dashboard/radar`, separately opt in to feed
+sync, and select **Sync now**. Public/community catalog access is keyless; a
+supporter key is not needed for that feed.
+
+Confirm the catalog feed reports `live`, a feed version, and a fetch time, and
+that its local cache is populated. Use authenticated `GET /api/radar/status` to
+inspect opt-in and all four cache states without exposing a key. Do not require
+supporter-only offers or Intel feeds to be populated for public-catalog
+activation. The user will enter the supporter Intel key themselves through the
+dashboard after deployment. Treat that as a post-deploy user step, not a
+prerequisite for public activation. Never put the raw key in this guide, logs,
+shell arguments, or screenshots.
+
+### Calibrate and enable band routing
+
+After public catalog sync, create a fresh, consistent, read-only copy of the
+production database and run `scripts/ad-hoc/bands-calibrate.ts` from the exact
+reviewed source against that copy. Preserve the report outside the repository.
+The report is manual and read-only; it does not write operator config. Bands use
+the approved Arena/manual score sources. Radar Intel scores remain separate and
+are not consumed by band fitness. Use the approved nearest-rank cut points over
+sorted distinct numeric rated scores, then write the reviewed ranges to the
+operator file referenced by `OMNIROUTE_AUTO_BANDS_CONFIG`. Keep
+`calibration.mode` set to `manual` for the initial observation period.
+
+With the flag still off, verify config loading and inspect
+`GET /v1/auto-combo/<channel>/candidates` for every Hermes channel planned for
+use. Record rated-source coverage, structured-output capability coverage,
+candidate counts, and catalog/usage ID matches. Confirm no intended candidate
+pool is empty and the free-pool fallback remains unset. Enable
+`OMNIROUTE_AUTO_BANDS=1` only after these checks; then send a safe successful
+request using a band channel and verify the full requested channel id remains
+in `call_logs.combo_name`. Keep manual ranges for one week before changing
+`calibration.mode` to `auto`; inspect the first automatic run and persisted
+`auto-bands.state.json` before relying on it.
+
+### Demand reserve rollout and rollback
+
+Reserve is opt-in in the band config. For the initial band-routing rollout,
+leave `reserve.enabled` false. Disabled means full stop: no quota-source reads,
+calculations, refreshes, diagnostics, or account narrowing. Before enabling it,
+compare quota provider/model identifiers with the model catalog, inspect the
+shared daily-limit metadata shape, measure the 24-hour, 7-day, and 30-day reads
+and refresh cost, and compare proposed exclusions with observed exhaustion
+using a read-only validation. Review the approved seven-day lookback against
+Hermes schedules. Reserve isolation review closed without findings: focused
+tests pass 2/2; isolation, reserve, E2E, demand, and capacity suites pass 5
+files / 31 tests with two workers. The tests use default adapters, exercise an
+enabled refresh and real catalog lookup, guard Radar sync/scheduler access, and
+trap same-DB `.prepare` and `exec` writes. They cover an empty feed cache and
+static-baseline fallback; cache-overlay/local-merge coverage remains optional,
+not a release gate. Then enable reserve explicitly in the operator config and verify
+excluded account IDs are removed only from the band candidate allowlist; plain
+upstream channels stay unchanged.
+
+For band-routing rollback, set `OMNIROUTE_AUTO_BANDS=0` or unset it, then verify
+upstream ordering/filtering resumes. For reserve-only rollback, set
+`reserve.enabled` to false; the full-stop behavior suppresses reserve reads and
+narrowing. For code rollback, redeploy the previous verified tag. Database
+recovery remains a separate operation under the migration runbook; do not
+attempt an automatic reverse migration.
 
 ## SystemOne decisions route rollout
 
@@ -149,19 +248,21 @@ Before enabling the flag, verify in the production-like test instance that:
 - OpenRouter's live request and response shape has been verified before its key
   is configured in production.
 
-Current SystemOne evidence remains incomplete: no upstream credentials or live
-provider calls were available. Russian/Ukrainian answer checks, Laya failure and
-oversized-state fallback, OpenRouter live-shape validation, `laya` error-row
-monitoring, and the 50-request direct-versus-OmniRoute latency comparison are
-pending. Record both latency medians before production promotion. A one-off
-rehearsal database-copy check passed; the Node 24 full build/start against that
-copy remains unverified.
+Local SystemOne implementation validation is complete: 46 schema, dispatch,
+and route tests pass; OpenAPI coverage passes 8/8 and the route checker reports
+276 baseline entries with 0 new findings. No live upstream calls are recorded.
+Russian/Ukrainian answer checks, Laya failure and oversized-state fallback,
+OpenRouter live-shape validation, `laya` error-row monitoring, and the
+50-request direct-versus-OmniRoute latency comparison remain pending. Record
+both latency medians before enabling the route. The exact release commit still
+needs the supported Node 26 build/start against the isolated copy described
+above.
 
 Rollback the route switch by unsetting `OMNIROUTE_SYSTEMONE` or setting it to
 `0` through the verified service configuration, then restart the application
 as required by that deployment mechanism. Verify that POST again returns the
 catch-all JSON `404` with no upstream call. Keep database recovery under the
-separately approved migration plan.
+one-time migration runbook.
 
 ## Deploy tag and promotion
 
@@ -175,16 +276,15 @@ Use the next unused positive integer for `<n>` under the same upstream tag. Tag
 only the exact commit that passed all pre-promotion gates, and pin production to
 that tag. Do not move or overwrite a published deploy tag.
 
-Creating or pushing a deploy tag, pushing a rebased feature branch, and
-promoting a tag to production each require explicit user approval. After
-approval, push only the named branch and exact tag; do not push `main`, all
-branches, or wildcard tags. Do not merge the fork branch into `main` without
-explicit approval.
+Use the user's current authorization for this deployment and activation. Push
+only the reviewed feature branch and exact deploy tag; never push `main`, all
+branches, or wildcard tags. A future rebase, history rewrite, new release scope,
+or merge to `main` requires its own explicit approval.
 
-After approval and after every gate passes, create an annotated tag on the exact
-verified commit. Set `deploy_tag` to the selected upstream tag followed by
-`-bands.` and the next unused number; set `verified_commit` to the full commit
-SHA:
+After every gate passes within the user's current deployment authorization,
+create an annotated tag on the exact verified commit. Set `deploy_tag` to the
+selected upstream tag followed by `-bands.` and the next unused number; set
+`verified_commit` to the full commit SHA:
 
 ```bash
 deploy_tag='vX.Y.Z-bands.1'
@@ -193,8 +293,9 @@ git tag --annotate "$deploy_tag" "$verified_commit" --message "OmniRoute fork de
 git show --no-patch --format='%H %D' "$deploy_tag"
 ```
 
-After approval, publish the rewritten branch with lease protection and publish
-only that deploy tag:
+Publish only the reviewed feature branch if needed, then publish only that
+deploy tag within the current authorization. Use lease protection only when a
+separately approved history rewrite is part of the operation:
 
 ```bash
 git push --force-with-lease origin feat/auto-quality-bands
@@ -203,9 +304,9 @@ git push origin "$deploy_tag"
 
 Never use `git push --all`, `git push --tags`, or `--force`.
 
-Enable band routing only on an approved deployment by setting
-`OMNIROUTE_AUTO_BANDS=1`. Leaving it unset or setting it to `0` disables the
-band filters, band-specific ordering, and reserve/account narrowing. For code
+Enable band routing only after its production gates pass by setting
+`OMNIROUTE_AUTO_BANDS=1`. Leaving it unset or setting it to `0` disables band
+filters, band-specific ordering, and reserve/account narrowing. For code
 rollback, redeploy the previous verified deploy tag. Handle database recovery
-only under the separately approved migration plan; this guide assumes no
-automatic migration reversal.
+under the one-time migration runbook; this guide assumes no automatic migration
+reversal.
