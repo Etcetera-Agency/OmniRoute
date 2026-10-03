@@ -54,10 +54,11 @@ approved, push only `feat/auto-quality-bands` with lease protection. A merge to
 
 ## Pre-promotion gates
 
-Do not create or promote a deploy tag until every applicable gate passes and
-the exact release commit is verified. The production ledger conflict has an
-approved one-time repair procedure and isolated-copy rehearsal; production
-execution still waits for the supported-runtime build/start gate.
+For a future promotion, do not create or promote a deploy tag until every
+applicable gate passes and the exact release commit is verified. The production
+ledger conflict had an approved one-time repair, which is complete as recorded
+below. The current candidate passed supported-runtime build/start, isolated-
+copy migration checks, and production cutover; do not repeat its ledger rekey.
 
 - Rebased branch matches the selected upstream tag and has no unintended fork
   delta.
@@ -66,8 +67,9 @@ execution still waits for the supported-runtime build/start gate.
 - Independent review findings are fixed and closed. The final-selection and
   quota-cutoff routing findings, five calibration findings, reserve review,
   and SystemOne review are closed; this does not replace live verification.
-- The exact release commit builds and starts with the stock Node 26 image on a
-  fresh, consistent, isolated production-database copy. Record startup and
+- The exact release commit runs as an API backend overlay on the pinned stock
+  Node 26 UI image and starts against a fresh, consistent, isolated
+  production-database copy. Record startup and
   migration output; never use the live mounted database for this check.
 - With `OMNIROUTE_AUTO_BANDS` unset and with it set to `0`, verify the full
   upstream-routing fallback: band quality/capability filters, band ordering,
@@ -96,7 +98,7 @@ Attempt 2 ran 03:26:10–03:34:11 UTC with heap limit 4096 MiB, a 7 GiB total
 RAM/swap bound, cpuset 0, pids limit 512, and cached dependencies. It exited 1
 with V8 heap out-of-memory near 4066 MB and `SIGABRT`; no new cgroup OOM event
 was recorded. Retry logs and events were retained. Neither attempt produced an
-image; no cutover or production migration ran, and production remains at
+image; no cutover or production migration ran; at that time, production remained at
 `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
 
 A third diagnostic build launched at 03:49:15 and ended at 03:58:53 UTC with
@@ -128,65 +130,91 @@ Radar, and cutover were untouched. The old f2 12-GiB pass does not apply to
 staged db18. User decision: apply production `cache.maxMemoryGenerations=0`
 constantly, with no feature flag. The owner implemented and reviewed it in this
 source commit `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; the production
-callback smoke and `node --check` passed, but full-image acceptance remains pending. This disables additional memory-cache generations but
+callback smoke and `node --check` passed. This disables additional memory-cache generations but
 does not bound the live compiler object graph, so it cannot guarantee a
 12-GiB fit ([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
 Next 16.3.5 sets production `Infinity` before the custom callback; verify after
-each framework upgrade that the callback reapplies `0`. Keep build/start,
-isolated-migration, cutover, and live-validation gates open.
+each framework upgrade that the callback reapplies `0`. Candidate build/start,
+isolated migration, and production cutover have passed. Keep separate Node 24
+portability and live-validation checks open.
 
 ### Backend-overlay rollout status
 
-The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base for upstream
-commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` passed native-architecture and filesystem inspection at digest
-`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`. Its SLSA attestation binds the source revision; OCI revision/version
-labels are absent. The inspected base contains Node 26.10.0, Next 16.3.5,
-`better-sqlite3` 13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app
-payload, and 1,089 static assets. The image is a verified base only.
+The official Node 26 / Next 16.3.5 linux/arm64 base for upstream
+`23a11484862b3bb589a55e85b00e4ac53ffeb234` passed native and filesystem
+inspection at `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+Its SLSA attestation binds the source; OCI revision/version labels are absent.
+Source A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` compiled successfully in 733.7 seconds. The full scratch
+export was canceled at 09:16:03 UTC because it was exporting unneeded cache
+data, not because compilation failed. A cached thin export completed in 1.6
+seconds: 232,614,811 bytes total, including 3,529 server files / 232,234,534
+bytes, a 193,684-byte routes manifest, and a 27,866-byte required-server-files
+manifest. It contains no standalone app, static assets, cache, or `node_modules`.
+Thin-export and route/bundle hashes were verified against the final image; an
+aggregate artifact/image digest was not reported.
 
-The isolated backend overlay preserves the base UI: Next 16.3.5's resolver
-loads route paths directly from the app-path manifest, so the overlay carries
-its API route bundles and relative server chunks and merges only API entries.
-Three focused tests pass and independent review found no defects. Target-host
-Dockerfile parser/BuildKit validation remains pending because local `buildx
---check` could not reach the Docker socket. The overlay is source-reviewed but
-no app image has been produced.
+Source B `55f40468137290e8efdc24a1a1b95b111a61d91a` produced `omniroute:55f40468-official-overlay` from the pinned base and prebuilt backend
+pack. Target BuildKit parse and image import passed without recompilation. Native
+checks passed for Node 26.10.0, Next 16.3.5, and SQLite 3.53.4. All 1,089
+static assets, the Next build-identifier file, and 159 non-API app-path entries match the base
+hashes; the merged manifest has 725 API routes, 9 API function configs, and 16
+rewrites. Source A plus pack B runtime compatibility was verified. The candidate
+container was healthy and `/dashboard/radar` returned 200. SystemOne paths
+returned handler-specific `unknown_route` 404 only with both feature and auth
+disabled; this does not verify enabled routes. A fresh production-data copy
+passed integrity and foreign-key checks, exact ledger rekey, candidate
+migration/start, and idempotent second startup. Unauthenticated
+`GET /v1/models` returned the expected `401 AUTH_002`; authenticated dispatch
+and enabled SystemOne/bands route smoke remain pending. The copy's Radar probe
+returned 404 with Radar disabled.
 
-The user-approved full-duration maintenance stopped only OmniRoute at
-08:51:37 UTC. Backend export for source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` began at 08:51:38 UTC and
-passed the long compile warnings; the compile phase finished at 09:04:10 UTC,
-while artifact export remained pending. At 09:09:38 UTC, step 19 still showed 38.3 MB being written and zero new route filenames; export remained pending and no artifact was verified. Resource metrics below are from 09:00:10 UTC. The builder has no memory/swap/PID cgroup caps, CPU affinity 0–3,
-and OOM score adjustment +1000 only on builder-owned processes. At that sample,
-cgroup usage had peaked at 15.72 GB and was down to 4.69 GB; host
-`MemAvailable` was 14.06 GiB, swap free 3.53 GiB, and disk free 21.3 GB. No OOM
-or failure was reported. The planned output path does not prove export completion.
+Production now serves `omniroute:55f40468-official-overlay`, built from source
+A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` and pack B
+`55f40468137290e8efdc24a1a1b95b111a61d91a`; immutable image ID is
+`sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`.
+The candidate and Redis are healthy. A fresh 112,594,944-byte backup at
+`/opt/apps/omniroute-deploy-diagnostics/prod-cutover-55f40468-20261003T095314Z/backup/storage.sqlite`
+passed `quick_check` (SHA-256
+`d2c5149efb1272edadb09b5ba93378986f71f3943373ee5783dad9f728c901a6`); the
+authorized three-row ledger rekey was committed before candidate startup. The
+app applied 33 migrations successfully. Final database checks passed:
+integrity `ok`, zero foreign-key violations, 196 ledger rows (193 numeric and
+three legacy), maximum numeric version 196, exact upstream 164–166 records,
+preserved legacy names/timestamps, required retirement triggers, and FMO table
+counts 5/45/1/1. Unauthenticated `GET /v1/models` returned expected
+`401 AUTH_002`.
 
-Production source/container remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`. OmniRoute was restored to the exact f2 container and healthy at 09:06:31 UTC after 14m54s. No candidate image, candidate runtime smoke, isolated-copy migration, cutover, Radar update, or live validation is reported. After
-export, validate the Dockerfile on the target, build/inspect the linux/arm64
-image, verify stock-UI manifest/assets parity, test SystemOne and band API routes
-plus ordinary UI, then run against a fresh isolated DB copy and verify migration
-and startup/rollback. Only then complete the already-authorized production
-migration/cutover and post-deploy Radar, calibration, routing, reserve, and
-SystemOne checks. Revalidate the upstream image digest/attestation on each Next
-upgrade. Keep deployment and live gates open.
-The successful-chat
-`call_logs.combo_name` check, public Radar sync/cache check, real-catalog
-calibration, and reserve live-read validation are also pending. The active
-production source/container is at
-`f2bddef27ed0807dd5a5e2712bc26536edda8138`. The current staged source is
-`4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; its compile phase finished at
-09:04:10 UTC, but artifact export remains pending. It is not live. Verify both
-full SHAs against the host before cutover. No live deployment or
-production ledger repair has yet been recorded here.
+`RADAR_ENABLED` and public-catalog opt-in are true. An authenticated settings
+update and status request returned HTTP 200. The public sync request returned
+HTTP 200, but status reports `Feed request failed with status 404`; all four
+Radar caches are empty. The built-in client defaults to
+`https://radar.omniroute.online/v1/catalog/latest`, which returns Vercel
+`deployment-not-found` with the correct schema header and without a bearer
+token. The 489 built-in catalog entries do not prove a Radar feed was loaded.
+Restore the external Radar service/domain or configure a verified live
+`RADAR_FEED_URL` before retrying. This repository has no private Radar server
+source/access, only the public export workflow. Earlier unauthenticated probes
+confirmed the route and port mapping: the public
+[Radar dashboard](https://omniroute.etc2nd.etcetera.agency/dashboard/radar)
+redirects to login with HTTP 200; on UI port 20128, `/dashboard/radar`
+redirects to login and its settings/status APIs return `401 AUTH_001`, while
+`/v1/radar/settings` on API port 20129 returns `401 AUTH_002`. The earlier
+`not_found` came from probing the wrong port. The supporter Intel key is absent;
+the user will enter it through the dashboard as a separate post-deploy action.
+Authenticated `/v1` dispatch, enabled SystemOne and band routes, public feed
+validation, calibration, routing, reserve, and the successful-chat
+`call_logs.combo_name` check remain open. Revalidate the base digest and
+attestation on every Next upgrade.
 
 ## Production database migration gate
 
 The overlapping migration history has a one-time rekey procedure that passed
 an isolated database rehearsal; see
 [the FMO migration ledger rehearsal](AUTO_BANDS_MIGRATION_REHEARSAL.md). The
-user has authorized the production migration for this rollout. Execute it only
-after the exact release commit passes the stock Node 26 build/start smoke on an
-isolated copy and a fresh, consistent backup is verified. The fork uses
+user authorized and the operator completed the production migration for this
+rollout after the exact candidate passed official-UI/backend-overlay
+build/start on an isolated copy and a fresh consistent backup was verified.
+Do not repeat the rekey. The fork uses
 migration IDs 164–166 for `fmo_pools`,
 `fmo_pool_decisions`, and `fmo_pool_live_seam`; upstream uses those IDs for
 `retire_microsoft_designer_web`, `retire_felo_web`, and
@@ -201,16 +229,20 @@ directory `/opt/apps/omniroute/data` is mounted at `/app/data`; SQLite is stored
 at `/app/data/storage.sqlite` inside the application environment.
 
 The production source checkout `/opt/apps/omniroute/source` and its Git
-metadata were verified present and clean. The production source/rollback
-version is `f2bddef27ed0807dd5a5e2712bc26536edda8138`; OmniRoute was restored
-to this exact f2 container and healthy at 09:06:31 UTC after 14m54s. The current staged source is
-`4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`, whose compile phase finished at 09:04:10 UTC but artifact export remains
-pending (step 19 still showed 38.3 MB being written and zero new route filenames at 09:09:38 UTC). The staged source is not
-live, and no candidate image is verified.
-Before cutover, verify the live service/container definition, staged exact
-commit and image digest, runtime version, and data mount; record them in the
-deployment record. Keep the last known rollback image and database backup
-intact.
+metadata were verified present and clean at the prior f2 revision
+`f2bddef27ed0807dd5a5e2712bc26536edda8138`. The running production container
+now uses the candidate image override `omniroute:55f40468-official-overlay`,
+built from source A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` and pack B
+`55f40468137290e8efdc24a1a1b95b111a61d91a`. It was healthy at 09:58 UTC; its
+immutable image digest is not yet recorded. The three-row ledger rekey and 33
+migrations completed, with post-migration integrity and FMO checks passing.
+Authenticated route checks remain open. The Radar path and opt-in are verified;
+the sync returns `Feed request failed with status 404` because the default
+external endpoint reports `deployment-not-found`. Restore the external service
+or configure a verified feed URL. For any future cutover,
+verify the live service/container definition, exact commit and image digest,
+runtime version, and data mount; record them in the deployment record. Keep the
+last known rollback image and database backup intact.
 
 Take a durable database snapshot before deployment. Perform build,
 startup, and migration checks against a separate consistent copy. Keep the
@@ -333,9 +365,8 @@ and route tests pass; OpenAPI coverage passes 8/8 and the route checker reports
 Russian/Ukrainian answer checks, Laya failure and oversized-state fallback,
 OpenRouter live-shape validation, `laya` error-row monitoring, and the
 50-request direct-versus-OmniRoute latency comparison remain pending. Record
-both latency medians before enabling the route. The exact release commit still
-needs the supported Node 26 build/start against the isolated copy described
-above.
+both latency medians before enabling the route. The candidate passed supported
+Node 26 build/start against the isolated copy described above.
 
 Rollback the route switch by unsetting `OMNIROUTE_SYSTEMONE` or setting it to
 `0` through the verified service configuration, then restart the application

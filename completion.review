@@ -4,8 +4,11 @@ Date: 2026-10-03
 Scope: reviewed local implementation of `add-auto-band-seam`,
 `add-auto-quality-band-filter`, `add-auto-band-demand-reserve`, and
 `add-systemone-decisions-route`. Calibration implementation and local review
-are complete. Real-catalog validation, production deployment/activation,
-live-service checks, and OpenSpec archiving remain open.
+are complete. Production deployment and migration are complete; real-catalog
+validation, authenticated route checks, remaining live-service checks, and
+archiving the four remaining OpenSpec packages remain open. The production
+webpack memory and official-image overlay packages have been archived and
+their deltas merged into living specs.
 
 ## Decisions and implemented behavior
 
@@ -30,8 +33,11 @@ subscription → cheap → premium`. Plain upstream `auto:thrifty` behavior is
   `(account, provider, poolKey)`. The disabled reserve state is a full stop:
   no source reads, calculations, refresh, diagnostics, or account narrowing.
 - The user explicitly authorized deployment, production migration, and
-  activation. These actions are not yet complete; they remain behind supported
-  build/start and live readiness checks.
+  activation. The supported Node 26 candidate build/start, fresh-copy
+  migration checks, and production cutover have passed. Radar is enabled and
+  public opt-in is true; its sync request returned HTTP 200, but the follow-up
+  status reports `error`, so feed/cache activation is not yet verified.
+  Authenticated route checks and remaining live readiness checks are pending.
 
 ## Implementation and review
 
@@ -114,13 +120,20 @@ report.
   pending. FMO data/schema remained unchanged; trigger rollback checks and
   SQLite `quick_check` passed. The runbook is
   [docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md](docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md).
-  Production files and data were untouched.
+  The rehearsal itself did not modify production; the later authorized
+  production migration and cutover are recorded below.
 - The deployment playbook and migration rehearsal runbook now reflect the
-  reviewed test state, the distinct live source (`f2bddef27ed0807dd5a5e2712bc26536edda8138`)
-  and then-current staged target (`db18a17c374506941d10fbc58132eb108d1ea5db`), approved
-  Node 26 production runtime, user-authorized migration, keyless public Radar
+  reviewed test state, the historical production source (`f2bddef27ed0807dd5a5e2712bc26536edda8138`)
+  and initial staged target (`db18a17c374506941d10fbc58132eb108d1ea5db`), approved
+  Node 26 production runtime, completed user-authorized migration, keyless
+  public Radar
   activation, post-deploy dashboard Intel-key step, calibration, reserve
-  rollout, and rollback. OpenSpec tasks mark seam verification 4.1, reserve
+  rollout, and rollback. Production now serves
+  `omniroute:55f40468-official-overlay`, built from source A
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` and pack B
+  `55f40468137290e8efdc24a1a1b95b111a61d91a`; image ID is
+  `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`.
+  OpenSpec tasks mark seam verification 4.1, reserve
   integration 4.2, quality playbook 3.7, and reserve isolation 2.6 complete.
   Independent review closed the isolation tests without findings. Focused
   isolation tests pass 2/2; isolation, reserve, E2E, demand, and capacity
@@ -131,28 +144,41 @@ report.
   is not exercised. This is an optional future focused check if reserve later
   depends on that branch, not a production gate.
 - Documentation checkpoint validation: `check:docs-all` passed, including
-  1,180 internal links and strict fabricated-claim checks; all four changed
-  OpenSpec packages passed strict validation; Prettier and `git diff --check`
-  passed. Targeted Markdownlint reports only the two existing MD025
+  1,180 internal links and strict fabricated-claim checks. The independent
+  archive audits moved `reduce-production-webpack-cache-memory` to
+  `openspec/changes/archive/2026-10-03-reduce-production-webpack-cache-memory/`
+  and `add-official-image-backend-overlay` to
+  `openspec/changes/archive/2026-10-03-add-official-image-backend-overlay/`,
+  merging their deltas into the `production-webpack-build-memory` and
+  `official-image-backend-overlay` living specs. Final strict validation passed
+  for both living specs (2/2) and the four remaining active changes (4/4); both
+  archived targets passed strict validation. The first cache-spec validation
+  found missing `Purpose` and `Requirements` headings; the archive audit fixed
+  them before the passing check. Prettier and `git diff --check` passed.
+  Targeted Markdownlint reports only the two existing MD025
   frontmatter-title conflicts in the operations guides. The docs drift scan
   emitted 96 potential warnings across 169 files without failing the check.
 - The reviewed reserve/SystemOne checkpoint was pushed as
   `0860cc7da532d50048058c97ccbb91d734f4719d`. The calibration commit
-  `db18a17c374506941d10fbc58132eb108d1ea5db` was then pushed and verified by
-  exact remote SHA; publication hooks passed. That staged commit is not yet live
-  in production, which remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
+  `db18a17c374506941d10fbc58132eb108d1ea5db` was pushed and verified by exact
+  remote SHA; publication hooks passed. Production now serves the later
+  official-UI/backend-overlay candidate described below, not that original
+  full-UI build.
 
 ## Remaining gates
 
-- Connect the built-in OmniRoute Radar client to `radar.omniroute.online`,
-  verify opt-in and successful catalog sync, and confirm caches populate before
-  running the real-catalog report. The current production snapshot has
-  `RADAR_ENABLED` absent (default off), all `RADAR_*` overrides absent (client
-  fallback is `radar.omniroute.online`), and four Radar caches empty. Public
-  community-catalog access is keyless. The user will add the supporter Intel
-  key through the dashboard after deployment. Bands remain on the approved
-  Arena/manual score sources; Radar Intel rankings are not fed into
-  `getTaskFitnessWithSource`.
+- Radar production flag and public opt-in are enabled. Authenticated
+  settings/status calls returned HTTP 200. Sync returned HTTP 200 but status
+  reports `Feed request failed with status 404`; all four caches remain empty.
+  The default `https://radar.omniroute.online/v1/catalog/latest` returns Vercel
+  `deployment-not-found` with the correct schema header and no bearer token.
+  Restore the external service/domain or configure a verified live
+  `RADAR_FEED_URL`, then verify feed version/fetch time plus cache population
+  before running the real-catalog report. Public community-catalog access is
+  keyless. The supporter Intel key is absent; the user will enter it through
+  the dashboard as a separate post-deploy action.
+  Bands remain on the approved Arena/manual score sources; Radar Intel rankings
+  are not fed into `getTaskFitnessWithSource`.
 - After a successful Radar/catalog sync, run the calibration report against
   the real production model catalog; record rated-source coverage, structured-
   output coverage, and candidate counts for every Hermes channel. The local
@@ -218,36 +244,66 @@ report.
   does not bound the live compiler object graph, so a 12-GiB fit is not
   guaranteed. Next 16.3.5 sets production `Infinity` before the custom callback;
   after every Next/framework upgrade, verify callback order reapplies `0`.
-  Retry 5 remains RED evidence. The user approved the pinned official Node 26 /
-  Next 16.3.5 linux/arm64 base at digest `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`; SLSA binds upstream source
-  `23a11484862b3bb589a55e85b00e4ac53ffeb234`, native and filesystem inspection passed, and OCI revision/version
-  labels are absent. Overlay resolver tests pass 3/3 and independent review
-  found no defects. Local buildx could not reach the Docker socket, so
-  target-host Dockerfile validation remains open.
-  User-approved full-duration maintenance stopped only OmniRoute at 08:51:37
-  UTC. Backend export for source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` started 08:51:38; the compile phase finished at 09:04:10. At 09:09:38 UTC,
-  step 19 still showed 38.3 MB being written and zero new route filenames;
-  artifact export remained pending. The 09:00:10 resource sample recorded the following. Builder has no
-  memory/swap/PID cgroup caps, CPU affinity 0–3, and +1000 OOM score only for
-  builder-owned processes. Cgroup use was down to 4.69 GB after a 15.72-GB
-  peak; host `MemAvailable` was 14.06 GiB, swap free 3.53 GiB, disk free 21.3
-  GB, with no OOM/failure reported. Planned output path is not artifact proof.
-  Production source/container remains `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
-  OmniRoute was restored to the exact f2 container and healthy at 09:06:31 UTC
-  after 14m54s. No candidate image/runtime smoke, isolated-copy migration,
-  cutover, Radar change, or live validation is reported.
-  The cache setting is published in source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; full-image acceptance is
-  pending. See `openspec/TODO.md` for required overlay, parser, ARM64 image,
-  stock-UI parity, route/runtime, isolated-copy migration, publication,
-  cutover, Radar, and live-validation follow-ups. Keep task 1.4 unchecked.
-  Metadata checks for this checkpoint: strict OpenSpec validation passed 6/6;
-  docs-sync, frontmatter, environment sync, links, and fabricated-claim checks
-  passed. Docs-counts exited successfully with three existing soft warnings
-  (two executor-count references and one OAuth-provider count). No runtime
-  tests were rerun for this documentation-only update. The deprecated-version
-  check also exited 0 with 96 warning-only drift notices across the repository.
-  Code Simplifier review found no further safe prose changes; Prettier left all
-  five owned files unchanged.
+  The published candidate uses the attested official UI image plus a backend-only
+  overlay. `maxMemoryGenerations=0` was exercised on the backend-only compile; its
+  effect on a full-UI webpack build and a 12-GiB full-build fit remain unmeasured.
+  Do not claim the cache setting makes full-UI builds fit. If a future delivery
+  rebuilds the dashboard, measure the full target in a separately approved
+  follow-up. Retry 5 remains historical RED evidence. The pinned official Node 26 / Next
+  16.3.5 linux/arm64 base for upstream `23a11484862b3bb589a55e85b00e4ac53ffeb234`
+  passed native/filesystem inspection at
+  `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
+  SLSA binds the source and OCI revision/version labels are absent. Source A
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` compiled in 733.7 seconds. The full scratch export was canceled
+  at 09:16:03 UTC to avoid exporting unused cache data, not due to compiler
+  failure. The cached thin export passed in 1.6 seconds (232,614,811 bytes;
+  3,529 server files / 232,234,534 bytes, routes manifest 193,684 bytes,
+  required-server-files 27,866 bytes). Thin-export and route/bundle hashes were
+  verified against the final image; no aggregate artifact/image digest was
+  reported. Source B `55f40468137290e8efdc24a1a1b95b111a61d91a` built `omniroute:55f40468-official-overlay`; target BuildKit parse/import and
+  native Node 26.10.0 / Next 16.3.5 / SQLite 3.53.4 checks passed. All 1,089
+  static asset hashes, `BUILD_ID`, and 159 non-API app-path entries match the
+  base; merged manifest has 725 API routes, 9 function configs, and 16 rewrites.
+  Candidate container health and `/dashboard/radar` 200 passed. SystemOne paths
+  returned handler-specific 404 only with feature/auth disabled, not an
+  enabled-route check. A fresh 112,594,944-byte production-data copy passed
+  `quick_check`; exact three-row ledger rekey preserved all other ledger rows,
+  names, timestamps, FMO schema/counts, and table SHA-256 values. Candidate
+  startup reached migration version 196; after correcting the isolated smoke
+  input, the second start was healthy with 0 migrations applied and 0 pending.
+  Integrity and foreign-key checks passed, and unauthenticated `GET /v1/models`
+  returned the expected `401 AUTH_002`. The Radar probe returned 404 with the
+  copy's Radar flag off. Authenticated `/v1` dispatch and enabled SystemOne/band
+  routes remain unverified. Production now runs candidate image
+  `omniroute:55f40468-official-overlay`, ID
+  `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`,
+  built from source B `55f40468137290e8efdc24a1a1b95b111a61d91a` and
+  runtime-equivalent backend artifact A
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; its container and Redis are
+  healthy, and the migration run applied 33 operations. The authorized
+  three-row production ledger rekey followed a fresh 112,594,944-byte backup at
+  `/opt/apps/omniroute-deploy-diagnostics/prod-cutover-55f40468-20261003T095314Z/backup/storage.sqlite`
+  (SHA-256 `d2c5149efb1272edadb09b5ba93378986f71f3943373ee5783dad9f728c901a6`)
+  that passed `quick_check`. Post-migration checks passed: integrity `ok`, zero foreign-key
+  violations, 196 ledger rows (193 numeric and three preserved legacy rows),
+  maximum numeric version 196, exact upstream rows 164–166, unchanged legacy
+  names/timestamps, retirement triggers present, and FMO counts 5/45/1/1.
+  Unauthenticated production `GET /v1/models` returned expected `401 AUTH_002`.
+  Radar is enabled and public opt-in is true. Authenticated settings/status
+  calls and the sync request returned HTTP 200, but sync status reports
+  `Feed request failed with status 404`; all four Radar caches remain empty.
+  The default upstream `https://radar.omniroute.online/v1/catalog/latest`
+  returns Vercel `deployment-not-found` with the correct schema header and
+  without a bearer token. The 489 built-in catalog entries do not prove feed
+  data was loaded. The external Radar service/domain must be restored or
+  replaced by a verified live endpoint; this repository has no private Radar
+  service source/access, only its public export workflow. The earlier
+  unauthenticated `not_found` came from probing the wrong port. The supporter
+  Intel key is absent; the user will enter it through the dashboard as a
+  separate post-deploy action. Other authenticated routes and live
+  catalog/calibration/routing/reserve validation remain pending.
+  See TODO for remaining checks; task 1.4 and remaining live gates stay open.
+
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
   test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
   small request; collect 50-request direct/proxy latency; verify allowed-model
@@ -255,17 +311,27 @@ report.
   error rows. Laya deployment and the Hermes caller switch are outside this
   repository.
 - The user explicitly authorized deployment, production migration, and
-  activation. The production source/container is at
-  `f2bddef27ed0807dd5a5e2712bc26536edda8138`; current staged source is
-  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`, whose compile phase finished at
-  09:04:10 UTC but artifact export remained pending (38.3 MB still being written with zero new route filenames at
-  09:09:38); it is not live. Deployment is pending image, runtime, and migration gates. Then run the rehearsed
-  one-time migration-ledger repair
-  against a fresh consistent backup and verify integrity, idempotence, and
-  rollback. Permanent migration compatibility code is forbidden.
+  activation. Candidate `omniroute:55f40468-official-overlay`, built from
+  source A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` plus pack B
+  `55f40468137290e8efdc24a1a1b95b111a61d91a`, is serving production and passed
+  native, health, and post-migration integrity checks; image ID is
+  `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`.
+  The one-time ledger rekey and 33 migrations completed.
+  Foreign-key, ledger, trigger, and FMO-count checks passed. Authenticated
+  route tests, Radar successful-sync/cache validation, and remaining live
+  checks are still pending. The default external Radar feed currently returns
+  Vercel `deployment-not-found`; restore that service/domain or configure a
+  verified live `RADAR_FEED_URL` before rerunning sync.
+  Permanent migration compatibility code is forbidden.
 - Correct the upstream `QuotaSnapshotRow` declaration/getter contract in a
   separate slice. The runtime getter returns camelCase fields and numeric
   `isExhausted` (`0 | 1`); the reserve code currently uses a strict local
   camelCase boundary without a compatibility shim.
-- After the remaining implementation and operational gates pass, archive the
-  four OpenSpec packages. Do not archive or deploy based only on local tests.
+- After the remaining implementation and operational gates pass, reconcile
+  `openspec/README.md`, merge the three auto-quality-band deltas (26 distinct
+  requirements) and the SystemOne delta (9 requirements) into living specs,
+  validate strictly, then archive the four remaining active packages: the
+  three auto-quality-band changes and the SystemOne change. The production
+  webpack-memory and official-image-overlay packages are already archived and
+  merged into living specs; do not archive or deploy the remaining packages
+  based only on local tests.

@@ -28,10 +28,15 @@
 
 ## 3. Build Acceptance
 
-- [ ] 3.1 Build the full production target on the exact staged source with the
-      documented 12-GiB profile. Confirm optimized compilation completes, the
-      standalone image is produced, and the existing dashboard/API route set is
-      retained. A repeated OOM keeps the build gate red.
-- [ ] 3.2 Reconcile TODO.md and completion.review through the metadata owner
-      after the full build result is known; do not mark this package complete on
-      the config smoke alone.
+- [x] 3.1 Use the user-selected official-image backend overlay as the accepted
+      image path. Build the backend-only output from exact source
+      `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` with the production filesystem
+      cache policy active; assemble pack source
+      `55f40468137290e8efdc24a1a1b95b111a61d91a` on the pinned ARM64 official
+      image. Confirm the official dashboard/build ID/static assets and all
+      non-API app paths are preserved, and the overlay API routes load.
+- [x] 3.2 Reconcile `TODO.md` and `completion.review` through the metadata owner
+      to record that this delivery uses the official UI image plus a backend-only
+      compile. Both now state that the cache policy's full-UI memory effect and a
+      12-GiB full-build fit remain unmeasured; they make no fit claim and track a
+      full-UI benchmark only as future work if a later delivery rebuilds the UI.
