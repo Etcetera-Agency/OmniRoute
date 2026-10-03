@@ -52,14 +52,21 @@ or workflow_dispatch where ref == refs/heads/main:
     compile backend routes exactly once; do not run unit-test commands
     load the candidate locally
     inspect candidate architecture and OCI source/revision/base labels
-    start candidate with isolated disposable runner-local data
-    verify process health and a native SQLite operation
-    verify dashboard response and direct UI API response:
+    start candidate with container-scoped tmpfs at /app/data, mode 1777
+    preserve image's default USER; do not bind host temporary data
+    verify configured Docker HEALTHCHECK reports healthy
+    verify native SQLite operation
+    verify direct Next UI listener behavior:
+        GET http://127.0.0.1:20128/ expects HTTP 200
         GET http://127.0.0.1:20128/api/v1/models without credentials
         expect HTTP 401 and error.code == "invalid_api_key"
     compare BUILD_ID, complete static tree, page manifest, and every
         non-API app-path entry with the pinned official image
-    if any artifact check fails: stop; do not authenticate or publish
+    capture any verification error as the primary error
+    run all cleanup actions, collecting every cleanup error
+    if primary verification error or cleanup errors exist:
+        report primary verification error first, plus every cleanup error
+        fail verification; do not authenticate or publish
     login to ghcr.io using GITHUB_TOKEN
     publish tested image as ghcr.io/etcetera-agency/omniroute:<full-SHA>
     publish the same manifest as ghcr.io/etcetera-agency/omniroute:main
@@ -93,18 +100,34 @@ authentication:
 
 1. Architecture is `linux/arm64`; OCI source, full revision, and base digest
    match the triggering commit and pinned base.
-2. The application starts with isolated disposable runner-local data; its
-   health endpoint and a native SQLite operation succeed.
-3. The dashboard returns successfully. Direct Next UI listener `20128` returns
-   HTTP 401 with `error.code: "invalid_api_key"` for unauthenticated
-   `GET /api/v1/models`. `AUTH_002` belongs to the separate API listener proxy
-   and is not this direct route-handler response.
+2. The application starts with disposable container-scoped `/app/data` tmpfs;
+   the configured Docker `HEALTHCHECK` reports healthy and a native SQLite
+   operation succeeds.
+3. Direct Next UI listener `20128` returns HTTP 200 for `/` and HTTP 401 with
+   `error.code: "invalid_api_key"` for unauthenticated `GET /api/v1/models`.
+   Keep these UI checks separate from the API listener proxy on `20129`; a 404
+   from probing a health path on that proxy is not a failed UI health check.
 4. Against the pinned official image, `BUILD_ID`, full static tree, page
    manifest, and every non-API app-path entry match exactly.
 
 Any failed artifact check stops before GHCR login or publication. The verifier
 must not contact production data or credentials. Capacity must be based on
 actual run evidence, not inferred from runner specifications.
+
+Candidate data at `/app/data` is disposable and container-scoped. Mount it as
+tmpfs with mode `1777` so the image's default user can write there without
+binding host temporary data into the container. Keep the image's default
+`USER`; do not change the Dockerfile or run smoke checks as root. Removing the
+candidate removes its tmpfs without asking the host runner to unlink files
+owned by the container user.
+
+Verifier cleanup must not replace a primary verification error. Collect the
+primary error and cleanup errors independently, including errors from
+`smokeCandidate`, UI extraction, and image comparison cleanup. After all
+cleanup actions run, return success only if artifact verification passed and
+cleanup produced no errors. If verification failed, surface that error first
+and include every cleanup error. If verification passed but cleanup failed,
+fail the verifier and block publication; never ignore cleanup failure.
 
 ## Main build failures and selected correction
 
@@ -143,14 +166,35 @@ build and container artifact checks remain open acceptance gates. Retain its
 exact logs and measured evidence if it fails; do not add speculative resource
 limits.
 
+## Candidate verifier permission failure and correction
+
+Third main run `37126849223` completed native ARM64 image build and backend
+compilation in about 9 minutes, then failed in verification cleanup with
+`EACCES: permission denied` unlinking
+`/tmp/omni-overlay-data-uR7ulC/cache/openrouter-provider-stats.json`. Diagnosis
+found that the verifier bind-mounted host temporary data at `/app/data`; the
+candidate kept the image's default `node` user (UID 1000), which created the
+file, while GitHub runner UID 1001 could not unlink it. The cleanup `finally`
+path may have hidden a primary verification error, so this output does not
+prove the preceding candidate checks passed. BuildKit GHA cache export
+succeeded in 25.3 seconds; GHCR login and publication were skipped.
+
+Mount candidate `/app/data` as container-scoped tmpfs with mode `1777`; retain
+the image's default `USER` and remove the host data bind. Run cleanup actions
+without allowing a cleanup throw to replace the primary verifier error. Report
+the primary error and all cleanup errors together. A cleanup failure after
+otherwise successful artifact checks still fails verification and blocks
+publication. The next main run must pass all artifact checks before GHCR
+authentication. Do not infer a verifier pass from this failed run.
+
 ## Review and server acceptance
 
 Review and merge the feature branch manually. The PR includes the already
 reviewed runtime changes and eligible completed OpenSpec archives, not a
 CI-only change. Do not depend on automatic unit, static, or workflow checks;
-run tests manually when the task requires them. The next accepted builder
-correction must reach main before image publication can pass its native
-ARM64 build and container-artifact gates.
+run tests manually when the task requires them. Native ARM64 image
+compilation now passes on run `37126849223`; the candidate verifier correction
+must reach main and pass before image publication.
 
 GHCR creates a package as private. After the first successful main
 publication, the owner changes it to public in GitHub Packages. Workflow code
@@ -158,7 +202,11 @@ leaves package settings unchanged. Verify an anonymous pull before using the
 image on the server.
 
 Before the operator-run pull, record current digest, Compose configuration,
-health, and database-migration state. Pull
+Docker health status, direct UI root (`127.0.0.1:20128/` returns HTTP 200),
+and database-migration state. API behavior is checked separately with its
+specific routes, including unauthenticated `GET /api/v1/models` on the direct
+UI listener returning HTTP 401 with `error.code: "invalid_api_key"`. Do not
+probe UI health paths through the API listener proxy on `20129`. Pull
 `ghcr.io/etcetera-agency/omniroute:main`, compare its resolved digest and OCI
 labels with the main Actions summary, verify ARM64, then start it using
 `docker compose up -d --no-build`. Check server health, native SQLite,
