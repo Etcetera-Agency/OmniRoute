@@ -39,11 +39,43 @@ status, `error.type`, `error.code`, or body; no response is inferred. A fresh
 read-only source/configuration diagnosis predicts this disposable fixture
 should return HTTP 401 with `invalid_api_key`: `INITIAL_PASSWORD` is set,
 `requireLogin` is true, and the model-auth opt-out is absent. That source
-prediction is not runtime proof. Keep the auth fixture and 401 assertion
-unchanged. Improve only the failure message to include observed HTTP status
+prediction was not runtime proof and missed client-API classification; it is
+superseded by the middleware diagnosis below. Keep the auth fixture and 401
+assertion. Improve only the failure message to include observed HTTP status
 and bounded, sanitized `error.type` / `error.code`; never log response body,
 headers, credentials, or model data. The next main run remains required to
 prove the actual response and pass all artifact checks.
+
+The fifth main run `37132155004` completed the native candidate image build but
+the verifier observed HTTP 401 with `error.code: "AUTH_002"` and no
+`error.type`, instead of expected `invalid_api_key`; GHCR login and publication
+were skipped. Read-only diagnosis traced this to the intended client-API auth
+middleware path: classification routes the request through the proxy auth
+pipeline, which rejects it before the catalog handler and emits `AUTH_002`.
+The earlier source prediction missed this middleware path. With
+`REQUIRE_API_KEY=true`, update the fixture assertion to require the exact
+HTTP 401 / `AUTH_002` envelope; do not accept arbitrary 401 responses or the
+unreached handler's `invalid_api_key` code.
+
+The original final Actions summary used backticks inside double-quoted `echo`
+strings. Bash treated them as command substitutions, removing source, tag,
+digest, base, and run-URL values even though publication could already succeed.
+The workflow now uses single-quoted `printf` formats and separately quoted
+value args so Markdown backticks stay literal; a representative manual shell
+probe confirms every value is preserved.
+
+Production currently runs a separate browser-capable layer,
+`omniroute:55f40468-official-overlay-web-browser-20261003`, through the third
+Compose browser override. It provides Chromium, Xvfb, and lockfile-resolved
+Playwright packages and wraps the permission-check entrypoint with `xvfb-run`.
+A plain backend overlay would remove these providers. Publish a `runtime-web`
+target derived from the official-overlay runtime: share a dependency stage
+with the backend compiler, copy lockfile-resolved Playwright packages, install
+Chromium and OS dependencies, and preserve the official UI, permission check,
+command, and healthcheck. The image workflow must verify a real non-root,
+headed Chromium launch under Xvfb on `about:blank` before publishing. The
+server must retain the current browser-capable rollback image until the new
+main image passes this acceptance.
 
 ## What Changes
 
@@ -55,7 +87,11 @@ prove the actual response and pass all artifact checks.
 - On native `ubuntu-24.04-arm`, build the existing
   `docker/official-backend-overlay.Dockerfile` from the pinned official image
   `ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
-  Install dependencies with `npm ci`, then set builder-stage
+  Factor lockfile-resolved dependencies into a shared stage; keep
+  `backend-builder` as its child and compile once. Build the `runtime-web`
+  target from `runtime`; install the same locked Playwright packages and
+  Chromium runtime without making prebuilt-backend packaging compile backend
+  sources. Install dependencies with `npm ci`, then set builder-stage
   `NODE_ENV=production` and `NODE_OPTIONS=--max-old-space-size=12288` before
   `npm run build:backend`; keep both settings out of the runtime stage.
   Compile backend routes once, preserve the official UI, and load the
@@ -65,11 +101,18 @@ prove the actual response and pass all artifact checks.
   Docker `HEALTHCHECK`, direct UI root response, API behavior, and byte-level
   official UI parity. The UI root on `127.0.0.1:20128/` must return HTTP 200;
   the direct Next UI listener (`20128`) must return HTTP 401 with
-  `error.code: "invalid_api_key"` for unauthenticated
-  `GET /api/v1/models`. On failure, report expected status/code plus observed
+  `error.code: "AUTH_002"` for unauthenticated
+  `GET /api/v1/models` when `REQUIRE_API_KEY=true`. On failure, report expected
+  status/code plus observed
   HTTP status and bounded, sanitized `error.type` / `error.code` only; never
   log response body, headers, credentials, or model data. Any failed artifact
   check stops publication.
+- In the running candidate, launch Chromium as the image's default non-root
+  user through Playwright with `headless: false` under Xvfb, load only
+  `about:blank`, and close cleanly without external requests. Keep the pinned
+  official UI, manifests, `CMD`, and `HEALTHCHECK` unchanged; wrap the existing
+  permission-check entrypoint with the approved `xvfb-run` invocation and set
+  `PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright`.
 - Mount candidate `/app/data` as a container-scoped tmpfs with mode `1777`;
   keep the image's default `USER` and do not bind host temporary data into the
   candidate. Collect cleanup errors without replacing an earlier verification
@@ -80,7 +123,9 @@ prove the actual response and pass all artifact checks.
   `ghcr.io/etcetera-agency/omniroute` under its full source SHA and `:main`.
   Only the main workflow writes `:main`. Record the manifest digest, source
   URL/SHA, pinned base digest, and Actions run URL; treat the digest as the
-  artifact identity.
+  artifact identity. Render the step summary with single-quoted `printf`
+  formats and separately quoted values; preserve literal Markdown backticks
+  and ensure source, tags, digest, base, and run URL appear intact.
 - Configure the server to pull `ghcr.io/etcetera-agency/omniroute:main`,
   verify its digest, and start with `docker compose up -d --no-build`. Keep
   deployment operator-run and retain a prior-digest rollback procedure.
@@ -99,16 +144,19 @@ prove the actual response and pass all artifact checks.
 ### Affected Code
 
 - `.github/workflows/omni-overlay-image.yml`: only automatic fork image build,
-  runtime verification, and GHCR publication; triggers are main push and
-  manual exact-main dispatch.
+  `runtime-web` verification, and GHCR publication; triggers are main push and
+  manual exact-main dispatch. Use safe `printf` formatting for published-image
+  summary evidence so shell command substitution cannot erase it.
 - `scripts/ci/verify-official-overlay-image.mjs` and
   `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
   artifact verifier, container-scoped test data, cleanup error reporting,
-  safe catalog-auth assertion diagnostics, and manually invoked focused tests.
-- `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: single
-  backend-only compile using the pinned official base, production `NODE_ENV`
-  after dependency installation, and explicit 12288-MiB builder-stage Node
-  heap, without an automatic unit-test gate.
+  safe catalog-auth assertion diagnostics, non-root Playwright browser smoke,
+  and manually invoked focused tests.
+- `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: shared
+  lockfile-dependency stage, one source backend compile, pinned official
+  runtime, and browser-capable `runtime-web` target with Chromium/Xvfb. Keep
+  production `NODE_ENV` and 12288-MiB Node heap in the backend builder, without
+  an automatic unit-test gate.
 - `docker-compose.yml` and `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md`: pull the
   fork `:main` image and document digest verification, no-build start, health
   checks, and rollback.
@@ -132,12 +180,10 @@ run `37125217705` then failed during `/_global-error` prerender with
 1 at about 214.4s, and the heap-limit failure did not recur. Read-only
 diagnosis found the Dockerfile's `NODE_ENV=development` setting for `npm ci`
 remained active through backend compilation; build logs showed React
-development warnings. The exact minified callsite was not isolated. Set
-builder-only `NODE_ENV=production` after
-`npm ci` and before `npm run build:backend`. The next main run must validate
-this correction and complete container checks before publication. The third
-main run `37126849223` completed the native ARM64 candidate build and backend
-compile after PR #13, then failed in verifier cleanup with `EACCES` unlinking
+development warnings. The exact minified callsite was not isolated. PR #13 set
+builder-only `NODE_ENV=production` after `npm ci` and before
+`npm run build:backend`; main run `37126849223` completed backend compilation
+with that correction, then failed in verifier cleanup with `EACCES` unlinking
 `/tmp/omni-overlay-data-uR7ulC/cache/openrouter-provider-stats.json`. A read-only
 diagnosis traced the cleanup failure to host-bound `/app/data`: container user
 `node` (UID 1000) created the cache file and runner user UID 1001 could not

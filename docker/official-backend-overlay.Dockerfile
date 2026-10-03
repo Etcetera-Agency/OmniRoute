@@ -2,9 +2,9 @@ ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b657
 ARG OFFICIAL_BASE_DIGEST=sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96
 ARG BACKEND_ARTIFACT_STAGE=backend-builder
 
-# Build the fork's API bundles against the exact Next.js and Node versions in
-# the verified official image. NEXT_DIST_DIR isolates this output from its UI.
-FROM ${OFFICIAL_IMAGE} AS backend-builder
+# Install lockfile-resolved dependencies once for both the backend compiler
+# and the browser-capable runtime target.
+FROM ${OFFICIAL_IMAGE} AS backend-dependencies
 ARG OFFICIAL_IMAGE
 ARG OFFICIAL_BASE_DIGEST
 USER root
@@ -34,6 +34,9 @@ RUN test -f package-lock.json \
       && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild --force_build=1) \
   && node -e "require('better-sqlite3')(':memory:').close()"
 
+# Build the fork's API bundles against the exact Next.js and Node versions in
+# the verified official image. NEXT_DIST_DIR isolates this output from its UI.
+FROM backend-dependencies AS backend-builder
 COPY . ./
 
 # AICODE-NOTE: build-next-isolated preserves inherited NODE_OPTIONS.
@@ -94,3 +97,21 @@ COPY --from=merged-backend \
 COPY --from=merged-backend \
   /app/.build/next/routes-manifest.json \
   /app/.build/next/routes-manifest.json
+
+# AICODE-NOTE: Keep browser packages sourced from shared dependencies so
+# prebuilt backend packaging never pulls in backend-builder compilation.
+FROM runtime AS runtime-web
+USER root
+COPY --from=backend-dependencies /app/node_modules/playwright /app/node_modules/playwright
+COPY --from=backend-dependencies /app/node_modules/playwright-core /app/node_modules/playwright-core
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends xvfb xauth \
+  && node node_modules/playwright/cli.js install chromium --with-deps \
+  && chown -R node:node /home/node/.cache \
+  && rm -rf /var/lib/apt/lists/*
+
+USER node
+ENTRYPOINT ["/usr/bin/xvfb-run", "-a", "-s", "-screen 0 1920x1080x24 -nolisten tcp", "/app/check-permissions.sh"]

@@ -4,18 +4,38 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## GitHub overlay-image build
 
+- After successful deployment and health acceptance, and only after verifying
+  no build is active, remove the unused dedicated OmniRoute builder (16.31 GB
+  isolated in read-only attribution) and remove only the default builder's
+  unused cache with:
+
+  ```sh
+  docker builder prune --all --force
+  ```
+
+  The user authorized cleanup of the reported ~60 GB build cache after
+  migration to the published image. Record actual before/after cache usage; do
+  not claim the full reported amount was reclaimed in advance. Preserve
+  rollback runtime images, databases, volumes, backups, Redis, and unrelated
+  services. Do not run `docker image prune`, `docker system prune`, or volume
+  pruning.
+
 - PR #11 merged at `3a484460`, heap correction PR #12 at `a06fcfb3`, and
   builder production-mode correction PR #13 at `b6cfc9ad`. Only the fork image
   workflow is active, on a
   main push or manual exact-main dispatch. It verifies the built container
   before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests are invoked manually for a specific task. All four main
+  schedule. Tests are invoked manually for a specific task. All five main
   attempts failed before publication. PR #13's `NODE_ENV=production` correction
   is on main, and PR #14's tmpfs/cleanup correction passed its focused manual
   tests and independent review. Native ARM64 candidate compilation passes; the
-  latest image verifier failed an API catalog-auth assertion, with actual HTTP
-  response not logged. Full main-image acceptance remains open.
+  latest image verifier observed HTTP 401 `AUTH_002` with `error.type` absent;
+  auth expectation and summary quoting corrections pass manual local checks.
+  The `runtime-web` target and non-root browser verifier are implemented and
+  reviewed locally; focused browser tests pass 8/8. A main build of the new
+  target and actual browser launch are not yet proven. A new main image run is
+  still required; full main-image acceptance remains open.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
@@ -78,19 +98,51 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 - PR #14 (`4d652048`) includes the tmpfs and cleanup-error correction. Main
   run `37129219486` completed native candidate build in 8m28; the previous
   `/app/data` EACCES did not recur. The verifier then failed the assertion
-  `/api/v1/models must return 401 invalid_api_key without credentials`. The
-  run did not record actual HTTP status, `error.type`, `error.code`, or body;
-  runtime response remains unknown. GHCR login and publication were skipped;
-  no image was published. Read-only handler/configuration diagnosis predicts
-  the disposable fixture should return HTTP 401 `invalid_api_key` because
-  `INITIAL_PASSWORD` is set, `requireLogin` is true, and the model-auth opt-out
-  is absent; this source prediction is not runtime proof. Keep the fixture and
-  401 assertion unchanged. Selected correction is failure-message-only:
-  include expected status/code, observed status, and bounded sanitized JSON
-  `error.type` / `error.code`; never log bodies, headers, credentials, model
-  data, or serialized errors. Manually test this diagnostic, then require a new
-  native main run to pass the full artifact gate. Package visibility, anonymous
-  pull, and server acceptance remain open.
+  `/api/v1/models must return 401 invalid_api_key without credentials`. It did
+  not record status or error fields; the run is inconclusive for the
+  endpoint response. Run `37132155004` completed native candidate image build,
+  then the verifier observed HTTP 401, `error.code: "AUTH_002"`, and no
+  `error.type`. GHCR login/publication were skipped; no image was published.
+  Read-only call-path diagnosis traces `classify.ts:95` -> `proxy.ts:23` ->
+  `runAuthzPipeline` -> `clientApi.ts:61`: the request is rejected by the
+  client-API auth middleware before the catalog handler, and `pipeline.ts:62`
+  emits code without `error.type`. This is expected with
+  `REQUIRE_API_KEY=true`; the prior `invalid_api_key` prediction missed this
+  middleware path. Keep the API key required and assert exactly HTTP 401
+  `AUTH_002`; do not accept arbitrary 401 or the unreached handler's code.
+  Safe failure diagnostics remain bounded to observed HTTP status and
+  sanitized JSON `error.type` / `error.code`, without body, headers,
+  credentials, models, or serialized errors. Manually verify the fixture
+  correction before the next main acceptance. The auth-fixture correction
+  returned 3/7 RED before the guard fix and 7/7 GREEN after it. Scoped ESLint,
+  Prettier, Code Simplifier, and summary shell probe passed. Package visibility,
+  anonymous pull, and server acceptance remain open.
+- The final Actions summary had a shell quoting defect: literal backticks
+  inside double-quoted `echo` strings caused seven command substitutions and
+  missing source, tag, digest, base, and run URL values while the block exited 0.
+  The workflow now uses single-quoted `printf` formats with separately
+  quoted public values. A manual shell probe confirms every value and literal
+  Markdown backticks are preserved with no substitution errors.
+- Current production browser layer is confirmed from the non-secret staged
+  browser Dockerfile: Compose's third browser override runs
+  `omniroute:55f40468-official-overlay-web-browser-20261003`; it copies locked
+  Playwright packages, installs Chromium and OS dependencies at
+  `/home/node/.cache/ms-playwright`, and wraps the permission-check entrypoint
+  in Xvfb. The chosen fork image adds a shared `backend-dependencies` stage,
+  derives `backend-builder` from it, and adds `runtime-web` from merged
+  `runtime`. It copies only locked Playwright packages, installs Chromium,
+  Xvfb and Xauth, preserves official UI/CMD/HEALTHCHECK and permission check,
+  and uses the current `xvfb-run` screen arguments. Build the CI candidate with
+  `--target runtime-web`; verify non-root headed Playwright Chromium opens
+  `about:blank` and closes without external requests. Keep the prebuilt-backend
+  path independent of backend compilation for browser packages. Before server
+  cutover, reconcile all three active Compose inputs and the final digest
+  override; record the current browser image digest as rollback. Do not pull or
+  cut over until the main candidate passes browser and all other artifact
+  checks. After successful deployment, the authorized cleanup removes the
+  isolated dedicated builder and prunes unused default-builder cache only;
+  record actual reclaimed space and retain the prior runtime image. Do not
+  prune images, the system, or volumes.
 - On GitHub, keep the auxiliary `api-route-typecheck.yml`,
   `test-quarantine.yml`, and `release-acceptance.yml` workflows manual-only.
   Keep all remaining routine check workflows disabled in repository settings;
@@ -106,9 +158,11 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   run `37121831856` had completed before its workflow was disabled. The merged
   source YAML makes the three auxiliary workflows manual-only. Preserve this
   settings state after every upstream sync; do not enable unrelated workflows.
-- All four main attempts so far failed before publication. Native image
-  compilation now passes; diagnose and pass the remaining candidate verifier
-  check before any image is considered ready.
+- All five main attempts so far failed before publication. Native backend
+  compilation passed on the earlier target; the new `runtime-web` target and
+  non-root browser smoke still need a main run. Auth-envelope expectations and
+  summary quoting have local manual verification. Pass the browser smoke and
+  every remaining artifact check before treating any image as ready.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in
@@ -134,10 +188,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   resolved digest and labels to the successful main run, verify ARM64, then
   start with `docker compose up -d --no-build`. Check Docker health, native
   SQLite, dashboard, and separately check API routes. Direct UI listener
-  `20128` unauthenticated
-  `GET /api/v1/models` returns HTTP 401 with `error.code: "invalid_api_key"`.
-  This is the Next route-handler response; `AUTH_002` belongs to the separate
-  API-listener proxy. Record the deployed digest.
+  `20128` unauthenticated `GET /api/v1/models` with
+  `REQUIRE_API_KEY=true` returns HTTP 401 with `error.code: "AUTH_002"` from
+  the client-API auth middleware. Record the deployed digest.
 - Exercise rollback by restoring the previous digest and running
   `docker compose up -d --no-build`; verify prior health. The workflow does
   not connect to production, deploy automatically, or run migrations.

@@ -387,9 +387,13 @@ pushes, pull requests, and schedules run no automatic tests or checks.
 
 The image workflow uses the native `ubuntu-24.04-arm` runner and the pinned
 official OmniRoute base digest. It compiles backend routes once, loads the
-candidate locally, and checks ARM64, OCI labels, native SQLite, health, direct
-UI/API behavior, and full official-UI parity before logging in to GHCR. The
-workflow and Docker builder do not run unit or static test gates; invoke
+browser-capable `runtime-web` candidate locally, and checks ARM64, OCI labels,
+native SQLite, health, direct UI/API behavior, a non-root headed Chromium
+launch, and full official-UI parity before logging in to GHCR. The disposable
+candidate uses `REQUIRE_API_KEY=true`; the preserved client-API proxy rejects
+keyless direct UI `GET /api/v1/models` with exactly HTTP 401 `AUTH_002`, before
+the catalog handler runs. The workflow and Docker builder do not run unit or
+static test gates; invoke
 task-specific checks manually when requested.
 
 After those checks pass, Actions publishes the full source SHA tag. It moves
@@ -407,26 +411,49 @@ key or other application credential.
 
 ## Pull the image on the server
 
-Use the server's existing Docker Compose checkout and the `base` profile. Before
+Use the server's existing Docker Compose configuration. Before
 changing the image, record the currently configured image digest, service
 health, and the database migration state using the existing migration runbook.
 Confirm that the new main workflow run passed image acceptance and that its
 summary says the `:main` alias was updated. Compare its commit, base digest, and
 published digest with the run you intend to deploy.
 
+The 2026-10-03 server readiness snapshot has three active Compose files: the
+base file, the original candidate override, and a browser recovery override.
+The current browser-capable image is
+`omniroute:55f40468-official-overlay-web-browser-20261003`, with image ID
+`sha256:4e4d6d722d90777ebc0223d49db205f925f99c05b90447dd34551a239191eb3c`.
+The browser recovery override selects only the image; Chromium, Playwright,
+and the Xvfb entrypoint are baked into it. Preserve all three configuration
+files and add a new digest-only override last. Verify the new image's browser
+acceptance before replacing this working image.
+
 Resolve and pin the published digest, then pull and start without building
-source:
+source. Run remote commands through an SSH heredoc:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/etcetera-agency/omniroute:main
-export OMNIROUTE_IMAGE='ghcr.io/etcetera-agency/omniroute@sha256:PASTE_VERIFIED_DIGEST'
-docker compose --profile base pull omniroute-base
-docker compose --profile base up -d --no-build omniroute-base
+ssh etc2nd-shlink <<'REMOTE'
+set -eu
+sudo -n docker buildx imagetools inspect ghcr.io/etcetera-agency/omniroute:main
+image='ghcr.io/etcetera-agency/omniroute@sha256:PASTE_VERIFIED_DIGEST'
+cutover_dir="/opt/apps/omniroute-deploy-diagnostics/main-image-$(date -u +%Y%m%dT%H%M%SZ)"
+sudo -n docker pull "$image"
+test "$(sudo -n docker image inspect --format '{{.Architecture}}' "$image")" = arm64
+sudo -n install -d "$cutover_dir"
+printf 'services:\n  omniroute:\n    image: %s\n' "$image" | sudo -n tee "$cutover_dir/image-compose.yml" >/dev/null
+sudo -n docker compose --project-directory /opt/apps/omniroute -p omniroute \
+  -f /opt/apps/omniroute/docker-compose.yml \
+  -f /opt/apps/omniroute-deploy-diagnostics/prod-cutover-55f40468-20261003T095314Z/candidate-compose.yml \
+  -f /opt/apps/omniroute/recovery/free-web-guests-20261003/browser-compose.yml \
+  -f "$cutover_dir/image-compose.yml" up -d --no-build --pull never omniroute
+REMOTE
 ```
 
 Use the `sha256:` digest recorded by `imagetools inspect` and compare it with
-the successful main workflow summary before continuing. The Compose service has
-no `build` definition, and its image can be overridden with the digest above.
+the successful main workflow summary before continuing. The server's older
+base Compose file still has a `build` definition, so `--no-build` is required.
+The final override changes only the image; preserve environment, data mounts,
+ports, networks, labels, and Redis.
 
 Check the service health, the dashboard on the configured dashboard port, and
 the direct UI listener's `/api/v1/models` dispatch according to the current
@@ -434,22 +461,31 @@ authentication configuration. A disposable native SQLite check can run inside
 the container without touching the application database:
 
 ```bash
-docker inspect --format '{{.State.Health.Status}}' omniroute
-curl --fail --silent --show-error "http://127.0.0.1:${DASHBOARD_PORT:-20128}/healthz"
-curl --fail --silent --show-error --output /dev/null "http://127.0.0.1:${DASHBOARD_PORT:-20128}/"
-models_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:${DASHBOARD_PORT:-20128}/api/v1/models")"
-case "$models_status" in
-  200|401) echo "Direct UI models route returned HTTP $models_status" ;;
-  *) echo "Unexpected direct UI models status: $models_status"; exit 1 ;;
-esac
-docker exec omniroute node -e 'const d=require("better-sqlite3")(":memory:"); console.log(d.prepare("select sqlite_version() as version").get()); d.close()'
+ssh etc2nd-shlink <<'REMOTE'
+set -eu
+sudo -n docker inspect --format '{{.State.Health.Status}}' omniroute
+sudo -n docker exec omniroute node healthcheck.mjs
+sudo -n docker exec omniroute node --input-type=module -e 'for (const [path, allowed] of [["/", [200]], ["/api/v1/models", [200, 401]]]) { const r = await fetch(`http://127.0.0.1:20128${path}`, {signal: AbortSignal.timeout(10000)}); console.log(path, r.status); if (!allowed.includes(r.status)) process.exit(1); }'
+sudo -n docker exec omniroute node -e 'const d=require("better-sqlite3")(":memory:"); console.log(d.prepare("select sqlite_version() as version").get()); d.close()'
+REMOTE
 ```
 
-For rollback, set `OMNIROUTE_IMAGE` to the previously recorded full digest and
-run `docker compose --profile base up -d --no-build omniroute-base`; verify the
-prior health before closing the incident. Restore database state only through
-the separate migration recovery procedure. This workflow does not deploy
+For rollback, run the same Compose command with the three original files,
+omitting the new digest override; use `--no-build --pull never` and verify the
+previous browser image and health. Preserve this image until acceptance is
+complete. Restore database state only through the separate migration recovery
+procedure. This workflow does not deploy
 automatically and does not reverse migrations.
+
+After successful deployment and acceptance, measure and remove the
+user-authorized unused build cache. Readiness found about 50–72 GB in the
+aggregate/default builder and 16.31 GB in the named OmniRoute builder. Confirm
+that no build is active, remove the unused `omniroute-deploy-db18a17` builder
+without `--keep-state`, and run `docker builder prune --all --force` for unused
+default build cache. This targets build artifacts; never use Docker system,
+image, or volume pruning. Preserve the rollback image, databases, backups,
+Redis, and unrelated services. Record actual reclaimed space and verify the
+application remains healthy afterward.
 
 Enable band routing only after its production gates pass by setting
 `OMNIROUTE_AUTO_BANDS=1`. Leaving it unset or setting it to `0` disables band

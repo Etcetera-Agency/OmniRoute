@@ -54,7 +54,7 @@ jobs:
         with:
           context: .
           file: docker/official-backend-overlay.Dockerfile
-          target: runtime
+          target: runtime-web
           platforms: linux/arm64
           tags: ${{ env.CANDIDATE_IMAGE }}
           load: true
@@ -127,11 +127,11 @@ jobs:
           {
             echo "## OmniRoute main image"
             echo
-            echo "- Source: `$SOURCE_REPOSITORY/tree/$GITHUB_SHA`"
-            echo "- SHA tag: `$FORK_IMAGE:$GITHUB_SHA`"
-            echo "- Manifest digest: `$IMAGE_DIGEST`"
-            echo "- Pinned official base: `$OFFICIAL_IMAGE`"
+            printf -- '- Source: `%s/tree/%s`\n' "$SOURCE_REPOSITORY" "$GITHUB_SHA"
+            printf -- '- SHA tag: `%s:%s`\n' "$FORK_IMAGE" "$GITHUB_SHA"
+            printf -- '- Manifest digest: `%s`\n' "$IMAGE_DIGEST"
+            printf -- '- Pinned official base: `%s`\n' "$OFFICIAL_IMAGE"
             echo "- OCI source/revision/base labels verified before GHCR login."
-            echo "- Current `:main` tag updated: `$MAIN_TAG_UPDATED`."
-            echo "- Workflow run: `$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID`"
+            printf -- '- Current `:main` tag updated: `%s`.\n' "$MAIN_TAG_UPDATED"
+            printf -- '- Workflow run: `%s/%s/actions/runs/%s`\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
           } >> "$GITHUB_STEP_SUMMARY"
