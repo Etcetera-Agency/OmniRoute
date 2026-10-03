@@ -36,6 +36,7 @@ function makeEvidence() {
   return {
     candidate: {
       architecture: "arm64",
+      runtimeUser: "node",
       labels: {
         "org.opencontainers.image.source": EXPECTED.source,
         "org.opencontainers.image.revision": EXPECTED.revision,
@@ -48,7 +49,14 @@ function makeEvidence() {
         status: 401,
         path: "/api/v1/models",
         port: 20128,
-        body: { error: { code: "invalid_api_key" } },
+        body: { error: { code: "AUTH_002" } },
+      },
+      browserSmoke: {
+        ok: true,
+        userId: 1000,
+        headless: false,
+        url: "about:blank",
+        closed: true,
       },
       ui,
     },
@@ -72,6 +80,65 @@ function requireSmokeHelpers() {
 test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
+});
+
+test("verifier requires headed non-root Chromium smoke to close on about:blank", () => {
+  const verifyCandidateEvidence = requireVerifier();
+  const rootDefaultUser = makeEvidence();
+  rootDefaultUser.candidate.runtimeUser = "root";
+  assert.throws(
+    () => verifyCandidateEvidence(rootDefaultUser, EXPECTED),
+    /default runtime user.*non-root node/i
+  );
+
+  const invalidBrowserProofs = [
+    [
+      "missing",
+      (evidence) => {
+        delete evidence.candidate.browserSmoke;
+      },
+    ],
+    [
+      "failed",
+      (evidence) => {
+        evidence.candidate.browserSmoke.ok = false;
+      },
+    ],
+    [
+      "root user",
+      (evidence) => {
+        evidence.candidate.browserSmoke.userId = 0;
+      },
+    ],
+    [
+      "headless",
+      (evidence) => {
+        evidence.candidate.browserSmoke.headless = true;
+      },
+    ],
+    [
+      "external page",
+      (evidence) => {
+        evidence.candidate.browserSmoke.url = "https://example.invalid";
+      },
+    ],
+    [
+      "unclean close",
+      (evidence) => {
+        evidence.candidate.browserSmoke.closed = false;
+      },
+    ],
+  ];
+
+  for (const [label, corrupt] of invalidBrowserProofs) {
+    const evidence = makeEvidence();
+    corrupt(evidence);
+    assert.throws(
+      () => verifyCandidateEvidence(evidence, EXPECTED),
+      /headed Playwright Chromium smoke/i,
+      label
+    );
+  }
 });
 
 test("smoke data uses isolated tmpfs writable by the image default user", () => {
@@ -197,7 +264,15 @@ test("verifier rejects native SQLite, health, dashboard, and direct UI API dispa
 
   const dispatchFailure = makeEvidence();
   dispatchFailure.candidate.apiResponse.body.error.code = "ROUTE_MISSING";
-  assert.throws(() => verifyCandidateEvidence(dispatchFailure, EXPECTED), /401 invalid_api_key/i);
+  assert.throws(() => verifyCandidateEvidence(dispatchFailure, EXPECTED), /401 AUTH_002/i);
+
+  const handlerEnvelope = makeEvidence();
+  handlerEnvelope.candidate.apiResponse.body.error.code = "invalid_api_key";
+  assert.throws(() => verifyCandidateEvidence(handlerEnvelope, EXPECTED), /401 AUTH_002/i);
+
+  const unprotectedCatalog = makeEvidence();
+  unprotectedCatalog.candidate.apiResponse.status = 200;
+  assert.throws(() => verifyCandidateEvidence(unprotectedCatalog, EXPECTED), /401 AUTH_002/i);
 
   const wrongPath = makeEvidence();
   wrongPath.candidate.apiResponse.path = "/api/system/status";
