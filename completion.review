@@ -3,8 +3,9 @@
 Date: 2026-10-03
 Scope: reviewed local implementation of `add-auto-band-seam`,
 `add-auto-quality-band-filter`, `add-auto-band-demand-reserve`, and
-`add-systemone-decisions-route`. Production rollout, live-service validation,
-calibration execution, and OpenSpec archiving remain open.
+`add-systemone-decisions-route`. Calibration implementation and local review
+are complete. Real-catalog validation, production deployment/activation,
+live-service checks, and OpenSpec archiving remain open.
 
 ## Decisions and implemented behavior
 
@@ -22,14 +23,15 @@ subscription → cheap → premium`. Plain upstream `auto:thrifty` behavior is
   rated models. The user approved nearest-rank selection:
   `c1 = scores[ceil(0.33*N)-1]`, `c2 = scores[ceil(0.67*N)-1]`; for nine
   distinct values, select the third and seventh. The rule is recorded in the
-  quality design/spec. Calibration implementation, tests, and report remain
-  pending.
+  quality design/spec. The calibration minimum-population guard counts
+  candidates retained by each band, including unrated candidates admitted to
+  `low`.
 - The user approved maximum known positive monthly capacity per
   `(account, provider, poolKey)`. The disabled reserve state is a full stop:
   no source reads, calculations, refresh, diagnostics, or account narrowing.
-- The user approved the one-time migration-ledger repair procedure and
-  isolated-copy rehearsal only. Production migration changes and deployment
-  have not occurred.
+- The user explicitly authorized deployment, production migration, and
+  activation. These actions are not yet complete; they remain behind supported
+  build/start and live readiness checks.
 
 ## Implementation and review
 
@@ -61,13 +63,39 @@ The earlier config recovery finding is also fixed and independently verified:
 7/7 focused tests cover same-mtime `EACCES` recovery and malformed-range
 warning deduplication. SystemOne routing/auth alias checks found no auth seam.
 
+Five independently confirmed calibration findings are fixed and closed:
+
+- Manual mode now bounds/clears observed model IDs without waiting for a
+  calibration run.
+- The `minPerBand` guard counts unrated candidates admitted to `low`.
+- Guarded-attempt timing persists so a restart does not rerun calibration
+  before `intervalHours`.
+- The CLI report waits for cold config loading before reading configured
+  `ratedSources` and structured-output policy.
+- The first request after restart uses saved ranges before constructing the
+  enabled predicate, avoiding a default-range first request.
+
+The approved formula uses nearest-rank cut points from sorted distinct numeric
+scores. The focused CLI smoke used an isolated DB and returned valid JSON for 10
+baseline models, 0 rated models, and no cut points; it is not a real-catalog
+report.
+
 ## Verification
 
-- Auto-Combo suite: 40 files / 353 tests passed; core and OpenSSE typechecks
+- Auto-Combo suite before calibration: 40 files / 353 tests passed; core and OpenSSE typechecks
   passed. Scoped checks: quality E2E 4/4, reserve source tests 25/25 across
   three suites, reserve account-routing E2E 4/4, config 13/13, capabilities
   8/8, filter 8/8, billing-rung routing 7/7, and direct upstream
   resolver/stream/quota tests 27/27. Independent review closed these slices.
+- Calibration tests pass 19/19; the combined Auto-Combo and service regression
+  passes 41 files / 372 tests with two workers. Core/OpenSSE typechecks,
+  scoped ESLint, Prettier, and `git diff --check` pass. Default, missing, and
+  unreadable configuration probes return safe defaults within three seconds.
+  Independent review closed all five calibration findings; final Code
+  Simplifier review found no further cleanup. An initial 20-worker run timed
+  out under resource contention and reported 27 failures; the low-worker rerun
+  passed. Overlapping typechecks were stopped after 16 minutes, and serial
+  typechecks passed.
 - SystemOne: schema/dispatch/route tests 46/46; OpenAPI coverage 8/8; route
   checker reports 276 baseline entries and 0 new findings. Core/OpenSSE
   typechecks, ESLint, Prettier, Code Simplifier, and diff checks passed.
@@ -87,16 +115,26 @@ warning deduplication. SystemOne routing/auth alias checks found no auth seam.
   SQLite `quick_check` passed. The runbook is
   [docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md](docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md).
   Production files and data were untouched.
-- The first quality/seam/config/docs checkpoint was pushed to the feature
-  branch as `bba0bfec75c6b43faa3141e58b25186c8a323fb1`; its hooks passed. Later
-  reserve and SystemOne implementation is not included in that commit.
+- The reviewed reserve/SystemOne checkpoint was pushed to the feature branch as
+  `0860cc7da532d50048058c97ccbb91d734f4719d`; remote SHA matched and commit
+  hooks passed. The calibration slice remains uncommitted.
 
 ## Remaining gates
 
-- Implement/test nearest-rank calibration, prepare the report, and measure rated
-  source coverage, structured-output coverage, and candidate counts before
-  production enforcement. Keep manual ranges for a week before considering
-  automatic recalibration.
+- Connect the built-in OmniRoute Radar client to `radar.omniroute.online`,
+  verify opt-in and successful catalog sync, and confirm caches populate before
+  running the real-catalog report. The current production snapshot has
+  `RADAR_ENABLED` absent (default off), all `RADAR_*` overrides absent (client
+  fallback is `radar.omniroute.online`), and four Radar caches empty. Public
+  community-catalog access is keyless. The user will add the supporter Intel
+  key through the dashboard after deployment. Bands remain on the approved
+  Arena/manual score sources; Radar Intel rankings are not fed into
+  `getTaskFitnessWithSource`.
+- After a successful Radar/catalog sync, run the calibration report against
+  the real production model catalog; record rated-source coverage, structured-
+  output coverage, and candidate counts for every Hermes channel. The local
+  isolated-DB CLI smoke is not production evidence. Keep manual ranges for a
+  week before considering automatic recalibration.
 - Validate band chat routing and full-ID `call_logs.combo_name` in a safe live
   request. Check production catalog/usage ID matches and aggregate-read cost;
   confirm candidate pools are non-empty and
@@ -105,22 +143,26 @@ warning deduplication. SystemOne routing/auth alias checks found no auth seam.
   measure refresh/read cost, and compare proposed exclusions with observed
   quota exhaustion using approved read-only validation. Keep disabled reserve
   as a full stop.
-- Complete the unmodified Node 24 build/start smoke at
-  `23a11484862b3bb589a55e85b00e4ac53ffeb234` on a supported isolated host. An
-  earlier build's `--rm` container metadata and exact exit cause are gone. The
-  diagnostic retry did not run because free disk was 17.67 GiB, below the
-  24 GiB minimum; available memory was 10.14 GiB. No disk cleanup or retry was
-  performed. OpenSpec task 1.4 remains unchecked.
+- Production uses the reviewed stock Node 26 Dockerfile; `package.json`
+  supports `>=24 <27`. Node 24 portability remains a separate unchecked
+  OpenSpec baseline, not a production-runtime blocker. A clean supported-
+  runtime build/start is still required. The latest server reading was about
+  23.17 GiB free disk, about 0.83 GiB below the 24 GiB preflight; the operator's
+  resource plan is pending.
+  A prior approved BuildKit cleanup reclaimed only 308,932 KiB of actual free
+  space; resource readiness and deployment remain open.
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
   test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
   small request; collect 50-request direct/proxy latency; verify allowed-model
   policy and production flag-off; monitor deployment variables, rollback, and
   error rows. Laya deployment and the Hermes caller switch are outside this
   repository.
-- Resolve the deployment reference `/opt/apps/omniroute/source` in
-  `/Users/theDay/.ssh/config.md`; only timestamped backups were found. Keep the
-  migration collision repaired only in the isolated rehearsal copy; permanent
-  migration compatibility code is forbidden.
+- The user explicitly authorized deployment, production migration, and
+  activation. The production source checkout `/opt/apps/omniroute/source` and
+  Git metadata were verified clean. Deployment is pending a clean supported-
+  runtime build/start. Then run the rehearsed one-time migration-ledger repair
+  against a fresh consistent backup and verify integrity, idempotence, and
+  rollback. Permanent migration compatibility code is forbidden.
 - Correct the upstream `QuotaSnapshotRow` declaration/getter contract in a
   separate slice. The runtime getter returns camelCase fields and numeric
   `isExhausted` (`0 | 1`); the reserve code currently uses a strict local

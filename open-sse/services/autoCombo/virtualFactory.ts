@@ -44,11 +44,13 @@ import {
 } from "./subscriptionLadder";
 import {
   buildBandBillingPriority,
+  isBandsEnabled,
   narrowCandidateConnections,
   orderBandPoolByThriftyRung,
   parseBandCategory,
   type BandBillingPriority,
 } from "./bands";
+import { initializeBandCalibration } from "./bands/calibrate";
 import {
   classifyStrictZeroCostCandidate,
   describeStrictExclusions,
@@ -1026,6 +1028,12 @@ export async function createVirtualAutoComboFromPrepared(
   // #6453: `auto/<family>` narrows by model family instead of category/tier. The
   // two overlays are mutually exclusive on the spec (family takes precedence when
   // both are somehow present, which callers never do in practice).
+  const parsedBand = parseBandCategory(spec?.category);
+  if (parsedBand && isBandsEnabled()) {
+    // AICODE-NOTE: Restore state before the synchronous quality predicate captures ranges.
+    await initializeBandCalibration();
+  }
+
   const candidateFilter = spec?.family
     ? buildFamilyCandidateFilter(spec.family)
     : spec
@@ -1067,7 +1075,6 @@ export async function createVirtualAutoComboFromPrepared(
     }
   }
 
-  const parsedBand = parseBandCategory(spec?.category);
   if (parsedBand) {
     effectivePool = narrowCandidateConnections(effectivePool, parsedBand.band);
   }

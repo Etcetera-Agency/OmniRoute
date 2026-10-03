@@ -412,14 +412,15 @@ function warnConfigFileFailure(path: string, error: unknown): void {
   lastWarningSignature = signature;
 }
 
-function scheduleConfigRefresh(path: string): void {
-  if (fileLoadPromise) return;
+function scheduleConfigRefresh(path: string): Promise<void> {
+  if (fileLoadPromise) return fileLoadPromise;
 
   lastFileCheckAt = Date.now();
   const generation = loadGeneration;
   fileLoadPromise = refreshConfigFile(path, generation).finally(() => {
     fileLoadPromise = null;
   });
+  return fileLoadPromise;
 }
 
 // AICODE-NOTE: Band checks are on the request path; file reads stay in this background refresh.
@@ -432,6 +433,27 @@ export function getBandConfig(): BandConfig {
   }
 
   return cloneConfig(cachedConfig);
+}
+
+/** Load the current config file before a caller needs an authoritative snapshot. */
+export async function loadBandConfig(): Promise<BandConfig> {
+  for (;;) {
+    const currentPath = getConfiguredPath();
+    switchConfigPath(currentPath);
+    if (!currentPath) return cloneConfig(cachedConfig);
+
+    if (fileLoadPromise) {
+      await fileLoadPromise;
+      continue;
+    }
+
+    if (Date.now() - lastFileCheckAt >= RELOAD_INTERVAL_MS) {
+      await scheduleConfigRefresh(currentPath);
+      continue;
+    }
+
+    return cloneConfig(cachedConfig);
+  }
 }
 
 export function getOperatorBandOverrides(): BandTaskOverrides {

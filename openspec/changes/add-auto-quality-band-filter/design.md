@@ -189,7 +189,8 @@ daily. Off by default.
   `high [c2−overlap, 1]`.
 - **Guards**, per task; a failed guard keeps the previous ranges:
   - fewer than `minRatedModels` rated models observed;
-  - any band would hold fewer than `minPerBand` models;
+  - any band would keep fewer than `minPerBand` candidates after applying its
+    membership rule, including unrated candidates admitted to `low`;
   - a boundary moves at most `maxShift` per run (clamped, not rejected).
 - **Trigger**: the first band check after `intervalHours` starts one background
   run. No timer, no startup hook, same pattern as upstream `freeAccessQuota.ts`.

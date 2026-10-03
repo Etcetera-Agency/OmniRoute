@@ -1,4 +1,5 @@
 import { buildCapabilityCheck } from "./capabilities";
+import { observeBandCandidate } from "./calibrate";
 import { getBandConfig } from "./config";
 import { createQualityBandCheck } from "./filter";
 import { parseBandId, type ParsedBandId, type QualityBand } from "./grammar";
@@ -170,6 +171,7 @@ export function buildBandCheck(category?: string): BandCandidateFilter | null {
   );
 
   return function checkBandCandidate(candidate: BandCandidate): boolean {
+    observeBandCandidate(candidate.model);
     return qualityCheck(candidate) && capabilityCheck(candidate);
   };
 }
