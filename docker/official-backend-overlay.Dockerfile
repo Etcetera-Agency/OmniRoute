@@ -39,6 +39,8 @@ COPY . ./
 # AICODE-NOTE: build-next-isolated preserves inherited NODE_OPTIONS.
 # Keep the 12-GiB override in backend-builder only.
 ENV NODE_OPTIONS=--max-old-space-size=12288
+# AICODE-NOTE: Install dev dependencies first; run Next prerender in production mode.
+ENV NODE_ENV=production
 
 RUN mkdir -p /app/data \
   && npm run build:backend \

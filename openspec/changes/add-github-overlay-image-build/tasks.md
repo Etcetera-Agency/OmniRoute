@@ -46,9 +46,12 @@
       and rollback.
 - [x] 2.8 Run Code Simplifier after the policy/workflow update and record the
       result in `completion.review`.
-- [ ] 2.9 Set builder-stage `NODE_OPTIONS=--max-old-space-size=12288` before
+- [x] 2.9 Set builder-stage `NODE_OPTIONS=--max-old-space-size=12288` before
       `npm run build:backend` in `docker/official-backend-overlay.Dockerfile`.
       Keep it out of the runtime stage and do not change shared build helpers.
+- [x] 2.10 After `npm ci`, set builder-stage `NODE_ENV=production` before
+      `npm run build:backend`. Keep the setting in the backend builder; the
+      final runtime stage starts from the fresh pinned official base.
 
 ## 3. Manual validation and review
 
@@ -64,8 +67,8 @@
       settings and leave only the fork image workflow active. The post-merge
       Actions API reports 29 workflows total, 28 disabled, and only the fork
       image workflow active.
-- [ ] 3.5 Review the builder-heap correction PR manually before merge, without
-      requiring automatic test-status gates.
+- [x] 3.5 Review the builder-heap correction PR manually before merge, without
+      requiring automatic test-status gates. PR #12 merged as `a06fcfb3`.
 - [x] 3.6 Confirm auxiliary check YAMLs are manual-dispatch-only and update
       the server playbook to preserve this policy after upstream
       synchronization.
@@ -80,28 +83,38 @@
       `npm run build:backend` with V8 old-space near 1043 MiB. No image was
       published; failed-run process RSS/cgroup peak and Node version were not
       measured.
-- [ ] 4.3 Apply the builder-only 12288-MiB Node heap correction through a
-      manually reviewed follow-up PR.
-- [ ] 4.4 After that correction reaches main, pass the native ARM64 image build
-      and container artifact verification; retain exact logs and measured
-      evidence if it fails again. Do not infer capacity fit.
-- [ ] 4.5 After the first successful publication, change the GHCR package to
+- [x] 4.3 Apply the builder-only 12288-MiB Node heap correction through
+      manually reviewed PR #12 (`a06fcfb3`).
+- [x] 4.4 Record main run `37125217705`: it failed after 6m18 while
+      prerendering `/_global-error` with
+      `TypeError: Cannot read properties of null (reading 'use')`, followed by
+      `Export encountered an error on /_global-error/page`; the Next worker
+      exited 1 at about 214.4s. The prior heap-limit error did not recur. No
+      GHCR login, publication, or image resulted.
+- [x] 4.5 Complete read-only diagnosis of the prerender failure. The Dockerfile
+      set `NODE_ENV=development` for `npm ci` and left it set for compilation;
+      the installed Next CLI preserved it, and build logs showed React
+      development warnings. The exact minified callsite was not isolated.
+- [ ] 4.6 After the `NODE_ENV` correction reaches main, pass the next native
+      ARM64 image build and container artifact verification; retain exact logs
+      and measured evidence if it fails again.
+- [ ] 4.7 After the first successful publication, change the GHCR package to
       public in GitHub Packages. Verify anonymous pull and record run URL,
       commit SHA, tags, digest, labels, and result in TODO and
       `completion.review`.
-- [ ] 4.6 Before server pull, record current digest, Compose config, health,
+- [ ] 4.8 Before server pull, record current digest, Compose config, health,
       and database-migration state. Pull `:main`, compare its digest and
       labels with the main run, verify ARM64, then run
       `docker compose up -d --no-build`.
-- [ ] 4.7 Verify server health, native SQLite, dashboard, and API behavior. On
+- [ ] 4.9 Verify server health, native SQLite, dashboard, and API behavior. On
       failure, restore the prior digest with `docker compose up -d --no-build`
       and verify prior health. Record outcome in TODO and `completion.review`.
 
 ## 5. Future maintenance
 
-- [ ] 5.1 If the corrected main build fails, use its logs and measured
-      resource/disk evidence to scope any further correction; do not add
-      speculative resource limits.
+- [ ] 5.1 If a main build after task 4.6's acceptance attempt fails, use exact
+      logs and measured evidence to scope any further correction; do not
+      preselect a fix or add speculative resource limits.
 - [ ] 5.2 Before changing the official base, verify its provenance and repeat
       native SQLite, health, API, and official-UI parity checks on the new
       digest.
