@@ -98,12 +98,7 @@ services:
   omniroute-base:
     <<: *common
     container_name: omniroute
-    build:
-      context: .
-      target: runner-base
-      args:
-        OMNIROUTE_BASE_PATH: ${OMNIROUTE_BASE_PATH:-}
-    image: omniroute:base
+    image: "${OMNIROUTE_IMAGE:-ghcr.io/etcetera-agency/omniroute:main}"
     ports:
       # Loopback-only by default (#12568): with REQUIRE_API_KEY=false shipping
       # as the .env.example default, an unqualified publish spec here binds

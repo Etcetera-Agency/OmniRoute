@@ -1,11 +1,16 @@
 ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96
+ARG OFFICIAL_BASE_DIGEST=sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96
 ARG BACKEND_ARTIFACT_STAGE=backend-builder
 
 # Build the fork's API bundles against the exact Next.js and Node versions in
 # the verified official image. NEXT_DIST_DIR isolates this output from its UI.
 FROM ${OFFICIAL_IMAGE} AS backend-builder
+ARG OFFICIAL_IMAGE
+ARG OFFICIAL_BASE_DIGEST
 USER root
 WORKDIR /app
+
+RUN test "$OFFICIAL_IMAGE" = "ghcr.io/diegosouzapw/omniroute@$OFFICIAL_BASE_DIGEST"
 
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -32,6 +37,7 @@ RUN test -f package-lock.json \
 COPY . ./
 
 RUN mkdir -p /app/data \
+  && node --test tests/unit/build/merge-official-backend-overlay.test.mjs \
   && npm run build:backend \
   && test -s /app/.build/backend-overlay/server/app-paths-manifest.json \
   && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \
