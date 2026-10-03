@@ -4,16 +4,19 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## GitHub overlay-image build
 
-- PR #11 merged at `3a484460`, then builder-only heap correction PR #12 merged
-  at `a06fcfb3`. Only the fork image workflow is active, on a
+- PR #11 merged at `3a484460`, heap correction PR #12 at `a06fcfb3`, and
+  builder production-mode correction PR #13 at `b6cfc9ad`. Only the fork image
+  workflow is active, on a
   main push or manual exact-main dispatch. It verifies the built container
   before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests are invoked manually for a specific task. Both main image
-  runs failed before publication; builder-only heap correction PR #12 is
-  merged. Read-only diagnosis of the second failure selected builder-only
-  `NODE_ENV=production` after `npm ci`; this correction is implemented on the
-  follow-up branch but has not reached main. Next main build remains open.
+  schedule. Tests are invoked manually for a specific task. All three main
+  attempts failed before publication. PR #13's `NODE_ENV=production` correction
+  is on main, and run `37126849223` completed native ARM64 image compilation;
+  candidate artifact verification failed on temp-data permissions. The
+  tmpfs/cleanup fix is implemented, focused manual tests pass 7/7, and
+  independent low-effort review found no correctness findings. Full main-image
+  acceptance remains open.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
@@ -34,8 +37,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   `npm run build:backend`. Do not change the shared helper or final runtime
   stage. This matches a prior successful remote compile of the same backend
   with a 12-GiB heap and about 15.72-GB measured peak, against the public ARM64
-  runner's stated 16 GB. The next main image run must verify whether it fits;
-  this setting is not a guarantee. PR #12 contains this adjustment.
+  runner's stated 16 GB. PR #12 contains this adjustment. Main run
+  `37126849223` later completed native ARM64 backend compilation with this
+  setting; that run does not guarantee future builds or artifact acceptance.
 - Second main image run `37125217705`, after PR #12, failed after 6m18 while
   prerendering `/_global-error`. Next reported
   `TypeError: Cannot read properties of null (reading 'use')`, then
@@ -48,8 +52,30 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   not isolated. Selected correction: set builder-only
   `NODE_ENV=production` after `npm ci` and before `npm run build:backend`; the
   fresh runtime stage remains unchanged. This corrects observed build state
-  without claiming the exact null-`use` callsite is known. Keep the next main
-  build and artifact gate open.
+  without claiming the exact null-`use` callsite is known. The next main run
+  passed compilation; the artifact gate failed as recorded below.
+- PR #13 (`b6cfc9ad`) set builder-stage `NODE_ENV=production` after `npm ci`
+  and before `npm run build:backend`. Third main run `37126849223` completed
+  native ARM64 candidate image build and backend compile in about 9 minutes
+  (13:38:48–13:47:41 UTC); the previous heap and prerender compile failures did
+  not recur. This does not establish full artifact acceptance.
+- Run `37126849223` then failed in `verify-official-overlay-image` while
+  unlinking `/tmp/omni-overlay-data-uR7ulC/cache/openrouter-provider-stats.json`
+  with `EACCES: permission denied`. Read-only diagnosis found the cause:
+  container `/app/data` was a host temp-directory bind mount; image default
+  user `node` (UID 1000) created the cache file, and runner UID 1001 could not
+  unlink it. Cleanup in `finally` may also have masked a primary verification
+  error, so the log does not establish whether earlier checks passed. The
+  selected fix mounts `/app/data` as container-scoped tmpfs mode `1777`, keeps
+  image default `USER`, and collects cleanup errors without replacing primary
+  verification errors. Cleanup-only failure still blocks publication.
+  BuildKit GHA cache export succeeded in 25.3 seconds. GHCR login and
+  publication were skipped; no image was published. The fix is implemented in
+  the local verifier, and focused manual tests pass 7/7. Scoped ESLint,
+  Prettier, `git diff --check`, and Code Simplifier pass. Independent
+  low-effort review found no correctness findings; no broader test-suite rerun
+  is claimed. The next full main artifact acceptance remains open. No server
+  pull, deployment, or database mutation occurred.
 - On GitHub, keep the auxiliary `api-route-typecheck.yml`,
   `test-quarantine.yml`, and `release-acceptance.yml` workflows manual-only.
   Keep all remaining routine check workflows disabled in repository settings;
@@ -65,9 +91,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   run `37121831856` had completed before its workflow was disabled. The merged
   source YAML makes the three auxiliary workflows manual-only. Preserve this
   settings state after every upstream sync; do not enable unrelated workflows.
-- Both main image runs so far failed before publication. Merge the selected
-  builder environment correction, then pass the next native main build and
-  container acceptance before any image is considered ready.
+- All three main attempts so far failed before publication. Native image
+  compilation now passes; repair and pass candidate verification before any
+  image is considered ready.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in
@@ -79,11 +105,21 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   to public in GitHub Packages; the workflow does not change package settings.
   Verify an anonymous pull succeeds and record its result. No server pull
   credential is used.
+- Read-only server readiness check reports the configured Docker healthcheck
+  (`CMD node healthcheck.mjs`) healthy and direct UI
+  `http://127.0.0.1:20128/` returning HTTP 200. Prior 404s came from probing a
+  health path through API proxy port `20129`; this is not a stale UI route.
+  This checks current deployment only and does not replace candidate-image
+  acceptance. No server mutation occurred.
 - Before the operator-run server pull, record current digest, Compose config,
-  health, and database migration state. Pull `:main`, compare resolved digest
-  and labels to the successful main run, verify ARM64, then start with
-  `docker compose up -d --no-build`. Check health, native SQLite, dashboard,
-  and direct UI listener `20128` API dispatch: unauthenticated
+  Docker health status, direct UI response, and database migration state. Use
+  the configured Docker `HEALTHCHECK` (currently `CMD node healthcheck.mjs`)
+  and verify `http://127.0.0.1:20128/` returns HTTP 200. Do not probe a UI
+  health path through the separate API proxy on `20129`. Pull `:main`, compare
+  resolved digest and labels to the successful main run, verify ARM64, then
+  start with `docker compose up -d --no-build`. Check Docker health, native
+  SQLite, dashboard, and separately check API routes. Direct UI listener
+  `20128` unauthenticated
   `GET /api/v1/models` returns HTTP 401 with `error.code: "invalid_api_key"`.
   This is the Next route-handler response; `AUTH_002` belongs to the separate
   API-listener proxy. Record the deployed digest.
