@@ -28,6 +28,8 @@ logs
 
 # Local env files (inject at runtime via --env-file or -e)
 .env
+.envrc
+**/.envrc
 .env.local
 .env.development.local
 .env.test.local

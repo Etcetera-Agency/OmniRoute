@@ -117,7 +117,7 @@ report.
   Production files and data were untouched.
 - The deployment playbook and migration rehearsal runbook now reflect the
   reviewed test state, the distinct live source (`f2bddef27ed0807dd5a5e2712bc26536edda8138`)
-  and staged target (`db18a17c374506941d10fbc58132eb108d1ea5db`), approved
+  and then-current staged target (`db18a17c374506941d10fbc58132eb108d1ea5db`), approved
   Node 26 production runtime, user-authorized migration, keyless public Radar
   activation, post-deploy dashboard Intel-key step, calibration, reserve
   rollout, and rollback. OpenSpec tasks mark seam verification 4.1, reserve
@@ -212,37 +212,42 @@ report.
   unavailable for 12m04s; Redis remained healthy and no DB/Radar changes or
   cutover occurred. The historical f2 12-GiB pass does not carry over to staged
   db18. User decision resolved: apply production `cache.maxMemoryGenerations=0`
-  constantly, without a feature flag. The owner implemented and reviewed the
-  setting in this feature-branch publication; the production callback smoke and
-  `node --check` passed, but full-build acceptance remains pending.
+  constantly, without a feature flag. The production callback smoke and
+  `node --check` passed, but no full-image build has passed.
   Webpack documents that `0` disables additional memory-cache generations but
   does not bound the live compiler object graph, so a 12-GiB fit is not
   guaranteed. Next 16.3.5 sets production `Infinity` before the custom callback;
   after every Next/framework upgrade, verify callback order reapplies `0`.
-  Retry 5 remains RED evidence. Latest user direction puts the full-UI rebuild
-  on hold. The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base image
-  for upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` was pulled and
-  inspected at digest
-  `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
-  its SLSA attestation binds it to the exact source revision. Native-architecture
-  query passed; inspection found Node 26.10.0, Next 16.3.5, `better-sqlite3`
-  13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app payload, and 1,089
-  static assets. OCI revision/version labels are absent, so use the attestation
-  for source identity. This was base-image inspection only: no app overlay image
-  has been built; production f2 and Redis remained healthy without outage or
-  DB/Radar changes. Resolver analysis confirms `getMaybePagePath()` reads
-  absolute route paths from `.next/server/app-paths-manifest.json` and
-  `requirePage()` loads them directly. The selected overlay will compile API
-  route bundles in isolation, include their required relative `server/chunks`,
-  and merge only API keys into the official image manifest while preserving UI
-  entries and assets. The overlay implementation, image build, and runtime smoke
-  remain pending. The cache-setting implementation and focused OpenSpec are
-  included in this feature-branch publication; full-build acceptance remains
-  pending. Do not stop production or launch an app build until the overlay is ready. Then build and start the exact candidate against a
-  fresh isolated database copy, verify migrations, and only then proceed to the
-  already-authorized production migration and cutover. Production remains at
-  `f2bddef27ed0807dd5a5e2712bc26536edda8138`; deployment and live validation
-  gates remain open.
+  Retry 5 remains RED evidence. The user approved the pinned official Node 26 /
+  Next 16.3.5 linux/arm64 base at digest `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`; SLSA binds upstream source
+  `23a11484862b3bb589a55e85b00e4ac53ffeb234`, native and filesystem inspection passed, and OCI revision/version
+  labels are absent. Overlay resolver tests pass 3/3 and independent review
+  found no defects. Local buildx could not reach the Docker socket, so
+  target-host Dockerfile validation remains open.
+  User-approved full-duration maintenance stopped only OmniRoute at 08:51:37
+  UTC. Backend export for source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` started 08:51:38; the compile phase finished at 09:04:10. At 09:09:38 UTC,
+  step 19 still showed 38.3 MB being written and zero new route filenames;
+  artifact export remained pending. The 09:00:10 resource sample recorded the following. Builder has no
+  memory/swap/PID cgroup caps, CPU affinity 0–3, and +1000 OOM score only for
+  builder-owned processes. Cgroup use was down to 4.69 GB after a 15.72-GB
+  peak; host `MemAvailable` was 14.06 GiB, swap free 3.53 GiB, disk free 21.3
+  GB, with no OOM/failure reported. Planned output path is not artifact proof.
+  Production source/container remains `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
+  OmniRoute was restored to the exact f2 container and healthy at 09:06:31 UTC
+  after 14m54s. No candidate image/runtime smoke, isolated-copy migration,
+  cutover, Radar change, or live validation is reported.
+  The cache setting is published in source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; full-image acceptance is
+  pending. See `openspec/TODO.md` for required overlay, parser, ARM64 image,
+  stock-UI parity, route/runtime, isolated-copy migration, publication,
+  cutover, Radar, and live-validation follow-ups. Keep task 1.4 unchecked.
+  Metadata checks for this checkpoint: strict OpenSpec validation passed 6/6;
+  docs-sync, frontmatter, environment sync, links, and fabricated-claim checks
+  passed. Docs-counts exited successfully with three existing soft warnings
+  (two executor-count references and one OAuth-provider count). No runtime
+  tests were rerun for this documentation-only update. The deprecated-version
+  check also exited 0 with 96 warning-only drift notices across the repository.
+  Code Simplifier review found no further safe prose changes; Prettier left all
+  five owned files unchanged.
 - SystemOne live gates remain: confirm OpenRouter request/response shape;
   test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
   small request; collect 50-request direct/proxy latency; verify allowed-model
@@ -251,9 +256,10 @@ report.
   repository.
 - The user explicitly authorized deployment, production migration, and
   activation. The production source/container is at
-  `f2bddef27ed0807dd5a5e2712bc26536edda8138`; the staged deployment target is
-  `db18a17c374506941d10fbc58132eb108d1ea5db` and is not live. Deployment is
-  pending a clean supported-runtime build/start. Then run the rehearsed
+  `f2bddef27ed0807dd5a5e2712bc26536edda8138`; current staged source is
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`, whose compile phase finished at
+  09:04:10 UTC but artifact export remained pending (38.3 MB still being written with zero new route filenames at
+  09:09:38); it is not live. Deployment is pending image, runtime, and migration gates. Then run the rehearsed
   one-time migration-ledger repair
   against a fresh consistent backup and verify integrity, idempotence, and
   rollback. Permanent migration compatibility code is forbidden.
