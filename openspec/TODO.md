@@ -20,22 +20,54 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   services. Do not run `docker image prune`, `docker system prune`, or volume
   pruning.
 
+- Deferred build-context optimization: Dockerfile `COPY .` currently includes
+  OpenSpec and completion metadata, so metadata-only edits can invalidate the
+  backend compile cache. Keep this separate from the current correction; review
+  exact safe exclusions before changing the build context.
+- Deferred delivery automation: this scope builds and publishes the main image;
+  production cutover remains an authorized operator-run digest update on the
+  existing Compose host. CapRover is a separate host and no automatic pull or
+  deploy is wired. Do not imply that publishing `:main` updates production;
+  scope future CD separately with an agreed host, migration, and credentials.
+
 - PR #11 merged at `3a484460`, heap correction PR #12 at `a06fcfb3`, and
   builder production-mode correction PR #13 at `b6cfc9ad`. Only the fork image
   workflow is active, on a
   main push or manual exact-main dispatch. It verifies the built container
   before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests are invoked manually for a specific task. All five main
+  schedule. Tests are invoked manually for a specific task. All six main
   attempts failed before publication. PR #13's `NODE_ENV=production` correction
   is on main, and PR #14's tmpfs/cleanup correction passed its focused manual
   tests and independent review. Native ARM64 candidate compilation passes; the
-  latest image verifier observed HTTP 401 `AUTH_002` with `error.type` absent;
-  auth expectation and summary quoting corrections pass manual local checks.
-  The `runtime-web` target and non-root browser verifier are implemented and
-  reviewed locally; focused browser tests pass 8/8. A main build of the new
-  target and actual browser launch are not yet proven. A new main image run is
-  still required; full main-image acceptance remains open.
+  fifth image verifier run observed HTTP 401 `AUTH_002` with `error.type`
+  absent; auth expectation and summary quoting corrections pass manual local
+  checks. The `runtime-web` target and non-root browser verifier are
+  implemented and reviewed locally; focused browser tests pass 8/8. Sixth main
+  run `37138784470` built backend and Playwright Chromium, then the candidate
+  healthcheck became unhealthy with `172.17.0.3: fetch failed`; no GHCR login or
+  publication occurred, and API/browser/UI checks were not proven. Static
+  inspection found that `runtime-web` replaced `ENTRYPOINT` without declaring
+  a stage-local `CMD`, which clears the base image's command. The selected
+  correction explicitly declares `CMD ["node", "dev/run-standalone.mjs"]` and
+  preflights exact `USER`, `ENTRYPOINT`, and `CMD` before starting any candidate
+  container. Focused manual tests pass 9/9; scoped ESLint `--no-ignore`,
+  Prettier, `git diff --check`, Code Simplifier, and independent review
+  (`GREEN[]`) pass. The confirmed missing-command defect does not prove the
+  original run's healthcheck cause; its logs omit image command/init config.
+  Production uses `HostConfig.Init=true` with `docker-init` as PID 1. A
+  controlled old-backend disposable fixture changed only Docker init: without
+  init, Xvfb stalled before Node; with init, the `node` process ran healthy,
+  UI root returned HTTP 200 after redirect, API returned HTTP 401 `AUTH_002`,
+  and headed Chromium opened/closed `about:blank` under Xvfb as UID 1000. This
+  isolates init as the difference for that fixture, not proof for the original
+  main run or corrected `runtime-web` artifact. Require a successful native
+  main run and full artifact verification before publication. Candidate
+  service startup now uses `docker run --init` only; browser smoke remains
+  `docker exec` inside that container. The focused startup regression was RED
+  before the flag and the suite passes 9/9 after it; scoped ESLint, Prettier,
+  `git diff --check`, Code Simplifier, and independent review (`GREEN[]`) pass.
+  Final native image, browser, and publication gates remain open.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
@@ -131,8 +163,11 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   in Xvfb. The chosen fork image adds a shared `backend-dependencies` stage,
   derives `backend-builder` from it, and adds `runtime-web` from merged
   `runtime`. It copies only locked Playwright packages, installs Chromium,
-  Xvfb and Xauth, preserves official UI/CMD/HEALTHCHECK and permission check,
-  and uses the current `xvfb-run` screen arguments. Build the CI candidate with
+  Xvfb and Xauth, preserves official UI and permission check, explicitly
+  redeclares `CMD ["node", "dev/run-standalone.mjs"]` after the Xvfb
+  `ENTRYPOINT`, and inherits the pinned-base healthcheck. Preflight exact
+  `USER node`, entrypoint, and command before starting the candidate. Build the
+  CI candidate with
   `--target runtime-web`; verify non-root headed Playwright Chromium opens
   `about:blank` and closes without external requests. Keep the prebuilt-backend
   path independent of backend compilation for browser packages. Before server
@@ -158,11 +193,14 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   run `37121831856` had completed before its workflow was disabled. The merged
   source YAML makes the three auxiliary workflows manual-only. Preserve this
   settings state after every upstream sync; do not enable unrelated workflows.
-- All five main attempts so far failed before publication. Native backend
-  compilation passed on the earlier target; the new `runtime-web` target and
-  non-root browser smoke still need a main run. Auth-envelope expectations and
-  summary quoting have local manual verification. Pass the browser smoke and
-  every remaining artifact check before treating any image as ready.
+- All six main attempts so far failed before publication. The sixth built
+  `runtime-web` and Playwright Chromium but failed Docker healthcheck; no API,
+  browser, or UI acceptance is proven. Exact-CMD declaration and config
+  preflight now pass focused manual tests 9/9, scoped lint/format/diff checks,
+  Code Simplifier, and independent review (`GREEN[]`). The old-backend Docker
+  init differential passes health, direct UI/API, and headed-browser checks as
+  detailed above. Browser smoke on the new `runtime-web` image and all remaining
+  artifact checks remain open; no image is ready for publication.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in

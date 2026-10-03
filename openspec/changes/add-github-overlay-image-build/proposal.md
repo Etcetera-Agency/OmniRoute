@@ -64,6 +64,36 @@ The workflow now uses single-quoted `printf` formats and separately quoted
 value args so Markdown backticks stay literal; a representative manual shell
 probe confirms every value is preserved.
 
+The sixth main run `37138784470` built the backend and Playwright Chromium, but
+the candidate's Docker healthcheck became unhealthy with
+`172.17.0.3: fetch failed`; GHCR login and publication were skipped. API,
+browser, and UI checks were not proven, and the run logs do not record the
+container command configuration. Static inspection found a definite image
+configuration defect: `runtime-web` replaces `ENTRYPOINT` without declaring a
+stage-local `CMD`, so Docker clears the base image's `CMD`. Declare the exact
+official command `CMD ["node", "dev/run-standalone.mjs"]` in `runtime-web`.
+Before starting the candidate, inspect and require the expected `USER`, Xvfb
+`ENTRYPOINT`, and exact `CMD`; report only these allowlisted configuration
+fields on mismatch. The missing command is a confirmed defect, but the
+available run output does not establish that it caused the health failure.
+Focused local verifier tests pass 9/9, with scoped lint, formatting, diff
+checks, Code Simplifier, and independent review passing. A corrected launcher
+rehearsal using the exact CI fixture without Docker init stayed running but
+unhealthy; auth/browser checks did not run. A new native main run must prove
+corrected image configuration, healthy startup, browser smoke, and all other
+artifact checks before publication.
+
+Read-only production configuration confirms `HostConfig.Init=true`, with
+`docker-init` as PID 1. In the same old-backend disposable verifier fixture,
+only `--init` changed: without it, Xvfb readiness stalled before Node; with it,
+the `node` user process started and Docker reported healthy. Direct UI root
+returned HTTP 200 after redirect; `GET /api/v1/models` returned exactly HTTP
+401 `AUTH_002`; headed Chromium opened and closed `about:blank` under Xvfb as
+UID 1000. This differential confirms init behavior for that fixture, not the
+new `runtime-web` image or main artifact gate. Start only the candidate service
+container with Docker init enabled; keep final native-image, browser, and
+production acceptance gates open.
+
 Production currently runs a separate browser-capable layer,
 `omniroute:55f40468-official-overlay-web-browser-20261003`, through the third
 Compose browser override. It provides Chromium, Xvfb, and lockfile-resolved
@@ -71,11 +101,14 @@ Playwright packages and wraps the permission-check entrypoint with `xvfb-run`.
 A plain backend overlay would remove these providers. Publish a `runtime-web`
 target derived from the official-overlay runtime: share a dependency stage
 with the backend compiler, copy lockfile-resolved Playwright packages, install
-Chromium and OS dependencies, and preserve the official UI, permission check,
-command, and healthcheck. The image workflow must verify a real non-root,
-headed Chromium launch under Xvfb on `about:blank` before publishing. The
-server must retain the current browser-capable rollback image until the new
-main image passes this acceptance.
+Chromium and OS dependencies, and preserve the official UI and permission
+check. Redeclare the exact official `CMD` in the final `runtime-web` stage
+because that stage replaces `ENTRYPOINT`; preserve the official healthcheck.
+Preflight the resulting image's `USER`, `ENTRYPOINT`, and `CMD` before starting
+the candidate. The image workflow must verify a real non-root, headed Chromium
+launch under Xvfb on `about:blank` before publishing. The server must retain
+the current browser-capable rollback image until the new main image passes
+this acceptance.
 
 ## What Changes
 
@@ -110,9 +143,14 @@ main image passes this acceptance.
 - In the running candidate, launch Chromium as the image's default non-root
   user through Playwright with `headless: false` under Xvfb, load only
   `about:blank`, and close cleanly without external requests. Keep the pinned
-  official UI, manifests, `CMD`, and `HEALTHCHECK` unchanged; wrap the existing
+  official UI/manifests and pinned-base `HEALTHCHECK`; wrap the existing
   permission-check entrypoint with the approved `xvfb-run` invocation and set
-  `PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright`.
+  `PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright`. Explicitly
+  redeclare the official `CMD ["node", "dev/run-standalone.mjs"]` in
+  `runtime-web`, preflight `USER`, `ENTRYPOINT`, and `CMD`, and start the
+  candidate application container with Docker init enabled (`docker run
+--init`, equivalent to `HostConfig.Init=true`). Apply init only to service
+  startup; browser checks execute inside the started container.
 - Mount candidate `/app/data` as a container-scoped tmpfs with mode `1777`;
   keep the image's default `USER` and do not bind host temporary data into the
   candidate. Collect cleanup errors without replacing an earlier verification
@@ -150,13 +188,15 @@ main image passes this acceptance.
 - `scripts/ci/verify-official-overlay-image.mjs` and
   `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
   artifact verifier, container-scoped test data, cleanup error reporting,
-  safe catalog-auth assertion diagnostics, non-root Playwright browser smoke,
+  safe catalog-auth assertion diagnostics, image `USER`/`ENTRYPOINT`/`CMD`
+  preflight, Docker-init candidate startup, non-root Playwright browser smoke,
   and manually invoked focused tests.
 - `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: shared
   lockfile-dependency stage, one source backend compile, pinned official
   runtime, and browser-capable `runtime-web` target with Chromium/Xvfb. Keep
-  production `NODE_ENV` and 12288-MiB Node heap in the backend builder, without
-  an automatic unit-test gate.
+  production `NODE_ENV` and 12288-MiB Node heap in the backend builder, and
+  explicitly set the official CMD in `runtime-web`, without an automatic
+  unit-test gate.
 - `docker-compose.yml` and `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md`: pull the
   fork `:main` image and document digest verification, no-build start, health
   checks, and rollback.
