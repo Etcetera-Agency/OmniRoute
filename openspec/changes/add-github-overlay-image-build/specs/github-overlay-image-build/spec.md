@@ -125,7 +125,12 @@ must pass before the image gate closes.
 ### Requirement: Verify the actual container artifact before publication
 
 The main image workflow SHALL start and inspect its local candidate before
-GHCR authentication or publication. It SHALL check ARM64 architecture and
+GHCR authentication or publication. It SHALL start the candidate service
+container with Docker init enabled (`docker run --init`, equivalent to Docker
+API `HostConfig.Init=true`) to match production process startup, forward
+signals, and reap child processes. Apply Docker init only to that candidate
+service-container startup; browser smoke SHALL use `docker exec` in the
+already-running candidate. It SHALL check ARM64 architecture and
 source/revision/base metadata, native SQLite operation, configured Docker
 `HEALTHCHECK` status, direct UI root response, API behavior, and official UI
 preservation by comparing
@@ -157,6 +162,7 @@ objects. This diagnostic SHALL NOT weaken the auth fixture or expected HTTP
 
 - **GIVEN** the candidate has matching architecture, source, revision, and
   official-base identity
+- **AND** candidate service startup uses Docker init (`HostConfig.Init=true`)
 - **AND** disposable native SQLite check passes
 - **AND** Docker reports the configured `HEALTHCHECK` as healthy
 - **AND** direct UI listener `20128` returns HTTP 200 for `/`
@@ -174,6 +180,16 @@ objects. This diagnostic SHALL NOT weaken the auth fixture or expected HTTP
 - **AND** every verifier cleanup action completes without error
 - **WHEN** artifact verification completes
 - **THEN** the publisher may authenticate and publish that candidate
+
+#### Scenario: Candidate process startup matches production
+
+- **GIVEN** production Compose starts the service with `HostConfig.Init=true`
+- **WHEN** the verifier starts the candidate service container
+- **THEN** it enables Docker init (`docker run --init`)
+- **AND** the app health and route checks run in that same initialized
+  container
+- **AND** browser smoke executes inside that container with `docker exec`
+- **AND** no second app container is created for browser verification
 
 #### Scenario: Candidate artifact check fails
 
@@ -261,14 +277,24 @@ libraries with Playwright's CLI `--with-deps`, and install Xvfb and Xauth. It
 SHALL set `PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright` and make
 the browser cache available to the default `node` user. Its entrypoint SHALL
 run the existing `/app/check-permissions.sh` through
-`xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp'`. The inherited `CMD`
-and Docker `HEALTHCHECK` SHALL remain unchanged. The target SHALL preserve the
+`xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp'`. The base image's
+`CMD` does not carry through an `ENTRYPOINT` override: `runtime-web` SHALL
+declare the official default command as
+`CMD ["node", "dev/run-standalone.mjs"]` in the current stage. The pinned-base
+Docker `HEALTHCHECK` SHALL remain unchanged. The target SHALL preserve the
 pinned official UI and existing app manifests.
 
-Before registry authentication, candidate verification SHALL launch Chromium
-through Playwright with `headless: false` as the default non-root user, open
-only `about:blank`, and close cleanly under Xvfb without external requests.
-Any failure SHALL block publication.
+Before candidate startup and registry authentication, verification SHALL
+inspect the image configuration and require `User` to be `node`, `Entrypoint`
+to be the exact Xvfb permission-check command and arguments specified above,
+and `Cmd` to be `["node", "dev/run-standalone.mjs"]`. A missing or different
+value SHALL fail before container startup. The failure diagnostic SHALL report
+only the expected and observed `User`, `Entrypoint`, and `Cmd` fields; it SHALL
+NOT log environment variables or other image configuration. After this
+preflight, candidate verification SHALL launch Chromium through Playwright
+with `headless: false` as the default non-root user, open only `about:blank`,
+and close cleanly under Xvfb without external requests. Any failure SHALL
+block publication.
 
 #### Scenario: Browser-capable main candidate passes verification
 
@@ -276,8 +302,10 @@ Any failure SHALL block publication.
   pinned official runtime
 - **AND** `runtime-web` contains lockfile-matched Playwright packages and
   Chromium at the configured browser path
-- **AND** its permission-check entrypoint runs under Xvfb with the inherited
-  command and healthcheck unchanged
+- **AND** image config has `User: node`, the expected Xvfb entrypoint, and
+  `Cmd: ["node", "dev/run-standalone.mjs"]`
+- **AND** its permission-check entrypoint runs under Xvfb with the pinned-base
+  healthcheck unchanged
 - **WHEN** the verifier launches non-root Chromium with `headless: false`
 - **THEN** the browser opens `about:blank` and closes successfully
 - **AND** the official UI assets and manifests remain unchanged
@@ -290,6 +318,16 @@ Any failure SHALL block publication.
 - **WHEN** the artifact verifier checks the browser runtime
 - **THEN** verification fails before GHCR authentication
 - **AND** no image tag is published or updated
+
+#### Scenario: Candidate command configuration is missing or incorrect
+
+- **GIVEN** the candidate image's `User`, `Entrypoint`, or `Cmd` differs from
+  the required runtime-web configuration
+- **WHEN** the verifier performs image-config preflight
+- **THEN** it fails before starting the candidate container
+- **AND** it reports only expected and observed `User`, `Entrypoint`, and
+  `Cmd` values
+- **AND** GHCR authentication and publication do not occur
 
 #### Scenario: First package publication
 

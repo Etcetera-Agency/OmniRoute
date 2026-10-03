@@ -115,3 +115,5 @@ RUN apt-get update \
 
 USER node
 ENTRYPOINT ["/usr/bin/xvfb-run", "-a", "-s", "-screen 0 1920x1080x24 -nolisten tcp", "/app/check-permissions.sh"]
+# AICODE-NOTE: Setting ENTRYPOINT clears the base CMD; restore the application launcher explicitly.
+CMD ["node", "dev/run-standalone.mjs"]

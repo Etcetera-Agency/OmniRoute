@@ -62,13 +62,23 @@ or workflow_dispatch where ref == refs/heads/main:
     wrap /app/check-permissions.sh in entrypoint:
         xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp'
         /app/check-permissions.sh
-    preserve inherited CMD and HEALTHCHECK unchanged
+    declare CMD ["node", "dev/run-standalone.mjs"] in runtime-web
+    preserve the pinned-base HEALTHCHECK unchanged
     build main candidate with --target runtime-web
     do not export either build environment setting to the runtime stage
     compile backend routes exactly once; do not run unit-test commands
     load the candidate locally
     inspect candidate architecture and OCI source/revision/base labels
-    start candidate with container-scoped tmpfs at /app/data, mode 1777
+    inspect candidate image config before starting it:
+        require USER == "node"
+        require ENTRYPOINT == ["xvfb-run", "-a", "-s",
+            "-screen 0 1920x1080x24 -nolisten tcp",
+            "/app/check-permissions.sh"]
+        require CMD == ["node", "dev/run-standalone.mjs"]
+        on mismatch, fail with bounded diagnostics for USER/ENTRYPOINT/CMD only
+        do not log environment, credentials, or other config fields
+    start candidate service container with Docker init enabled (--init /
+        HostConfig.Init=true) and container-scoped tmpfs at /app/data, mode 1777
     preserve image's default USER; do not bind host temporary data
     verify configured Docker HEALTHCHECK reports healthy
     verify native SQLite operation
@@ -164,9 +174,18 @@ runtime`; copy only `playwright` and `playwright-core` from
 `backend-dependencies`, install Xvfb, Xauth, Chromium, and required OS
 libraries, set `PLAYWRIGHT_BROWSERS_PATH`, and make the browser cache readable
 by `node`. The final image keeps the pinned UI and merged manifests unchanged,
-keeps the inherited `CMD` and `HEALTHCHECK`, and wraps
+redeclares the original official default command as
+`CMD ["node", "dev/run-standalone.mjs"]`, preserves the pinned-base
+`HEALTHCHECK`, and wraps
 `/app/check-permissions.sh` with `xvfb-run -a -s '-screen 0 1920x1080x24
 -nolisten tcp'` as the selected entrypoint.
+
+Docker resets a base-image `CMD` to empty when the current stage defines a new
+`ENTRYPOINT`, so the browser stage must declare its own `CMD`. Before starting
+the image, the verifier inspects the image config and requires `USER node`,
+the exact Xvfb permission-check entrypoint, and the exact Node server command
+above. It fails before container startup if any field is absent or different,
+reporting only bounded, allowlisted user/entrypoint/command values.
 
 The main workflow builds `--target runtime-web`. Before registry auth, run a
 one-shot Playwright smoke inside the candidate as its default non-root user:
@@ -184,7 +203,9 @@ authentication:
 
 1. Architecture is `linux/arm64`; OCI source, full revision, and base digest
    match the triggering commit and pinned base.
-2. The application starts with disposable container-scoped `/app/data` tmpfs;
+2. Before startup, image config has the exact default user, Xvfb entrypoint,
+   and Node server `CMD`; mismatches fail with safe allowlisted diagnostics.
+   The application starts with disposable container-scoped `/app/data` tmpfs;
    the configured Docker `HEALTHCHECK` reports healthy and a native SQLite
    operation succeeds.
 3. Direct Next UI listener `20128` returns HTTP 200 for `/` and HTTP 401 with
@@ -306,10 +327,31 @@ earlier runtime result as proof of full artifact acceptance.
 Review and merge the feature branch manually. The PR includes the already
 reviewed runtime changes and eligible completed OpenSpec archives, not a
 CI-only change. Do not depend on automatic unit, static, or workflow checks;
-run tests manually when the task requires them. Native backend compilation
-passed on runs `37126849223` and `37132155004`, but neither produced a verified
-published image. The browser-capable `runtime-web` target still needs its first
-main build and browser smoke before image publication.
+run tests manually when the task requires them. Native backend and browser
+packages built on main run `37138784470`, but the candidate healthcheck became
+unhealthy (`172.17.0.3: fetch failed`), publication was skipped, and API,
+browser, and UI checks were not proven. Its logs do not show the image command
+configuration. Static inspection identified that `runtime-web` replaced
+`ENTRYPOINT` without redeclaring `CMD`; Docker clears the base-image `CMD` in
+that case. The selected fix explicitly declares the official
+`CMD ["node", "dev/run-standalone.mjs"]` and preflights `USER`, `ENTRYPOINT`,
+and `CMD` before candidate startup. This known configuration defect is not
+proof of the observed healthcheck's runtime cause. Focused local verifier
+tests pass 9/9; scoped lint/format/diff checks, Code Simplifier, and independent
+review pass. The exact CI fixture without Docker init stayed running but
+unhealthy; auth/browser checks did not run. Read-only production configuration
+confirms `HostConfig.Init=true`, with `docker-init` as PID 1. In the same
+old-backend disposable verifier fixture, only Docker init changed: without it,
+Xvfb stalled before Node; with it, the default `node` user process ran healthy.
+Direct UI root returned HTTP 200 after redirect, `GET /api/v1/models` returned
+exactly HTTP 401 `AUTH_002`, and headed Chromium opened/closed `about:blank`
+under Xvfb as UID 1000. This validates init parity for that fixture only; it
+is not proof for the corrected `runtime-web` image. The verifier SHALL start
+only the candidate service container with Docker init enabled (`docker run
+--init`, equivalent to `HostConfig.Init=true`); browser smoke uses
+`docker exec` inside that started container. The next main run must prove
+command config, healthy startup, browser smoke, and full artifact acceptance
+before publication.
 
 GHCR creates a package as private. After the first successful main
 publication, the owner changes it to public in GitHub Packages. Workflow code
@@ -336,3 +378,4 @@ server acceptance pass.
 
 - [GitHub-hosted runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 - [GitHub Container Registry access and visibility](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+- [Dockerfile CMD and ENTRYPOINT interaction](https://docs.docker.com/reference/dockerfile/#understand-how-cmd-and-entrypoint-interact)

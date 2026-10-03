@@ -59,8 +59,9 @@
 - [x] 2.12 Add `runtime-web` from the merged `runtime`: copy only locked
       `playwright` and `playwright-core`, install Chromium and OS dependencies
       plus Xvfb/Xauth, set the browser cache path and ownership, and wrap the
-      existing permission-check entrypoint. Preserve official `CMD` and
-      `HEALTHCHECK`.
+      existing permission-check entrypoint. Declare the official
+      `CMD ["node", "dev/run-standalone.mjs"]` in this stage and preserve the
+      pinned-base `HEALTHCHECK`.
 - [x] 2.13 Configure the main image workflow to build `runtime-web`; make the
       verifier launch non-root Playwright Chromium with `headless: false` on
       `about:blank`, then close it without external requests. Keep UI asset and
@@ -72,6 +73,42 @@
       with `--no-ignore`, Prettier, generated-browser-script syntax, and
       `git diff --check` pass. Code Simplifier found no further changes; keep
       all checks out of automatic test workflows.
+- [x] 2.15 Declare `CMD ["node", "dev/run-standalone.mjs"]` in `runtime-web`
+      after its Xvfb `ENTRYPOINT`. Docker clears a base image's `CMD` when a
+      later stage replaces `ENTRYPOINT`; this restores the official server
+      launch command. Static image-config review confirmed the selected command
+      matches the official launcher; corrected native startup rehearsal remains
+      open under task 4.9.
+- [x] 2.16 Add focused manual verifier tests first for missing or incorrect
+      candidate `User`, `Entrypoint`, and `Cmd`, and demonstrate the failures.
+      Then preflight image config before container startup, require exactly
+      `USER node`, the expected Xvfb permission-check entrypoint, and
+      `CMD ["node", "dev/run-standalone.mjs"]`. Fail before publication and
+      report only these allowlisted config fields. Preflight runs before any
+      candidate container; diagnostics read only these fields.
+- [x] 2.17 Manually run the focused verifier tests after the command fix, run
+      Code Simplifier on the implementation slice, and record outcomes in
+      `completion.review`; keep checks out of automatic workflows. Focused
+      preflight regression was RED before the fix; focused manual tests pass
+      9/9. Scoped ESLint `--no-ignore`, Prettier, and
+      `git diff --check` pass. Code Simplifier and independent review pass;
+      review returned `GREEN[]`.
+- [x] 2.18 Add a focused manual regression first: candidate service startup
+      arguments include Docker `--init`, while browser checks continue through
+      `docker exec` in the started container. Show RED before the fix; then add
+      `--init` only to candidate service startup. Run focused tests manually,
+      Code Simplifier, formatting/lint, and `git diff --check`; record results
+      in `completion.review`. Do not add automatic test workflows. The startup
+      regression failed before the fix at the Xvfb-readiness assertion; after
+      adding `--init` it passes in the focused suite (9/9). Scoped ESLint
+      `--no-ignore`, Prettier, and `git diff --check` pass. Code Simplifier
+      retained the single flag and invariant note; independent review returned
+      `GREEN[]`. Old-backend disposable fixture differed only by `--init`:
+      Xvfb then reached the `node` process and healthy status, UI root returned
+      HTTP 200 after redirect, API returned exactly HTTP 401 `AUTH_002`, and
+      headed Chromium opened/closed `about:blank` under Xvfb as UID 1000. This
+      does not prove the new `runtime-web` artifact; its full native acceptance
+      remains open.
 
 ## 3. Manual validation and review
 
@@ -99,6 +136,11 @@
 - [x] 3.9 Complete independent static review of the browser-runtime workflow,
       Dockerfile, and verifier changes. No high-confidence correctness findings
       remain; actual native GUI-image proof stays open under task 4.9.
+- [x] 3.10 Complete independent review of the explicit-CMD and image-config
+      preflight correction. Review result `GREEN[]`: exact default command
+      matches the official image, and preflight runs before any candidate
+      container while reading only `User`, `Entrypoint`, and `Cmd`. The actual
+      main-image startup acceptance remains open.
 
 ## 4. Main image and server acceptance
 
@@ -144,8 +186,24 @@
       request through client-API auth middleware before the catalog handler.
       The exact auth expectation and summary quoting corrections are manually
       verified, but no `runtime-web` image has passed its browser smoke or the
-      full artifact gate. Require a new native main run to pass every artifact
-      check before publication.
+      full artifact gate. Main run `37138784470` built backend and Playwright
+      Chromium, then its healthcheck became unhealthy with
+      `172.17.0.3: fetch failed`; logs did not show image command config, and
+      API/browser/UI checks were not proven. Static inspection found the
+      `runtime-web` stage replaced `ENTRYPOINT` without redeclaring `CMD`; the
+      selected fix declares the official server `CMD` and preflights image
+      `USER`/`ENTRYPOINT`/`CMD`. The known config defect does not prove the
+      observed healthcheck cause. The correction passes focused manual tests
+      9/9, scoped ESLint, Prettier, `git diff --check`, Code Simplifier, and
+      independent review (`GREEN[]`). The exact-CI-fixture rehearsal before
+      Docker init stayed running but unhealthy, so auth/browser checks did not
+      run in that attempt. A differential rehearsal on the old-backend
+      disposable fixture changed only Docker init: without it, Xvfb stalled
+      before Node; with it, the `node` process ran healthy, direct UI root
+      returned HTTP 200 after redirect, API returned HTTP 401 `AUTH_002`, and
+      headed Chromium opened/closed `about:blank` under Xvfb as UID 1000. This
+      does not prove the corrected `runtime-web` artifact. Require a successful
+      native main run to pass every artifact check before publication.
 - [x] 4.10 Improve catalog-auth assertion failure diagnostics only. Preserve
       the disposable auth fixture and expected 401 gate.
       Report expected status/code, observed HTTP status, and bounded sanitized
@@ -195,11 +253,18 @@
 
 ## 5. Future maintenance
 
-- [ ] 5.1 If image acceptance fails after tasks 4.14/4.15 and retry, use exact
-      logs and measured evidence to scope any further
+- [ ] 5.1 If image acceptance fails after the command/preflight correction and
+      retry, use exact logs and measured evidence to scope any further
       correction; do not preselect a fix or add speculative resource limits.
 - [ ] 5.2 Before changing the official base, verify its provenance and repeat
       native SQLite, health, API, and official-UI parity checks on the new
       digest.
-- [ ] 5.3 Keep automated production deployment separate. Write a new OpenSpec
-      package before adding it.
+- [ ] 5.3 Keep automated production deployment separate. This scope publishes
+      the main image; cutover stays operator-run on the existing Compose host.
+      CapRover is a separate host and automatic pull/deploy is not wired. Do not
+      imply publishing `:main` updates production. Write a new OpenSpec package
+      before adding CD, with agreed host, migration, and credentials.
+- [ ] 5.4 Reduce backend build-cache invalidation from broad `COPY .` inputs.
+      Metadata-only OpenSpec and completion changes currently enter the build
+      context and can invalidate backend compilation. Scope exclusions only in
+      a separate reviewed change; do not add speculative exclusions here.

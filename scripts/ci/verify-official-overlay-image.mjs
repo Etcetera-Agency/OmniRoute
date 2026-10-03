@@ -10,6 +10,17 @@ const OFFICIAL_UI_ROOT = "/app/.build/next";
 const DIRECT_UI_API_PATH = "/api/v1/models";
 const DIRECT_UI_PORT = 20128;
 const BROWSER_SMOKE_TIMEOUT_MS = 45_000;
+const EXPECTED_RUNTIME_CONFIGURATION = {
+  User: "node",
+  Entrypoint: [
+    "/usr/bin/xvfb-run",
+    "-a",
+    "-s",
+    "-screen 0 1920x1080x24 -nolisten tcp",
+    "/app/check-permissions.sh",
+  ],
+  Cmd: ["node", "dev/run-standalone.mjs"],
+};
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 
 // AICODE-NOTE: this verifier targets the direct Next UI listener. The API proxy
@@ -84,6 +95,26 @@ function staticFileMap(files) {
   return files.map(({ path: filePath, sha256 }) => `${filePath}\0${sha256}`).sort();
 }
 
+function diagnosticRuntimeValue(value) {
+  if (!Array.isArray(value)) return diagnosticTag(value);
+  const items = value.slice(0, 8).map(diagnosticTag);
+  if (value.length > 8) items.push("<truncated>");
+  return items;
+}
+
+// AICODE-NOTE: Check Docker inspect fields before SQLite or app containers start.
+export function verifyCandidateRuntimeConfiguration(config) {
+  for (const [field, expected] of Object.entries(EXPECTED_RUNTIME_CONFIGURATION)) {
+    const observed = config?.[field];
+    requireEvidence(
+      isDeepStrictEqual(observed, expected),
+      `candidate image config ${field} mismatch; expected ${JSON.stringify(
+        diagnosticRuntimeValue(expected)
+      )}; observed ${JSON.stringify(diagnosticRuntimeValue(observed))}`
+    );
+  }
+}
+
 export function verifyCandidateEvidence(evidence, expected) {
   const candidate = evidence?.candidate;
   const official = evidence?.official;
@@ -113,10 +144,6 @@ export function verifyCandidateEvidence(evidence, expected) {
   requireEvidence(
     candidate.healthStatus === "healthy",
     "candidate container did not become healthy"
-  );
-  requireEvidence(
-    candidate.runtimeUser === "node",
-    "candidate image default runtime user must remain non-root node"
   );
   requireEvidence(candidate.dashboardStatus === 200, "candidate dashboard did not return HTTP 200");
 
@@ -393,6 +420,8 @@ export function buildSmokeContainerArguments(candidate, container) {
   // while mode 1777 keeps the image's default runtime user able to write.
   return [
     "run",
+    // AICODE-NOTE: Init lets Xvfb complete its readiness signal handshake before Node starts.
+    "--init",
     "--detach",
     "--platform",
     "linux/arm64",
@@ -483,6 +512,8 @@ export async function verifyImages(options) {
   );
 
   const candidateMetadata = imageMetadata(options.candidate);
+  // AICODE-NOTE: Validate actual image config, not assumed Dockerfile inheritance.
+  verifyCandidateRuntimeConfiguration(candidateMetadata.Config);
   const candidateLabels = candidateMetadata.Config?.Labels ?? {};
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omni-overlay-ui-"));
   return withCleanup(async () => {
@@ -493,7 +524,6 @@ export async function verifyImages(options) {
     const evidence = {
       candidate: {
         architecture: candidateMetadata.Architecture,
-        runtimeUser: candidateMetadata.Config?.User,
         labels: candidateLabels,
         sqlite,
         ...runtime,
