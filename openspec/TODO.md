@@ -19,8 +19,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   OpenSpec validation (7/7), and `git diff --check`. Independent low-effort
   code review found no high-confidence bugs. Code Simplifier removed redundant
   `Promise.all` usage, reused fixtures, and made the expected digest explicit.
-  No commit, push, GitHub Actions run, image publication, or production change
-  has occurred.
+  CI commit `38cae506dcfb54a4e01fb5b4828fbd37b29e4d18` is created locally;
+  feature push and PR are pending. No GitHub Actions run, image publication, or
+  production change has occurred.
 - The local Docker daemon did not respond, so no local image build or
   Docker-backed candidate acceptance ran. The first real native ARM64 image
   build remains open on main after the PR merges.
@@ -50,7 +51,8 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 - Exercise rollback by restoring the previous digest and running
   `docker compose up -d --no-build`; verify prior health. The workflow does
   not connect to production, deploy automatically, or run migrations.
-- Pre-PR audit completed against current `main` `f2bddef27ed0807dd5a5e2712bc26536edda8138`, feature `11a54874b7e236df5935e54f17a7ffcb5564d88d`, and deployed runtime `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree intentionally follows official OmniRoute upstream v3.8.52. The PR includes a 1,147-file tree delta (40,769 additions and 22,230 deletions) relative to `main`, including the upstream sync; it intentionally retires legacy fork-only web-fetch/search/routing/FMO behavior. Preserve current `main` at a fresh archive ref before recording it as an ancestor of the feature branch, and explain the full delta in the PR body. Do not restore old fork behavior without an explicit reviewed requirement.
+- Fresh main archive is pushed and verified: `archive/main-before-main-image-pr-2026-10-03` points to `f2bddef27ed0807dd5a5e2712bc26536edda8138`; `main` remained at that SHA through the pre-integration fetch. The feature records this `main` history with an ours-strategy merge, preserving the reviewed upstream-aligned source tree; the broad upstream delta and retired fork behavior are described in the PR. Do not restore old fork behavior without an explicit reviewed requirement.
+- Pre-PR audit completed against current `main` `f2bddef27ed0807dd5a5e2712bc26536edda8138`, feature `11a54874b7e236df5935e54f17a7ffcb5564d88d`, and deployed runtime `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree intentionally follows official OmniRoute upstream v3.8.52. The PR includes a 1,147-file tree delta (40,769 additions and 22,230 deletions) relative to `main`, including the upstream sync; it intentionally retires legacy fork-only web-fetch/search/routing/FMO behavior. Do not restore old fork behavior without an explicit reviewed requirement.
 - GitHub settings were checked read-only: Actions are enabled, all actions are allowed, and the default workflow token permission is write. The new workflow declares scoped permissions. Neither branch protection nor repository/inherited rulesets are configured for `main`, so verify review and green PR checks manually before merge. No GHCR package exists yet; after the first publish, set the package public in GitHub Packages UI and verify anonymous pull. GitHub documents no package-visibility REST or GraphQL mutation; public visibility cannot be reverted to private.
 - If the first hosted build fails, preserve exact logs and measured resource/
   disk evidence before preparing a capacity fix through a follow-up PR. Do not
