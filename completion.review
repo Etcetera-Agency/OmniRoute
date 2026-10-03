@@ -431,8 +431,27 @@ report.
   low-effort review found no correctness findings. No broader test-suite rerun
   or Docker image acceptance is claimed. BuildKit GHA cache export succeeded
   in 25.3 seconds. GHCR login/publication were skipped; no image, server pull,
-  or DB mutation occurred. Full main artifact verification, package visibility,
-  anonymous pull, and server acceptance remain open. Server checks use the
+  or DB mutation occurred. PR #14 (`4d652048`) merged the tmpfs/cleanup fix.
+  Run `37129219486` completed native candidate build in 8m28 and did not repeat
+  the EACCES cleanup failure. The verifier then failed its assertion
+  `/api/v1/models must return 401 invalid_api_key without credentials`; actual
+  HTTP status, `error.type`, `error.code`, and body were not logged, so runtime
+  response remains unknown. GHCR login and publication were skipped. Fresh
+  read-only handler/configuration diagnosis predicts the disposable fixture
+  should return HTTP 401 `invalid_api_key` (`INITIAL_PASSWORD` set,
+  `requireLogin=true`, model-auth opt-out absent); this source prediction is
+  not runtime proof. Keep auth fixture and 401 gate. Selected correction is
+  failure-message-only: report expected status/code, observed status, and
+  bounded sanitized JSON `error.type` / `error.code` only; never log body,
+  headers, credentials, model data, or serialized errors. Next main run must
+  prove actual response and pass full artifact verification. Diagnostic-only
+  implementation is complete: focused manual regressions pass 7/7; a manual
+  mismatch probe verifies the 64-character bound, control sanitization, and
+  body/object exclusion. Scoped ESLint with `--no-ignore`, Prettier,
+  `git diff --check`, and Code Simplifier pass; the auth condition is unchanged.
+  Full main artifact
+  verification, package visibility, anonymous pull, and server acceptance
+  remain open. Server checks use the
   configured Docker healthcheck (`CMD node healthcheck.mjs`) and direct UI
   `http://127.0.0.1:20128/` returning HTTP 200; API routes are checked
   separately, not via proxy port `20129`. Current read-only readiness was

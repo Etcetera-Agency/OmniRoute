@@ -33,6 +33,18 @@ the image's default user, and collect cleanup errors without replacing the
 primary verification error. The next main run must pass full candidate
 verification before publication.
 
+The fourth main run `37129219486` built the native candidate in 8m28, then
+failed the direct `/api/v1/models` assertion. It did not log actual HTTP
+status, `error.type`, `error.code`, or body; no response is inferred. A fresh
+read-only source/configuration diagnosis predicts this disposable fixture
+should return HTTP 401 with `invalid_api_key`: `INITIAL_PASSWORD` is set,
+`requireLogin` is true, and the model-auth opt-out is absent. That source
+prediction is not runtime proof. Keep the auth fixture and 401 assertion
+unchanged. Improve only the failure message to include observed HTTP status
+and bounded, sanitized `error.type` / `error.code`; never log response body,
+headers, credentials, or model data. The next main run remains required to
+prove the actual response and pass all artifact checks.
+
 ## What Changes
 
 - Keep one GitHub Actions workflow for the fork image. It runs on push to
@@ -54,7 +66,10 @@ verification before publication.
   official UI parity. The UI root on `127.0.0.1:20128/` must return HTTP 200;
   the direct Next UI listener (`20128`) must return HTTP 401 with
   `error.code: "invalid_api_key"` for unauthenticated
-  `GET /api/v1/models`. Any failed artifact check stops publication.
+  `GET /api/v1/models`. On failure, report expected status/code plus observed
+  HTTP status and bounded, sanitized `error.type` / `error.code` only; never
+  log response body, headers, credentials, or model data. Any failed artifact
+  check stops publication.
 - Mount candidate `/app/data` as a container-scoped tmpfs with mode `1777`;
   keep the image's default `USER` and do not bind host temporary data into the
   candidate. Collect cleanup errors without replacing an earlier verification
@@ -88,8 +103,8 @@ verification before publication.
   manual exact-main dispatch.
 - `scripts/ci/verify-official-overlay-image.mjs` and
   `tests/unit/build/verify-official-overlay-image.test.mjs`: reusable local
-  artifact verifier, container-scoped test data, cleanup error reporting, and
-  manually invoked focused tests.
+  artifact verifier, container-scoped test data, cleanup error reporting,
+  safe catalog-auth assertion diagnostics, and manually invoked focused tests.
 - `docker/official-backend-overlay.Dockerfile` and `.dockerignore`: single
   backend-only compile using the pinned official base, production `NODE_ENV`
   after dependency installation, and explicit 12288-MiB builder-stage Node
