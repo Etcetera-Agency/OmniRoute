@@ -9,7 +9,7 @@ argument. The user approved the global production behavior on 2026-10-03.
 
 ## Evidence and Boundaries
 
-- The exact staged Node 26 full build OOMed at the documented 12-GiB cgroup
+- The pre-change staged Node 26 full build OOMed at the documented 12-GiB cgroup
   limit during webpack compilation. The victim was one Node process with
   anonymous RSS; the page-data phase had not started.
 - The 6144-MiB V8 heap, one Next page-data worker, webpack bundler and
@@ -21,6 +21,11 @@ argument. The user approved the global production behavior on 2026-10-03.
 - Webpack documents that zero disables additional memory-cache generations.
   Cache entries may still remain in memory until serialized to disk. Therefore
   this change is a targeted retention reduction, not a hard memory bound.
+- The user selected the attested official OmniRoute image plus a backend-only
+  overlay. The official image supplies the complete UI; the fork's source-A
+  backend-only compile exercises the production cache policy. No post-change
+  full-UI build was run, so its memory effect and a 12-GiB full-build fit are
+  unknown and are not release claims.
 
 ## Configuration Algorithm
 
@@ -50,12 +55,17 @@ artifact.
 
 ## Verification
 
-- The known 12-GiB full-build OOM is the RED baseline.
+- The known 12-GiB full-build OOM is historical RED evidence, not a post-change
+  full-UI acceptance result.
 - Invoke the actual imported next.config.mjs webpack callback with production
   filesystem, development filesystem, and production non-filesystem fixtures.
   Assert the production filesystem generation limit becomes zero, the disk
   directory and every other cache property remain unchanged, and the other two
   fixtures are untouched.
 - Run JavaScript syntax validation.
-- The GREEN acceptance is a full production image build on the exact source.
-  A config-fixture pass alone does not close this change.
+- Build the backend-only output on the exact source with the production cache
+  policy active, then verify the official-image overlay preserves the official
+  UI and merges the fork's compiled API routes.
+- Do not infer full-UI compiler memory savings or a 12-GiB fit from the
+  backend-only compile. A full-UI memory benchmark is future work only if a
+  later delivery requires rebuilding the dashboard.

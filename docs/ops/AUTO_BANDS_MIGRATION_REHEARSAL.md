@@ -7,7 +7,7 @@ lastUpdated: 2026-10-03
 
 This runbook covers the one-time ledger repair needed when the fork's FMO migrations share numeric ledger slots with upstream migrations 164–166. It records a copy-only rehearsal against upstream commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` (`release/v3.8.52`). It does not add runtime compatibility behavior.
 
-The rehearsal passed database initialization and migration checks on an isolated, consistent database copy. It did not modify the live database or restart the live service. The separate Node 24 Next.js build did not complete, so it is not a build/start pass. Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` failed from memory pressure: attempt 1 reported builder `OOM=true`; attempt 2 exhausted the V8 heap near 4066 MB and aborted with `SIGABRT`, without a new cgroup OOM event. Attempt 3 (03:49:15–03:58:53 UTC) exited 1 as `CANCELED` / `context canceled`, not OOM. The watcher incorrectly treated an approved 9.5-GiB same-container update as a replacement because it expected exactly 9 GiB, then canceled the build. No attempt produced an image or ran cutover/migration. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. It used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The 2-GiB host and 14-GiB disk floors above describe historical attempts only; they are not requirements for the next build. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`, with no database or service changes. The exact reviewed release still needs a successful Node 26 build/start against a fresh isolated copy. Node 24 remains a separate portability baseline, not a production-runtime requirement. The user has authorized this production ledger repair; execute it only after successful exact-commit build/start and a fresh verified backup.
+The rehearsal passed database initialization and migration checks on an isolated, consistent database copy. It did not modify the live database or restart the live service. The separate Node 24 Next.js build did not complete, so it is not a build/start pass. Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` failed from memory pressure: attempt 1 reported builder `OOM=true`; attempt 2 exhausted the V8 heap near 4066 MB and aborted with `SIGABRT`, without a new cgroup OOM event. Attempt 3 (03:49:15–03:58:53 UTC) exited 1 as `CANCELED` / `context canceled`, not OOM. The watcher incorrectly treated an approved 9.5-GiB same-container update as a replacement because it expected exactly 9 GiB, then canceled the build. No attempt produced an image or ran cutover/migration. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. It used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The 2-GiB host and 14-GiB disk floors above describe historical attempts only; they are not requirements for the later build. Production was then at `f2bddef27ed0807dd5a5e2712bc26536edda8138`; the candidate later passed Node 26 build/start and migration checks against a fresh isolated production-data copy, and the authorized production migration/cutover later completed as documented below. Node 24 remains a separate portability baseline, not a production-runtime requirement. The user authorized the production ledger repair; it was executed after candidate verification and a fresh consistent backup.
 
 ## Collision and repair
 
@@ -64,7 +64,7 @@ if any assertion fails before COMMIT:
 assert PRAGMA quick_check == "ok"
 ```
 
-Do not delete or rewrite the FMO tables, change the preserved migration names, set `applied_at` again, or add the legacy strings to application code. This is a one-time ledger rekey, not a compatibility bridge.
+During this one-time ledger rekey, do not delete or rewrite the FMO tables, change the preserved migration names, set `applied_at` again, or add the legacy strings to application code. This is not a compatibility bridge; any future orphan-table cleanup is a separate operation.
 
 ## First initialization checks
 
@@ -99,9 +99,9 @@ A second, separate Node 24.15 process reported 196 applied migrations, zero pend
 
 The database runner used an isolated container with `--network none`, a read-only source mount, and `DATA_DIR` pointed at the disposable copy; `OMNIROUTE_SKIP_DB_HEALTHCHECK`, `OMNIROUTE_DISABLE_BACKGROUND_SERVICES`, and `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` were set for the copy-only process. The separate Node 24.15 Next.js production build used two CPUs, a 6-GiB memory cap, a 512-process cap, no network, and no database or production mounts. It stopped during “Creating an optimized production build”; it produced no usable build and no Next.js start result. Its temporary container used automatic removal, and no retained Docker inspection, event, or task-filtered daemon-journal record exposes that attempt's exit cause.
 
-Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` also failed. Attempt 1 ran 02:57:04–03:08:36 UTC with a 7-GiB total RAM/swap bound, cpuset 0, and pids limit 512; `npm run build` exited 1 at webpack step 19 and builder inspection reported `OOM=true`. Logs and diagnostics were retained. Attempt 2 ran 03:26:10–03:34:11 UTC with heap limit 4096 MiB, the same 7-GiB total RAM/swap bound, cpuset 0, pids limit 512, and cached dependencies. It exited 1 after V8 heap exhaustion near 4066 MB and `SIGABRT`; no new cgroup OOM event was recorded. Retry logs and events were retained. Neither attempt produced an image or ran production cutover/migration; the production source/container remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
+Two Node 26 builds of staged commit `db18a17c374506941d10fbc58132eb108d1ea5db` also failed. Attempt 1 ran 02:57:04–03:08:36 UTC with a 7-GiB total RAM/swap bound, cpuset 0, and pids limit 512; `npm run build` exited 1 at webpack step 19 and builder inspection reported `OOM=true`. Logs and diagnostics were retained. Attempt 2 ran 03:26:10–03:34:11 UTC with heap limit 4096 MiB, the same 7-GiB total RAM/swap bound, cpuset 0, pids limit 512, and cached dependencies. It exited 1 after V8 heap exhaustion near 4066 MB and `SIGABRT`; no new cgroup OOM event was recorded. Retry logs and events were retained. Neither attempt produced an image or ran production cutover/migration; at that time, the production source/container remained at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
 
-A third diagnostic build launched at 03:49:15 UTC after its disk and memory preflight passed, but the watcher canceled it at 03:58:53 UTC after misclassifying an approved 9.5-GiB same-container update as a builder replacement. It exited as `CANCELED` / `context canceled`, not OOM. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. Retry 4 used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The earlier isolated 1.119-GB npm download cache was removed; the 4.242-GB existing npm cache layer was preserved and reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`; no production database or service change occurred. Do not treat either migration rehearsal as a build or startup pass. Production remains gated on a successful exact-SHA Node 26 build/start using the planned next-run profile below.
+A third diagnostic build launched at 03:49:15 UTC after its disk and memory preflight passed, but the watcher canceled it at 03:58:53 UTC after misclassifying an approved 9.5-GiB same-container update as a builder replacement. It exited as `CANCELED` / `context canceled`, not OOM. Retry 4 ran 04:03:26–04:12:29 UTC after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848 bytes `MemAvailable`. A read-only watcher dry run verified the exact container ID, limits, source, and digests. Retry 4 used 10 GiB total memory-plus-swap from startup, heap 6144 MiB, two workers, webpack, cpuset 0, pids 512, and 900 seconds. A cgroup OOM event occurred at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds, builder memory peaked at 9.999/10 GiB, and the build exited 1. Host and disk floors remained clear. No image or start result was produced. The earlier isolated 1.119-GB npm download cache was removed; the 4.242-GB existing npm cache layer was preserved and reused. At that point, production remained at `f2bddef27ed0807dd5a5e2712bc26536edda8138`; no production database or service change had occurred. These historical build failures predate the official-UI/backend-overlay candidate, whose exact Node 26 build/start and isolated-copy migration checks later passed as documented below. At that point production migration and cutover were pending; the later production operation is recorded below.
 
 A later full-UI Node 26 `runner-base` reproduction used the documented
 12-GiB profile on the staged exact SHA: heap 6144 MiB, two workers, and
@@ -114,52 +114,87 @@ cutover occurred. The old f2 revision passed the same 12-GiB profile, but staged
 db18 did not. User decision is to set production `cache.maxMemoryGenerations=0`
 constantly without a feature flag; the setting was implemented, reviewed, and published in source commit
 `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`. The production callback smoke
-and `node --check` passed, but full-image acceptance remains pending. The setting disables additional memory-cache
+and `node --check` passed; it was exercised on the backend-only compile. The setting disables additional memory-cache
 generations but does not bound the live compiler object graph, so it cannot
 guarantee a 12-GiB fit ([Webpack cache
 docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
 Next 16.3.5 sets production `Infinity` before the custom callback; reverify that
-the callback reapplies `0` after each framework upgrade. Production migration
-remains gated on a successful exact-SHA build/start against a fresh isolated
-copy.
+the callback reapplies `0` after each framework upgrade. The candidate passed
+build/start and migration checks against a fresh isolated production-data copy.
+Production migration and cutover later completed as recorded below.
+
+The published candidate uses the attested official UI image plus a backend-only overlay. `maxMemoryGenerations=0` behavior was exercised on that backend-only compile; its effect on a full-UI webpack build and a 12-GiB full-build fit remain unmeasured. Do not claim the cache setting makes full-UI builds fit. If a future delivery requires rebuilding the dashboard, measure the full target in a separately approved follow-up.
 
 ### Backend-overlay rollout status
 
-The official GHCR `next` Node 26 / Next 16.3.5 linux/arm64 base for upstream
-commit `23a11484862b3bb589a55e85b00e4ac53ffeb234` passed native-architecture and filesystem inspection at digest
-`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`. Its SLSA attestation binds the source revision; OCI revision/version
-labels are absent. The inspected base contains Node 26.10.0, Next 16.3.5,
-`better-sqlite3` 13.0.3, SQLite 3.53.4, a 418,470,483-byte standalone app
-payload, and 1,089 static assets. The image is a verified base only.
+The official Node 26 / Next 16.3.5 linux/arm64 base for upstream
+`23a11484862b3bb589a55e85b00e4ac53ffeb234` passed native and filesystem
+inspection at `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+Its SLSA attestation binds the source; OCI revision/version labels are absent.
+Source A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` compiled successfully in 733.7 seconds. The full scratch
+export was canceled at 09:16:03 UTC because it was exporting unneeded cache
+data, not because compilation failed. A cached thin export completed in 1.6
+seconds: 232,614,811 bytes total, including 3,529 server files / 232,234,534
+bytes, a 193,684-byte routes manifest, and a 27,866-byte required-server-files
+manifest. It contains no standalone app, static assets, cache, or `node_modules`.
+Thin-export and route/bundle hashes were verified against the final image; an
+aggregate artifact/image digest was not reported.
 
-The isolated backend overlay preserves the base UI: Next 16.3.5's resolver
-loads route paths directly from the app-path manifest, so the overlay carries
-its API route bundles and relative server chunks and merges only API entries.
-Three focused tests pass and independent review found no defects. Target-host
-Dockerfile parser/BuildKit validation remains pending because local `buildx
---check` could not reach the Docker socket. The overlay is source-reviewed but
-no app image has been produced.
+Source B `55f40468137290e8efdc24a1a1b95b111a61d91a` produced `omniroute:55f40468-official-overlay` from the pinned base and prebuilt backend
+pack. Target BuildKit parse and image import passed without recompilation. Native
+checks passed for Node 26.10.0, Next 16.3.5, and SQLite 3.53.4. All 1,089
+static assets, the Next build-identifier file, and 159 non-API app-path entries match the base
+hashes; the merged manifest has 725 API routes, 9 API function configs, and 16
+rewrites. Source A plus pack B runtime compatibility was verified. The candidate
+container was healthy and `/dashboard/radar` returned 200. SystemOne paths
+returned handler-specific `unknown_route` 404 only with both feature and auth
+disabled; this does not verify enabled routes. A fresh 112,594,944-byte
+production-data copy passed `quick_check` before rekey. The exact three-row
+ledger rekey preserved all other migration rows, original FMO names/timestamps,
+eight FMO schema objects, table counts (5/45/1/1), and all four table SHA-256
+values. Candidate startup applied the missing migrations through version 196;
+after correcting a boolean in the isolated smoke input, the second startup was
+healthy with 196 applied, zero pending, and zero newly applied migrations.
+Final integrity and foreign-key checks passed. Unauthenticated `GET
+/v1/models` returned the expected `401 AUTH_002`; authenticated `/v1` dispatch
+and enabled SystemOne/bands route checks remain pending. The copy's Radar probe
+returned 404 with Radar disabled.
 
-The user-approved full-duration maintenance stopped only OmniRoute at
-08:51:37 UTC. Backend export for source `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` began at 08:51:38 UTC and
-passed the long compile warnings; the compile phase finished at 09:04:10 UTC,
-while artifact export remained pending. At 09:09:38 UTC, step 19 still showed 38.3 MB being written and zero new route filenames; export remained pending and no artifact was verified. Resource metrics below are from 09:00:10 UTC. The builder has no memory/swap/PID cgroup caps, CPU affinity 0–3,
-and OOM score adjustment +1000 only on builder-owned processes. At that sample,
-cgroup usage had peaked at 15.72 GB and was down to 4.69 GB; host
-`MemAvailable` was 14.06 GiB, swap free 3.53 GiB, and disk free 21.3 GB. No OOM
-or failure was reported. The planned output path does not prove export completion.
-
-Production source/container remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`. OmniRoute was restored to the exact f2 container and healthy at 09:06:31 UTC after 14m54s. No candidate image, candidate runtime smoke, isolated-copy migration, cutover, Radar update, or live validation is reported. After
-export, validate the Dockerfile on the target, build/inspect the linux/arm64
-image, verify stock-UI manifest/assets parity, test SystemOne and band API routes
-plus ordinary UI, then run against a fresh isolated DB copy and verify migration
-and startup/rollback. Only then complete the already-authorized production
-migration/cutover and post-deploy Radar, calibration, routing, reserve, and
-SystemOne checks. Revalidate the upstream image digest/attestation on each Next
-upgrade. Keep deployment and live gates open.
+The authorized production cutover now serves `omniroute:55f40468-official-overlay`,
+image ID `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`,
+from source B `55f40468137290e8efdc24a1a1b95b111a61d91a` and runtime-equivalent
+backend artifact A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`. A fresh
+112,594,944-byte backup at
+`/opt/apps/omniroute-deploy-diagnostics/prod-cutover-55f40468-20261003T095314Z/backup/storage.sqlite`
+passed `quick_check` (SHA-256
+`d2c5149efb1272edadb09b5ba93378986f71f3943373ee5783dad9f728c901a6`); the
+exact three-row ledger rekey was committed after the backup and before
+candidate startup. The app applied 33 migrations and was healthy at 09:58 UTC;
+Redis was healthy. The
+post-migration check passed integrity `ok`, zero foreign-key violations, 196
+ledger rows (193 numeric plus three legacy rows), max numeric version 196,
+exact upstream 164–166 records, preserved legacy names/timestamps, required
+retirement triggers, and FMO counts 5/45/1/1. Unauthenticated production
+`GET /v1/models` returned `401 AUTH_002`. Radar is enabled and public-catalog
+opt-in is true. Authenticated settings/status calls returned HTTP 200. A public
+sync request returned HTTP 200, but status reports `Feed request failed with
+status 404`; all four Radar caches remain empty. The default
+`https://radar.omniroute.online/v1/catalog/latest` returns Vercel
+`deployment-not-found` with the correct schema header and without a bearer
+token. The built-in catalog's 489 entries do not prove feed data was loaded.
+Restore the external Radar service/domain or configure a verified live
+`RADAR_FEED_URL` before retrying; this repository has no private server source
+or access, only its public export workflow. Earlier unauthenticated probes
+confirmed route/port mapping: on UI port 20128, `/dashboard/radar` redirects to
+login and `/api/radar/settings` plus `/api/radar/status` return `401 AUTH_001`;
+on API port 20129, `/v1/radar/settings` returns `401 AUTH_002`. The earlier
+`not_found` came from probing the wrong port. Other authenticated routes, live
+catalog/calibration, band, reserve, and SystemOne checks are not complete. No
+FMO tables were dropped; revalidate the base digest and attestation on every
+Next upgrade.
 
 ## Production closeout
 
-After the successful exact-commit build/start gate and the authorized one-time production repair, retain the pre-change backup according to the production retention policy. Confirm the repaired ledger and upstream postconditions using aggregate queries, then start OmniRoute once and verify a second read-only migration-status check reports zero pending migrations. Keep the authorization reference, backup, migration summary, and integrity result in the protected operations record; do not copy database contents into this repository.
+The candidate is serving production and its migration/integrity checks passed. Retain the pre-change backup according to the production retention policy and keep the authorization reference, backup, migration summary, and integrity result in the protected operations record; do not copy database contents into this repository. Do not repeat the ledger rekey. Finish authenticated route validation and resolve the public Radar sync error, then verify feed/cache state; keep live calibration, routing, reserve, and SystemOne checks open.
 
 If a precondition or row-count assertion fails, roll back the transaction and stop. If a failure occurs after commit but before the application migration succeeds, keep OmniRoute stopped and use the approved recovery plan with the untouched pre-change backup. Do not run an inverse ledger update or repeatedly retry startup against an uncertain database state.
