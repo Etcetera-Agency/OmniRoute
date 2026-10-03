@@ -191,10 +191,17 @@ report.
   MainThread at 10,220,928 KiB anonymous RSS and 0 file RSS; cgroup memory was
   10,665,197,568 bytes anonymous and about 1 MiB file-backed. This indicates
   anonymous Node memory pressure, with small parent processes rather than
-  multiple heavy workers or file-cache pressure. No image, start, cutover, or
-  migration resulted. Before any fifth build, perform read-only local
-  source/config memory diagnosis alongside the retained remote kernel evidence;
-  no fifth build is approved or launched. The earlier isolated 1.119-GB
+  multiple heavy workers or file-cache pressure. Read-only local configuration
+  diagnosis found `webpackBuildWorker=1`, `webpackMemoryOptimizations=true`,
+  and Next filesystem cache `maxMemoryGenerations=Infinity`; CPU/page-worker
+  settings are already minimal. A candidate `maxMemoryGenerations=0` cap would
+  retain disk cache and full UI behavior but may reduce build speed; it is not
+  implemented or tested. The user decision whether this policy applies to all
+  production builds or is opt-in remains pending; do not amend the spec or
+  implement before it is resolved. Afterward, run syntax/native/runtime checks,
+  a full 10-GiB, CPU 1, 15-minute exact-SHA build, and isolated runtime-copy/
+  migration acceptance. No fifth build is approved or launched. No image,
+  start, cutover, or migration resulted. The earlier isolated 1.119-GB
   npm download cache was removed; the 4.242-GB cache layer was preserved and
   reused. Production remains at `f2bddef27ed0807dd5a5e2712bc26536edda8138`.
   Resource readiness and deployment remain open.
