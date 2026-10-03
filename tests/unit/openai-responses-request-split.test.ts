@@ -80,11 +80,7 @@ test("mid-conversation system turns are preserved as developer-role input items 
   // Mid-conversation system turns must survive as developer-role input items —
   // not dropped, and never misattributed as assistant (#6954).
   const developerItems = input.filter((i) => i.role === "developer");
-  assert.equal(
-    developerItems.length,
-    2,
-    "two mid-conversation system turns should become developer items"
-  );
+  assert.equal(developerItems.length, 2, "two mid-conversation system turns should become developer items");
   assert.deepEqual(
     (developerItems[0].content as Array<Record<string, unknown>>).map((c) => c.text),
     ["Available agent types: claude, claude-code-guide"]

@@ -71,6 +71,7 @@ export async function handleAdobeFireflyVideoGeneration({
         : typeof body.seed === "string" && String(body.seed).trim()
           ? Number(body.seed)
           : undefined;
+
     // Kling i2v / Veo ref / Sora frame: upload reference images first.
     const { id: videoModelId } = resolveAdobeVideoModel(String(model));
     const maxFrames = videoModelId.includes("kling") || videoModelId.includes("sora") ? 2 : 3;

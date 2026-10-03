@@ -18,8 +18,9 @@ import assert from "node:assert/strict";
 // the combo step is effectively dead weight instead of a working, fail-over-
 // capable target.
 
-const { expandTargetsByFingerprints } =
-  await import("../../open-sse/services/combo/fingerprintExpansion.ts");
+const { expandTargetsByFingerprints } = await import(
+  "../../open-sse/services/combo/fingerprintExpansion.ts"
+);
 
 function makeTarget(overrides: Record<string, unknown> = {}) {
   return {

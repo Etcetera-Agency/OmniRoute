@@ -24,10 +24,7 @@ test("#7529 — every SEARCH_PROVIDERS id should have a static model catalog (RE
   );
 
   for (const id of AFFECTED_PER_ISSUE) {
-    assert.ok(
-      searchProviderIds.includes(id),
-      `expected ${id} to still be present in SEARCH_PROVIDERS`
-    );
+    assert.ok(searchProviderIds.includes(id), `expected ${id} to still be present in SEARCH_PROVIDERS`);
   }
 
   const missing: string[] = [];

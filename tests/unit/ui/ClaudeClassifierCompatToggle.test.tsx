@@ -44,8 +44,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const { default: ClaudeClassifierCompatToggle } =
-  await import("@/app/(dashboard)/dashboard/cli-code/components/ClaudeClassifierCompatToggle");
+const { default: ClaudeClassifierCompatToggle } = await import(
+  "@/app/(dashboard)/dashboard/cli-code/components/ClaudeClassifierCompatToggle"
+);
 
 async function renderToggle() {
   const container = document.createElement("div");

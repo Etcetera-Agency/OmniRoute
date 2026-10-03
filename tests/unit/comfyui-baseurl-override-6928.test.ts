@@ -156,11 +156,17 @@ test("resolveComfyUiBaseUrl returns the fallback when providerSpecificData is ab
 });
 
 test("resolveComfyUiBaseUrl returns the fallback when providerSpecificData is null", () => {
-  assert.equal(resolveComfyUiBaseUrl({ providerSpecificData: null }, FALLBACK), FALLBACK);
+  assert.equal(
+    resolveComfyUiBaseUrl({ providerSpecificData: null }, FALLBACK),
+    FALLBACK
+  );
 });
 
 test("resolveComfyUiBaseUrl returns the fallback when baseUrl is absent", () => {
-  assert.equal(resolveComfyUiBaseUrl({ providerSpecificData: {} }, FALLBACK), FALLBACK);
+  assert.equal(
+    resolveComfyUiBaseUrl({ providerSpecificData: {} }, FALLBACK),
+    FALLBACK
+  );
 });
 
 test("resolveComfyUiBaseUrl returns the fallback when baseUrl is not a string", () => {

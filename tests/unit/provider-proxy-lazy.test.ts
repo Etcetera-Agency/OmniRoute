@@ -8,7 +8,6 @@ const {
   getProviderById,
   getProviderByAlias,
   FREE_PROVIDERS,
-  NOAUTH_PROVIDERS,
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
   WEB_COOKIE_PROVIDERS,
@@ -17,8 +16,9 @@ const {
   AUDIO_ONLY_PROVIDERS,
 } = await import("../../src/shared/constants/providers.ts");
 
-const { IMAGE_PROVIDERS, getImageProvider } =
-  await import("../../open-sse/config/imageRegistry.ts");
+const { IMAGE_PROVIDERS, getImageProvider } = await import(
+  "../../open-sse/config/imageRegistry.ts"
+);
 
 function getImageProviders() {
   return IMAGE_PROVIDERS;
@@ -26,7 +26,6 @@ function getImageProviders() {
 
 const ALL_SECTIONS = [
   FREE_PROVIDERS,
-  NOAUTH_PROVIDERS,
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
   WEB_COOKIE_PROVIDERS,
@@ -130,15 +129,6 @@ test("getProviderByAlias: also matches by ID", () => {
   const provider = getProviderByAlias("openai");
   assert.ok(provider);
   assert.equal(provider.id, "openai");
-});
-
-test("Mdream appears as no-auth web fetch provider", () => {
-  const provider = getProviderById("mdream");
-  assert.ok(provider, "mdream provider missing");
-  assert.equal(provider.id, "mdream");
-  assert.equal(provider.noAuth, true);
-  assert.ok(provider.serviceKinds?.includes("webFetch"));
-  assert.equal(AI_PROVIDERS.mdream.id, "mdream");
 });
 
 test("IMAGE_PROVIDERS (sub-registry): Object.keys works", () => {

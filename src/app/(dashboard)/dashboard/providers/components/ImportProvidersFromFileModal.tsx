@@ -2,11 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { Button, Modal } from "@/shared/components";
-import type {
-  ParsedProviderImportEntry,
-  ProviderImportParseError,
-} from "./parseProviderImportFile";
+import type { ParsedProviderImportEntry, ProviderImportParseError } from "./parseProviderImportFile";
 import { useImportProvidersFromFile } from "./useImportProvidersFromFile";
+import {
+  downloadProviderImportCsvTemplate,
+  formatImportErrorLine,
+  visibleImportErrors,
+  type ImportResult,
+} from "./providerImportFeedback";
 
 interface ImportProvidersFromFileModalProps {
   isOpen: boolean;
@@ -35,9 +38,7 @@ function ParseErrorsList({ errors, t }: { errors: ProviderImportParseError[]; t:
           {t("importFromFileErrorLine", {
             line: err.line,
             reason: t(
-              PARSE_ERROR_REASON_KEYS.includes(
-                err.reason as (typeof PARSE_ERROR_REASON_KEYS)[number]
-              )
+              PARSE_ERROR_REASON_KEYS.includes(err.reason as (typeof PARSE_ERROR_REASON_KEYS)[number])
                 ? err.reason
                 : "importErrorMalformedRow"
             ),
@@ -84,11 +85,7 @@ function EntriesTable({ entries, selected, onToggleRow, onToggleAll, t }: Entrie
             {entries.map((entry, idx) => (
               <tr key={idx} className="border-b border-border/40">
                 <td className="py-1 px-2">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(idx)}
-                    onChange={() => onToggleRow(idx)}
-                  />
+                  <input type="checkbox" checked={selected.has(idx)} onChange={() => onToggleRow(idx)} />
                 </td>
                 <td className="py-1 px-2 font-mono text-text-muted">{entry.provider}</td>
                 <td className="py-1 px-2 font-medium text-text-main">{entry.name}</td>
@@ -123,15 +120,34 @@ function FilePickerRow({ fileInputRef, fileName, onFile, t }: FilePickerRowProps
           if (file) onFile(file);
         }}
       />
-      <Button
-        size="sm"
-        variant="secondary"
-        icon="upload_file"
-        onClick={() => fileInputRef.current?.click()}
-      >
+      <Button size="sm" variant="secondary" icon="upload_file" onClick={() => fileInputRef.current?.click()}>
         {t("importFromFileChoose")}
       </Button>
       {fileName && <span className="text-xs text-text-muted font-mono">{fileName}</span>}
+    </div>
+  );
+}
+
+function ImportResultPanel({ result, t }: { result: ImportResult; t: Translator }) {
+  const { shown, extra } = visibleImportErrors(result.errors);
+  const failed = result.failed > 0 || shown.length > 0;
+  return (
+    <div
+      className={`px-3 py-2 rounded border text-sm ${
+        failed
+          ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      }`}
+    >
+      {t("importFromFileResult", { success: result.success, failed: result.failed })}
+      {shown.length > 0 && (
+        <ul className="mt-2 list-disc pl-5 text-xs text-text-muted font-normal space-y-0.5">
+          {shown.map((err, i) => (
+            <li key={i}>{formatImportErrorLine(err)}</li>
+          ))}
+          {extra > 0 && <li>{t("importFromFileMoreErrors", { count: extra })}</li>}
+        </ul>
+      )}
     </div>
   );
 }
@@ -152,37 +168,21 @@ export function ImportProvidersFromFileModal({
   const s = useImportProvidersFromFile(onImported);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={() => s.handleClose(onClose)}
-      title={t("importFromFileTitle")}
-      maxWidth="xl"
-    >
+    <Modal isOpen={isOpen} onClose={() => s.handleClose(onClose)} title={t("importFromFileTitle")} maxWidth="xl">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-text-muted">{t("importFromFileDescription")}</p>
+        <p className="text-xs text-text-muted">{t("importFromFileSchemaHint")}</p>
 
-        <FilePickerRow
-          fileInputRef={s.fileInputRef}
-          fileName={s.fileName}
-          onFile={s.handleFile}
-          t={t}
-        />
+        <FilePickerRow fileInputRef={s.fileInputRef} fileName={s.fileName} onFile={s.handleFile} t={t} />
         <ParseErrorsList errors={s.errors} t={t} />
-        <EntriesTable
-          entries={s.entries}
-          selected={s.selected}
-          onToggleRow={s.toggleRow}
-          onToggleAll={s.toggleAll}
-          t={t}
-        />
+        <EntriesTable entries={s.entries} selected={s.selected} onToggleRow={s.toggleRow} onToggleAll={s.toggleAll} t={t} />
 
-        {s.result && (
-          <div className="px-3 py-2 rounded border border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-400">
-            {t("importFromFileResult", { success: s.result.success, failed: s.result.failed })}
-          </div>
-        )}
+        {s.result && <ImportResultPanel result={s.result} t={t} />}
 
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+          <Button size="sm" variant="ghost" onClick={downloadProviderImportCsvTemplate}>
+            {t("importFromFileDownloadTemplate")}
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => s.handleClose(onClose)}>
             {t("cancel")}
           </Button>
@@ -193,9 +193,7 @@ export function ImportProvidersFromFileModal({
             loading={s.importing}
             disabled={s.selected.size === 0 || s.importing}
           >
-            {s.importing
-              ? t("importFromFileImporting")
-              : t("importFromFileImport", { count: s.selected.size })}
+            {s.importing ? t("importFromFileImporting") : t("importFromFileImport", { count: s.selected.size })}
           </Button>
         </div>
       </div>

@@ -100,10 +100,7 @@ test("#5786 (A) replayed Responses-API deltas (sequence_number <= last-seen) are
   // Upstream reconnect/retry replays the same output_text.delta event with the SAME
   // sequence_number, producing the reported "...briefly.and I'll summarize briefly." glue.
   const rawEvents = [
-    sse("response.created", {
-      sequence_number: 0,
-      response: { id: "resp_1", status: "in_progress" },
-    }),
+    sse("response.created", { sequence_number: 0, response: { id: "resp_1", status: "in_progress" } }),
     sse("response.output_item.added", {
       sequence_number: 1,
       output_index: 0,
@@ -136,12 +133,7 @@ test("#5786 (A) replayed Responses-API deltas (sequence_number <= last-seen) are
     }),
     sse("response.completed", {
       sequence_number: 4,
-      response: {
-        id: "resp_1",
-        status: "completed",
-        output: [],
-        usage: { input_tokens: 10, output_tokens: 20 },
-      },
+      response: { id: "resp_1", status: "completed", output: [], usage: { input_tokens: 10, output_tokens: 20 } },
     }),
   ];
 
@@ -156,10 +148,7 @@ test("#5786 (A) replayed Responses-API deltas (sequence_number <= last-seen) are
 
 test("#5786 (A-guard) a well-behaved stream with strictly increasing sequence_number is passed through UNCHANGED", async () => {
   const rawEvents = [
-    sse("response.created", {
-      sequence_number: 0,
-      response: { id: "resp_2", status: "in_progress" },
-    }),
+    sse("response.created", { sequence_number: 0, response: { id: "resp_2", status: "in_progress" } }),
     sse("response.output_item.added", {
       sequence_number: 1,
       output_index: 0,
@@ -198,12 +187,7 @@ test("#5786 (A-guard) a well-behaved stream with strictly increasing sequence_nu
     }),
     sse("response.completed", {
       sequence_number: 6,
-      response: {
-        id: "resp_2",
-        status: "completed",
-        output: [],
-        usage: { input_tokens: 5, output_tokens: 8 },
-      },
+      response: { id: "resp_2", status: "completed", output: [], usage: { input_tokens: 5, output_tokens: 8 } },
     }),
   ];
 
@@ -216,10 +200,7 @@ test("#5786 (A-guard) a well-behaved stream with strictly increasing sequence_nu
 test("#5786 (B) reasoning summary that arrives ONLY on output_item.done is surfaced as a Claude thinking block (not dropped, not in content)", async () => {
   const reasoningText = "I'm thinking I need to read the file again.";
   const rawEvents = [
-    sse("response.created", {
-      sequence_number: 0,
-      response: { id: "resp_3", status: "in_progress" },
-    }),
+    sse("response.created", { sequence_number: 0, response: { id: "resp_3", status: "in_progress" } }),
     // Reasoning item announced...
     sse("response.output_item.added", {
       sequence_number: 1,
@@ -261,12 +242,7 @@ test("#5786 (B) reasoning summary that arrives ONLY on output_item.done is surfa
     }),
     sse("response.completed", {
       sequence_number: 6,
-      response: {
-        id: "resp_3",
-        status: "completed",
-        output: [],
-        usage: { input_tokens: 10, output_tokens: 20 },
-      },
+      response: { id: "resp_3", status: "completed", output: [], usage: { input_tokens: 10, output_tokens: 20 } },
     }),
   ];
 
@@ -276,18 +252,12 @@ test("#5786 (B) reasoning summary that arrives ONLY on output_item.done is surfa
   assert.equal(thinking, reasoningText);
   // ...and must NOT leak into the visible assistant content.
   assert.equal(content, "Sure thing.");
-  assert.ok(
-    !content.includes(reasoningText),
-    `reasoning leaked into content: ${JSON.stringify(content)}`
-  );
+  assert.ok(!content.includes(reasoningText), `reasoning leaked into content: ${JSON.stringify(content)}`);
 });
 
 test("#5786 (B) a normal reasoning stream (with reasoning_summary_text.delta) still yields a thinking block and does NOT duplicate", async () => {
   const rawEvents = [
-    sse("response.created", {
-      sequence_number: 0,
-      response: { id: "resp_4", status: "in_progress" },
-    }),
+    sse("response.created", { sequence_number: 0, response: { id: "resp_4", status: "in_progress" } }),
     sse("response.output_item.added", {
       sequence_number: 1,
       output_index: 0,
@@ -355,12 +325,7 @@ test("#5786 (B) a normal reasoning stream (with reasoning_summary_text.delta) st
     }),
     sse("response.completed", {
       sequence_number: 10,
-      response: {
-        id: "resp_4",
-        status: "completed",
-        output: [],
-        usage: { input_tokens: 12, output_tokens: 15 },
-      },
+      response: { id: "resp_4", status: "completed", output: [], usage: { input_tokens: 12, output_tokens: 15 } },
     }),
   ];
 
@@ -371,9 +336,5 @@ test("#5786 (B) a normal reasoning stream (with reasoning_summary_text.delta) st
   // Duplication guard: the summary text must appear exactly once in the thinking channel.
   const firstIdx = thinking.indexOf("Considering the request.");
   const lastIdx = thinking.lastIndexOf("Considering the request.");
-  assert.equal(
-    firstIdx,
-    lastIdx,
-    `reasoning summary duplicated in thinking: ${JSON.stringify(thinking)}`
-  );
+  assert.equal(firstIdx, lastIdx, `reasoning summary duplicated in thinking: ${JSON.stringify(thinking)}`);
 });

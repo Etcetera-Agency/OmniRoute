@@ -83,7 +83,8 @@ export function isIpv4Blocked(ip: string, opts: FetchGuardOptions = {}): boolean
   if (n === null) return false;
   // `&` yields a signed 32-bit int; coerce both sides to unsigned before
   // comparing so masked results with the high bit set aren't negative.
-  return BLOCKED_IPV4.some(([base, mask]) => (n & mask) >>> 0 === base >>> 0);
+  const ranges = allowLocal ? ALWAYS_BLOCKED_IPV4 : [...ALWAYS_BLOCKED_IPV4, ...LOCAL_ONLY_BLOCKED_IPV4];
+  return ranges.some(([base, mask]) => ((n & mask) >>> 0) === (base >>> 0));
 }
 
 // IPv4-mapped IPv6, dotted-quad tail: "::ffff:a.b.c.d" or its fully-expanded

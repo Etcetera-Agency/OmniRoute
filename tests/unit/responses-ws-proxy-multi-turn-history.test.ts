@@ -202,7 +202,10 @@ test("#7388: a reused Responses WebSocket connection logs both of two logical tu
 
     // Both logical turns completed downstream — confirms the repro precondition
     // from the issue ("The WebSocket received two terminal events").
-    assert.equal(upstreamSends.filter((entry) => entry.type === "response.create").length, 2);
+    assert.equal(
+      upstreamSends.filter((entry) => entry.type === "response.create").length,
+      2
+    );
     assert.equal(
       downstreamMessages.filter((entry) => entry.type === "response.completed").length,
       2
@@ -223,9 +226,7 @@ test("#7388: a reused Responses WebSocket connection logs both of two logical tu
     );
 
     const respIds = logRequests
-      .map(
-        (entry) => (entry.terminalMessage as { response?: { id?: string } } | null)?.response?.id
-      )
+      .map((entry) => (entry.terminalMessage as { response?: { id?: string } } | null)?.response?.id)
       .sort();
     assert.deepEqual(
       respIds,

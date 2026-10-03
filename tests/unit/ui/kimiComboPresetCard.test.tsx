@@ -22,7 +22,11 @@ describe("KimiComboPresetCard", () => {
     }
   });
 
-  function renderCard(props: { alreadyCreated: boolean; creating: boolean; onCreate: () => void }) {
+  function renderCard(props: {
+    alreadyCreated: boolean;
+    creating: boolean;
+    onCreate: () => void;
+  }) {
     container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);

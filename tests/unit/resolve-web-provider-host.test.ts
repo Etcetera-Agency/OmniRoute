@@ -10,10 +10,19 @@ import {
 // Pure host-resolution helper backing the modal link.
 
 test("known -web provider returns the host derived from its `website`", () => {
-  const link = resolveWebProviderHost("chatgpt-web");
-  assert.ok(link, "expected a resolved link for chatgpt-web");
-  assert.equal(link.host, "chatgpt.com");
-  assert.equal(link.url, "https://chatgpt.com");
+  const link = resolveWebProviderHost("perplexity-web");
+  assert.ok(link, "expected a resolved link for perplexity-web");
+  // perplexity-web's registered website is "https://www.perplexity.ai", and
+  // resolveWebProviderHost returns URL.host verbatim (no www-stripping), so
+  // both host and url carry the "www." prefix.
+  assert.equal(link.host, "www.perplexity.ai");
+  assert.equal(link.url, "https://www.perplexity.ai");
+});
+
+test("clean-room ChatGPT Web resolves its host while the legacy alias stays retired", () => {
+  assert.equal(resolveWebProviderHost("chatgpt-web")?.host, "chatgpt.com");
+  assert.equal(resolveWebProviderHost("cgpt-web"), null);
+  assert.equal(resolveWebProviderHost("chatgpt-web-codex")?.host, "chatgpt.com");
 });
 
 test("website with a path keeps the full URL but exposes the bare host", () => {

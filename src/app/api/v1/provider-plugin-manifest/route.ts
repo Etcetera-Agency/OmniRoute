@@ -16,11 +16,13 @@ import type {
   ProviderPluginModel,
 } from "@omniroute/open-sse/config/providerPluginManifest.ts";
 
+const SERVICE_BACKEND_EXPOSURE_REQUIRED = new Set(SERVICE_BACKEND_PLUGIN_IDS);
 const SERVICE_BACKEND_PLUGIN_ID_SET = new Set<string>(SERVICE_BACKEND_PLUGIN_IDS);
 
 function createServiceManifestTemplate(providerId: string): ProviderPluginManifestEntry | null {
-  const entry =
-    SERVICE_BACKEND_MANIFEST_TEMPLATE[providerId as keyof typeof SERVICE_BACKEND_MANIFEST_TEMPLATE];
+  const entry = SERVICE_BACKEND_MANIFEST_TEMPLATE[
+    providerId as keyof typeof SERVICE_BACKEND_MANIFEST_TEMPLATE
+  ];
   if (!entry) return null;
 
   return {
@@ -41,17 +43,9 @@ const SERVICE_MODEL_CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60",
 } as const;
 
-function normalizeServiceModelId(pluginId: string, rawModelId: string): string {
+function normalizeServiceModelId(tool: string, rawModelId: string): string {
   if (!rawModelId) return "";
-
-  const serviceTool = getServiceToolFromPluginId(pluginId);
-  // AICODE-NOTE: persisted ids can carry the supervisor prefix; manifests must
-  // expose the client-facing plugin prefix instead.
-  if (serviceTool && rawModelId.startsWith(`${serviceTool}/`)) {
-    return `${pluginId}/${rawModelId.slice(serviceTool.length + 1)}`;
-  }
-
-  return rawModelId.includes("/") ? rawModelId : `${pluginId}/${rawModelId}`;
+  return rawModelId.includes("/") ? rawModelId : `${tool}/${rawModelId}`;
 }
 
 function isValidServiceModelEntry(entry: ServiceModel): boolean {
@@ -61,8 +55,8 @@ function isValidServiceModelEntry(entry: ServiceModel): boolean {
   return true;
 }
 
-function toProviderPluginModel(pluginId: string, model: ServiceModel): ProviderPluginModel {
-  const id = normalizeServiceModelId(pluginId, model.id);
+function toProviderPluginModel(tool: string, model: ServiceModel): ProviderPluginModel {
+  const id = normalizeServiceModelId(tool, model.id);
   return {
     id,
     name: typeof model.name === "string" ? model.name : id,
@@ -84,15 +78,12 @@ function toProviderPluginModel(pluginId: string, model: ServiceModel): ProviderP
   };
 }
 
-function pickServiceModels(
-  pluginId: string,
-  reader: (toolName: string) => ServiceModel[]
-): ProviderPluginModel[] {
-  const models = reader(pluginId).filter(isValidServiceModelEntry);
+function pickServiceModels(tool: string, reader: (toolName: string) => ServiceModel[]): ProviderPluginModel[] {
+  const models = reader(tool).filter(isValidServiceModelEntry);
 
   const unique = new Map<string, ProviderPluginModel>();
   for (const model of models) {
-    const pluginModel = toProviderPluginModel(pluginId, model);
+    const pluginModel = toProviderPluginModel(tool, model);
     if (!unique.has(pluginModel.id)) {
       unique.set(pluginModel.id, pluginModel);
     }
@@ -102,7 +93,7 @@ function pickServiceModels(
 }
 
 async function shouldExposeServiceModels(toolName: string): Promise<boolean> {
-  if (!SERVICE_BACKEND_PLUGIN_ID_SET.has(toolName)) return true;
+  if (!SERVICE_BACKEND_EXPOSURE_REQUIRED.has(toolName)) return true;
 
   const serviceTool = getServiceToolFromPluginId(toolName) ?? toolName;
   const row = await getServiceRow(serviceTool);
@@ -110,18 +101,8 @@ async function shouldExposeServiceModels(toolName: string): Promise<boolean> {
   return row.providerExpose;
 }
 
-function shouldInjectBackendPluginModels(provider: ProviderPluginManifestEntry): boolean {
+function shouldInjectBackendPluginModels(provider: ProviderPluginManifestEntry) {
   return isServiceBackendPluginId(provider.id);
-}
-
-export function readServiceModelsForManifest(
-  pluginId: string,
-  reader: (toolName: string) => ServiceModel[] = getServiceModels
-): ServiceModel[] {
-  // AICODE-NOTE: manifest ids are client-facing (cliproxyapi), while persisted
-  // service rows use canonical supervisor tools (cliproxy).
-  const serviceTool = getServiceToolFromPluginId(pluginId) ?? pluginId;
-  return reader(serviceTool);
 }
 
 export async function injectServiceModelsIntoManifest(
@@ -129,8 +110,6 @@ export async function injectServiceModelsIntoManifest(
   reader: (toolName: string) => ServiceModel[] = getServiceModels,
   exposeReader?: (toolName: string) => Promise<boolean> | boolean
 ): Promise<ProviderPluginManifest> {
-  // AICODE-NOTE: keep model injection pure for callers that supply a reader; the
-  // live route passes shouldExposeServiceModels explicitly to enforce exposure policy.
   const providers: ProviderPluginManifestEntry[] = [...manifest.providers];
   for (const providerId of SERVICE_BACKEND_PLUGIN_ID_SET) {
     const exists = providers.some((provider) => provider.id === providerId);
@@ -145,7 +124,10 @@ export async function injectServiceModelsIntoManifest(
       if (!shouldInjectBackendPluginModels(provider)) return provider;
 
       try {
-        if (exposeReader && !Boolean(await exposeReader(provider.id))) return provider;
+        const shouldExpose = exposeReader
+          ? Boolean(await exposeReader(provider.id))
+          : await shouldExposeServiceModels(provider.id);
+        if (!shouldExpose) return provider;
 
         const models = pickServiceModels(provider.id, reader);
         if (models.length === 0) return provider;
@@ -163,7 +145,7 @@ export async function injectServiceModelsIntoManifest(
       } catch {
         return provider;
       }
-    })
+    }),
   );
 
   return {
@@ -202,11 +184,7 @@ export async function OPTIONS() {
 // request so unchanged responses can short-circuit to a 304.
 export async function GET(request: Request) {
   const body = JSON.stringify(
-    await injectServiceModelsIntoManifest(
-      generateProviderPluginManifest(),
-      readServiceModelsForManifest,
-      shouldExposeServiceModels
-    )
+    await injectServiceModelsIntoManifest(generateProviderPluginManifest())
   );
   const etag = createEtag(body);
   const headers = { ...SERVICE_MODEL_CACHE_HEADERS, ETag: etag };

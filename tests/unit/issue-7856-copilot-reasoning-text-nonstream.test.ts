@@ -28,12 +28,7 @@ const copilotStyleResponse = {
 };
 
 test("#7856 /v1/messages non-stream translation surfaces Copilot reasoning_text as a thinking block", () => {
-  const translated = translateNonStreamingResponse(
-    copilotStyleResponse,
-    "openai",
-    "claude",
-    null
-  ) as {
+  const translated = translateNonStreamingResponse(copilotStyleResponse, "openai", "claude", null) as {
     content: Array<{ type: string; thinking?: string; text?: string }>;
   };
 

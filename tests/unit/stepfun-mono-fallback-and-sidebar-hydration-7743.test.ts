@@ -30,9 +30,7 @@ test("lobeProviderIcons never imports the removed Stepfun Color sub-component", 
 });
 
 test("lobeProviderIcons maps both Stepfun mono and color slots to StepfunMonoIcon", () => {
-  const stepfunEntry = lobeProviderIconsSrc.match(
-    /Stepfun:\s*{\s*mono:\s*(\w+),\s*color:\s*(\w+)\s*}/
-  );
+  const stepfunEntry = lobeProviderIconsSrc.match(/Stepfun:\s*{\s*mono:\s*(\w+),\s*color:\s*(\w+)\s*}/);
   assert.ok(stepfunEntry, "Stepfun entry must exist in LOBE_ICON_COMPONENTS");
   const [, mono, color] = stepfunEntry;
   assert.equal(mono, "StepfunMonoIcon");
@@ -40,9 +38,7 @@ test("lobeProviderIcons maps both Stepfun mono and color slots to StepfunMonoIco
 });
 
 test("DashboardLayout does not read localStorage synchronously inside the collapsed useState initializer", () => {
-  const collapsedStateMatch = dashboardLayoutSrc.match(
-    /const \[collapsed, setCollapsed\] = useState\(([^)]*)\)/
-  );
+  const collapsedStateMatch = dashboardLayoutSrc.match(/const \[collapsed, setCollapsed\] = useState\(([^)]*)\)/);
   assert.ok(collapsedStateMatch, "collapsed useState declaration must exist");
   assert.equal(
     collapsedStateMatch[1].trim(),
@@ -54,10 +50,7 @@ test("DashboardLayout does not read localStorage synchronously inside the collap
 test("DashboardLayout defers the sidebar-collapsed localStorage read to a useEffect", () => {
   const effectIndex = dashboardLayoutSrc.indexOf("useEffect(() => {");
   assert.ok(effectIndex >= 0, "a useEffect must exist");
-  const effectBody = dashboardLayoutSrc.slice(
-    effectIndex,
-    dashboardLayoutSrc.indexOf("}, []);", effectIndex)
-  );
+  const effectBody = dashboardLayoutSrc.slice(effectIndex, dashboardLayoutSrc.indexOf("}, []);", effectIndex));
   assert.match(effectBody, /localStorage\.getItem\(SIDEBAR_COLLAPSED_KEY\)/);
   assert.match(effectBody, /setCollapsed\(true\)/);
 });

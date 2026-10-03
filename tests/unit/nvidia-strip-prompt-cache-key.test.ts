@@ -9,7 +9,11 @@ test("#7617: stripUnsupportedParams strips prompt_cache_key for nvidia when pres
     max_tokens: 512,
   };
   stripUnsupportedParams("nvidia", "some-nvidia-model", body);
-  assert.equal(body.prompt_cache_key, undefined, "prompt_cache_key must be stripped for nvidia");
+  assert.equal(
+    body.prompt_cache_key,
+    undefined,
+    "prompt_cache_key must be stripped for nvidia"
+  );
   assert.equal(body.max_tokens, 512, "unrelated params must be preserved");
 });
 

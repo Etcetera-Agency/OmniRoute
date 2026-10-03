@@ -116,7 +116,8 @@ test("handleVideoGeneration rejects xAI video requests without credentials", asy
 
 test("handleVideoGeneration surfaces a 502 when xAI returns no request_id", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => jsonResponse({ error: { message: "Invalid API key" } }, 401);
+  globalThis.fetch = async () =>
+    jsonResponse({ error: { message: "Invalid API key" } }, 401);
 
   try {
     const result = await handleVideoGeneration({

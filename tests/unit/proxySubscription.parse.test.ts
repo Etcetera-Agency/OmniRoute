@@ -33,7 +33,10 @@ proxies:
   assert.deepEqual(res.nodes.map((n) => n.type).sort(), ["http", "socks5"]);
   // ss + vmess need a local core
   assert.equal(res.needsCore.length, 2);
-  assert.deepEqual(res.needsCore.map((n) => n.rawProtocol).sort(), ["ss", "vmess"]);
+  assert.deepEqual(
+    res.needsCore.map((n) => n.rawProtocol).sort(),
+    ["ss", "vmess"]
+  );
 });
 
 test("decodes a base64-wrapped Clash YAML subscription", () => {

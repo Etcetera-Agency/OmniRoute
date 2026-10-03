@@ -1,5 +1,5 @@
 // Issue #8200: perplexity-web must persist Set-Cookie session-token rotations
-// via onCredentialsRefreshed — chatgpt-web parity (mergeRefreshedCookie +
+// via onCredentialsRefreshed using the shared mergeRefreshedCookie +
 // buildSessionCookieHeader in open-sse/utils/nextAuthCookie.ts).
 import test from "node:test";
 import assert from "node:assert/strict";

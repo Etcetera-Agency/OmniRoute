@@ -32,10 +32,7 @@ describe("resolveRoutingModel (#4863)", () => {
   });
 
   it("falls back to body.model when the header is empty/whitespace-only", () => {
-    assert.equal(
-      resolveRoutingModel(req({ "x-route-model": "   " }), { model: "fallback" }),
-      "fallback"
-    );
+    assert.equal(resolveRoutingModel(req({ "x-route-model": "   " }), { model: "fallback" }), "fallback");
   });
 });
 

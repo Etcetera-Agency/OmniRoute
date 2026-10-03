@@ -6,6 +6,7 @@ const { DEFAULT_THINKING_CLAUDE_SIGNATURE } =
   await import("../../open-sse/config/defaultThinkingSignature.ts");
 const reasoningCache = await import("../../open-sse/services/reasoningCache.ts");
 
+
 function multiTurnBodyWithoutThinkingBlock() {
   return {
     thinking: { type: "enabled", budget_tokens: 4096 },

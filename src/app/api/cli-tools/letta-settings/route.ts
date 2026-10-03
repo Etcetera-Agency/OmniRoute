@@ -74,7 +74,13 @@ const readAuthFile = async () => {
 // ── Check if a base_url points to OmniRoute ──────────────────────────────
 const isOmniRouteUrl = (baseUrl) => {
   if (!baseUrl) return false;
-  return baseUrl.includes(":20128") || baseUrl.includes(":3000") || baseUrl.includes("omniroute");
+  const port = process.env.PORT || process.env.DASHBOARD_PORT;
+  return (
+    baseUrl.includes(":20128") ||
+    baseUrl.includes(":3000") ||
+    (!!port && baseUrl.includes(`:${port}`)) ||
+    baseUrl.includes("omniroute")
+  );
 };
 
 // ── Check if OmniRoute is configured ─────────────────────────────────────

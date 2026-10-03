@@ -15,16 +15,16 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-const { TopListCard } =
-  await import("../../../src/app/(dashboard)/dashboard/costs/components/TopListCard");
+const { TopListCard } = await import(
+  "../../../src/app/(dashboard)/dashboard/costs/components/TopListCard"
+);
 
 let container: HTMLDivElement | null = null;
 let root: ReturnType<typeof createRoot> | null = null;
 
 async function render(props: Record<string, unknown>) {
-  (
-    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
+  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
+    true;
   container = document.createElement("div");
   document.body.appendChild(container);
   await act(async () => {

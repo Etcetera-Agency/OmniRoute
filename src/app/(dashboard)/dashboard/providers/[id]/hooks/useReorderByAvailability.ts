@@ -28,7 +28,8 @@ export interface UseReorderByAvailabilityParams {
   connections: ConnectionRowConnection[];
   setConnections: (
     updater:
-      ConnectionRowConnection[] | ((prev: ConnectionRowConnection[]) => ConnectionRowConnection[])
+      | ConnectionRowConnection[]
+      | ((prev: ConnectionRowConnection[]) => ConnectionRowConnection[])
   ) => void;
   fetchConnections: () => Promise<void>;
   notify: ReorderNotifier;

@@ -46,8 +46,8 @@ That is the bypass npm sanctions now that tokens which skip 2FA are being retire
 it restores the fully automatic flow the project had up to v3.8.48 while keeping the
 WS1.3 guarantee (a leaked token cannot publish alone — there is no token).
 
-**One-time setup (owner):** npmjs.com → package `omniroute` → Settings → *Trusted
-Publisher* → GitHub: owner `diegosouzapw`, repo `OmniRoute`, workflow `npm-publish.yml`
+**One-time setup (owner):** npmjs.com → package `omniroute` → Settings → _Trusted
+Publisher_ → GitHub: owner `diegosouzapw`, repo `OmniRoute`, workflow `npm-publish.yml`
 (environment: none). Until that exists, the automatic step fails with `ENEEDAUTH`:
 re-dispatch with `publish_mode=staged` (below) or `direct`.
 
@@ -79,6 +79,15 @@ directly from anywhere — CI can only stage; only the owner's 2FA releases.
 as the default reflex (minutes, reversible); `npm unpublish` only inside the 72h/no-dependents
 window and never as the first move. Docker: never rewrite a version tag — rollback is
 repointing `latest` to the last good digest.
+
+**Docker Hub `latest` (required on every stable SemVer publish):** the
+`docker-publish` workflow must tag **both** `X.Y.Z` and, when
+`should-promote-latest.sh` agrees this is the highest stable SemVer, `:latest`
+with the **same digest**. After the job: Hub `latest` digest equals the new
+SemVer digest and `last_updated` moved. Do not leave `:latest` on an older
+build while release notes talk about fixes that only exist on git. Compose
+quickstarts use `:latest`; GitOps should keep pinning `X.Y.Z`. See
+[Docker release channels](../guides/DOCKER_GUIDE.md#release-channels) and #10317.
 
 ## Hotfix Fast-Lane (label `hotfix`)
 
@@ -184,7 +193,7 @@ Breaking changes: add `BREAKING CHANGE:` footer or `!` after the scope (e.g. `fe
 
 - [ ] `npm run i18n:check` exits 0 — translation state (`.i18n-state.json`) in sync with source docs (no drifted sources in strict mode; warn-mode advisory is acceptable for last-minute doc touch-ups, but should be 0 before tagging)
 - [ ] `npm run i18n:check-ui-coverage` exits 0 — every UI locale at or above the 80% coverage floor
-- [ ] `npm run i18n:sync-ui:dry` reports 0 missing keys across all 43 locales
+- [ ] `npm run i18n:sync-ui:dry` reports 0 missing keys across all 42 locales
 - [ ] If source English docs changed, run `npm run i18n:run` (requires `OMNIROUTE_TRANSLATION_API_KEY` in `.env`) before tagging
 - [ ] Translation contributions can be deferred to next release if minor (track in CHANGELOG)
 

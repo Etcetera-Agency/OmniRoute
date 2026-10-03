@@ -38,18 +38,9 @@ test("recordModelLockoutFailure quota_exhausted with a short upstream hint must 
     connectionId = "conn-7940",
     model = "gemini-2.5-flash";
   const quotaResetHintMs = parseRetryFromErrorText(GEMINI_429_BODY) ?? undefined;
-  const result = recordModelLockoutFailure(
-    provider,
-    connectionId,
-    model,
-    "quota_exhausted",
-    429,
-    0,
-    null,
-    {
-      exactCooldownMs: quotaResetHintMs ?? null,
-    }
-  );
+  const result = recordModelLockoutFailure(provider, connectionId, model, "quota_exhausted", 429, 0, null, {
+    exactCooldownMs: quotaResetHintMs ?? null,
+  });
   const oneHourMs = 60 * 60 * 1000;
   assert.ok(result.cooldownMs < oneHourMs, `expected ~26s cooldown, got ${result.cooldownMs}ms`);
   clearAllModelLockouts();

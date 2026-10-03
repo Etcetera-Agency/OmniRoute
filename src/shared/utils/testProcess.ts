@@ -30,9 +30,7 @@ const TEST_RUNNER_RE = /(^|[\\/])(vitest|jest|mocha|ava|tap)(\.[cm]?js)?$/i;
 export function isAutomatedTestProcess(
   // execArgv too: `node --test x.js` puts `--test` in execArgv, not argv (modelLockoutSettings was the
   // only copy that remembered to look there — now every caller gets it).
-  argv: readonly string[] = typeof process !== "undefined"
-    ? [...process.argv, ...process.execArgv]
-    : [],
+  argv: readonly string[] = typeof process !== "undefined" ? [...process.argv, ...process.execArgv] : [],
   env: NodeJS.ProcessEnv = typeof process !== "undefined" ? process.env : ({} as NodeJS.ProcessEnv)
 ): boolean {
   if (env.NODE_ENV === "test") return true;
@@ -42,9 +40,7 @@ export function isAutomatedTestProcess(
   // gates production behavior (auto-backup, migrations, cloud sync…), so it
   // must never crash the process it's protecting.
   if (!Array.isArray(argv)) return false;
-  return argv.some(
-    (arg) => typeof arg === "string" && (TEST_TOKEN_RE.test(arg) || TEST_RUNNER_RE.test(arg))
-  );
+  return argv.some((arg) => typeof arg === "string" && (TEST_TOKEN_RE.test(arg) || TEST_RUNNER_RE.test(arg)));
 }
 
 /** Next.js production build phase — several call sites pair this with the test check. */

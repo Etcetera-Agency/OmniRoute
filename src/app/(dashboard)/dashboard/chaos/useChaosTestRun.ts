@@ -15,7 +15,7 @@ export function useChaosTestRun(
   config: ChaosPageConfig,
   setMessage: (message: ChaosPageMessage) => void
 ) {
-  const t = useTranslations("chaosConfig");
+  const t = useTranslations("chaosConfig") as ChaosTranslator;
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ChaosTestResult | null>(null);
 

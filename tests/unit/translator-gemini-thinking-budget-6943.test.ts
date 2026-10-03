@@ -5,8 +5,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiToGeminiRequest } =
-  await import("../../open-sse/translator/request/openai-to-gemini.ts");
+const { openaiToGeminiRequest } = await import(
+  "../../open-sse/translator/request/openai-to-gemini.ts"
+);
 
 type GeminiReq = {
   generationConfig?: { thinkingConfig?: { thinkingBudget?: number; includeThoughts?: boolean } };

@@ -42,7 +42,10 @@ test("least-used distributes across distinct accounts of the same model (#7015)"
   // The shared modelStr usage is aggregated; the per-account bug ignores it for B.
   assert.equal(metrics?.byModel["codex/gpt-5.5"]?.requests, 5);
 
-  const targets = [target("codex/gpt-5.5", "acct-a"), target("codex/gpt-5.5", "acct-b")];
+  const targets = [
+    target("codex/gpt-5.5", "acct-a"),
+    target("codex/gpt-5.5", "acct-b"),
+  ];
   const ordered = sortTargetsByUsage(targets, combo);
 
   // The unused account (B, 0 requests) must be selected first — not always A.

@@ -81,10 +81,7 @@ test("eviction never removes a still-active lockout, even when the map exceeds t
   for (let i = 0; i < cap + 10; i++) {
     lockModel(`overflow-p-${i}`, `conn-${i}`, `m-${i}`, REASON, ACTIVE_COOLDOWN_MS);
   }
-  assert.ok(
-    getModelLockoutSize() > cap,
-    "precondition: map exceeds the cap purely with active locks"
-  );
+  assert.ok(getModelLockoutSize() > cap, "precondition: map exceeds the cap purely with active locks");
 
   evictModelLockoutOverflow();
 

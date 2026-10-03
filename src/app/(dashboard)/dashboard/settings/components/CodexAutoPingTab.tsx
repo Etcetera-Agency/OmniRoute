@@ -96,7 +96,8 @@ function CodexAutoPingHeader({ status }: { status: "" | "saved" | "error" }) {
       </div>
       {status === "saved" && (
         <span className="text-xs font-medium text-emerald-500 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">check_circle</span> {t("saved")}
+          <span className="material-symbols-outlined text-[14px]">check_circle</span>{" "}
+          {t("saved")}
         </span>
       )}
       {status === "error" && (

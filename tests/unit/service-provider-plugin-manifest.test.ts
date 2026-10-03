@@ -54,7 +54,10 @@ test("existing-behavior regression: generateProviderPluginManifestFromRegistry()
 
 test("existing-behavior regression: /v1/providers/[provider]/models route still dispatches embedded-service backends via isServiceBackendPluginId()/getServiceModels(), untouched by this PR", () => {
   const routeSource = readFileSync(
-    new URL("../../src/app/api/v1/providers/[provider]/models/route.ts", import.meta.url),
+    new URL(
+      "../../src/app/api/v1/providers/[provider]/models/route.ts",
+      import.meta.url
+    ),
     "utf8"
   );
   assert.match(routeSource, /isServiceBackendPluginId\(rawProvider\)/);

@@ -119,10 +119,7 @@ test("resolveBulkNameCollisions: renames an auto-named entry colliding with an e
 test("resolveBulkNameCollisions: renames a custom name colliding with an existing connection", () => {
   const entries = [{ name: "Prod" }];
   const out = resolveBulkNameCollisions(entries, ["Prod"]);
-  assert.deepEqual(
-    out.map((e) => e.name),
-    ["Prod 1"]
-  );
+  assert.deepEqual(out.map((e) => e.name), ["Prod 1"]);
 });
 
 test("resolveBulkNameCollisions: dedupes two identical custom names within the same batch", () => {

@@ -71,3 +71,29 @@ test("checkConnection leaves a devin-cli connection with no refresh token untouc
     "devin-cli must not be marked no_refresh_token"
   );
 });
+
+test("checkConnection leaves an import-only devin-desktop connection active (#8228)", async () => {
+  await resetStorage();
+
+  const connection = await providersDb.createProviderConnection({
+    provider: "devin-desktop",
+    authType: "oauth",
+    name: "Devin Desktop Imported Account",
+    accessToken: "imported-desktop-access-token",
+    refreshToken: null,
+    tokenExpiresAt: null,
+    apiKey: null,
+    testStatus: "active",
+    isActive: true,
+  });
+
+  await tokenHealthCheck.checkConnection(connection);
+
+  const updated = await providersDb.getProviderConnectionById(getCreatedConnectionId(connection));
+  assert.equal(updated?.testStatus, "active", "devin-desktop testStatus must remain active");
+  assert.notEqual(
+    updated?.errorCode,
+    "no_refresh_token",
+    "import-only devin-desktop must not be marked no_refresh_token"
+  );
+});

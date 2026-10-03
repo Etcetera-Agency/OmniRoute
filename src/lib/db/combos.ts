@@ -124,6 +124,7 @@ export async function cleanupComboConnectionRefs(connectionIds: string | string[
         const filtered = out.allowedConnectionIds.filter(
           (id) => typeof id !== "string" || !deletedConnectionIds.has(id)
         );
+
         if (filtered.length !== out.allowedConnectionIds.length) {
           out = {
             ...out,

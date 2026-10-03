@@ -85,9 +85,7 @@ test("measureMutationScores accepts several reports (per-batch) and unions them"
 test("measureMutationScores unions same-file mutants across split batches (not overwrite)", () => {
   // a1 slice: 1 killed, 1 survived (would score 50 alone)
   const a1 = {
-    files: {
-      "src/sse/services/auth.ts": { mutants: [{ status: "Killed" }, { status: "Survived" }] },
-    },
+    files: { "src/sse/services/auth.ts": { mutants: [{ status: "Killed" }, { status: "Survived" }] } },
   };
   // a2 slice: 3 killed (would score 100 alone)
   const a2 = {

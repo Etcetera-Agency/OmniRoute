@@ -88,7 +88,8 @@ test("pinned-proxy dispatch still logs genuine (non-abort) proxy transport failu
         await assert.rejects(
           runWithProxyContext(
             { type: "http", host: parsed.hostname, port: parsed.port },
-            async () => proxyFetch("https://example.invalid/", {}, { undiciFetch: throwingUndici })
+            async () =>
+              proxyFetch("https://example.invalid/", {}, { undiciFetch: throwingUndici })
           ),
           /proxy tunnel refused/
         );

@@ -21,9 +21,23 @@ import { classifyTier } from "../tierResolver";
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { isVisionBridgeForcedModel } from "@/shared/constants/visionBridgeDefaults";
+import { buildBandCheck, isBandsEnabled, parseBandCategory } from "./bands";
 
 export type AutoCategory = "coding" | "reasoning" | "vision" | "chat" | "multimodal";
-export type AutoTier = "fast" | "cheap" | "floor" | "free" | "reliable" | "pro";
+export type AutoTier =
+  | "fast"
+  | "cheap"
+  | "floor"
+  | "free"
+  | "reliable"
+  | "pro"
+  // Subscription-first routing. Unlike every tier above, these two narrow by
+  // the CONNECTION's billing class, not the model's price — so they are
+  // applied in `virtualFactory.ts` against live connection state rather than
+  // by `buildAutoCandidateFilter` below, which only sees (provider, model).
+  // See `subscriptionLadder.ts` and `docs/routing/SUBSCRIPTION_LADDER.md`.
+  | "subscription"
+  | "thrifty";
 
 export const AUTO_CATEGORIES: readonly AutoCategory[] = [
   "coding",
@@ -39,6 +53,8 @@ export const AUTO_TIERS: readonly AutoTier[] = [
   "free",
   "reliable",
   "pro",
+  "subscription",
+  "thrifty",
 ];
 
 const CATEGORY_SET = new Set<string>(AUTO_CATEGORIES);
@@ -64,6 +80,26 @@ export function parseAutoSuffix(suffix: string | null | undefined): ParsedAutoSu
   if (parts.length > 2) return { valid: false };
   const [head, tail] = parts;
 
+  // AICODE-NOTE: bands seam — recognize fork channel categories before the
+  // upstream category set while leaving tier parsing and native categories intact.
+  const band = parseBandCategory(head);
+  if (band) {
+    if (tail !== undefined && !TIER_SET.has(tail)) return { valid: false };
+
+    const enabled = isBandsEnabled();
+    let upstreamCategory: AutoCategory;
+    if (band.hasVision) upstreamCategory = "vision";
+    else if (band.hasReasoning) upstreamCategory = "reasoning";
+    else if (band.task === "coding") upstreamCategory = "coding";
+    else upstreamCategory = "chat";
+
+    return {
+      valid: true,
+      category: enabled ? (band.category as AutoCategory) : upstreamCategory,
+      tier: (enabled ? (tail ?? "thrifty") : tail) as AutoTier | undefined,
+    };
+  }
+
   if (tail !== undefined) {
     if (!CATEGORY_SET.has(head) || !TIER_SET.has(tail)) return { valid: false };
     return { valid: true, category: head as AutoCategory, tier: tail as AutoTier };
@@ -84,6 +120,9 @@ export function tierToWeightVariant(tier?: AutoTier): AutoVariant | "reliability
       return "fast";
     case "cheap":
     case "floor":
+    // The ladder already orders plan-included rungs first; within a rung it
+    // should still lean cheap rather than reach for the most expensive model.
+    case "thrifty":
       return "cheap";
     case "reliable":
       return "reliability";
@@ -118,8 +157,7 @@ export function buildAutoCandidateFilter(
       }
       try {
         const caps = getResolvedModelCapabilities({ provider: c.provider, model: c.model });
-        const capable =
-          caps.supportsVision === true || isVisionModelId(c.model);
+        const capable = caps.supportsVision === true || isVisionModelId(c.model);
         if (!capable) return false;
         // #vison-pool: registry entries whose catalog OVERSTATES vision support
         // (opencode-go/opencode-zen/tokenrouter — the backend models are text-only)
@@ -150,6 +188,11 @@ export function buildAutoCandidateFilter(
   if (tier === "pro") {
     checks.push((c) => safeClassifyTier(c) === "premium");
   }
+
+  // AICODE-NOTE: bands seam — append fork-only hard checks after upstream tier
+  // filters so the existing category/tier behavior retains its precedence.
+  const bandCheck = buildBandCheck(category);
+  if (bandCheck) checks.push(bandCheck);
 
   if (checks.length === 0) return null;
   return (candidate: PoolCandidate) => checks.every((fn) => fn(candidate));

@@ -5,7 +5,9 @@ import assert from "node:assert/strict";
 // the /api/providers/[id]/models route. See
 // src/app/api/providers/[id]/models/discovery/codex.ts::mergeCapacityLimitConservatively
 // and the guard test in tests/unit/provider-models-route-codex.test.ts (#7012).
-const codexDiscovery = await import("../../src/app/api/providers/[id]/models/discovery/codex.ts");
+const codexDiscovery = await import(
+  "../../src/app/api/providers/[id]/models/discovery/codex.ts"
+);
 
 function liveModel(overrides: Record<string, unknown>) {
   return {

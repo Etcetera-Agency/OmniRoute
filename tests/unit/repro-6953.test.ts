@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 const { prepareClaudeRequest } = await import("../../open-sse/translator/helpers/claudeHelper.ts");
-const { DEFAULT_THINKING_CLAUDE_SIGNATURE } =
-  await import("../../open-sse/config/defaultThinkingSignature.ts");
+const { DEFAULT_THINKING_CLAUDE_SIGNATURE } = await import(
+  "../../open-sse/config/defaultThinkingSignature.ts"
+);
 test("#6953: latest-assistant thinking block with EMPTY signature must not be forwarded verbatim to an Anthropic-native leg", () => {
   const body: Record<string, unknown> = {
     thinking: { type: "enabled", budget_tokens: 4096 },
@@ -21,10 +22,6 @@ test("#6953: latest-assistant thinking block with EMPTY signature must not be fo
   };
   prepareClaudeRequest(body, "claude");
   const tb = body.messages[1].content[0];
-  assert.notEqual(
-    tb.signature,
-    "",
-    "empty/foreign thinking signature must not be forwarded verbatim"
-  );
+  assert.notEqual(tb.signature, "", "empty/foreign thinking signature must not be forwarded verbatim");
   if (tb.type === "redacted_thinking") assert.equal(tb.data, DEFAULT_THINKING_CLAUDE_SIGNATURE);
 });

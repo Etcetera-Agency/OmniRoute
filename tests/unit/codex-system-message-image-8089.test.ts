@@ -32,9 +32,7 @@ test("[repro #8089] developer-role message with image_url must NOT become output
     {
       type: "message",
       role: "developer",
-      content: [
-        { type: "image_url", image_url: { url: "https://example.com/diff-screenshot.png" } },
-      ],
+      content: [{ type: "image_url", image_url: { url: "https://example.com/diff-screenshot.png" } }],
     },
   ];
 
@@ -50,9 +48,7 @@ test("assistant-role message with image_url still becomes output_text (unchanged
     {
       type: "message",
       role: "assistant",
-      content: [
-        { type: "image_url", image_url: { url: "https://example.com/diff-screenshot.png" } },
-      ],
+      content: [{ type: "image_url", image_url: { url: "https://example.com/diff-screenshot.png" } }],
     },
   ];
 

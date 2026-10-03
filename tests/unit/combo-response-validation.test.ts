@@ -59,9 +59,7 @@ test("jsonPathPredicates: exists / nonEmpty / equals / notEquals", () => {
   );
   assert.equal(
     evaluateResponseValidation(body, {
-      jsonPathPredicates: [
-        { path: "choices[0].finish_reason", condition: "equals", value: "stop" },
-      ],
+      jsonPathPredicates: [{ path: "choices[0].finish_reason", condition: "equals", value: "stop" }],
     }).valid,
     true
   );
@@ -75,9 +73,7 @@ test("jsonPathPredicates: exists / nonEmpty / equals / notEquals", () => {
   );
   assert.equal(
     evaluateResponseValidation(body, {
-      jsonPathPredicates: [
-        { path: "choices[0].finish_reason", condition: "equals", value: "length" },
-      ],
+      jsonPathPredicates: [{ path: "choices[0].finish_reason", condition: "equals", value: "length" }],
     }).valid,
     false
   );
@@ -94,12 +90,7 @@ test("the first failing check wins; otherwise valid", () => {
 });
 
 test("parseJsonPath tokenizes dot + bracket paths without regex", () => {
-  assert.deepEqual(parseJsonPath("choices[0].message.content"), [
-    "choices",
-    0,
-    "message",
-    "content",
-  ]);
+  assert.deepEqual(parseJsonPath("choices[0].message.content"), ["choices", 0, "message", "content"]);
   assert.deepEqual(parseJsonPath("a[1][2].b"), ["a", 1, 2, "b"]);
   assert.deepEqual(parseJsonPath("plain"), ["plain"]);
 });
@@ -118,6 +109,9 @@ test("extractContentText handles string, array parts, and Responses API output",
     extractContentText({ choices: [{ message: { content: [{ text: "a" }, { text: "b" }] } }] }),
     "ab"
   );
-  assert.equal(extractContentText({ output: [{ content: [{ text: "resp" }] }] }), "resp");
+  assert.equal(
+    extractContentText({ output: [{ content: [{ text: "resp" }] }] }),
+    "resp"
+  );
   assert.equal(extractContentText({}), "");
 });

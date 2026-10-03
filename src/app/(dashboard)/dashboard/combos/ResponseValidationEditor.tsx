@@ -134,11 +134,7 @@ export function ResponseValidationEditor({
         </label>
         <div className="flex flex-col gap-1.5">
           {predicates.map((predicate, index) => (
-            <div
-              key={index}
-              className="flex flex-wrap items-center gap-1.5"
-              data-testid="rv-predicate-row"
-            >
+            <div key={index} className="flex flex-wrap items-center gap-1.5" data-testid="rv-predicate-row">
               <input
                 type="text"
                 value={predicate.path}

@@ -37,7 +37,8 @@ function oneQuota(
   const t = Math.max(0, total);
   const u = Math.max(0, Math.min(t, used));
   const r = remaining > 0 ? remaining : Math.max(0, t - u);
-  const remainingPercentage = t > 0 ? Math.round((r / t) * 1000) / 10 : r > 0 ? 100 : 0;
+  const remainingPercentage =
+    t > 0 ? Math.round((r / t) * 1000) / 10 : r > 0 ? 100 : 0;
   return {
     used: u,
     total: t,
@@ -53,9 +54,17 @@ function oneQuota(
  * Build a **Record** of quotas (NOT an array). providerLimits only caches when
  * `isRecord(usage.quotas)` is true — arrays are ignored and Limits stays empty.
  */
-export function buildAdobeFireflyCreditsQuota(balance: AdobeFireflyCreditsBalance): UsageQuota {
+export function buildAdobeFireflyCreditsQuota(
+  balance: AdobeFireflyCreditsBalance
+): UsageQuota {
   const resetAt = parseResetTime(balance.availableUntil);
-  return oneQuota(balance.used, balance.total, balance.remaining, resetAt, "Firefly credits");
+  return oneQuota(
+    balance.used,
+    balance.total,
+    balance.remaining,
+    resetAt,
+    "Firefly credits"
+  );
 }
 
 export function buildAdobeFireflyQuotasRecord(
@@ -105,7 +114,10 @@ export async function getAdobeFireflyUsage(
   accessToken?: string,
   providerSpecificData?: Record<string, unknown> | null,
   fetchImpl: typeof fetch = fetch
-): Promise<{ quotas: Record<string, UsageQuota>; plan?: string } | { message: string }> {
+): Promise<
+  | { quotas: Record<string, UsageQuota>; plan?: string }
+  | { message: string }
+> {
   try {
     const token = await resolveAdobeAccessToken(
       {
@@ -120,12 +132,7 @@ export async function getAdobeFireflyUsage(
       fetchImpl
     );
     const balance = await fetchAdobeCreditsBalance(token, fetchImpl);
-    if (
-      balance.total <= 0 &&
-      balance.remaining <= 0 &&
-      balance.planTotal <= 0 &&
-      balance.freeTotal <= 0
-    ) {
+    if (balance.total <= 0 && balance.remaining <= 0 && balance.planTotal <= 0 && balance.freeTotal <= 0) {
       return {
         message:
           "Adobe Firefly returned an empty credits balance. Paste a fresh IMS access_token JWT (Authorization: Bearer on firefly-3p generate/discovery) from a signed-in session — not firefly.adobe.com page cookies alone.",

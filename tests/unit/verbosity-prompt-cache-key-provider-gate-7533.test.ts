@@ -11,8 +11,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiResponsesToOpenAIRequest } =
-  await import("../../open-sse/translator/request/openai-responses.ts");
+const { openaiResponsesToOpenAIRequest } = await import(
+  "../../open-sse/translator/request/openai-responses.ts"
+);
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;

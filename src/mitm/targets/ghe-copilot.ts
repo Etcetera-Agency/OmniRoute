@@ -29,6 +29,7 @@ export const GHE_COPILOT_TARGET: MitmTarget = {
     ],
     detection: { command: "code --list-extensions", platform: "all" },
   },
-  handler: () => import("../handlers/copilot").then((m) => ({ default: m.CopilotHandler })),
+  handler: () =>
+    import("../handlers/copilot").then((m) => ({ default: m.CopilotHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

@@ -11,20 +11,13 @@ export async function markCodexScopeRateLimited(params: {
   rateLimitedUntil: string;
   credentials?: CodexFailoverCredentials | null;
 }): Promise<void> {
-  const connection = await getCachedProviderConnectionById(params.failedConnectionId).catch(
-    () => null
-  );
-  const existingProviderData = connection
-    ? asProviderData(connection.providerSpecificData)
-    : asProviderData(params.credentials?.providerSpecificData);
-  const existingScopeMap = asProviderData(existingProviderData.codexScopeRateLimitedUntil);
-  const nextProviderData = {
-    ...existingProviderData,
-    codexScopeRateLimitedUntil: {
-      ...existingScopeMap,
-      [getCodexModelScope(params.model || "")]: params.rateLimitedUntil,
-    },
-  };
+  const persisted = params.model
+    ? await persistCodexChildCooldown({
+        connectionId: params.failedConnectionId,
+        model: params.model,
+        rateLimitedUntil: params.rateLimitedUntil,
+      }).catch(() => null)
+    : null;
 
   if (
     persisted &&

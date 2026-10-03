@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toNumber, toNumberOrNull, toNumberArray } from "../../src/shared/utils/numeric.ts";
+import {
+  toNumber,
+  toNumberOrNull,
+  toNumberArray,
+} from "../../src/shared/utils/numeric.ts";
 
 // Shared input matrix covering the coercion edge cases that motivated
 // consolidating ~51 near-duplicate `toNumber` definitions (#7879).
@@ -35,7 +39,11 @@ test("toNumber: matrix with default fallback (0)", () => {
 test("toNumber: matrix with custom fallback", () => {
   for (const { label, input, finite } of CASES) {
     const expected = finite ?? -1;
-    assert.equal(toNumber(input, -1), expected, `toNumber(${label}, -1) should be ${expected}`);
+    assert.equal(
+      toNumber(input, -1),
+      expected,
+      `toNumber(${label}, -1) should be ${expected}`
+    );
   }
 });
 
@@ -47,7 +55,11 @@ test("toNumber: numbers pass through untouched", () => {
 
 test("toNumberOrNull: matrix returns null instead of 0 fallback", () => {
   for (const { label, input, finite } of CASES) {
-    assert.equal(toNumberOrNull(input), finite, `toNumberOrNull(${label}) should be ${finite}`);
+    assert.equal(
+      toNumberOrNull(input),
+      finite,
+      `toNumberOrNull(${label}) should be ${finite}`
+    );
   }
 });
 

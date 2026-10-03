@@ -52,7 +52,9 @@ test("isMitmSudoPasswordRequired matches isSudoPasswordRequired when unprivilege
   assert.equal(isMitmSudoPasswordRequired(""), isSudoPasswordRequired());
 });
 
-const repairRoute = await import("../../src/app/api/tools/agent-bridge/repair/route.ts");
+const repairRoute = await import(
+  "../../src/app/api/tools/agent-bridge/repair/route.ts"
+);
 
 function makeRepairRequest(body: Record<string, unknown> = {}) {
   return new Request("http://127.0.0.1/api/tools/agent-bridge/repair", {

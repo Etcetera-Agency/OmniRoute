@@ -95,8 +95,7 @@ describe("llmCompressorEngine (T05/C3)", () => {
   it("validateConfig accepts valid config and rejects bad fields", () => {
     assert.equal(llmCompressorEngine.validateConfig({ enabled: false }).valid, true);
     assert.equal(
-      llmCompressorEngine.validateConfig({ enabled: true, compressionRate: 0.5, minTokens: 1000 })
-        .valid,
+      llmCompressorEngine.validateConfig({ enabled: true, compressionRate: 0.5, minTokens: 1000 }).valid,
       true
     );
     assert.equal(llmCompressorEngine.validateConfig({ enabled: "yes" }).valid, false);

@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
   moduleFragment,
   testImportsModule,
@@ -86,4 +88,22 @@ test("findCoverageDrift flags covering unit tests absent from tap.testFiles", ()
   ]);
   // comment-only mutate entries are skipped
   assert.equal("_a_comment_entry" in drift, false);
+});
+
+test("every tap.testFiles entry names a file that still exists", () => {
+  // The existing drift check runs one way: a test that covers a mutated module
+  // but is missing from tap.testFiles. The other way is silent — an entry left
+  // behind after its test file is deleted or renamed. Stryker resolves the list
+  // into its sandbox, so a dangling path costs coverage without failing loudly.
+  const repoRoot = path.resolve(import.meta.dirname, "../../..");
+  const conf = JSON.parse(fs.readFileSync(path.join(repoRoot, "stryker.conf.json"), "utf8")) as {
+    tap?: { testFiles?: string[] };
+  };
+  const entries = conf.tap?.testFiles ?? [];
+  assert.ok(entries.length > 0, "stryker.conf.json declares no tap.testFiles");
+
+  const missing = entries
+    .filter((entry) => !entry.includes("*"))
+    .filter((entry) => !fs.existsSync(path.join(repoRoot, entry)));
+  assert.deepEqual(missing, [], `tap.testFiles names ${missing.length} file(s) that do not exist`);
 });

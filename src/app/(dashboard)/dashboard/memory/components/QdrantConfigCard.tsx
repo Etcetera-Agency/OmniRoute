@@ -33,9 +33,14 @@ export default function QdrantConfigCard() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"" | "saved" | "error">("");
-  const [health, setHealth] = useState<{ ok: boolean; latencyMs: number; error?: string } | null>(
-    null
-  );
+  const [health, setHealth] = useState<{
+    ok: boolean;
+    latencyMs: number;
+    error?: string;
+    collection?: { exists: boolean; vectorSize?: number; vectorName?: string | null };
+  } | null>(null);
+  const [searchValidated, setSearchValidated] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -105,7 +110,8 @@ export default function QdrantConfigCard() {
       // invalidate in-flight checks so they cannot overwrite the new state.
       healthSeqRef.current += 1;
       setHealth(null);
-      setSearchValidated(false);      setQdrant(next);
+      setSearchValidated(false);
+      setQdrant(next);
       setSaving(true);
       setSaveStatus("");
       try {
@@ -149,7 +155,7 @@ export default function QdrantConfigCard() {
         setSaving(false);
       }
     },
-    [qdrant]
+    [qdrant, checkHealth]
   );
 
   // Auto-check on mount once settings load: without this the status badge
@@ -158,7 +164,9 @@ export default function QdrantConfigCard() {
   // connection button still drives the same check manually.
   useEffect(() => {
     if (!loading && qdrant.enabled && health === null) {
-      void checkHealth();
+      void (async () => {
+        await checkHealth();
+      })();
     }
   }, [loading, qdrant.enabled, health, checkHealth]);
 
@@ -236,7 +244,13 @@ export default function QdrantConfigCard() {
         </div>
         <span
           className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-            qdrant.enabled ? (health?.ok ? "text-emerald-500" : "text-red-500") : "text-text-muted"
+            !qdrant.enabled
+              ? "text-text-muted"
+              : health === null
+                ? "text-text-muted"
+                : health.ok
+                  ? "text-emerald-500"
+                  : "text-red-500"
           }`}
         >
           <span

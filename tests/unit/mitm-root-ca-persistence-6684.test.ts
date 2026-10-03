@@ -51,7 +51,7 @@ test(
       const mode = fs.statSync(ca.keyPath).mode & 0o777;
       assert.equal(mode, 0o600);
     } finally {
-      fs.rmSync(certDir, { recursive: true, force: true });
+      fs.rmSync(certDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }
 );

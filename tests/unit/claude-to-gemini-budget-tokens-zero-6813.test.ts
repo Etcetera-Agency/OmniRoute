@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { claudeToGeminiRequest } =
-  await import("../../open-sse/translator/request/claude-to-gemini.ts");
+const { claudeToGeminiRequest } = await import(
+  "../../open-sse/translator/request/claude-to-gemini.ts"
+);
 
 // Regression for #6813 — the Claude→Gemini thinking transform used a truthy
 // check (`body.thinking.budget_tokens`) that silently dropped `budget_tokens: 0`

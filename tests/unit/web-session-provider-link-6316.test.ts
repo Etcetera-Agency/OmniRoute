@@ -9,7 +9,7 @@ const { getProviderWebsiteHost } =
   await import("../../src/app/(dashboard)/dashboard/providers/[id]/components/WebSessionCredentialGuide.tsx");
 
 test("#6316: full URL collapses to host", () => {
-  assert.equal(getProviderWebsiteHost("https://chat.qwen.ai/path?x=1"), "chat.qwen.ai");
+  assert.equal(getProviderWebsiteHost("https://chat.example.com/path?x=1"), "chat.example.com");
   assert.equal(getProviderWebsiteHost("https://www.kimi.com"), "www.kimi.com");
 });
 

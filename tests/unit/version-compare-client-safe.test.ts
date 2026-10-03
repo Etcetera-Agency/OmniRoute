@@ -27,12 +27,7 @@ test("versionCompare.ts is dependency-free (no server-only imports)", () => {
     .split("\n")
     .filter((l) => /^\s*import\b/.test(l) || /\brequire\s*\(/.test(l));
   const joined = importLines.join("\n");
-  for (const forbidden of [
-    "child_process",
-    "@/lib/services/installers",
-    "@/shared/utils/logger",
-    '"util"',
-  ]) {
+  for (const forbidden of ["child_process", "@/lib/services/installers", "@/shared/utils/logger", '"util"']) {
     assert.ok(
       !joined.includes(forbidden),
       `versionCompare.ts must stay client-safe — found forbidden import ${forbidden}`

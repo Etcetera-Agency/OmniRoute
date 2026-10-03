@@ -16,8 +16,7 @@ function detectPlatform(ua: string): string {
   return "unknown";
 }
 
-const IMPORT_PATTERN =
-  /import\s*\{\s*CLAUDE_WEB_FINGERPRINT[^}]*\}\s*from\s*"[^"]*config\/claudeWebFingerprint\.ts"/;
+const IMPORT_PATTERN = /import\s*\{\s*CLAUDE_WEB_FINGERPRINT[^}]*\}\s*from\s*"[^"]*config\/claudeWebFingerprint\.ts"/;
 
 test("claude-web: Turnstile solver derives its UA from the shared fingerprint module (#7548)", () => {
   const solverSrc = readSource("open-sse/services/claudeTurnstileSolver.ts");

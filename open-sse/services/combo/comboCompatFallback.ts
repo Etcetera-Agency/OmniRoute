@@ -45,10 +45,11 @@ export async function attemptCompatRejectedFallback(
 ): Promise<Response | null> {
   if (rejectedTargets.length === 0) return null;
 
-  for (const target of rejectedTargets) {
+  for (let i = 0; i < rejectedTargets.length; i++) {
+    const target = rejectedTargets[i];
     if (ctx.isModelAvailable) {
       const available = await ctx.isModelAvailable(target.modelStr, target);
-      if (!available) {
+      if (available !== true) {
         ctx.log.debug(
           "COMBO",
           `Last-resort compat fallback: ${target.modelStr} still unavailable — skipping`
@@ -72,6 +73,7 @@ export async function attemptCompatRejectedFallback(
     const result = await ctx.handleSingleModel(body, target.modelStr, {
       ...target,
       effectiveComboStrategy: ctx.strategy,
+      fallbackAttempts: i,
     });
     if (result.ok) {
       ctx.log.info("COMBO", `Last-resort compat fallback succeeded via ${target.modelStr}`);

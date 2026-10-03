@@ -40,13 +40,7 @@ test("never waits when spacingMs === 0 (opt-out, preserves fast path)", async ()
   const items = [1, 2, 3, 4];
   const start = Date.now();
 
-  await syncInChunksWithSpacing(
-    items,
-    2,
-    0,
-    async (item) => item,
-    () => {}
-  );
+  await syncInChunksWithSpacing(items, 2, 0, async (item) => item, () => {});
 
   const elapsed = Date.now() - start;
   assert.ok(elapsed < 30, `expected near-instant run with spacingMs=0, took ${elapsed}ms`);

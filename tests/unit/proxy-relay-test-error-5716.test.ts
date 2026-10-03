@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 // #5716 — a relay proxy "Test" that got a non-200 from the relay showed a bare
 // "failed" with no reason. The test-result shaper must carry an actionable
 // `error` for every non-200 status, and none for a 200.
-const { buildRelayTestResult } =
-  await import("../../src/app/api/settings/proxy/test/relayTestResult.ts");
+const { buildRelayTestResult } = await import(
+  "../../src/app/api/settings/proxy/test/relayTestResult.ts"
+);
 
 const base = { publicIp: "1.2.3.4", latencyMs: 12, relayUrl: "https://relay.example" };
 

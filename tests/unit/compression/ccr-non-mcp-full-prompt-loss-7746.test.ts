@@ -61,32 +61,6 @@ describe("issue #7746 — CCR must not reduce the sole user prompt to a bare, un
     );
   });
 
-  it("does not leave the model with only the bare CCR marker when no retrieve tool is available", () => {
-    resetCcrStore();
-    const body = makeOpenCodeStyleRequestBody();
-    const result = ccrEngine.apply(body as Record<string, unknown>, { stepConfig: {} });
-
-    assert.equal(
-      result.compressed,
-      true,
-      "CCR compressed the sole user message (reproducing the report)"
-    );
-
-    const messages = result.body.messages as Array<{ role: string; content: string }>;
-    const compressedContent = messages[0].content;
-    const isBareMarkerOnly = /^\[CCR retrieve hash=[0-9a-f]{24} chars=\d+\]$/.test(
-      compressedContent
-    );
-
-    assert.equal(
-      isBareMarkerOnly,
-      false,
-      "BUG #7746: CCR replaced the ENTIRE sole user message with nothing but the bare " +
-        `[CCR retrieve hash=...] marker, permanently losing the original prompt for any ` +
-        `non-MCP caller that cannot resolve the marker. Got: ${JSON.stringify(compressedContent)}`
-    );
-  });
-
   it("non-MCP caller: CCR skips entirely — the sole user prompt passes through verbatim", () => {
     resetCcrStore();
     const body = makeOpenCodeStyleRequestBody();
@@ -187,10 +161,9 @@ describe("issue #7746 — CCR must not reduce the sole user prompt to a bare, un
     );
     const compressedContent = messages[1].content;
     const match = compressedContent.match(/\[CCR retrieve hash=([0-9a-f]{24}) chars=\d+\]/);
-    assert.ok(match, "compressed content must still contain a resolvable CCR marker");
-    const hash = match![1];
+    assert.ok(match, "compressed content must contain a resolvable CCR marker");
     assert.equal(
-      retrieveBlock(hash),
+      retrieveBlock(match![1]),
       REPORTER_PROMPT,
       "original prompt must be stored verbatim and retrievable"
     );

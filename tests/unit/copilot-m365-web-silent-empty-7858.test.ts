@@ -86,10 +86,7 @@ test("copilot-m365-web: a legitimate content-bearing turn is unaffected [#7858 r
     restore();
   }
 
-  assert.ok(
-    !body.includes('"error"'),
-    `expected no error for a content-bearing turn, got: ${body}`
-  );
+  assert.ok(!body.includes('"error"'), `expected no error for a content-bearing turn, got: ${body}`);
   assert.ok(body.includes("hello there"), `expected the streamed content, got: ${body}`);
   assert.ok(body.includes('"finish_reason":"stop"'), `expected a stop chunk, got: ${body}`);
 });

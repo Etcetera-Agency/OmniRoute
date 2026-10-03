@@ -1,12 +1,15 @@
+import { randomUUID } from "crypto";
 /**
  * Search Handler
  *
  * Handles POST /v1/search requests.
- * Routes to configured search providers with automatic failover:
+ * Routes to search providers with automatic failover:
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
- *   firecrawl, google-pse-search, linkup-search, searchapi-search, youcom-search,
- *   searxng-search, ollama-search, zai-search, parallel-search, firecrawl-search,
- *   gemini-grounded-search, duckduckgo-free
+ *   firecrawl, google-pse-search, linkup-search, searchapi-search,
+ *   youcom-search, searxng-search, ollama-search, zai-search, jina-search,
+ *   duckduckgo-free, x-search (Grok / SuperGrok X Search — explicit or search_type "x")
+ *   and xquik-search (direct X API search — explicit or credentialed fallback)
+ *   and anysearch-search (free public web search — fallback-only)
  *
  * Request format:
  * {
@@ -17,99 +20,32 @@
  * }
  */
 
+export { resolveSearchBaseUrl, SearchBaseUrlOverrideError } from "./search/baseUrl.ts";
+import { resolveSearchBaseUrl } from "./search/baseUrl.ts";
+
 import {
   getSearchProvider,
+  isUnconfiguredLoopbackSearchProvider,
   type SearchProviderConfig,
 } from "../config/searchRegistry.ts";
+import { NIMBLE_CLIENT_SOURCE, NIMBLE_CLIENT_SOURCE_HEADER } from "../config/nimble.ts";
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
-import type { FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
+import { type FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
 import { buildJinaSearchRequest, extractJinaSearchItems } from "./search/jinaSearch.ts";
 import * as xSearch from "./search/xSearch.ts";
-export {
-  buildFirecrawlSearchRequest,
-  normalizeFirecrawlSearchResponse,
-} from "./search/firecrawlSearch.ts";
-import { executeSearchOperation, executeSearchRequest } from "./search/searchProxy.ts";
+import * as xquikSearch from "./search/xquikSearch.ts";
+import * as anysearchSearch from "./search/anysearchSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
-import { parseAndValidateNonMetadataUrl } from "@/shared/network/outboundUrlGuard";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { isValidContext7LibraryId } from "../executors/context7-fetch.ts";
-
-type SearchJsonObject = Record<string, unknown>;
-
-interface SearchLogger {
-  info?: (tag: string, message: string) => void;
-  warn?: (tag: string, message: string) => void;
-  error?: (tag: string, message: string) => void;
-}
-
-function asSearchObject(value: unknown): SearchJsonObject | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  return value as SearchJsonObject;
-}
-
-function readSearchValue(value: unknown, key: string): unknown {
-  return asSearchObject(value)?.[key];
-}
-
-function readSearchObject(value: unknown, key: string): SearchJsonObject | undefined {
-  return asSearchObject(readSearchValue(value, key));
-}
-
-function readSearchArray(value: unknown): unknown[] | undefined {
-  return Array.isArray(value) ? value : undefined;
-}
-
-function readSearchString(value: unknown, key: string): string | undefined {
-  const property = readSearchValue(value, key);
-  return typeof property === "string" ? property : undefined;
-}
-
-function readSearchNumber(value: unknown, key: string): number | undefined {
-  const property = readSearchValue(value, key);
-  return typeof property === "number" ? property : undefined;
-}
-
-function firstSearchString(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === "string" && value) return value;
-  }
-  return undefined;
-}
-
-function readSearchStringArray(value: unknown, key: string): string[] {
-  const values = readSearchArray(readSearchValue(value, key)) ?? [];
-  return values.filter((item): item is string => typeof item === "string");
-}
-
-function getSearchErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  const message = readSearchValue(error, "message");
-  return typeof message === "string" ? message : String(error);
-}
-
-function getSearchErrorName(error: unknown): string | undefined {
-  if (error instanceof Error) return error.name;
-  const name = readSearchValue(error, "name");
-  return typeof name === "string" ? name : undefined;
-}
-
-function resolveSearchConnectionId(
-  credentials: SearchJsonObject,
-  preferredId?: string | null
-): string | null {
-  if (preferredId) return preferredId;
-  const connectionId = readSearchValue(credentials, "connectionId");
-  if (typeof connectionId === "string") return connectionId;
-  const id = readSearchValue(credentials, "id");
-  return typeof id === "string" ? id : null;
-}
+import { resolveSearchProxy, executeProviderFetch } from "./search/searchProxy.ts";
+import { formatSearchProviderFailure } from "./search/providerFailure.ts";
 
 export interface SearchResult {
   title: string;
@@ -175,20 +111,18 @@ interface SearchHandlerOptions {
   };
   strictFilters?: boolean;
   providerOptions?: Record<string, unknown>;
-  credentials: SearchJsonObject;
-  connectionId?: string | null;
-  apiKeyId?: string | null;
-  providerConfig?: SearchProviderConfig;
+  credentials: Record<string, any>;
   alternateProvider?: string;
-  alternateProviderConfig?: SearchProviderConfig | null;
-  alternateCredentials?: SearchJsonObject | null;
-  log?: SearchLogger;
+  alternateCredentials?: Record<string, any> | null;
+  log?: any;
+  /** Connection ID (proxy resolution + call-log attribution) and API key ID (per-key proxy). */
+  connectionId?: string;
+  apiKeyId?: string;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────
 
 const GLOBAL_TIMEOUT_MS = 15_000;
-const DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL = "gemini-2.5-flash";
 
 // Non-retriable HTTP status codes — fail immediately, don't try alternate
 const NON_RETRIABLE = new Set([400, 401, 403, 404]);
@@ -218,7 +152,7 @@ function makeResult(
     url?: string;
     snippet?: string;
     score?: number;
-    published_at?: string | null;
+    published_at?: string;
     favicon_url?: string;
     author?: string;
     source_type?: string;
@@ -253,52 +187,23 @@ function makeResult(
   };
 }
 
-function isValidResultUrl(url: unknown): url is string {
-  if (typeof url !== "string") return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function joinStringArray(value: unknown): string {
-  return Array.isArray(value)
-    ? value
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-        .join("\n\n")
-    : "";
-}
-
-function normalizeUrlForDedupe(url: string): string {
-  const parsed = new URL(url);
-  parsed.hash = "";
-  parsed.protocol = parsed.protocol.toLowerCase();
-  parsed.hostname = parsed.hostname.toLowerCase();
-  return parsed.href;
-}
-
 function normalizeSerperResponse(
-  data: unknown,
+  data: any,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, searchType === "news" ? "news" : "organic"));
+  const items = searchType === "news" ? data.news : data.organic;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item, idx) =>
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "serper-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "link"),
-        snippet: firstSearchString(
-          readSearchString(item, "snippet"),
-          readSearchString(item, "description")
-        ),
-        published_at: readSearchString(item, "date"),
+        title: item.title,
+        url: item.link,
+        snippet: item.snippet || item.description,
+        published_at: item.date,
       },
       idx,
       now
@@ -308,7 +213,9 @@ function normalizeSerperResponse(
   return {
     results,
     totalResults:
-      readSearchNumber(readSearchObject(data, "searchParameters"), "totalResults") ?? null,
+      typeof data.searchParameters?.totalResults === "number"
+        ? data.searchParameters.totalResults
+        : null,
   };
 }
 
@@ -356,42 +263,33 @@ function normalizeContext7Response(
 }
 
 function normalizeBraveResponse(
-  data: unknown,
+  data: any,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
   // Brave news endpoint returns { results: [...] } directly,
   // while web endpoint returns { web: { results: [...] } }
-  const container =
-    searchType === "news"
-      ? (readSearchObject(data, "news") ?? asSearchObject(data))
-      : readSearchObject(data, "web");
-  const items = readSearchArray(readSearchValue(container, "results"));
+  const container = searchType === "news" ? data.news || data : data.web;
+  const items = container?.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item, idx) =>
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "brave-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet: readSearchString(item, "description"),
-        published_at: firstSearchString(
-          readSearchString(item, "page_age"),
-          readSearchString(item, "age")
-        ),
-        favicon_url: firstSearchString(
-          readSearchString(readSearchObject(item, "meta_url"), "favicon"),
-          readSearchString(item, "favicon")
-        ),
+        title: item.title,
+        url: item.url,
+        snippet: item.description,
+        published_at: item.page_age || item.age,
+        favicon_url: item.meta_url?.favicon || item.favicon,
       },
       idx,
       now
     )
   );
 
-  return { results, totalResults: readSearchNumber(container, "totalCount") ?? null };
+  return { results, totalResults: container?.totalCount ?? null };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -423,49 +321,9 @@ function getProviderSettingString(
   return undefined;
 }
 
-export function resolveSearchBaseUrl(
-  config: SearchProviderConfig,
-  params: SearchRequestParams
-): string {
-  const override = getProviderSettingString(params, "baseUrl");
-  if (override) {
-    // GHSA-j7j4-g9qc-q69c: the override is client-controlled (provider_options /
-    // providerSpecificData) and flows into a plain fetch() sink — validate it
-    // before any builder uses it as the server-side fetch target. Mode is
-    // block-metadata (NOT public-only): the primary searxng use case is a
-    // self-hosted instance on loopback/LAN, so private hosts keep working,
-    // while cloud-metadata endpoints (IMDS credential theft) are rejected.
-    // The catalog's own config.baseUrl is operator config and stays untouched.
-    parseAndValidateNonMetadataUrl(override);
-    return override.replace(/\/+$/, "");
-  }
-  return config.baseUrl.replace(/\/+$/, "");
-}
-
 function toSearchPageNumber(offset: number | undefined, maxResults: number): number | undefined {
   if (typeof offset !== "number" || offset <= 0 || maxResults <= 0) return undefined;
   return Math.floor(offset / maxResults) + 1;
-}
-
-function getGeminiGroundedSearchModel(params: SearchRequestParams): string {
-  return (
-    getProviderSettingString(params, "model") ||
-    process.env.GEMINI_GROUNDED_SEARCH_MODEL ||
-    DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL
-  );
-}
-
-function buildGeminiGroundedSearchPrompt(params: SearchRequestParams): string {
-  const lines = [
-    `Search the web for: ${params.query}`,
-    "Use Google Search grounding. Return a concise answer based only on grounded sources.",
-  ];
-  if (params.country) lines.push(`Prefer sources relevant to country: ${params.country}.`);
-  if (params.language) lines.push(`Prefer language: ${params.language}.`);
-  if (params.timeRange && params.timeRange !== "any") {
-    lines.push(`Prefer information from the last ${params.timeRange}.`);
-  }
-  return lines.join("\n");
 }
 
 // ── Provider Request Builders ───────────────────────────────────────────
@@ -598,6 +456,38 @@ function buildTavilyRequest(
     init: {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${params.token}` },
+      body: JSON.stringify(body),
+    },
+  };
+}
+
+function buildNimbleRequest(
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+): { url: string; init: RequestInit } {
+  if (!params.token) throw new Error("Nimble Search requires an API key");
+  const { includes, excludes } = parseDomainFilter(params.domainFilter);
+  const body: Record<string, unknown> = {
+    query: params.query,
+    max_results: Math.min(params.maxResults, config.maxMaxResults),
+    search_depth: "lite",
+    output_format: "plain_text",
+    focus: params.searchType === "news" ? "news" : "general",
+  };
+  if (params.country) body.country = params.country.toUpperCase();
+  if (params.language) body.locale = params.language;
+  if (params.timeRange && params.timeRange !== "any") body.time_range = params.timeRange;
+  if (includes.length) body.include_domains = includes.slice(0, 50);
+  if (excludes.length) body.exclude_domains = excludes.slice(0, 50);
+  return {
+    url: resolveSearchBaseUrl(config, params),
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${params.token}`,
+        [NIMBLE_CLIENT_SOURCE_HEADER]: NIMBLE_CLIENT_SOURCE,
+      },
       body: JSON.stringify(body),
     },
   };
@@ -823,93 +713,39 @@ function buildOllamaRequest(
   };
 }
 
-export function buildParallelSearchRequest(
+type SearchRequestBuilder = (
   config: SearchProviderConfig,
   params: SearchRequestParams
-): { url: string; init: RequestInit } {
-  const apiKey = params.token;
-  if (!apiKey) {
-    throw new Error("Parallel Search requires an API key");
-  }
+) => { url: string; init: RequestInit };
 
-  return {
-    url: resolveSearchBaseUrl(config, params),
-    init: {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        objective: params.query,
-        search_queries: [params.query],
-      }),
-    },
-  };
-}
-
-export function buildGeminiGroundedSearchRequest(
-  config: SearchProviderConfig,
-  params: SearchRequestParams
-): { url: string; init: RequestInit; model: string } {
-  const apiKey = params.token;
-  if (!apiKey) {
-    throw new Error("Gemini Grounded Search requires an API key");
-  }
-
-  const model = getGeminiGroundedSearchModel(params);
-  const baseUrl = resolveSearchBaseUrl(config, params);
-  const body = {
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: buildGeminiGroundedSearchPrompt(params) }],
-      },
-    ],
-    tools: [{ googleSearch: {} }],
-    generationConfig: {
-      temperature: 0.2,
-    },
-  };
-
-  return {
-    url: `${baseUrl}/${encodeURIComponent(model)}:generateContent`,
-    model,
-    init: {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify(body),
-    },
-  };
-}
-
-type BuiltSearchRequest = { url: string; init: RequestInit; model?: string };
+const requestBuilders: Record<string, SearchRequestBuilder> = {
+  "serper-search": buildSerperRequest,
+  "brave-search": buildBraveRequest,
+  context7: buildContext7Request,
+  "perplexity-search": buildPerplexityRequest,
+  "exa-search": buildExaRequest,
+  "tavily-search": buildTavilyRequest,
+  "nimble-search": buildNimbleRequest,
+  firecrawl: fcSearch.buildFirecrawlSearchRequest,
+  "google-pse-search": buildGooglePseRequest,
+  "linkup-search": buildLinkupRequest,
+  "searchapi-search": buildSearchApiRequest,
+  "youcom-search": buildYouComRequest,
+  "searxng-search": buildSearxngRequest,
+  "ollama-search": buildOllamaRequest,
+  "jina-search": buildJinaSearchRequest,
+  "x-search": xSearch.buildXSearchRequest,
+  "xquik-search": xquikSearch.buildXquikSearchRequest,
+  "anysearch-search": anysearchSearch.buildAnysearchSearchRequest,
+};
 
 function buildRequest(
   config: SearchProviderConfig,
   params: SearchRequestParams
-): BuiltSearchRequest {
-  if (config.id === "serper-search") return buildSerperRequest(config, params);
-  if (config.id === "brave-search") return buildBraveRequest(config, params);
-  if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
-  if (config.id === "exa-search") return buildExaRequest(config, params);
-  if (config.id === "tavily-search") return buildTavilyRequest(config, params);
-  if (config.id === "firecrawl" || config.id === "firecrawl-search") {
-    return fcSearch.buildFirecrawlSearchRequest(config, params);
-  }
-  if (config.id === "google-pse-search") return buildGooglePseRequest(config, params);
-  if (config.id === "linkup-search") return buildLinkupRequest(config, params);
-  if (config.id === "searchapi-search") return buildSearchApiRequest(config, params);
-  if (config.id === "youcom-search") return buildYouComRequest(config, params);
-  if (config.id === "searxng-search") return buildSearxngRequest(config, params);
-  if (config.id === "ollama-search") return buildOllamaRequest(config, params);
-  if (config.id === "parallel-search") return buildParallelSearchRequest(config, params);
-  if (config.id === "context7") return buildContext7Request(config, params);
-  if (config.id === "gemini-grounded-search")
-    return buildGeminiGroundedSearchRequest(config, params);
+): { url: string; init: RequestInit } {
+  const builder = requestBuilders[config.id];
+  if (builder) return builder(config, params);
+
   // Fallback for future providers: POST with bearer auth
   return {
     url: resolveSearchBaseUrl(config, params),
@@ -929,25 +765,22 @@ function buildRequest(
 }
 
 function normalizePerplexityResponse(
-  data: unknown,
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results"));
+  const items = data.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item, idx) =>
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "perplexity-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet: readSearchString(item, "snippet"),
-        published_at: firstSearchString(
-          readSearchString(item, "date"),
-          readSearchString(item, "last_updated")
-        ),
+        title: item.title,
+        url: item.url,
+        snippet: item.snippet,
+        published_at: item.date || item.last_updated,
       },
       idx,
       now
@@ -957,58 +790,55 @@ function normalizePerplexityResponse(
 }
 
 function normalizeExaResponse(
-  data: unknown,
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results"));
+  const items = data.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item, idx) => {
-    const highlights = readSearchArray(readSearchValue(item, "highlights"));
-    const firstHighlight = highlights?.find((value) => typeof value === "string");
-    return makeResult(
+  const results = items.map((item: any, idx: number) =>
+    makeResult(
       "exa-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet:
-          firstSearchString(firstHighlight) || readSearchString(item, "text")?.slice(0, 300) || "",
-        score: readSearchNumber(item, "score"),
-        published_at: readSearchString(item, "publishedDate"),
-        favicon_url: readSearchString(item, "favicon"),
-        author: readSearchString(item, "author"),
-        image_url: readSearchString(item, "image"),
-        full_text: readSearchString(item, "text"),
+        title: item.title,
+        url: item.url,
+        snippet: item.highlights?.[0] || item.text?.slice(0, 300) || "",
+        score: item.score,
+        published_at: item.publishedDate,
+        favicon_url: item.favicon,
+        author: item.author,
+        image_url: item.image,
+        full_text: item.text,
         text_format: "text",
       },
       idx,
       now
-    );
-  });
+    )
+  );
   return { results, totalResults: results.length };
 }
 
 function normalizeTavilyResponse(
-  data: unknown,
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results"));
+  const items = data.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
 
-  const results = items.map((item, idx) =>
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "tavily-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet: readSearchString(item, "content") || "",
-        score: readSearchNumber(item, "score"),
-        published_at: readSearchString(item, "published_date"),
-        full_text: readSearchString(item, "raw_content"),
+        title: item.title,
+        url: item.url,
+        snippet: item.content || "",
+        score: item.score,
+        published_at: item.published_date,
+        full_text: item.raw_content,
         text_format: "text",
       },
       idx,
@@ -1018,53 +848,75 @@ function normalizeTavilyResponse(
   return { results, totalResults: results.length };
 }
 
-function normalizeGooglePseResponse(
+interface NimbleSearchItem {
+  title?: string;
+  url?: string;
+  description?: string;
+  content?: string;
+}
+
+interface NimbleSearchEnvelope {
+  results?: NimbleSearchItem[];
+  total_results?: number;
+}
+
+function normalizeNimbleResponse(
   data: unknown,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "items")) ?? [];
-  const results = items.map((item, idx) =>
+  const envelope = (data ?? {}) as NimbleSearchEnvelope;
+  if (!Array.isArray(envelope.results)) return { results: [], totalResults: null };
+  const results = envelope.results.map((item, idx) =>
+    makeResult(
+      "nimble-search",
+      {
+        title: item.title,
+        url: item.url,
+        snippet: item.description || item.content?.slice(0, 300) || "",
+        full_text: item.content || undefined,
+        text_format: "text",
+      },
+      idx,
+      now
+    )
+  );
+  return {
+    results,
+    totalResults:
+      typeof envelope.total_results === "number" ? envelope.total_results : results.length,
+  };
+}
+
+function normalizeGooglePseResponse(
+  data: any,
+  _query: string,
+  _searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const items = Array.isArray(data.items) ? data.items : [];
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "google-pse-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "link"),
-        snippet: readSearchString(item, "snippet"),
-        image_url: firstSearchString(
-          readSearchString(
-            readSearchArray(readSearchObject(item, "pagemap")?.cse_image)?.[0],
-            "src"
-          ),
-          readSearchString(
-            readSearchArray(readSearchObject(item, "pagemap")?.cse_thumbnail)?.[0],
-            "src"
-          ),
-          readSearchString(
-            readSearchArray(readSearchObject(item, "pagemap")?.metatags)?.[0],
-            "og:image"
-          )
-        ),
+        title: item.title,
+        url: item.link,
+        snippet: item.snippet,
+        image_url:
+          item.pagemap?.cse_image?.[0]?.src ||
+          item.pagemap?.cse_thumbnail?.[0]?.src ||
+          item.pagemap?.metatags?.[0]?.["og:image"],
       },
       idx,
       now
     )
   );
 
-  const searchInformation = readSearchObject(data, "searchInformation");
-  const queries = readSearchObject(data, "queries");
-  const request = readSearchArray(readSearchValue(queries, "request"));
   const totalResultsRaw =
-    readSearchValue(searchInformation, "totalResults") ??
-    readSearchValue(request?.[0], "totalResults") ??
-    null;
+    data.searchInformation?.totalResults ?? data.queries?.request?.[0]?.totalResults ?? null;
   const totalResults =
-    typeof totalResultsRaw === "string"
-      ? Number(totalResultsRaw)
-      : typeof totalResultsRaw === "number"
-        ? totalResultsRaw
-        : null;
+    typeof totalResultsRaw === "string" ? Number(totalResultsRaw) : totalResultsRaw;
 
   return {
     results,
@@ -1073,27 +925,22 @@ function normalizeGooglePseResponse(
 }
 
 function normalizeLinkupResponse(
-  data: unknown,
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
-  const results = items.map((item, idx) =>
+  const items = Array.isArray(data.results) ? data.results : [];
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "linkup-search",
       {
-        title: firstSearchString(readSearchString(item, "name"), readSearchString(item, "title")),
-        url: readSearchString(item, "url"),
-        snippet:
-          firstSearchString(readSearchString(item, "content"), readSearchString(item, "snippet")) ||
-          "",
-        source_type: readSearchString(item, "type") || "web",
-        image_url: firstSearchString(
-          readSearchString(item, "image_url"),
-          readSearchString(item, "imageUrl")
-        ),
-        full_text: readSearchString(item, "content"),
+        title: item.name || item.title,
+        url: item.url,
+        snippet: item.content || item.snippet || "",
+        source_type: item.type || "web",
+        image_url: item.image_url || item.imageUrl || null,
+        full_text: item.content,
         text_format: "text",
       },
       idx,
@@ -1105,49 +952,39 @@ function normalizeLinkupResponse(
 }
 
 function normalizeSearchApiResponse(
-  data: unknown,
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items =
-    readSearchArray(readSearchValue(data, "organic_results")) ??
-    readSearchArray(readSearchValue(data, "top_stories")) ??
-    [];
+  const items = Array.isArray(data.organic_results)
+    ? data.organic_results
+    : Array.isArray(data.top_stories)
+      ? data.top_stories
+      : [];
 
-  const results = items.map((item, idx) =>
+  const results = items.map((item: any, idx: number) =>
     makeResult(
       "searchapi-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "link"),
-        snippet:
-          firstSearchString(
-            readSearchString(item, "snippet"),
-            readSearchString(item, "description")
-          ) || "",
-        published_at: firstSearchString(
-          readSearchString(item, "date"),
-          readSearchString(item, "published_at")
-        ),
-        favicon_url: readSearchString(item, "favicon"),
-        author: readSearchString(item, "source"),
-        image_url: readSearchString(item, "thumbnail"),
+        title: item.title,
+        url: item.link,
+        snippet: item.snippet || item.description || "",
+        published_at: item.date || item.published_at,
+        favicon_url: item.favicon,
+        author: item.source || null,
+        image_url: item.thumbnail || null,
       },
       idx,
       now
     )
   );
 
-  const totalResultsRaw = readSearchValue(
-    readSearchObject(data, "search_information"),
-    "total_results"
-  );
   const totalResults =
-    typeof totalResultsRaw === "number"
-      ? totalResultsRaw
-      : typeof totalResultsRaw === "string"
-        ? Number(totalResultsRaw)
+    typeof data.search_information?.total_results === "number"
+      ? data.search_information.total_results
+      : typeof data.search_information?.total_results === "string"
+        ? Number(data.search_information.total_results)
         : null;
 
   return {
@@ -1157,36 +994,43 @@ function normalizeSearchApiResponse(
 }
 
 function normalizeYouComResponse(
-  data: unknown,
+  data: any,
   _query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const resultsContainer = readSearchObject(data, "results");
+  const resultsContainer =
+    data?.results && typeof data.results === "object" ? data.results : undefined;
   const section =
-    searchType === "news"
-      ? readSearchArray(readSearchValue(resultsContainer, "news"))
-      : readSearchArray(readSearchValue(resultsContainer, "web"));
-  const items = section ?? [];
+    searchType === "news" ? resultsContainer?.news || [] : resultsContainer?.web || [];
+  const items = Array.isArray(section) ? section : [];
 
-  const results = items.map((item, idx) => {
-    const firstSnippet = readSearchStringArray(item, "snippets").find(
-      (value) => typeof value === "string"
-    );
-    const markdown = readSearchString(item, "markdown");
-    const html = readSearchString(item, "html");
-    const livecrawlText = markdown ?? html;
-    const livecrawlFormat = markdown !== undefined ? "markdown" : "html";
+  const results = items.map((item: any, idx: number) => {
+    const firstSnippet = Array.isArray(item.snippets)
+      ? item.snippets.find((value: unknown) => typeof value === "string")
+      : null;
+    const livecrawlText =
+      typeof item.markdown === "string"
+        ? item.markdown
+        : typeof item.html === "string"
+          ? item.html
+          : undefined;
+    const livecrawlFormat = typeof item.markdown === "string" ? "markdown" : "html";
 
     return makeResult(
       "youcom-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet: firstSnippet ?? readSearchString(item, "description") ?? "",
-        published_at: readSearchString(item, "page_age"),
-        favicon_url: readSearchString(item, "favicon_url"),
-        image_url: readSearchString(item, "thumbnail_url"),
+        title: item.title,
+        url: item.url,
+        snippet:
+          typeof firstSnippet === "string"
+            ? firstSnippet
+            : typeof item.description === "string"
+              ? item.description
+              : "",
+        published_at: item.page_age,
+        favicon_url: item.favicon_url,
+        image_url: item.thumbnail_url,
         source_type: searchType,
         full_text: livecrawlText,
         text_format: livecrawlText ? livecrawlFormat : undefined,
@@ -1200,61 +1044,25 @@ function normalizeYouComResponse(
 }
 
 function normalizeSearxngResponse(
-  data: unknown,
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
+  const items = Array.isArray(data.results) ? data.results : [];
 
-  const results = items.map((item, idx) => {
-    const engines = readSearchArray(readSearchValue(item, "engines"));
-    const sourceType = engines
-      ? engines.filter((engine): engine is string => typeof engine === "string").join(", ")
-      : firstSearchString(readSearchString(item, "engine"), readSearchString(item, "category"));
-    return makeResult(
+  const results = items.map((item: any, idx: number) =>
+    makeResult(
       "searxng-search",
       {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet:
-          firstSearchString(readSearchString(item, "content"), readSearchString(item, "snippet")) ||
-          "",
-        published_at: firstSearchString(
-          readSearchString(item, "publishedDate"),
-          readSearchString(item, "published_date")
-        ),
-        source_type: sourceType,
-        image_url: firstSearchString(
-          readSearchString(item, "thumbnail"),
-          readSearchString(item, "img_src")
-        ),
-      },
-      idx,
-      now
-    );
-  });
-
-  return { results, totalResults: results.length };
-}
-
-function normalizeOllamaResponse(
-  data: unknown,
-  _query: string,
-  _searchType: string
-): { results: SearchResult[]; totalResults: number | null } {
-  const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
-
-  const results = items.map((item, idx) =>
-    makeResult(
-      "ollama-search",
-      {
-        title: readSearchString(item, "title"),
-        url: readSearchString(item, "url"),
-        snippet: readSearchString(item, "content") || "",
-        full_text: readSearchString(item, "content"),
-        text_format: "text",
+        title: item.title,
+        url: item.url,
+        snippet: item.content || item.snippet || "",
+        published_at: item.publishedDate || item.published_date || null,
+        source_type: Array.isArray(item.engines)
+          ? item.engines.join(", ")
+          : item.engine || item.category || null,
+        image_url: item.thumbnail || item.img_src || null,
       },
       idx,
       now
@@ -1264,100 +1072,30 @@ function normalizeOllamaResponse(
   return { results, totalResults: results.length };
 }
 
-export function normalizeParallelSearchResponse(
-  data: unknown,
+function normalizeOllamaResponse(
+  data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
   const now = new Date().toISOString();
-  const items = readSearchArray(readSearchValue(data, "results")) ?? [];
+  const items = Array.isArray(data?.results) ? data.results : [];
 
-  const results = items
-    .filter((item) => isValidResultUrl(readSearchString(item, "url")))
-    .map((item, idx) => {
-      const excerpts = joinStringArray(readSearchValue(item, "excerpts"));
-      return makeResult(
-        "parallel-search",
-        {
-          title: readSearchString(item, "title"),
-          url: readSearchString(item, "url"),
-          snippet: excerpts || readSearchString(item, "snippet") || "",
-          published_at: readSearchString(item, "publish_date"),
-          full_text: excerpts || undefined,
-          text_format: "text",
-        },
-        idx,
-        now
-      );
-    });
+  const results = items.map((item: any, idx: number) =>
+    makeResult(
+      "ollama-search",
+      {
+        title: item?.title,
+        url: item?.url,
+        snippet: item?.content || "",
+        full_text: item?.content,
+        text_format: "text",
+      },
+      idx,
+      now
+    )
+  );
 
   return { results, totalResults: results.length };
-}
-
-function extractGeminiAnswerText(data: unknown): string {
-  const candidates = readSearchArray(readSearchValue(data, "candidates")) ?? [];
-  return candidates
-    .flatMap((candidate) => {
-      const content = readSearchObject(candidate, "content");
-      return readSearchArray(readSearchValue(content, "parts")) ?? [];
-    })
-    .map((part) => readSearchString(part, "text")?.trim() || "")
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function extractGeminiGroundingChunks(data: unknown): unknown[] {
-  const candidates = readSearchArray(readSearchValue(data, "candidates")) ?? [];
-  return candidates.flatMap((candidate) => {
-    const groundingMetadata = readSearchObject(candidate, "groundingMetadata");
-    return readSearchArray(readSearchValue(groundingMetadata, "groundingChunks")) ?? [];
-  });
-}
-
-export function normalizeGeminiGroundedSearchResponse(
-  data: unknown,
-  _query: string,
-  _searchType: string,
-  model = DEFAULT_GEMINI_GROUNDED_SEARCH_MODEL
-): {
-  results: SearchResult[];
-  totalResults: number | null;
-  answer: SearchResponse["answer"];
-} {
-  const now = new Date().toISOString();
-  const answerText = extractGeminiAnswerText(data);
-  const seen = new Set<string>();
-  const results: SearchResult[] = [];
-
-  for (const chunk of extractGeminiGroundingChunks(data)) {
-    const web = readSearchObject(chunk, "web");
-    const uri = readSearchString(web, "uri");
-    if (!isValidResultUrl(uri)) continue;
-
-    const dedupeKey = normalizeUrlForDedupe(uri);
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
-
-    results.push(
-      makeResult(
-        "gemini-grounded-search",
-        {
-          title: readSearchString(web, "title") || uri,
-          url: uri,
-          snippet: answerText,
-          source_type: "web",
-        },
-        results.length,
-        now
-      )
-    );
-  }
-
-  return {
-    results,
-    totalResults: results.length,
-    answer: answerText ? { source: "gemini-grounded-search", text: answerText, model } : null,
-  };
 }
 
 // ── Z.AI Coding Plan Search MCP Execution ───────────────────────────
@@ -1467,13 +1205,10 @@ async function zaiSearchExecute(params: {
       arguments: args,
     });
 
-    const rawContent: unknown[] = Array.isArray(toolResult.content) ? toolResult.content : [];
+    const rawContent = Array.isArray(toolResult.content) ? toolResult.content : [];
     const rawText = rawContent
-      .map((content) => asSearchObject(content))
-      .filter(
-        (content): content is SearchJsonObject => content !== undefined && content.type === "text"
-      )
-      .map((content) => (typeof content.text === "string" ? content.text : ""))
+      .filter((c: any) => c?.type === "text")
+      .map((c: any) => (typeof c?.text === "string" ? c.text : ""))
       .join("\n");
 
     if (!rawText.trim()) {
@@ -1517,9 +1252,7 @@ async function tryZaiMCPProvider(
   providerSpecificData: Record<string, unknown> | undefined,
   startTime: number,
   globalStartTime: number,
-  log?: SearchLogger,
-  connectionId?: string | null,
-  apiKeyId?: string | null
+  log?: any
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
 
@@ -1529,19 +1262,12 @@ async function tryZaiMCPProvider(
   const timer = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const normalized = await executeSearchOperation({
-      providerId: config.id,
-      connectionId,
-      apiKeyId,
-      url: resolveSearchBaseUrl(config, { ...params, providerSpecificData }),
-      operation: () =>
-        zaiSearchExecute({
-          config,
-          query,
-          token,
-          params: { ...params, token, providerSpecificData },
-          signal: controller.signal,
-        }),
+    const normalized = await zaiSearchExecute({
+      config,
+      query,
+      token,
+      params: { ...params, token, providerSpecificData },
+      signal: controller.signal,
     });
     clearTimeout(timer);
 
@@ -1556,8 +1282,6 @@ async function tryZaiMCPProvider(
       provider: config.id,
       duration,
       requestType: "search",
-      connectionId,
-      apiKeyId,
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
       responseBody: { results_count: results.length, cached: false },
@@ -1581,13 +1305,12 @@ async function tryZaiMCPProvider(
         errors: [],
       },
     };
-  } catch (err: unknown) {
+  } catch (err: any) {
     clearTimeout(timer);
 
-    const errorMessage = getSearchErrorMessage(err);
-    const isTimeout = getSearchErrorName(err) === "AbortError";
+    const isTimeout = err.name === "AbortError";
     if (log) {
-      log.error?.("SEARCH", `${config.id} MCP ${isTimeout ? "timeout" : "error"}: ${errorMessage}`);
+      log.error("SEARCH", `${config.id} MCP ${isTimeout ? "timeout" : "error"}: ${err.message}`);
     }
 
     saveCallLog({
@@ -1598,114 +1321,52 @@ async function tryZaiMCPProvider(
       provider: config.id,
       duration: Date.now() - startTime,
       requestType: "search",
-      connectionId,
-      apiKeyId,
-      error: errorMessage,
+      error: err.message,
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
     }).catch(() => {
       /* non-critical — logging must not block search response */
     });
 
-    return {
-      success: false,
-      status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(errorMessage)}`,
-    };
+    return formatSearchProviderFailure(config.id, err, isTimeout);
   }
 }
 
-type FirecrawlSearchHit = NonNullable<NonNullable<FirecrawlSearchEnvelope["data"]>["web"]>[number];
-type FirecrawlSearchMetadata = NonNullable<FirecrawlSearchHit["metadata"]>;
+type SearchResponseNormalizer = (
+  data: unknown,
+  query: string,
+  searchType: string
+) => { results: SearchResult[]; totalResults: number | null };
 
-function toFirecrawlSearchEnvelope(data: unknown): FirecrawlSearchEnvelope {
-  const payload = readSearchObject(data, "data");
-  if (!payload) return {};
-
-  const toHit = (value: unknown): FirecrawlSearchHit | undefined => {
-    const hit = asSearchObject(value);
-    if (!hit) return undefined;
-
-    const metadataRecord = readSearchObject(hit, "metadata");
-    const metadata: FirecrawlSearchMetadata | undefined = metadataRecord
-      ? {
-          title: readSearchString(metadataRecord, "title"),
-          sourceURL: readSearchString(metadataRecord, "sourceURL"),
-          publishedTime: readSearchString(metadataRecord, "publishedTime"),
-        }
-      : undefined;
-
-    return {
-      title: readSearchString(hit, "title"),
-      url: readSearchString(hit, "url"),
-      link: readSearchString(hit, "link"),
-      description: readSearchString(hit, "description"),
-      snippet: readSearchString(hit, "snippet"),
-      markdown: readSearchString(hit, "markdown"),
-      html: readSearchString(hit, "html"),
-      content: readSearchString(hit, "content"),
-      category: readSearchString(hit, "category"),
-      date: readSearchString(hit, "date"),
-      published_at: readSearchString(hit, "published_at"),
-      imageUrl: readSearchString(hit, "imageUrl"),
-      metadata,
-    };
-  };
-
-  const toHits = (value: unknown): FirecrawlSearchHit[] =>
-    (readSearchArray(value) ?? [])
-      .map(toHit)
-      .filter((hit): hit is FirecrawlSearchHit => hit !== undefined);
-
-  return {
-    data: {
-      web: toHits(readSearchValue(payload, "web")),
-      news: toHits(readSearchValue(payload, "news")),
-    },
-  };
-}
+const responseNormalizers: Record<string, SearchResponseNormalizer> = {
+  "serper-search": normalizeSerperResponse,
+  "brave-search": normalizeBraveResponse,
+  context7: normalizeContext7Response,
+  "perplexity-search": normalizePerplexityResponse,
+  "exa-search": normalizeExaResponse,
+  "tavily-search": normalizeTavilyResponse,
+  "nimble-search": normalizeNimbleResponse,
+  firecrawl: (data: FirecrawlSearchEnvelope, _query: string, searchType: string) =>
+    fcSearch.normalizeFirecrawlSearchResponse(data, searchType, makeResult),
+  "google-pse-search": normalizeGooglePseResponse,
+  "linkup-search": normalizeLinkupResponse,
+  "searchapi-search": normalizeSearchApiResponse,
+  "youcom-search": normalizeYouComResponse,
+  "searxng-search": normalizeSearxngResponse,
+  "ollama-search": normalizeOllamaResponse,
+  "jina-search": normalizeJinaSearchResponse,
+  "x-search": normalizeXSearchResponse,
+  "xquik-search": (data) => xquikSearch.normalizeXquikSearchResponse(data, makeResult),
+  "anysearch-search": (data) => anysearchSearch.normalizeAnysearchSearchResponse(data, makeResult),
+};
 
 function normalizeResponse(
   providerId: string,
-  data: unknown,
+  data: any,
   query: string,
-  searchType: string,
-  model?: string
-): { results: SearchResult[]; totalResults: number | null; answer?: SearchResponse["answer"] } {
-  if (providerId === "serper-search") return normalizeSerperResponse(data, query, searchType);
-  if (providerId === "brave-search") return normalizeBraveResponse(data, query, searchType);
-  if (providerId === "perplexity-search")
-    return normalizePerplexityResponse(data, query, searchType);
-  if (providerId === "exa-search") return normalizeExaResponse(data, query, searchType);
-  if (providerId === "tavily-search") return normalizeTavilyResponse(data, query, searchType);
-  if (providerId === "firecrawl" || providerId === "firecrawl-search")
-    return fcSearch.normalizeFirecrawlSearchResponse(
-      toFirecrawlSearchEnvelope(data),
-      searchType,
-      makeResult,
-      {
-        providerId,
-        timeoutMs: providerId === "firecrawl-search" ? 60_000 : undefined,
-        freeMonthlyQuota: providerId === "firecrawl-search" ? 500 : undefined,
-        invalidUrlPolicy: providerId === "firecrawl-search" ? "drop" : "preserve",
-        citationProvider: providerId,
-        aliasBody:
-          providerId === "firecrawl-search"
-            ? { ignoreInvalidURLs: true, scrapeOptionsFromContent: true }
-            : undefined,
-      }
-    );
-  if (providerId === "google-pse-search")
-    return normalizeGooglePseResponse(data, query, searchType);
-  if (providerId === "linkup-search") return normalizeLinkupResponse(data, query, searchType);
-  if (providerId === "searchapi-search") return normalizeSearchApiResponse(data, query, searchType);
-  if (providerId === "youcom-search") return normalizeYouComResponse(data, query, searchType);
-  if (providerId === "searxng-search") return normalizeSearxngResponse(data, query, searchType);
-  if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
-  if (providerId === "parallel-search")
-    return normalizeParallelSearchResponse(data, query, searchType);
-  if (providerId === "context7") return normalizeContext7Response(data, query, searchType);
-  if (providerId === "gemini-grounded-search")
-    return normalizeGeminiGroundedSearchResponse(data, query, searchType, model);
+  searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const normalizer = responseNormalizers[providerId];
+  if (normalizer) return normalizer(data, query, searchType);
   return { results: [], totalResults: null };
 }
 
@@ -1771,13 +1432,11 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     contentOptions,
     providerOptions,
     credentials,
-    connectionId,
-    apiKeyId,
-    providerConfig,
     alternateProvider,
-    alternateProviderConfig,
     alternateCredentials,
     log,
+    connectionId,
+    apiKeyId,
   } = options;
   const startTime = Date.now();
 
@@ -1788,7 +1447,7 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 2. Use resolved provider from route (no re-resolution)
-  const primaryConfig = providerConfig ?? getSearchProvider(providerId);
+  const primaryConfig = getSearchProvider(providerId);
   if (!primaryConfig) {
     return {
       success: false,
@@ -1805,8 +1464,7 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 3. Get alternate config for failover (pre-resolved by route)
-  const alternateConfig =
-    alternateProviderConfig ?? (alternateProvider ? getSearchProvider(alternateProvider) : null);
+  const alternateConfig = alternateProvider ? getSearchProvider(alternateProvider) : null;
 
   const requestParams = {
     query: cleanQuery,
@@ -1828,7 +1486,60 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     }
   }
 
-  // 4. Try primary provider
+  // 4. Try primary provider (skip catalog-default SearXNG localhost:8888,
+  // unless a request/connection override resolves it to a real URL).
+  const primaryEffectiveBaseUrl = resolveSearchBaseUrl(primaryConfig, {
+    ...requestParams,
+    providerSpecificData:
+      credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
+        ? credentials.providerSpecificData
+        : undefined,
+  });
+  if (
+    isUnconfiguredLoopbackSearchProvider({ ...primaryConfig, baseUrl: primaryEffectiveBaseUrl })
+  ) {
+    if (log) {
+      log.warn(
+        "SEARCH",
+        "skipping catalog-default searxng-search at http://localhost:8888/search; set a real SearXNG URL"
+      );
+    }
+    const alternateEffectiveBaseUrl = alternateConfig
+      ? resolveSearchBaseUrl(alternateConfig, {
+          ...requestParams,
+          providerSpecificData:
+            alternateCredentials?.providerSpecificData &&
+            typeof alternateCredentials.providerSpecificData === "object"
+              ? alternateCredentials.providerSpecificData
+              : undefined,
+        })
+      : "";
+    if (
+      alternateConfig &&
+      alternateCredentials &&
+      !isUnconfiguredLoopbackSearchProvider({
+        ...alternateConfig,
+        baseUrl: alternateEffectiveBaseUrl,
+      })
+    ) {
+      return tryProvider(
+        alternateConfig,
+        requestParams,
+        alternateCredentials,
+        startTime,
+        log,
+        alternateCredentials?.connectionId,
+        apiKeyId
+      );
+    }
+    return {
+      success: false,
+      status: 503,
+      error:
+        "SearXNG is still on the catalog default http://localhost:8888/search. Configure a real SearXNG URL or disable the provider.",
+    };
+  }
+
   const result = await tryProvider(
     primaryConfig,
     requestParams,
@@ -1839,18 +1550,20 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     apiKeyId
   );
 
-  if (result.success && (result.data?.results.length || !alternateConfig)) return result;
+  if (result.success) return result;
 
   // 5. Failover to alternate (only for retriable errors and auto-select mode)
   if (
     alternateConfig &&
     alternateCredentials &&
-    (result.success || !NON_RETRIABLE.has(result.status || 0)) &&
+    !NON_RETRIABLE.has(result.status || 0) &&
     Date.now() - startTime < GLOBAL_TIMEOUT_MS
   ) {
     if (log) {
-      const reason = result.success ? "returned no usable results" : `failed (${result.status})`;
-      log.warn?.("SEARCH", `${primaryConfig.id} ${reason}, trying ${alternateConfig.id}`);
+      log.warn(
+        "SEARCH",
+        `${primaryConfig.id} failed (${result.status}), trying ${alternateConfig.id}`
+      );
     }
 
     // Resolve alternate connection proxy independently so primary context never leaks
@@ -1860,7 +1573,7 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       alternateCredentials,
       startTime,
       log,
-      resolveSearchConnectionId(alternateCredentials),
+      alternateCredentials?.connectionId,
       apiKeyId
     );
 
@@ -1883,9 +1596,7 @@ async function tryDuckDuckGoFreeProvider(
   log?: {
     info?: (tag: string, message: string) => void;
     error?: (tag: string, message: string) => void;
-  } | null,
-  connectionId?: string | null,
-  apiKeyId?: string | null
+  } | null
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
@@ -1902,13 +1613,7 @@ async function tryDuckDuckGoFreeProvider(
   };
 
   try {
-    const freeResults = await executeSearchOperation({
-      providerId: config.id,
-      connectionId,
-      apiKeyId,
-      url: config.baseUrl,
-      operation: () => freeWebSearch(query, maxResults, timeout),
-    });
+    const freeResults = await freeWebSearch(query, maxResults, timeout);
     const now = new Date().toISOString();
     const results = freeResults
       .slice(0, maxResults)
@@ -1925,8 +1630,6 @@ async function tryDuckDuckGoFreeProvider(
       provider: config.id,
       duration,
       requestType: "search",
-      connectionId,
-      apiKeyId,
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       requestBody,
       responseBody: { results_count: results.length, cached: false },
@@ -1965,8 +1668,6 @@ async function tryDuckDuckGoFreeProvider(
       provider: config.id,
       duration,
       requestType: "search",
-      connectionId,
-      apiKeyId,
       error: message.slice(0, 500),
       requestBody,
     }).catch(() => {
@@ -1984,19 +1685,18 @@ async function tryDuckDuckGoFreeProvider(
 async function tryProvider(
   config: SearchProviderConfig,
   params: Omit<SearchRequestParams, "token">,
-  credentials: SearchJsonObject,
+  credentials: Record<string, any>,
   globalStartTime: number,
-  log?: SearchLogger,
-  connectionId?: string | null,
-  apiKeyId?: string | null
+  log?: any,
+  connectionId?: string,
+  apiKeyId?: string
 ): Promise<SearchHandlerResult> {
   const startTime = Date.now();
-  const providerSpecificData = asSearchObject(readSearchValue(credentials, "providerSpecificData"));
-  const token = firstSearchString(
-    readSearchValue(credentials, "apiKey"),
-    readSearchValue(credentials, "accessToken")
-  );
-  const selectedConnectionId = resolveSearchConnectionId(credentials, connectionId);
+  const providerSpecificData =
+    credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
+      ? credentials.providerSpecificData
+      : undefined;
+  const token = credentials.apiKey || credentials.accessToken || undefined;
 
   if (config.authType !== "none" && !token) {
     return {
@@ -2009,15 +1709,7 @@ async function tryProvider(
   const { query, searchType, maxResults } = params;
 
   if (config.id === "duckduckgo-free") {
-    return tryDuckDuckGoFreeProvider(
-      config,
-      params,
-      startTime,
-      globalStartTime,
-      log,
-      selectedConnectionId,
-      apiKeyId
-    );
+    return tryDuckDuckGoFreeProvider(config, params, startTime, globalStartTime, log);
   }
 
   if (config.id === "zai-search" && token) {
@@ -2028,28 +1720,25 @@ async function tryProvider(
       providerSpecificData,
       startTime,
       globalStartTime,
-      log,
-      selectedConnectionId,
-      apiKeyId
+      log
     );
   }
 
   let url = "";
   let init: RequestInit = {};
-  let requestModel: string | undefined;
   try {
-    const builtRequest = buildRequest(config, { ...params, token, providerSpecificData });
-    url = builtRequest.url;
-    init = builtRequest.init;
-    requestModel = "model" in builtRequest ? builtRequest.model : undefined;
-  } catch (err: unknown) {
-    const errorMessage = getSearchErrorMessage(err);
+    ({ url, init } = buildRequest(config, { ...params, token, providerSpecificData }));
+  } catch (err: any) {
     return {
       success: false,
       status: 400,
-      error: errorMessage || `Invalid search configuration for provider: ${config.id}`,
+      error: err?.message || `Invalid search configuration for provider: ${config.id}`,
     };
   }
+
+  // Resolve proxy for the selected connection (see search/searchProxy.ts for the
+  // resolveProxyForConnection precedence chain: per-key, account, provider, combo, global).
+  const { proxy, proxyLevel } = await resolveSearchProxy(connectionId, apiKeyId, config.id);
 
   // Timeout: min of provider timeout and remaining global timeout
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
@@ -2058,125 +1747,25 @@ async function tryProvider(
   const timer = setTimeout(() => controller.abort(), timeout);
 
   if (log) {
-    log.info?.("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
+    log.info("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
   }
 
-  try {
-    const proxyRequest = await executeSearchRequest({
-      providerId: config.id,
-      connectionId: selectedConnectionId,
-      apiKeyId,
-      url,
-      init: { ...init, signal: controller.signal },
-    });
-    const response = proxyRequest.response;
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (log) {
-        log.error?.("SEARCH", `${config.id} error ${response.status}: ${errorText.slice(0, 200)}`);
-      }
-
-      saveCallLog({
-        method: config.method,
-        path: "/v1/search",
-        status: response.status,
-        model: config.id,
-        provider: config.id,
-        duration: Date.now() - startTime,
-        requestType: "search",
-        connectionId: selectedConnectionId,
-        apiKeyId,
-        error: errorText.slice(0, 500),
-        requestBody: {
-          query: query.slice(0, 200),
-          search_type: searchType,
-          max_results: maxResults,
-        },
-      }).catch(() => {
-        /* non-critical — logging must not block search response */
-      });
-
-      return {
-        success: false,
-        status: response.status,
-        error: `Search provider ${config.id} returned ${response.status}`,
-      };
-    }
-
-    const data: unknown = await response.json();
-    const normalized = normalizeResponse(config.id, data, query, searchType, requestModel);
-    // Enforce max_results — some providers return more than requested
-    const results = normalized.results.slice(0, maxResults);
-    const totalResults = normalized.totalResults;
-    const duration = Date.now() - startTime;
-
-    saveCallLog({
-      method: config.method,
-      path: "/v1/search",
-      status: 200,
-      model: config.id,
-      provider: config.id,
-      duration,
-      requestType: "search",
-      connectionId: selectedConnectionId,
-      apiKeyId,
-      tokens: { prompt_tokens: 0, completion_tokens: 0 },
-      requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
-      responseBody: { results_count: results.length, cached: false },
-    }).catch(() => {
-      /* non-critical — logging must not block search response */
-    });
-
-    return {
-      success: true,
-      data: {
-        provider: config.id,
-        query,
-        results,
-        answer: normalized.answer ?? null,
-        usage: { queries_used: 1, search_cost_usd: config.costPerQuery },
-        metrics: {
-          response_time_ms: duration,
-          upstream_latency_ms: duration,
-          total_results_available: totalResults,
-        },
-        errors: [],
-      },
-    };
-  } catch (err: unknown) {
-    clearTimeout(timer);
-
-    const errorMessage = getSearchErrorMessage(err);
-    const isTimeout = getSearchErrorName(err) === "AbortError";
-    if (log) {
-      log.error?.(
-        "SEARCH",
-        `${config.id} ${isTimeout ? "timeout" : "fetch error"}: ${errorMessage}`
-      );
-    }
-
-    saveCallLog({
-      method: config.method,
-      path: "/v1/search",
-      status: isTimeout ? 504 : 502,
-      model: config.id,
-      provider: config.id,
-      duration: Date.now() - startTime,
-      requestType: "search",
-      connectionId: selectedConnectionId,
-      apiKeyId,
-      error: errorMessage,
-      requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
-    }).catch(() => {
-      /* non-critical — logging must not block search response */
-    });
-
-    return {
-      success: false,
-      status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(errorMessage)}`,
-    };
-  }
+  // Delegate the fetch + response handling (proxy fetch, call-log, sanitized
+  // proxy event, result shaping) to the shared chokepoint in searchProxy.ts.
+  return executeProviderFetch({
+    config,
+    url,
+    init,
+    controller,
+    timer,
+    query,
+    searchType,
+    maxResults,
+    startTime,
+    connectionId,
+    proxy,
+    proxyLevel,
+    log,
+    normalize: normalizeResponse,
+  });
 }

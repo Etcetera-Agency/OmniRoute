@@ -18,11 +18,12 @@ function sseStream(body: string): ReadableStream<Uint8Array> {
 // OpenAI-shape stream: single role-only delta chunk, then the connection
 // closes. No finish_reason anywhere, no `data: [DONE]` sentinel.
 function makeTruncatedOpenAiStream(): Response {
-  const body = `data: ${JSON.stringify({
-    id: "chatcmpl-test-truncated",
-    object: "chat.completion.chunk",
-    choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }],
-  })}\n\n`;
+  const body =
+    `data: ${JSON.stringify({
+      id: "chatcmpl-test-truncated",
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }],
+    })}\n\n`;
   return new Response(sseStream(body), {
     status: 200,
     headers: { "content-type": "text/event-stream" },

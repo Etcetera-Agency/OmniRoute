@@ -18,12 +18,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { APIKEY_PROVIDERS } = await import("../../src/shared/constants/providers.ts");
-const { REGISTRY: providerRegistry } = await import("../../open-sse/config/providerRegistry.ts");
-const { NAMED_OPENAI_STYLE_PROVIDERS, isNamedOpenAIStyleProvider } =
-  await import("../../src/app/api/providers/[id]/models/discovery/providerSets.ts");
-const { PROVIDER_MODELS_CONFIG } =
-  await import("../../src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts");
+const { APIKEY_PROVIDERS } = await import(
+  "../../src/shared/constants/providers.ts"
+);
+const { REGISTRY: providerRegistry } = await import(
+  "../../open-sse/config/providerRegistry.ts"
+);
+const { NAMED_OPENAI_STYLE_PROVIDERS, isNamedOpenAIStyleProvider } = await import(
+  "../../src/app/api/providers/[id]/models/discovery/providerSets.ts"
+);
+const { PROVIDER_MODELS_CONFIG } = await import(
+  "../../src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts"
+);
 
 const SPEC = {
   id: "openvecta",
@@ -91,7 +97,7 @@ test("providerRegistry.openvecta uses OpenAI format with bearer apikey auth", ()
 test("openvecta is classified as a named OpenAI-style provider (live-fetch path)", () => {
   assert.ok(
     NAMED_OPENAI_STYLE_PROVIDERS.has(SPEC.id),
-    "openvecta must be in NAMED_OPENAI_STYLE_PROVIDERS for live /v1/models fetch"
+    "openvecta must be in NAMED_OPENAI_STYLE_PROVIDERS for live /v1/models fetch",
   );
   assert.equal(isNamedOpenAIStyleProvider(SPEC.id), true);
 });

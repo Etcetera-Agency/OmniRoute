@@ -32,7 +32,9 @@ async function cleanupComboConnectionRefs(connectionId: string) {
         changed = true;
       }
       if (Array.isArray(out.allowedConnectionIds)) {
-        const filtered = out.allowedConnectionIds.filter((id: string) => id !== connectionId);
+        const filtered = out.allowedConnectionIds.filter(
+          (id: string) => id !== connectionId
+        );
         if (filtered.length !== out.allowedConnectionIds.length) {
           out = { ...out, allowedConnectionIds: filtered };
           changed = true;
@@ -99,7 +101,9 @@ describe("cleanupComboConnectionRefs", () => {
     combos.set("combo-3", {
       id: "combo-3",
       name: "unrelated",
-      models: [{ id: "s1", kind: "model", model: "gpt-4", connectionId: "conn-other" }],
+      models: [
+        { id: "s1", kind: "model", model: "gpt-4", connectionId: "conn-other" },
+      ],
     });
 
     const touched = await cleanupComboConnectionRefs("conn-delete");
@@ -117,26 +121,26 @@ describe("cleanupComboConnectionRefs", () => {
   });
 });
 
-it("removes connectionId from both connectionId and allowedConnectionIds on same step", async () => {
-  combos.set("combo-5", {
-    id: "combo-5",
-    name: "dual-ref",
-    models: [
-      {
-        id: "s1",
-        kind: "model",
-        model: "claude",
-        connectionId: "conn-delete",
-        allowedConnectionIds: ["conn-delete", "conn-keep"],
-      },
-    ],
+  it("removes connectionId from both connectionId and allowedConnectionIds on same step", async () => {
+    combos.set("combo-5", {
+      id: "combo-5",
+      name: "dual-ref",
+      models: [
+        {
+          id: "s1",
+          kind: "model",
+          model: "claude",
+          connectionId: "conn-delete",
+          allowedConnectionIds: ["conn-delete", "conn-keep"],
+        },
+      ],
+    });
+
+    const touched = await cleanupComboConnectionRefs("conn-delete");
+    assert.equal(touched, 1);
+
+    const combo = combos.get("combo-5")!;
+    const models = combo.models as Record<string, unknown>[];
+    assert.equal(models[0].connectionId, undefined);
+    assert.deepEqual(models[0].allowedConnectionIds, ["conn-keep"]);
   });
-
-  const touched = await cleanupComboConnectionRefs("conn-delete");
-  assert.equal(touched, 1);
-
-  const combo = combos.get("combo-5")!;
-  const models = combo.models as Record<string, unknown>[];
-  assert.equal(models[0].connectionId, undefined);
-  assert.deepEqual(models[0].allowedConnectionIds, ["conn-keep"]);
-});

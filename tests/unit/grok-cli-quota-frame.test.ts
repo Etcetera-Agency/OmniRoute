@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  decodeGrokCreditsFrame,
-  probeFrameHeader,
-} from "../../open-sse/services/grokCliQuotaFrame.ts";
+import { decodeGrokCreditsFrame, probeFrameHeader } from "../../open-sse/services/grokCliQuotaFrame.ts";
 
 /**
  * Minimal protobuf encoder for test fixtures only — mirrors the REAL wire
@@ -131,11 +128,7 @@ test("decodeGrokCreditsFrame decodes the real captured GetGrokCreditsConfig shap
 });
 
 test("decodeGrokCreditsFrame ignores a trailing gRPC-web trailer frame (flag 0x80) and decodes the data frame only", () => {
-  const creditsInfo = encodeCreditsInfo({
-    usageRatio: 0.5,
-    resetSeconds: REAL_RESET_SECONDS,
-    resetNanos: 0,
-  });
+  const creditsInfo = encodeCreditsInfo({ usageRatio: 0.5, resetSeconds: REAL_RESET_SECONDS, resetNanos: 0 });
   const topMessage = encodeTopLevelMessage(creditsInfo);
   const withoutTrailer = frameData(topMessage);
   const withTrailer = Buffer.concat([frameData(topMessage), frameTrailer()]);
@@ -151,11 +144,7 @@ test("decodeGrokCreditsFrame ignores a trailing gRPC-web trailer frame (flag 0x8
 });
 
 test("decodeGrokCreditsFrame decodes a raw (unframed) buffer by falling back", () => {
-  const creditsInfo = encodeCreditsInfo({
-    usageRatio: 0.75,
-    resetSeconds: REAL_RESET_SECONDS,
-    resetNanos: REAL_RESET_NANOS,
-  });
+  const creditsInfo = encodeCreditsInfo({ usageRatio: 0.75, resetSeconds: REAL_RESET_SECONDS, resetNanos: REAL_RESET_NANOS });
   const payload = encodeTopLevelMessage(creditsInfo);
 
   // probeFrameHeader must correctly reject this as "not framed" first.
@@ -169,10 +158,7 @@ test("decodeGrokCreditsFrame decodes a raw (unframed) buffer by falling back", (
 });
 
 test("decodeGrokCreditsFrame treats an omitted usage-ratio subfield as 0% (proto3 default)", () => {
-  const creditsInfo = encodeCreditsInfo({
-    resetSeconds: REAL_RESET_SECONDS,
-    resetNanos: REAL_RESET_NANOS,
-  });
+  const creditsInfo = encodeCreditsInfo({ resetSeconds: REAL_RESET_SECONDS, resetNanos: REAL_RESET_NANOS });
   const buffer = frameData(encodeTopLevelMessage(creditsInfo));
 
   const result = decodeGrokCreditsFrame(buffer);
@@ -220,11 +206,7 @@ test("decodeGrokCreditsFrame returns null when the top-level message has no fiel
 });
 
 test("decodeGrokCreditsFrame returns null for a malformed/truncated buffer", () => {
-  const creditsInfo = encodeCreditsInfo({
-    usageRatio: 0.5,
-    resetSeconds: REAL_RESET_SECONDS,
-    resetNanos: REAL_RESET_NANOS,
-  });
+  const creditsInfo = encodeCreditsInfo({ usageRatio: 0.5, resetSeconds: REAL_RESET_SECONDS, resetNanos: REAL_RESET_NANOS });
   const buffer = frameData(encodeTopLevelMessage(creditsInfo));
   // Truncate mid-way through the nested Timestamp so the inner walk runs off the end.
   const truncated = buffer.subarray(0, buffer.length - 3);

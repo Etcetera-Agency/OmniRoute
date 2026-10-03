@@ -104,7 +104,10 @@ describe("frameConnectMessage + decodeConnectMessage round-trip", () => {
     );
     framed[0] = 2;
     const { frame } = decodeConnectFrame(framed, 0);
-    assert.equal(frame ? getConnectEndStreamError(frame) : null, "unauthenticated: expired");
+    assert.equal(
+      frame ? getConnectEndStreamError(frame) : null,
+      "unauthenticated: expired"
+    );
   });
 });
 
@@ -211,7 +214,9 @@ describe("foldMessages", () => {
     );
     assert.throws(
       () =>
-        foldMessages([{ role: "user", content: [{ type: "image_url", image_url: { url: "x" } }] }]),
+        foldMessages([
+          { role: "user", content: [{ type: "image_url", image_url: { url: "x" } }] },
+        ]),
       /does not support image/
     );
   });

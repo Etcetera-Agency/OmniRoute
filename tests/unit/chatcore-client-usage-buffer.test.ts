@@ -8,6 +8,9 @@ import assert from "node:assert/strict";
 
 const { applyClientUsageBuffer } =
   await import("../../open-sse/handlers/chatCore/clientUsageBuffer.ts");
+const { resolveChatCoreRequestFormat } =
+  await import("../../open-sse/handlers/chatCore/requestFormat.ts");
+const { invalidateBufferTokensCache } = await import("../../open-sse/utils/usageTracking.ts");
 
 function makeDeps(overrides: Record<string, unknown> = {}) {
   const calls = { buffer: [] as unknown[], estimate: [] as unknown[], filter: [] as unknown[] };

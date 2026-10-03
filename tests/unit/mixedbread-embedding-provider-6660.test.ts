@@ -31,15 +31,24 @@ test("mixedbread model strings resolve via parseEmbeddingModel", () => {
 });
 
 test("mixedbread models report the correct known dimensionality (1024d)", () => {
-  assert.equal(getEmbeddingDimension("mixedbread/mixedbread-ai/mxbai-embed-large-v1"), 1024);
-  assert.equal(getEmbeddingDimension("mixedbread/mixedbread-ai/mxbai-embed-2d-large-v1"), 1024);
+  assert.equal(
+    getEmbeddingDimension("mixedbread/mixedbread-ai/mxbai-embed-large-v1"),
+    1024
+  );
+  assert.equal(
+    getEmbeddingDimension("mixedbread/mixedbread-ai/mxbai-embed-2d-large-v1"),
+    1024
+  );
 });
 
 test("getAllEmbeddingModels includes both mixedbread models with provider-scoped ids", () => {
   const all = getAllEmbeddingModels().filter((model) => model.provider === "mixedbread");
-  assert.deepEqual(all.map((model) => model.id).sort(), [
-    "mixedbread/mixedbread-ai/mxbai-embed-2d-large-v1",
-    "mixedbread/mixedbread-ai/mxbai-embed-large-v1",
-  ]);
+  assert.deepEqual(
+    all.map((model) => model.id).sort(),
+    [
+      "mixedbread/mixedbread-ai/mxbai-embed-2d-large-v1",
+      "mixedbread/mixedbread-ai/mxbai-embed-large-v1",
+    ]
+  );
   assert.ok(all.every((model) => model.dimensions === 1024));
 });

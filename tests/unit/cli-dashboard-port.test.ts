@@ -55,10 +55,13 @@ test("dashboard command: --port option has no Commander default", async () => {
   const path = await import("node:path");
   const dashboardSource = fs.readFileSync(
     path.resolve(import.meta.dirname, "../../bin/cli/commands/dashboard.mjs"),
-    "utf-8"
+    "utf-8",
   );
   // Ensure the option does NOT carry a baked-in Commander default (third arg).
-  assert.match(dashboardSource, /\.option\("--port <port>",\s*"Port the server is running on"\)/);
+  assert.match(
+    dashboardSource,
+    /\.option\("--port <port>",\s*"Port the server is running on"\)/,
+  );
 });
 
 test("dashboard command: source references process.env.PORT (env-fallback regression guard)", async () => {
@@ -66,7 +69,7 @@ test("dashboard command: source references process.env.PORT (env-fallback regres
   const path = await import("node:path");
   const dashboardSource = fs.readFileSync(
     path.resolve(import.meta.dirname, "../../bin/cli/commands/dashboard.mjs"),
-    "utf-8"
+    "utf-8",
   );
   assert.match(dashboardSource, /process\.env\.PORT/);
 });

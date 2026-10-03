@@ -8,7 +8,10 @@ test("dahlProvider registry entry has correct configuration", () => {
   assert.equal(dahlProvider.alias, "dahl");
   assert.equal(dahlProvider.format, "openai");
   assert.equal(dahlProvider.executor, "openai-compatible");
-  assert.equal(dahlProvider.baseUrl, "https://inference.dahl.global/v1/chat/completions");
+  assert.equal(
+    dahlProvider.baseUrl,
+    "https://inference.dahl.global/v1/chat/completions",
+  );
   assert.equal(dahlProvider.authType, "apikey");
   assert.equal(dahlProvider.passthroughModels, false);
   assert.equal(dahlProvider.models.length, 2);

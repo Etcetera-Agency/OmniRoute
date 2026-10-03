@@ -9,7 +9,6 @@
 // já cabe no cap, inclusive quem NÃO encolheu nesta rodada (loc === frozen[file]).
 // Antes a remoção só acontecia dentro do ramo de encolhimento, então uma entrada
 // igual ao próprio teto ficava presa no baseline para sempre — ver #8584.
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -24,7 +23,7 @@ const BASELINE_PATH = path.resolve(
   getArg("--baseline", path.join(ROOT, "config/quality/file-size-baseline.json"))
 );
 const UPDATE = process.argv.includes("--update");
-const BASE_REF = getArg("--base-ref");
+const BASE_REF = getArg("--base-ref"); // SHA for PR base-relative mode (#8522)
 const SCAN_DIRS = ["src", "open-sse", "electron", "bin"];
 // Test files live under tests/ plus co-located *.test.ts(x) inside the source dirs.
 const TEST_SCAN_DIRS = ["tests", ...SCAN_DIRS];
@@ -40,7 +39,14 @@ const SKIP_DIRS = new Set(["node_modules", "dist-electron", ".next", ".build", "
  * (loc < frozen), entao uma entrada igual ao proprio teto nunca saia da lista,
  * por mais abaixo do cap que estivesse (3 casos reais no v3.8.49).
  *
- * @param {Object} [baseLocByFile] — LOC in PR base ref (optional)
+ * Quando `baseLocByFile` e fornecido (modo PR), a violacao e computada contra
+ * o MAIOR entre o valor congelado e o valor na base -- assim um PR inocente
+ * (head === base no arquivo) nao e penalizado por drift herdado (#8522).
+ *
+ * @param {Object} currentLocByFile — LOC atuais (head)
+ * @param {Object} frozen — baseline congelado
+ * @param {number} cap — teto para arquivos novos
+ * @param {Object} [baseLocByFile] — LOC na branch base (opcional, modo PR)
  * @returns {{violations: string[], improvements: [string, number][], redundant: string[]}}
  */
 export function evaluateFileSizes(currentLocByFile, frozen, cap, baseLocByFile) {
@@ -60,6 +66,7 @@ export function evaluateFileSizes(currentLocByFile, frozen, cap, baseLocByFile) 
       if (!baseLocByFile) {
         violations.push(`${file}: ${loc} > cap ${cap} (arquivo novo acima do limite)`);
       } else {
+        // Modo PR: so viola se cresceu alem do que ja estava na base
         const baseLoc = baseLocByFile[file] ?? 0;
         const prThreshold = Math.max(cap, baseLoc);
         if (loc > prThreshold)
@@ -122,19 +129,25 @@ function collectTestLoc() {
   return out;
 }
 
-/** Read LOC for paths from a git ref. Missing paths are new files and stay absent. */
+/**
+ * Computa LOC por arquivo a partir de um ref git (branch, SHA, tag).
+ * Usado pelo modo --base-ref para obter a contagem na base do PR (#8522).
+ * @param {string} ref — git ref (e.g. SHA da branch base)
+ * @param {string[]} files — lista de paths relativos ao ROOT
+ * @returns {Object} mapa file → line count
+ */
 function getBaseLoc(ref, files) {
   const out = {};
   for (const file of files) {
     try {
-      const content = execFileSync("git", ["show", `${ref}:${file}`], {
+      const buf = execFileSync("git", ["show", `${ref}:${file}`], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
         timeout: 5000,
       });
-      out[file] = content.split("\n").length;
+      out[file] = buf.split("\n").length;
     } catch {
-      // New file in PR base: treat as zero lines.
+      // Arquivo nao existe na base (novo no PR) — tratado como 0
     }
   }
   return out;
@@ -149,26 +162,29 @@ function main() {
   const cap = baseline.cap;
   const frozen = baseline.frozen || {};
   const current = collectLoc();
-  const currentTests = collectTestLoc();
-  const filesToMeasure = [...new Set([...Object.keys(current), ...Object.keys(currentTests)])];
-  const baseLoc = BASE_REF ? getBaseLoc(BASE_REF, filesToMeasure) : undefined;
+
+  // Modo PR: computa LOC na branch base para comparacao relativa (#8522)
+  const baseLoc = BASE_REF ? getBaseLoc(BASE_REF, Object.keys(current)) : undefined;
   if (BASE_REF) {
+    const baseKeys = Object.keys(baseLoc).length;
     console.log(
-      `[file-size] PR base ${BASE_REF.slice(0, 12)}: ${Object.keys(baseLoc).length} files measured`
+      `[file-size] modo PR (--base-ref ${BASE_REF.slice(0, 12)}): ${baseKeys} arquivos da base computados`
     );
   }
+
   const { violations, improvements, redundant } = evaluateFileSizes(current, frozen, cap, baseLoc);
 
   // Test-file gate (Layer 1 anti-reinflation): same shrink-only + new-≤cap semantics,
   // reusing evaluateFileSizes against the testFrozen baseline + testCap.
   const testCap = baseline.testCap;
   const testFrozen = baseline.testFrozen || {};
+  const currentTests = collectTestLoc();
   const {
     violations: testViolations,
     improvements: testImprovements,
     redundant: testRedundant,
   } = typeof testCap === "number"
-    ? evaluateFileSizes(currentTests, testFrozen, testCap, baseLoc)
+    ? evaluateFileSizes(currentTests, testFrozen, testCap, BASE_REF ? baseLoc : undefined)
     : { violations: [], improvements: [], redundant: [] };
 
   if (UPDATE) {

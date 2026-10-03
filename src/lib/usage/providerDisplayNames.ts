@@ -28,7 +28,9 @@ function getProviderDisplayName(
   const rawProvider = toStringValue(provider, "unknown");
   // Configured node name wins; static catalog covers built-ins (e.g. codex →
   // "OpenAI Codex") the nodes table doesn't know about; raw id is the last resort.
-  return providerDisplayNames.get(rawProvider) || getProviderById(rawProvider)?.name || rawProvider;
+  return (
+    providerDisplayNames.get(rawProvider) || getProviderById(rawProvider)?.name || rawProvider
+  );
 }
 
 async function getProviderDisplayNames(): Promise<Map<string, string>> {

@@ -82,10 +82,9 @@ export function shouldTryBifrostForRequest(
     return { tryBifrost: true };
   }
 
-  const model =
-    typeof (body as { model?: unknown } | null)?.model === "string"
-      ? (body as { model: string }).model
-      : undefined;
+  const model = typeof (body as { model?: unknown } | null)?.model === "string"
+    ? (body as { model: string }).model
+    : undefined;
   const provider = lookupProviderSidecar(model);
   if (provider?.eligible) {
     return { tryBifrost: true };
@@ -105,7 +104,10 @@ export function getRoutingFallbackHeader(
 }
 
 export type RoutingFallbackReasonCode =
-  "bifrost-cooldown" | "bifrost-error" | "bifrost-ineligible" | "bifrost-provider-unknown";
+  | "bifrost-cooldown"
+  | "bifrost-error"
+  | "bifrost-ineligible"
+  | "bifrost-provider-unknown";
 
 const ROUTING_FALLBACK_REASON_CODES = new Set<RoutingFallbackReasonCode>([
   "bifrost-cooldown",

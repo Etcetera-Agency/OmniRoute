@@ -83,7 +83,11 @@ function parseDataEvents(raw: string): Record<string, unknown>[] {
 test("#7800: synthetic finish_reason chunk injected when upstream omits it", async () => {
   // Provider sends content chunks with finish_reason: null, then [DONE]
   // WITHOUT a terminal chunk carrying finish_reason.
-  const rawSSE = [makeChunk("Hello", null), makeChunk(" world", null), "data: [DONE]\n\n"].join("");
+  const rawSSE = [
+    makeChunk("Hello", null),
+    makeChunk(" world", null),
+    "data: [DONE]\n\n",
+  ].join("");
 
   const result = await runPassthrough(rawSSE);
   const events = parseDataEvents(result);
@@ -92,7 +96,11 @@ test("#7800: synthetic finish_reason chunk injected when upstream omits it", asy
   const finishEvents = events.filter(
     (e) => e.choices?.[0]?.finish_reason && e.choices[0].finish_reason !== null
   );
-  assert.equal(finishEvents.length, 1, "Expected exactly one chunk with non-null finish_reason");
+  assert.equal(
+    finishEvents.length,
+    1,
+    "Expected exactly one chunk with non-null finish_reason"
+  );
   assert.equal(
     finishEvents[0].choices[0].finish_reason,
     "stop",
@@ -159,7 +167,10 @@ test("#7800: synthetic finish_reason is 'tool_calls' when tool calls were used",
     ],
   };
 
-  const rawSSE = [`data: ${JSON.stringify(toolCallChunk)}\n\n`, "data: [DONE]\n\n"].join("");
+  const rawSSE = [
+    `data: ${JSON.stringify(toolCallChunk)}\n\n`,
+    "data: [DONE]\n\n",
+  ].join("");
 
   const result = await runPassthrough(rawSSE);
   const events = parseDataEvents(result);

@@ -14,18 +14,18 @@ import path from "node:path";
  */
 const serveSource = fs.readFileSync(
   path.resolve(import.meta.dirname, "../../bin/cli/commands/serve.mjs"),
-  "utf-8"
+  "utf-8",
 );
 
 test("serve banner: version is parsed from package.json at module load", () => {
   assert.match(
     serveSource,
     /_pkg\s*=\s*JSON\.parse\(\s*readFileSync\(/,
-    "serve.mjs should parse the version from package.json into _pkg"
+    "serve.mjs should parse the version from package.json into _pkg",
   );
   assert.ok(
     serveSource.includes("package.json"),
-    "serve.mjs should reference package.json for the version source"
+    "serve.mjs should reference package.json for the version source",
   );
 });
 
@@ -33,6 +33,6 @@ test("serve banner: startup banner prints v<version>", () => {
   assert.match(
     serveSource,
     /v\$\{_pkg\.version\}/,
-    "serve.mjs should print v${_pkg.version} in the startup banner"
+    "serve.mjs should print v${_pkg.version} in the startup banner",
   );
 });

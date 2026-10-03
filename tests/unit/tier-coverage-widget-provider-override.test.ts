@@ -6,8 +6,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { classifyConnection } =
-  await import("../../src/app/(dashboard)/dashboard/TierCoverageWidget.tsx");
+const { classifyConnection } = await import(
+  "../../src/app/(dashboard)/dashboard/TierCoverageWidget.tsx"
+);
 
 test("classifyConnection uses the override before falling back to registry membership", () => {
   // A custom provider id has no NOAUTH/OAUTH registry entry, so without an
@@ -30,7 +31,10 @@ test("classifyConnection uses the override before falling back to registry membe
 });
 
 test("classifyConnection override lookup is case-insensitive on the provider id", () => {
-  assert.equal(classifyConnection("My-Custom-Endpoint", { "my-custom-endpoint": "free" }), "tier3");
+  assert.equal(
+    classifyConnection("My-Custom-Endpoint", { "my-custom-endpoint": "free" }),
+    "tier3"
+  );
 });
 
 test("classifyConnection falls back to registry membership when no override matches", () => {

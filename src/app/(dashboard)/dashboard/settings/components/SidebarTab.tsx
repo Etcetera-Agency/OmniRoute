@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useId } from "react";
 import {
   DndContext,
   closestCenter,
@@ -87,6 +87,8 @@ function SortableSection({
   const orderedChildren = applyItemOrder(allChildren, itemOrder);
   const childIds = orderedChildren.map(getChildId);
   const sensors = useSensors(useSensor(PointerSensor));
+  // Same id on server and client; dnd-kit's default comes from a process-wide counter.
+  const dndContextId = useId();
 
   const handleItemDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -138,6 +140,7 @@ function SortableSection({
       {/* Section children with inner DnD */}
       {expanded && (
         <DndContext
+          id={dndContextId}
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleItemDragEnd}
@@ -465,7 +468,9 @@ export default function SidebarTab() {
     patch({ [HIDDEN_SIDEBAR_GROUP_LABELS_SETTING_KEY]: next, [SIDEBAR_PRESET_KEY]: null });
   };
 
-  const visibleSections = SIDEBAR_SECTIONS.filter((s) => s.visibility !== "debug" || showDebug);
+  const visibleSections = resolveRuntimeSidebarSections(SIDEBAR_SECTIONS, {
+    radarAdminUrl,
+  }).filter((s) => s.visibility !== "debug" || showDebug);
 
   const orderedSections = applySectionOrder(visibleSections, sectionOrder).map((s) => ({
     ...s,
@@ -475,6 +480,8 @@ export default function SidebarTab() {
   const sectionIds = orderedSections.map((s) => s.id);
 
   const sensors = useSensors(useSensor(PointerSensor));
+  // Same id on server and client; dnd-kit's default comes from a process-wide counter.
+  const dndContextId = useId();
 
   const handleSectionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -692,6 +699,7 @@ export default function SidebarTab() {
 
           <div className="flex flex-col gap-3">
             <DndContext
+              id={dndContextId}
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleSectionDragEnd}

@@ -45,7 +45,10 @@ test("fileURLToPath does not keep the leading-slash drive-letter defect on the c
 });
 
 test("doctor.mjs source uses fileURLToPath(import.meta.url) and not the buggy new URL(...).pathname pattern", () => {
-  const doctorSource = fs.readFileSync(path.resolve("bin/cli/commands/doctor.mjs"), "utf8");
+  const doctorSource = fs.readFileSync(
+    path.resolve("bin/cli/commands/doctor.mjs"),
+    "utf8"
+  );
 
   assert.match(
     doctorSource,

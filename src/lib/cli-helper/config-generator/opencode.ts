@@ -6,6 +6,7 @@ import {
   OutboundUrlGuardError,
 } from "../../../shared/network/outboundUrlGuard";
 import { resolveOpencodeConfigPath } from "../../../shared/services/opencodeConfigPath";
+import { readPrivateConfigFile } from "../privateConfigFile";
 
 const JSON_FORMATTING_OPTIONS = { insertSpaces: true, tabSize: 2 } as const;
 
@@ -40,6 +41,8 @@ export function assertSafeCatalogUrl(rawUrl: string): URL {
 interface CatalogModelEntry {
   id: string;
   owned_by?: string;
+  name?: string;
+  display_name?: string;
   /** OpenAI-compatible field name; some upstreams return this. */
   context_length?: number;
   max_context_window_tokens?: number;
@@ -254,8 +257,22 @@ function buildModelEntry(
   catalog: CatalogModelEntry | undefined,
   existing: ExistingModelEntry | undefined
 ): ExistingModelEntry {
-  // Carry over user-set "name" first; fall back to id when absent.
-  const name = (typeof existing?.name === "string" && existing.name.trim()) || id;
+  // Carry over user-set names first, then native catalog display metadata.
+  // Technical ids remain map keys; names are presentation only.
+  const catalogName = catalog?.display_name ?? catalog?.name;
+  const nativeName = typeof catalogName === "string" ? catalogName.trim() : "";
+  const providerPrefix = catalog?.owned_by ? `${catalog.owned_by}/` : "";
+  const modelName = nativeName.startsWith(providerPrefix)
+    ? nativeName.slice(providerPrefix.length)
+    : nativeName;
+  const autoName = id.startsWith("auto/")
+    ? `Auto ${id.slice("auto/".length).replace(/(^|[-_])([a-z])/g, (_, separator, letter) => `${separator === "" ? "" : " "}${letter.toUpperCase()}`)}`
+    : "";
+  const name =
+    (typeof existing?.name === "string" && existing.name.trim() !== id && existing.name.trim()) ||
+    autoName ||
+    modelName ||
+    id;
 
   const entry: ExistingModelEntry = { name };
 
@@ -299,27 +316,24 @@ function buildModelEntry(
   const output =
     typeof userOutput === "number" && userOutput > 0 ? userOutput : (catalogOutput ?? 8_192);
 
-  // Emit `limit` only if we have at least one of context/output. We never
-  // emit a half-baked limit block with only an `output` (would be misleading).
-  if (
-    typeof context === "number" ||
-    typeof userOutput === "number" ||
-    typeof catalogOutput === "number"
-  ) {
-    const limit: { context?: number; input?: number; output?: number } = {};
-    if (typeof context === "number") limit.context = context;
-    if (typeof userOutput === "number" || typeof catalogOutput === "number") {
-      limit.output =
-        typeof userOutput === "number" && userOutput > 0 ? userOutput : (catalogOutput ?? 8_192);
-    }
-    const userInput = existing?.limit?.input;
-    if (typeof userInput === "number" && userInput > 0) {
-      limit.input = userInput;
-    } else if (catalog) {
-      const maxInput = catalog.max_input_tokens;
-      if (typeof maxInput === "number" && maxInput > 0) limit.input = maxInput;
-    }
-    entry.limit = limit;
+  // Both `limit.context` and `limit.output` are REQUIRED by OpenCode's v1 provider schema
+  // regardless of whether the catalog (or the user's existing config) knows the model's
+  // context window — a model with no catalog metadata at all must still get both
+  // `limit.context` and `limit.output`, or OpenCode rejects the whole config with "Missing key
+  // provider.omniroute.models.{model}.limit.context" (#11035) or ".limit.output" (#10940, #11032).
+  // `output` above resolves to a safe fallback (8K) and `context` resolves to a safe fallback (128K)
+  // when nothing else is known, so we always emit both fields.
+  const resolvedContext = typeof context === "number" && context > 0 ? context : 128_000;
+  const limit: { context: number; input?: number; output: number } = {
+    context: resolvedContext,
+    output,
+  };
+  const userInput = existing?.limit?.input;
+  if (typeof userInput === "number" && userInput > 0) {
+    limit.input = userInput;
+  } else if (catalog) {
+    const maxInput = catalog.max_input_tokens;
+    if (typeof maxInput === "number" && maxInput > 0) limit.input = maxInput;
   }
   entry.limit = limit;
 
@@ -337,7 +351,7 @@ function loadExistingConfig(configPath: string): { config: ExistingConfig; sourc
 
   let source: string;
   try {
-    source = fs.readFileSync(configPath, "utf8");
+    source = readPrivateConfigFile(configPath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to read existing OpenCode config at ${configPath}: ${message}`);

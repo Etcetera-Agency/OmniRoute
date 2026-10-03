@@ -267,8 +267,14 @@ test("issue-agent run sanitizes a forced audit-write failure instead of leaking 
     assert.equal(typeof body.error, "string");
     const errorMessage = String(body.error);
     assert.doesNotMatch(errorMessage, /EEXIST|ENOENT|EACCES/, "must not leak the raw errno code");
-    assert.ok(!errorMessage.includes(auditBlockerDir), "must not leak the DATA_DIR absolute path");
-    assert.ok(!errorMessage.includes("/issue-agent/"), "must not leak the audit subdirectory path");
+    assert.ok(
+      !errorMessage.includes(auditBlockerDir),
+      "must not leak the DATA_DIR absolute path"
+    );
+    assert.ok(
+      !errorMessage.includes("/issue-agent/"),
+      "must not leak the audit subdirectory path"
+    );
     assert.equal(errorMessage, "Issue Agent request failed due to an internal error");
   } finally {
     if (previous === undefined) delete process.env.OMNIROUTE_ISSUE_AGENT_ENABLED;

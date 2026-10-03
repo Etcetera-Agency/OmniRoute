@@ -46,6 +46,7 @@ async function costFetch(path: string): Promise<AnalyticsRecord> {
   return response.json();
 }
 
+
 function toCostEntries(value: unknown): CostEntry[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
 

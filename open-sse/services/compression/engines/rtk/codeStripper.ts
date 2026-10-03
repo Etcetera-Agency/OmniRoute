@@ -54,7 +54,14 @@ export function __setTypeScriptModuleLoaderForTests(
 }
 
 export type CodeLanguage =
-  "javascript" | "typescript" | "python" | "rust" | "go" | "ruby" | "java" | "unknown";
+  | "javascript"
+  | "typescript"
+  | "python"
+  | "rust"
+  | "go"
+  | "ruby"
+  | "java"
+  | "unknown";
 
 export interface CodeStripperOptions {
   removeComments?: boolean;

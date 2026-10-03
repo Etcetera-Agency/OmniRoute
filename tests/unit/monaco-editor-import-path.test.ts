@@ -31,8 +31,5 @@ test("the monaco specifier resolves to a real file under the installed monaco-ed
   const src = readFileSync(monacoComponent, "utf8");
   const specifier = src.match(/import\(\s*["'](monaco-editor\/[^"']+)["']\s*\)/)![1];
   const resolved = require.resolve(specifier);
-  assert.ok(
-    resolved.endsWith("editor.api.js"),
-    `expected to resolve editor.api.js, got ${resolved}`
-  );
+  assert.ok(resolved.endsWith("editor.api.js"), `expected to resolve editor.api.js, got ${resolved}`);
 });

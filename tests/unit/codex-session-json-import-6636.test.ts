@@ -109,7 +109,10 @@ test("looksLikeCodexSessionJson: true for a JSON object string", () => {
 
 test("looksLikeCodexSessionJson: false for a bare JWT, an OAuth callback URL, and malformed JSON", () => {
   assert.equal(looksLikeCodexSessionJson("eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.sig"), false);
-  assert.equal(looksLikeCodexSessionJson("https://example.com/callback?code=abc&state=xyz"), false);
+  assert.equal(
+    looksLikeCodexSessionJson("https://example.com/callback?code=abc&state=xyz"),
+    false
+  );
   assert.equal(looksLikeCodexSessionJson("{not valid json"), false);
   assert.equal(looksLikeCodexSessionJson(""), false);
 });

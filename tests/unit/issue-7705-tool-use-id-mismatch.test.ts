@@ -17,11 +17,7 @@ describe("issue #7705 — tool_use id mismatch on Claude OAuth", () => {
           role: "assistant",
           content: null,
           tool_calls: [
-            {
-              id: rawToolCallId,
-              type: "function",
-              function: { name: "read_file", arguments: "{}" },
-            },
+            { id: rawToolCallId, type: "function", function: { name: "read_file", arguments: "{}" } },
           ],
         },
         { role: "tool", tool_call_id: rawToolCallId, content: "file contents" },
@@ -43,7 +39,9 @@ describe("issue #7705 — tool_use id mismatch on Claude OAuth", () => {
         : []
     );
 
-    const matchingToolResult = allToolResultBlocks.find((b) => b.tool_use_id === toolUseBlock!.id);
+    const matchingToolResult = allToolResultBlocks.find(
+      (b) => b.tool_use_id === toolUseBlock!.id
+    );
 
     assert.ok(
       matchingToolResult,

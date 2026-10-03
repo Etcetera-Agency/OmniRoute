@@ -20,7 +20,10 @@ export interface RetryOptions {
 
 const DEFAULTS = { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 5000 } as const;
 
-export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> {
   const maxAttempts = options.maxAttempts ?? DEFAULTS.maxAttempts;
   const baseDelayMs = options.baseDelayMs ?? DEFAULTS.baseDelayMs;
   const maxDelayMs = options.maxDelayMs ?? DEFAULTS.maxDelayMs;

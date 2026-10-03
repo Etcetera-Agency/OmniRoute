@@ -43,26 +43,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const ASSEMBLE = path.join(ROOT, "scripts", "build", "assembleStandalone.mjs");
 
 const NODE_BUILTINS = new Set([
-  "assert",
-  "async_hooks",
-  "buffer",
-  "child_process",
-  "crypto",
-  "dns",
-  "events",
-  "fs",
-  "http",
-  "https",
-  "module",
-  "net",
-  "os",
-  "path",
-  "stream",
-  "tls",
-  "url",
-  "util",
-  "worker_threads",
-  "zlib",
+  "assert", "async_hooks", "buffer", "child_process", "crypto", "dns", "events",
+  "fs", "http", "https", "module", "net", "os", "path", "stream", "tls", "url",
+  "util", "worker_threads", "zlib",
 ]);
 
 function isBuiltin(pkg: string): boolean {
@@ -80,13 +63,8 @@ function mcpBundleStaticExternalImports(): string[] {
     execFileSync(
       "npx",
       [
-        "esbuild",
-        "open-sse/mcp-server/server.ts",
-        "--bundle",
-        "--platform=node",
-        "--packages=external",
-        "--format=esm",
-        `--outfile=${outFile}`,
+        "esbuild", "open-sse/mcp-server/server.ts", "--bundle", "--platform=node",
+        "--packages=external", "--format=esm", `--outfile=${outFile}`,
       ],
       { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"] }
     );
@@ -96,9 +74,7 @@ function mcpBundleStaticExternalImports(): string[] {
     let m: RegExpExecArray | null;
     while ((m = re.exec(src))) {
       const spec = m[1];
-      const name = spec.startsWith("@")
-        ? spec.split("/").slice(0, 2).join("/")
-        : spec.split("/")[0];
+      const name = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
       if (!isBuiltin(name)) pkgs.add(name);
     }
     return [...pkgs].sort();
@@ -112,10 +88,7 @@ function explicitlyGuaranteedPackages(): Set<string> {
   const entries = [...text.matchAll(/src:\s*\[([^\]]+)\]/gs)];
   const guaranteed = new Set<string>();
   for (const [, segList] of entries) {
-    const segments = segList
-      .split(",")
-      .map((s) => s.trim().replace(/^"|"$/g, ""))
-      .filter(Boolean);
+    const segments = segList.split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
     if (segments[0] !== "node_modules") continue;
     const pkg = segments[1]?.startsWith("@") ? `${segments[1]}/${segments[2]}` : segments[1];
     if (pkg) guaranteed.add(pkg);
@@ -149,8 +122,5 @@ test("undici (a static top-level external import of the real MCP server bundle) 
     `expected undici among the MCP bundle's static external imports (sanity check on the repro itself): ${staticExternals.join(", ")}`
   );
   const guaranteed = explicitlyGuaranteedPackages();
-  assert.ok(
-    guaranteed.has("undici"),
-    "undici is statically imported at module-link time by the esbuild-compiled MCP server bundle but has NO explicit copy entry in EXTRA_MODULE_ENTRIES (scripts/build/assembleStandalone.mjs) ... (issue #7701)."
-  );
+  assert.ok(guaranteed.has("undici"), "undici is statically imported at module-link time by the esbuild-compiled MCP server bundle but has NO explicit copy entry in EXTRA_MODULE_ENTRIES (scripts/build/assembleStandalone.mjs) ... (issue #7701).");
 });

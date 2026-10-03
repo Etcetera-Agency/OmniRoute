@@ -135,9 +135,7 @@ export async function POST(request: Request) {
     // absolute filesystem path.
     const message = isNodeSystemError(error)
       ? "Issue Agent request failed due to an internal error"
-      : sanitizeErrorMessage(
-          error instanceof Error ? error.message : "Invalid issue-agent request"
-        );
+      : sanitizeErrorMessage(error instanceof Error ? error.message : "Invalid issue-agent request");
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

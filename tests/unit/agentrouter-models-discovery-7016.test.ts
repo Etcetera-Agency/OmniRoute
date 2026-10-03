@@ -46,8 +46,8 @@ test("agentrouter discovery parseResponse maps an OpenAI-style model list", () =
     ],
   });
   assert.deepEqual(models, [
-    { id: "claude-opus-4-6", object: "model", owned_by: "anthropic" },
-    { id: "glm-5.1", object: "model", owned_by: "zhipu" },
+    { id: "claude-opus-4-8", object: "model", owned_by: "anthropic" },
+    { id: "gpt-5.6-sol", object: "model", owned_by: "openai" },
   ]);
 
   // Tolerant of the alternate `models` envelope shape too.

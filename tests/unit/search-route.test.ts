@@ -3,20 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { SearchResponse } from "../../open-sse/handlers/search.ts";
-
-type SearchRouteResponse = SearchResponse & {
-  id?: string;
-  cached?: boolean;
-};
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-search-route-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
-const routingOverrides = await import("../../src/lib/routing/routingOverrides.ts");
-const quotaPreflight = await import("../../open-sse/services/quotaPreflight.ts");
 const searchRoute = await import("../../src/app/api/v1/search/route.ts");
 
 async function resetStorage() {
@@ -44,31 +36,6 @@ async function seedConnection(
   });
 }
 
-async function seedRateLimitedConnection(provider: string) {
-  return providersDb.createProviderConnection({
-    provider,
-    authType: "apikey",
-    name: `${provider}-limited-${Math.random().toString(16).slice(2, 8)}`,
-    apiKey: "rate-limited-key",
-    isActive: false,
-    testStatus: "unavailable",
-    rateLimitedUntil: new Date(Date.now() + 60_000).toISOString(),
-    providerSpecificData: {},
-  });
-}
-
-async function seedPreflightConnection(provider: string, apiKey: string) {
-  return providersDb.createProviderConnection({
-    provider,
-    authType: "apikey",
-    name: `${provider}-preflight-${Math.random().toString(16).slice(2, 8)}`,
-    apiKey,
-    isActive: true,
-    testStatus: "active",
-    providerSpecificData: { quotaPreflightEnabled: true },
-  });
-}
-
 test.beforeEach(async () => {
   await resetStorage();
 });
@@ -78,23 +45,21 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
-test("v1 search GET lists all 17 search providers", async () => {
+test("v1 search GET lists all search providers", async () => {
   const response = await searchRoute.GET();
-  const body = (await response.json()) as {
-    object: string;
-    data: Array<{ id: string }>;
-  };
+  const body = (await response.json()) as any;
   const ids = body.data.map((item: { id: string }) => item.id);
 
   assert.equal(response.status, 200);
   assert.equal(body.object, "list");
-  assert.equal(body.data.length, 17);
+  assert.equal(body.data.length, 20);
   assert.deepEqual(ids, [
     "serper-search",
     "brave-search",
     "perplexity-search",
     "exa-search",
     "tavily-search",
+    "nimble-search",
     "firecrawl",
     "google-pse-search",
     "linkup-search",
@@ -103,11 +68,12 @@ test("v1 search GET lists all 17 search providers", async () => {
     "searxng-search",
     "ollama-search",
     "zai-search",
-    "parallel-search",
-    "firecrawl-search",
-    "gemini-grounded-search",
+    "jina-search",
+    "context7",
     "duckduckgo-free",
     "x-search",
+    "xquik-search",
+    "anysearch-search",
   ]);
 });
 
@@ -150,7 +116,7 @@ test("v1 search POST uses stored Linkup credentials and returns normalized resul
         }),
       })
     );
-    const body = (await response.json()) as SearchRouteResponse;
+    const body = (await response.json()) as any;
 
     assert.equal(response.status, 200);
     assert.equal(capturedUrl, "https://api.linkup.so/v1/search");
@@ -166,245 +132,6 @@ test("v1 search POST uses stored Linkup credentials and returns normalized resul
     assert.equal(body.results[0].citation.provider, "linkup-search");
     assert.equal(body.cached, false);
     assert.equal(body.usage.queries_used, 1);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST explicit provider does not fallback by default", async () => {
-  await seedConnection("exa-search", { apiKey: "exa-key" });
-  await seedConnection("brave-search", { apiKey: "brave-key" });
-
-  const originalFetch = globalThis.fetch;
-  const capturedUrls: string[] = [];
-
-  globalThis.fetch = async (url) => {
-    capturedUrls.push(String(url));
-    return new Response(JSON.stringify({ error: "temporary exa failure" }), {
-      status: 503,
-      headers: { "content-type": "application/json" },
-    });
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute explicit no fallback",
-          provider: "exa-search",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-    const body = (await response.json()) as Record<string, unknown>;
-
-    assert.equal(response.status, 503);
-    assert.equal(capturedUrls.length, 1);
-    assert.equal(capturedUrls[0], "https://api.exa.ai/search");
-    assert.match(JSON.stringify(body), /exa-search returned 503/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST uses shared Parallel credentials and returns normalized results", async () => {
-  await seedConnection("parallel", { apiKey: "parallel-key" });
-
-  const originalFetch = globalThis.fetch;
-  let capturedUrl = "";
-  let capturedInit: RequestInit | undefined;
-
-  globalThis.fetch = async (url, init = {}) => {
-    capturedUrl = String(url);
-    capturedInit = init;
-
-    return new Response(
-      JSON.stringify({
-        results: [
-          {
-            title: "Parallel result",
-            url: "https://example.com/parallel",
-            publish_date: "2026-06-01",
-            excerpts: ["Parallel snippet", "Parallel excerpt body"],
-          },
-          { title: "Missing URL", excerpts: ["drop me"] },
-        ],
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute parallel",
-          provider: "parallel-search",
-          max_results: 2,
-          search_type: "web",
-        }),
-      })
-    );
-    const body = (await response.json()) as SearchRouteResponse;
-    const requestBody = JSON.parse(String(capturedInit?.body));
-
-    assert.equal(response.status, 200);
-    assert.equal(capturedUrl, "https://api.parallel.ai/v1/search");
-    assert.equal((capturedInit?.headers as Record<string, string>)["x-api-key"], "parallel-key");
-    assert.deepEqual(requestBody.search_queries, ["omniroute parallel"]);
-    assert.equal(requestBody.objective, "omniroute parallel");
-    assert.equal(body.provider, "parallel-search");
-    assert.equal(body.results.length, 1);
-    assert.equal(body.results[0].title, "Parallel result");
-    assert.equal(body.results[0].snippet, "Parallel snippet\n\nParallel excerpt body");
-    assert.equal(body.results[0].citation.provider, "parallel-search");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST uses Firecrawl credentials and returns normalized news results", async () => {
-  await seedConnection("firecrawl", { apiKey: "firecrawl-key" });
-
-  const originalFetch = globalThis.fetch;
-  let capturedUrl = "";
-  let capturedInit: RequestInit | undefined;
-
-  globalThis.fetch = async (url, init = {}) => {
-    capturedUrl = String(url);
-    capturedInit = init;
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          news: [
-            {
-              title: "Firecrawl news",
-              snippet: "Firecrawl snippet",
-              url: "https://news.example.com/firecrawl",
-              date: "2026-06-15",
-              imageUrl: "https://news.example.com/image.png",
-              markdown: "# Firecrawl news",
-            },
-            { title: "Missing URL", snippet: "drop me" },
-          ],
-        },
-        creditsUsed: 2,
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute firecrawl",
-          provider: "firecrawl-search",
-          max_results: 2,
-          search_type: "news",
-          time_range: "week",
-          country: "us",
-          content: { full_page: true, format: "markdown" },
-          filters: { include_domains: ["news.example.com"] },
-        }),
-      })
-    );
-    const body = (await response.json()) as SearchRouteResponse;
-    const requestBody = JSON.parse(String(capturedInit?.body));
-
-    assert.equal(response.status, 200);
-    assert.equal(capturedUrl, "https://api.firecrawl.dev/v2/search");
-    assert.equal(
-      (capturedInit?.headers as Record<string, string>).Authorization,
-      "Bearer firecrawl-key"
-    );
-    assert.equal(requestBody.query, "omniroute firecrawl");
-    assert.equal(requestBody.limit, 2);
-    assert.deepEqual(requestBody.sources, ["news"]);
-    assert.deepEqual(requestBody.includeDomains, ["news.example.com"]);
-    assert.equal(requestBody.tbs, "qdr:w");
-    assert.deepEqual(requestBody.scrapeOptions, { formats: [{ type: "markdown" }] });
-    assert.equal(body.provider, "firecrawl-search");
-    assert.equal(body.results.length, 1);
-    assert.equal(body.results[0].title, "Firecrawl news");
-    assert.equal(body.results[0].content.format, "markdown");
-    assert.equal(body.results[0].citation.provider, "firecrawl-search");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST uses Gemini credentials and returns grounded results", async () => {
-  await seedConnection("gemini", {
-    apiKey: "gemini-key",
-    providerSpecificData: { model: "gemini-test-model" },
-  });
-
-  const originalFetch = globalThis.fetch;
-  let capturedUrl = "";
-  let capturedInit: RequestInit | undefined;
-
-  globalThis.fetch = async (url, init = {}) => {
-    capturedUrl = String(url);
-    capturedInit = init;
-
-    return new Response(
-      JSON.stringify({
-        candidates: [
-          {
-            content: { parts: [{ text: "Grounded answer" }] },
-            groundingMetadata: {
-              groundingChunks: [
-                { web: { uri: "https://example.com/gemini", title: "Gemini source" } },
-                { web: { uri: "https://example.com/gemini#duplicate", title: "Duplicate" } },
-                { web: { uri: "not-a-url", title: "Drop" } },
-              ],
-            },
-          },
-        ],
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "OpenAI official website",
-          provider: "gemini-grounded-search",
-          max_results: 5,
-          search_type: "web",
-        }),
-      })
-    );
-    const body = (await response.json()) as SearchRouteResponse;
-    const requestBody = JSON.parse(String(capturedInit?.body));
-
-    assert.equal(response.status, 200);
-    assert.equal(
-      capturedUrl,
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-test-model:generateContent"
-    );
-    assert.equal((capturedInit?.headers as Record<string, string>)["x-goog-api-key"], "gemini-key");
-    assert.deepEqual(requestBody.tools, [{ googleSearch: {} }]);
-    assert.equal(body.provider, "gemini-grounded-search");
-    assert.equal(body.results.length, 1);
-    assert.equal(body.results[0].title, "Gemini source");
-    assert.equal(body.results[0].citation.provider, "gemini-grounded-search");
-    assert.equal(body.answer.text, "Grounded answer");
-    assert.equal(body.answer.model, "gemini-test-model");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -522,7 +249,7 @@ test("v1 search POST uses stored You.com credentials and returns unified news re
         }),
       })
     );
-    const body = (await response.json()) as SearchRouteResponse;
+    const body = (await response.json()) as any;
     const url = new URL(capturedUrl);
 
     assert.equal(response.status, 200);
@@ -579,7 +306,7 @@ test("v1 search POST accepts authless SearXNG with provider_options baseUrl", as
         }),
       })
     );
-    const body = (await response.json()) as SearchRouteResponse;
+    const body = (await response.json()) as any;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -631,7 +358,7 @@ test("v1 search POST rejects authless SearXNG on the unconfigured catalog defaul
         }),
       })
     );
-    const body = (await response.json()) as SearchRouteResponse;
+    const body = (await response.json()) as any;
 
     assert.equal(response.status, 503);
     assert.equal(fetchCalled, false);
@@ -682,7 +409,7 @@ test("v1 search POST preserves stored SearXNG baseUrl for authless providers", a
         }),
       })
     );
-    const body = (await response.json()) as SearchRouteResponse;
+    const body = (await response.json()) as any;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -727,7 +454,7 @@ test("v1 search POST falls back to duckduckgo-free when no provider is configure
         }),
       })
     );
-    const body = (await response.json()) as SearchRouteResponse;
+    const body = (await response.json()) as any;
 
     assert.equal(response.status, 200);
     assert.equal(
@@ -741,322 +468,4 @@ test("v1 search POST falls back to duckduckgo-free when no provider is configure
   } finally {
     globalThis.fetch = originalFetch;
   }
-});
-
-test("v1 search POST auto-select uses configured order and skips missing credentials", async () => {
-  await seedConnection("tavily-search", { apiKey: "tavily-key" });
-  await seedConnection("exa-search", { apiKey: "exa-key" });
-
-  const originalFetch = globalThis.fetch;
-  let capturedUrl = "";
-  let capturedInit: RequestInit | undefined;
-
-  globalThis.fetch = async (url, init = {}) => {
-    capturedUrl = String(url);
-    capturedInit = init;
-    return new Response(
-      JSON.stringify({
-        results: [{ title: "Tavily first configured", url: "https://example.com/tavily" }],
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute configured order",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-    const body = (await response.json()) as SearchRouteResponse;
-
-    assert.equal(response.status, 200);
-    assert.equal(capturedUrl, "https://api.tavily.com/search");
-    assert.equal(
-      (capturedInit?.headers as Record<string, string>).Authorization,
-      "Bearer tavily-key"
-    );
-    assert.equal(body.provider, "tavily-search");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST skips disabled auto provider but still allows it explicitly", async () => {
-  await seedConnection("brave-search", { apiKey: "brave-key" });
-  await seedConnection("tavily-search", { apiKey: "tavily-key" });
-  await routingOverrides.saveRoutingOverride({
-    endpoint: "search",
-    order: ["brave-search", "tavily-search"],
-    disabled: ["brave-search"],
-  });
-
-  const originalFetch = globalThis.fetch;
-  const capturedUrls: string[] = [];
-
-  globalThis.fetch = async (url) => {
-    capturedUrls.push(String(url));
-    if (String(url).includes("api.tavily.com")) {
-      return new Response(
-        JSON.stringify({
-          results: [{ title: "Tavily result", url: "https://example.com/tavily" }],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      );
-    }
-    return new Response(
-      JSON.stringify({
-        web: { results: [{ title: "Brave result", url: "https://example.com/brave" }] },
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const autoResponse = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute disabled auto",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-    const autoBody = (await autoResponse.json()) as SearchRouteResponse;
-
-    assert.equal(autoResponse.status, 200);
-    assert.equal(autoBody.provider, "tavily-search");
-    assert.equal(capturedUrls[0], "https://api.tavily.com/search");
-
-    const explicitResponse = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute explicit disabled",
-          provider: "brave-search",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-    const explicitBody = (await explicitResponse.json()) as SearchRouteResponse;
-
-    assert.equal(explicitResponse.status, 200);
-    assert.equal(explicitBody.provider, "brave-search");
-    assert.equal(capturedUrls[1].startsWith("https://api.search.brave.com/"), true);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST auto-select skips rate-limited first provider", async () => {
-  await seedRateLimitedConnection("brave-search");
-  await seedConnection("tavily-search", { apiKey: "tavily-key" });
-
-  const originalFetch = globalThis.fetch;
-  let capturedUrl = "";
-
-  globalThis.fetch = async (url) => {
-    capturedUrl = String(url);
-    return new Response(
-      JSON.stringify({
-        results: [{ title: "Tavily after cooldown", url: "https://example.com/tavily-cooldown" }],
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute cooldown skip",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-    const body = (await response.json()) as SearchRouteResponse;
-
-    assert.equal(response.status, 200);
-    assert.equal(capturedUrl, "https://api.tavily.com/search");
-    assert.equal(body.provider, "tavily-search");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST preflight skips exhausted primary and fetches ordered fallback", async () => {
-  const blocked = await seedPreflightConnection("brave-search", "brave-preflight-key");
-  const fallback = await seedPreflightConnection("tavily-search", "tavily-preflight-key");
-  await routingOverrides.saveRoutingOverride({
-    endpoint: "search",
-    order: ["brave-search", "tavily-search"],
-    disabled: [
-      "exa-search",
-      "serper-search",
-      "searchapi-search",
-      "linkup-search",
-      "searxng-search",
-      "youcom-search",
-      "ollama-search",
-      "zai-search",
-      "parallel-search",
-      "firecrawl-search",
-      "perplexity-search",
-      "gemini-grounded-search",
-    ],
-  });
-
-  quotaPreflight.registerQuotaFetcher("brave-search", async (connectionId) => ({
-    used: connectionId === blocked.id ? 100 : 0,
-    total: 100,
-    percentUsed: connectionId === blocked.id ? 1 : 0,
-    resetAt: connectionId === blocked.id ? new Date(Date.now() + 60_000).toISOString() : null,
-  }));
-  quotaPreflight.registerQuotaFetcher("tavily-search", async (connectionId) => ({
-    used: connectionId === fallback.id ? 0 : 100,
-    total: 100,
-    percentUsed: connectionId === fallback.id ? 0 : 1,
-    resetAt: null,
-  }));
-
-  const originalFetch = globalThis.fetch;
-  const capturedUrls: string[] = [];
-  globalThis.fetch = async (url) => {
-    capturedUrls.push(String(url));
-    return new Response(
-      JSON.stringify({
-        results: [{ title: "Tavily fallback", url: "https://example.com/fallback" }],
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute preflight fallback",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-    const body = (await response.json()) as SearchRouteResponse;
-
-    assert.equal(response.status, 200);
-    assert.deepEqual(capturedUrls, ["https://api.tavily.com/search"]);
-    assert.equal(body.provider, "tavily-search");
-    assert.equal(body.results[0].title, "Tavily fallback");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST explicit preflight exhaustion returns rate-limit metadata", async () => {
-  const blocked = await seedPreflightConnection("brave-search", "brave-explicit-blocked");
-  await seedConnection("tavily-search", { apiKey: "tavily-must-not-run" });
-  quotaPreflight.registerQuotaFetcher("brave-search", async (connectionId) => ({
-    used: 100,
-    total: 100,
-    percentUsed: connectionId === blocked.id ? 1 : 0,
-    resetAt: new Date(Date.now() + 60_000).toISOString(),
-  }));
-
-  const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
-  globalThis.fetch = async () => {
-    fetchCalls += 1;
-    return new Response(JSON.stringify({ results: [] }), { status: 200 });
-  };
-
-  try {
-    const response = await searchRoute.POST(
-      new Request("http://localhost/api/v1/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: "omniroute explicit preflight",
-          provider: "brave-search",
-          max_results: 1,
-          search_type: "web",
-        }),
-      })
-    );
-
-    assert.equal(response.status, 429);
-    assert.equal(fetchCalls, 0);
-    assert.ok(response.headers.get("Retry-After"));
-    assert.match(JSON.stringify(await response.json()), /All accounts rate limited/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("v1 search POST all preflight candidates returns first blocked provider metadata", async () => {
-  const brave = await seedPreflightConnection("brave-search", "brave-all-blocked");
-  const tavily = await seedPreflightConnection("tavily-search", "tavily-all-blocked");
-  await routingOverrides.saveRoutingOverride({
-    endpoint: "search",
-    order: ["brave-search", "tavily-search"],
-    disabled: [
-      "exa-search",
-      "serper-search",
-      "searchapi-search",
-      "linkup-search",
-      "searxng-search",
-      "youcom-search",
-      "ollama-search",
-      "zai-search",
-      "parallel-search",
-      "firecrawl-search",
-      "perplexity-search",
-      "gemini-grounded-search",
-    ],
-  });
-  const retryAfter = new Date(Date.now() + 60_000).toISOString();
-  quotaPreflight.registerQuotaFetcher("brave-search", async () => ({
-    used: 100,
-    total: 100,
-    percentUsed: 1,
-    resetAt: retryAfter,
-  }));
-  quotaPreflight.registerQuotaFetcher("tavily-search", async () => ({
-    used: 100,
-    total: 100,
-    percentUsed: 1,
-    resetAt: retryAfter,
-  }));
-
-  const response = await searchRoute.POST(
-    new Request("http://localhost/api/v1/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: "omniroute all preflight blocked",
-        max_results: 1,
-        search_type: "web",
-      }),
-    })
-  );
-
-  assert.equal(response.status, 429);
-  assert.ok(response.headers.get("Retry-After"));
-  assert.match(JSON.stringify(await response.json()), /brave-search/);
-  assert.ok(brave.id);
-  assert.ok(tavily.id);
 });

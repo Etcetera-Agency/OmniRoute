@@ -35,11 +35,7 @@ function normalizeComment(value: unknown): RecordedTriageComment {
 export function normalizeGitHubIssueExport(value: unknown): NormalizedGitHubIssueExport {
   const root = asRecord(value);
   const issue = asRecord(root.issue ?? root.pull_request ?? root.pr ?? root);
-  const issueUrl =
-    readString(issue.html_url) ??
-    readString(issue.url) ??
-    readString(root.html_url) ??
-    readString(root.url);
+  const issueUrl = readString(issue.html_url) ?? readString(issue.url) ?? readString(root.html_url) ?? readString(root.url);
   if (!issueUrl) {
     throw new Error("Recorded GitHub export must include html_url or url");
   }

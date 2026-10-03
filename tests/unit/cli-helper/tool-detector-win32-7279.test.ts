@@ -43,16 +43,14 @@ describe("tool-detector — win32 (#7279)", () => {
     });
 
     // @ts-expect-error - internal test hook
-    toolDetector.__setExecFileImpl(
-      async (_cmd: string, _args: string[], opts?: { shell?: boolean }) => {
-        // Reproduces the real-world failure: without shell:true, spawning the
-        // .cmd shim throws (Node's CVE-2024-27980 hardening on Windows).
-        if (opts?.shell === true) {
-          return { stdout: "v0.75.3\n" };
-        }
-        throw new Error("spawn hermes.cmd ENOENT (shell:true required on win32 for .cmd shims)");
+    toolDetector.__setExecFileImpl(async (_cmd: string, _args: string[], opts?: { shell?: boolean }) => {
+      // Reproduces the real-world failure: without shell:true, spawning the
+      // .cmd shim throws (Node's CVE-2024-27980 hardening on Windows).
+      if (opts?.shell === true) {
+        return { stdout: "v0.75.3\n" };
       }
-    );
+      throw new Error("spawn hermes.cmd ENOENT (shell:true required on win32 for .cmd shims)");
+    });
   });
 
   after(() => {

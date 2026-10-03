@@ -178,13 +178,18 @@ test("buildUrl: xiaomi-mimo-token-plan sem targetFormat mantem a URL OpenAI padr
 // ---------------------------------------------------------------------------
 
 test("xiaomi-mimo-token-plan aponta para o host token-plan-sgp", () => {
-  assert.equal(xiaomi_mimo_token_planProvider.baseUrl, "https://token-plan-sgp.xiaomimimo.com/v1");
+  assert.equal(
+    xiaomi_mimo_token_planProvider.baseUrl,
+    "https://token-plan-sgp.xiaomimimo.com/v1"
+  );
   assert.equal(xiaomi_mimo_token_planProvider.format, "openai");
   assert.equal(xiaomi_mimo_token_planProvider.authHeader, "bearer");
 });
 
 test("xiaomi-mimo-token-plan declara a variante Anthropic no host token-plan", () => {
-  const alt = xiaomi_mimo_token_planProvider.alternateFormats?.find((a) => a.format === "claude");
+  const alt = xiaomi_mimo_token_planProvider.alternateFormats?.find(
+    (a) => a.format === "claude"
+  );
   assert.ok(alt, "esperava uma alternativa claude declarada");
   assert.equal(alt.baseUrl, "https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages");
   assert.equal(alt.authHeader, "x-api-key");
@@ -192,13 +197,26 @@ test("xiaomi-mimo-token-plan declara a variante Anthropic no host token-plan", (
 
 test("xiaomi-mimo-token-plan esta registrado e nao colide de host com o normal", () => {
   assert.ok(REGISTRY["xiaomi-mimo-token-plan"], "provedor nao registrado");
-  assert.notEqual(REGISTRY["xiaomi-mimo-token-plan"].baseUrl, REGISTRY["xiaomi-mimo"].baseUrl);
+  assert.notEqual(
+    REGISTRY["xiaomi-mimo-token-plan"].baseUrl,
+    REGISTRY["xiaomi-mimo"].baseUrl
+  );
 });
 
 test("xiaomi-mimo-token-plan expoe os modelos de chat", () => {
   const ids = xiaomi_mimo_token_planProvider.models.map((m) => m.id);
+  assert.ok(ids.includes("mimo-v2.6-pro"));
+  assert.ok(ids.includes("mimo-v2.6-flash"));
   assert.ok(ids.includes("mimo-v2.5-pro"));
   assert.ok(ids.includes("mimo-v2.5"));
+});
+
+test("xiaomi-mimo-token-plan anuncia a janela de 1M e saida de 128K da geracao v2.6", () => {
+  for (const id of ["mimo-v2.6-pro", "mimo-v2.6-flash"]) {
+    const model = xiaomi_mimo_token_planProvider.models.find((m) => m.id === id);
+    assert.equal(model?.contextLength, 1048576, id);
+    assert.equal(model?.maxOutputTokens, 131072, id);
+  }
 });
 
 // ---------------------------------------------------------------------------

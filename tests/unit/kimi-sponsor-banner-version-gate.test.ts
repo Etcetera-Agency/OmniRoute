@@ -3,8 +3,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const kimiSponsorBanner =
-  await import("../../src/app/(dashboard)/dashboard/kimiSponsorBannerGate.ts");
+const kimiSponsorBanner = await import(
+  "../../src/app/(dashboard)/dashboard/kimiSponsorBannerGate.ts"
+);
 
 test("KIMI_SPONSOR_BANNER_THROUGH_VERSION is the agreed sunset version", () => {
   assert.equal(kimiSponsorBanner.KIMI_SPONSOR_BANNER_THROUGH_VERSION, "3.8.60");

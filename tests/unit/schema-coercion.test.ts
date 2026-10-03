@@ -264,8 +264,8 @@ test("injectOptionalEnumOmissionForTools: Chat Completions {function:{parameters
   }>;
   // Chat Completions shape (nested under `.function`) is out of scope for this
   // Responses-API-only injector — assert it is not mutated.
-  assert.deepStrictEqual(result[0].function.parameters.properties.isolation.enum, [
-    "worktree",
-    "remote",
-  ]);
+  assert.deepStrictEqual(
+    result[0].function.parameters.properties.isolation.enum,
+    ["worktree", "remote"]
+  );
 });

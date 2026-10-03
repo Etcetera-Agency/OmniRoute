@@ -5,10 +5,7 @@ const mod = await import("../../src/lib/proxySubscription/needsCore.ts");
 const { isNeedsCoreNode, countNeedsCoreNodes, NEEDS_CORE_PROTOCOLS } = mod;
 
 test("direct nodes (http/https/socks5) are not needs-core", () => {
-  assert.equal(
-    isNeedsCoreNode({ type: "http", host: "1.2.3.4", port: 8080, rawProtocol: "http" }),
-    false
-  );
+  assert.equal(isNeedsCoreNode({ type: "http", host: "1.2.3.4", port: 8080, rawProtocol: "http" }), false);
   assert.equal(isNeedsCoreNode({ type: "socks5", rawProtocol: "socks5" }), false);
   assert.equal(isNeedsCoreNode({ type: "https" }), false);
 });

@@ -8,8 +8,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-const { default: ModelSelectField } =
-  await import("../../../src/shared/components/ModelSelectField");
+const { default: ModelSelectField } = await import("../../../src/shared/components/ModelSelectField");
 
 function okJson(data: unknown) {
   return Promise.resolve({ ok: true, json: () => Promise.resolve(data) } as Response);
@@ -73,9 +72,7 @@ describe("ModelSelectField (#6540)", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
-        okJson({
-          models: [{ provider: "openrouter", model: "auto", fullModel: "openrouter/auto" }],
-        })
+        okJson({ models: [{ provider: "openrouter", model: "auto", fullModel: "openrouter/auto" }] })
       )
     );
 

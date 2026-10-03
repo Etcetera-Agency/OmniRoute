@@ -15,6 +15,7 @@
  * Source: operator-supplied subscription feature (Karing-style proxy).
  */
 import * as yaml from "js-yaml";
+import { decodeUserinfo } from "@/shared/utils/decodeUserinfo";
 
 export type DirectProxyType = "http" | "https" | "socks5";
 export type RawProxyProtocol =
@@ -183,8 +184,8 @@ function nodeFromUri(uri: string): SubscriptionNode | NeedsCoreNode | null {
       type: scheme as DirectProxyType,
       host,
       port,
-      username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
-      password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+      username: parsed.username ? decodeUserinfo(parsed.username) : undefined,
+      password: parsed.password ? decodeUserinfo(parsed.password) : undefined,
       rawProtocol: scheme as RawProxyProtocol,
     };
   }
@@ -307,6 +308,15 @@ export function parseSubscription(body: string): ParsedSubscription {
   }
 
   return { nodes: [], needsCore: [], format: "unknown" };
+}
+
+/**
+ * Refuse unrecognized content before sync: `format: "unknown"` carries no
+ * usable node. Every recognized format (including `empty` and a
+ * valid-but-nodeless feed) passes and keeps the current path.
+ */
+export function isUsableSubscriptionContent(parsed: ParsedSubscription): boolean {
+  return parsed.format !== "unknown";
 }
 
 /** Redacted node summary for storage/display (no secrets). */

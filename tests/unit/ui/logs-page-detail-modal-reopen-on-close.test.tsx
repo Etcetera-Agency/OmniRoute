@@ -33,6 +33,7 @@ const routerControl = vi.hoisted(() => ({
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
+  useLocale: () => "en",
 }));
 
 vi.mock("next/navigation", () => ({
@@ -118,6 +119,9 @@ async function settle() {
 }
 
 beforeEach(() => {
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   localStorage.clear();
   routerControl.pendingUrl = null;
   routerControl.bumpPageRender = () => {};

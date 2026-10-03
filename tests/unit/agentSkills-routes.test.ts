@@ -140,6 +140,19 @@ test("GET /api/agent-skills?category=cli — returns 21 cli skills", async () =>
   );
 });
 
+test("GET /api/agent-skills?category=config — returns 1 config skill", async () => {
+  const req = makeRequest("GET", "http://localhost/api/agent-skills?category=config");
+  const res = await listRoute.GET(req);
+
+  assert.equal(res.status, 200);
+  const body = (await res.json()) as { skills: Array<{ category: string }>; count: number };
+  assert.equal(body.count, 1);
+  assert.ok(
+    body.skills.every((s) => s.category === "config"),
+    "All skills should be config category"
+  );
+});
+
 test("GET /api/agent-skills?area=providers — returns only providers area skills", async () => {
   const req = makeRequest("GET", "http://localhost/api/agent-skills?area=providers");
   const res = await listRoute.GET(req);

@@ -7,8 +7,9 @@ import assert from "node:assert/strict";
 // reject the payload with HTTP 400. defaultClaudeToolType() backfills the missing
 // `type` so legacy Claude-format tool definitions survive strict gateways.
 
-const { defaultClaudeToolType } =
-  await import("../../open-sse/handlers/chatCore/claudeToolDefaults.ts");
+const { defaultClaudeToolType } = await import(
+  "../../open-sse/handlers/chatCore/claudeToolDefaults.ts"
+);
 
 test("backfills type:'custom' on a Claude tool missing the type field", () => {
   const tools = [

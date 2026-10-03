@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { updateProxy } from "@/lib/localDb";
+import { updateProxy } from "@/lib/db/proxies";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";

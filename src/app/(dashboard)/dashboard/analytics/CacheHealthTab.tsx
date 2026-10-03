@@ -95,7 +95,9 @@ export default function CacheHealthTab() {
   }, []);
 
   useEffect(() => {
-    void load(range);
+    void (async () => {
+      await load(range);
+    })();
   }, [load, range]);
 
   if (loading) return <Skeleton className="h-64 w-full" />;

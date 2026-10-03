@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-const { API_SKILL_IDS, CLI_SKILL_IDS, CONFIG_SKILL_IDS } =
+const { API_SKILL_IDS, CLI_SKILL_IDS, CONFIG_SKILL_IDS, getCatalog } =
   await import("../../src/lib/agentSkills/catalog.ts");
 
 const SKILLS_DIR = path.resolve(process.cwd(), "skills");
@@ -126,7 +126,7 @@ test("exactly 14 skills have custom blocks", () => {
   assert.deepEqual(
     withCustomBlocks.sort(),
     expectedIds,
-    `Expected exactly these 13 custom-block IDs: ${expectedIds.join(", ")}\nActual: ${withCustomBlocks.join(", ")}`
+    `Expected exactly these 14 custom-block IDs: ${expectedIds.join(", ")}\nActual: ${withCustomBlocks.join(", ")}`
   );
 });
 

@@ -39,7 +39,9 @@ export const SERVICE_BACKEND_MANIFEST_TEMPLATE: Record<
   },
 };
 
-export function getServiceToolFromPluginId(pluginId: string): "9router" | "cliproxy" | undefined {
+export function getServiceToolFromPluginId(
+  pluginId: string
+): "9router" | "cliproxy" | undefined {
   return SERVICE_BACKEND_EXPOSURE_TOOL_BY_PLUGIN_ID[
     pluginId as keyof typeof SERVICE_BACKEND_EXPOSURE_TOOL_BY_PLUGIN_ID
   ];

@@ -12,10 +12,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  runFabricatedDocsCheck,
-  formatHumanReport,
-} from "../../scripts/check/check-fabricated-docs.mjs";
+import { runFabricatedDocsCheck, formatHumanReport } from "../../scripts/check/check-fabricated-docs.mjs";
 
 test("#7253 release-green: docs contain zero fabricated API/file-ref drift", () => {
   const result = runFabricatedDocsCheck();

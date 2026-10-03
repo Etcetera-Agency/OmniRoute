@@ -42,5 +42,8 @@ test("buildNodeAliasModels: strips providerId prefix and rewrites value with nod
 
 test("buildNodeAliasModels: tolerates empty / malformed maps", () => {
   assert.deepEqual(buildNodeAliasModels({}, "prov", "prov"), []);
-  assert.deepEqual(buildNodeAliasModels({ x: undefined as unknown as string }, "prov", "prov"), []);
+  assert.deepEqual(
+    buildNodeAliasModels({ x: undefined as unknown as string }, "prov", "prov"),
+    []
+  );
 });

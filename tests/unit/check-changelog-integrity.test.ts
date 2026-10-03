@@ -14,6 +14,11 @@ import { fileURLToPath } from "node:url";
 const { extractBullets, findLostBullets } =
   await import("../../scripts/check/check-changelog-integrity.mjs");
 
+const SCRIPT_PATH = fileURLToPath(
+  new URL("../../scripts/check/check-changelog-integrity.mjs", import.meta.url)
+);
+const LEDGER_PATH = "config/release/changelog-reconciliations.json";
+
 const BASE = `# Changelog
 
 ## [Unreleased]

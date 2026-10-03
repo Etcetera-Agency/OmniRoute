@@ -1,7 +1,8 @@
 import { isLoopbackHost } from "@/server/authz/routeGuard";
 
 export type RemoteOAuthHint =
-  { remoteHost: false } | { remoteHost: true; tunnelCommand: string; message: string };
+  | { remoteHost: false }
+  | { remoteHost: true; tunnelCommand: string; message: string };
 
 /**
  * #7523: The PKCE callback server binds the SERVER's loopback (localhost:PORT).

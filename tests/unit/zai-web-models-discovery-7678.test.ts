@@ -13,7 +13,7 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsRoute = await import("../../src/app/api/providers/[id]/models/route.ts");
 const registry = await import("../../open-sse/config/providers/registry/zai-web/index.ts");
 
-const CURATED_ZAI_WEB_MODEL_IDS = ["glm-5.2", "GLM-5.1", "GLM-5-Turbo", "GLM-5v-Turbo"];
+const CURATED_ZAI_WEB_MODEL_IDS = ["glm-5.3-flash", "glm-5.3", "glm-5.2"];
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -31,32 +31,30 @@ test("zai-web publishes the live reasoning and vision capabilities", () => {
     registry.zai_webProvider.models.map((model) => ({
       id: model.id,
       supportsReasoning: model.supportsReasoning === true,
+      supportedThinkingEfforts: model.supportedThinkingEfforts,
       supportsVision: model.supportsVision === true,
       toolCalling: model.toolCalling === true,
     })),
     [
       {
+        id: "glm-5.3-flash",
+        supportsReasoning: true,
+        supportedThinkingEfforts: ["low", "high", "max"],
+        supportsVision: true,
+        toolCalling: false,
+      },
+      {
+        id: "glm-5.3",
+        supportsReasoning: true,
+        supportedThinkingEfforts: ["low", "high", "max"],
+        supportsVision: false,
+        toolCalling: false,
+      },
+      {
         id: "glm-5.2",
         supportsReasoning: true,
+        supportedThinkingEfforts: ["high", "max"],
         supportsVision: false,
-        toolCalling: false,
-      },
-      {
-        id: "GLM-5.1",
-        supportsReasoning: true,
-        supportsVision: false,
-        toolCalling: false,
-      },
-      {
-        id: "GLM-5-Turbo",
-        supportsReasoning: true,
-        supportsVision: false,
-        toolCalling: false,
-      },
-      {
-        id: "GLM-5v-Turbo",
-        supportsReasoning: true,
-        supportsVision: true,
         toolCalling: false,
       },
     ]
@@ -100,135 +98,7 @@ test("zai-web exposes only its curated public models without remote discovery", 
       body.models.map((model: { id: string }) => model.id),
       CURATED_ZAI_WEB_MODEL_IDS
     );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("#7678 zai-web parseResponse tolerates the flatter { data: [...] } shape", async () => {
-  await resetStorage();
-  const connection = await providersDb.createProviderConnection({
-    provider: "zai-web",
-    authType: "apikey",
-    name: "zai-web-flat",
-    apiKey: "token=def456",
-  });
-
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: string | URL | Request) => {
-    if (String(url).startsWith(ZAI_WEB_MODELS_URL)) {
-      return Response.json({ data: [{ id: "glm-4.6", name: "GLM-4.6" }] });
-    }
-    return new Response("not found", { status: 404 });
-  }) as typeof globalThis.fetch;
-
-  try {
-    const response = await modelsRoute.GET(
-      new Request(`http://localhost/api/providers/${connection.id}/models?refresh=true`),
-      { params: { id: connection.id } }
-    );
-    assert.equal(response.status, 200);
-    const body = (await response.json()) as ModelsBody;
-    assert.equal(body.source, "api");
-    assert.ok(body.models.map((m) => m.id).includes("glm-4.6"));
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("#7678 zai-web discovery failure falls back to the hardcoded local catalog", async () => {
-  await resetStorage();
-  const connection = await providersDb.createProviderConnection({
-    provider: "zai-web",
-    authType: "apikey",
-    name: "zai-web-fallback",
-    apiKey: "token=expired",
-  });
-
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (url: string | URL | Request) => {
-    if (String(url).startsWith(ZAI_WEB_MODELS_URL)) {
-      return new Response("unauthorized", { status: 401 });
-    }
-    return new Response("not found", { status: 404 });
-  }) as typeof globalThis.fetch;
-
-  try {
-    const response = await modelsRoute.GET(
-      new Request(`http://localhost/api/providers/${connection.id}/models?refresh=true`),
-      { params: { id: connection.id } }
-    );
-    assert.equal(response.status, 200);
-    const body = (await response.json()) as ModelsBody;
-    assert.equal(
-      body.source,
-      "local_catalog",
-      "a failed live fetch must degrade to the hardcoded catalog, never an empty list"
-    );
-    const ids = body.models.map((m) => m.id);
-    assert.ok(ids.length > 0, "local_catalog fallback must not be empty");
-    assert.ok(
-      ids.includes("glm-4.6"),
-      `expected the registry's static zai-web catalog, got: ${ids.join(",")}`
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("#7678 zai-web second call without ?refresh uses the cache, not a new live fetch", async () => {
-  await resetStorage();
-  const connection = await providersDb.createProviderConnection({
-    provider: "zai-web",
-    authType: "apikey",
-    name: "zai-web-cache",
-    apiKey: "token=cached",
-  });
-
-  const originalFetch = globalThis.fetch;
-  let liveFetchCount = 0;
-  globalThis.fetch = (async (url: string | URL | Request) => {
-    if (String(url).startsWith(ZAI_WEB_MODELS_URL)) {
-      liveFetchCount++;
-      return Response.json({
-        data: { data: [{ id: "glm-4.6", name: "GLM-4.6", owned_by: "zai-web" }] },
-      });
-    }
-    return new Response("not found", { status: 404 });
-  }) as typeof globalThis.fetch;
-
-  try {
-    const first = await modelsRoute.GET(
-      new Request(`http://localhost/api/providers/${connection.id}/models?refresh=true`),
-      { params: { id: connection.id } }
-    );
-    assert.equal(first.status, 200);
-    const firstBody = (await first.json()) as ModelsBody;
-    assert.equal(firstBody.source, "api");
-    assert.equal(liveFetchCount, 1);
-
-    // Second call: fetch mock would fail if hit again — proves the cache short-circuits it.
-    globalThis.fetch = (async (url: string | URL | Request) => {
-      if (String(url).startsWith(ZAI_WEB_MODELS_URL)) {
-        liveFetchCount++;
-        return new Response("should not be called", { status: 500 });
-      }
-      return new Response("not found", { status: 404 });
-    }) as typeof globalThis.fetch;
-
-    const second = await modelsRoute.GET(
-      new Request(`http://localhost/api/providers/${connection.id}/models`),
-      { params: { id: connection.id } }
-    );
-    assert.equal(second.status, 200);
-    const secondBody = (await second.json()) as ModelsBody;
-    assert.equal(
-      secondBody.source,
-      "cache",
-      "second call without ?refresh must be served from cache"
-    );
-    assert.equal(liveFetchCount, 1, "the cache must short-circuit the live fetch entirely");
-    assert.ok(secondBody.models.map((m) => m.id).includes("glm-4.6"));
+    assert.equal(fetchCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }

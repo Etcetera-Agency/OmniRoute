@@ -19,17 +19,11 @@ test("isPreserveSystemPromptMode only accepts the three known tokens", () => {
 
 test("normalize: an explicit mode wins over the legacy boolean", () => {
   assert.equal(
-    normalizePreserveSystemPromptMode({
-      preserveSystemPrompt: true,
-      preserveSystemPromptMode: "never",
-    }),
+    normalizePreserveSystemPromptMode({ preserveSystemPrompt: true, preserveSystemPromptMode: "never" }),
     "never"
   );
   assert.equal(
-    normalizePreserveSystemPromptMode({
-      preserveSystemPrompt: false,
-      preserveSystemPromptMode: "always",
-    }),
+    normalizePreserveSystemPromptMode({ preserveSystemPrompt: false, preserveSystemPromptMode: "always" }),
     "always"
   );
 });

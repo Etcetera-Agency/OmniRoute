@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const tokenizedRequest =
-  await import("../../src/app/api/v1/vscode/raw/[token]/tokenizedRequest.ts");
+const tokenizedRequest = await import(
+  "../../src/app/api/v1/vscode/raw/[token]/tokenizedRequest.ts"
+);
 
 function captureWarn<T>(fn: () => T): { result: T; warnings: string[] } {
   const warnings: string[] = [];
@@ -22,7 +23,8 @@ test.beforeEach(() => {
 });
 
 test("warns once when a path token is used, then stays quiet (Seg4)", () => {
-  const makeReq = () => new Request("http://localhost/api/v1/vscode/raw/sk-secret-token/models");
+  const makeReq = () =>
+    new Request("http://localhost/api/v1/vscode/raw/sk-secret-token/models");
 
   const first = captureWarn(() => tokenizedRequest.withPathTokenApiKey(makeReq()));
   assert.equal(
@@ -46,7 +48,9 @@ test("propagates the path token into x-api-key / authorization headers", () => {
 test("does not warn when there is no resolvable token", () => {
   // No /vscode segment → inferTokenFromVscodePath returns null and the request passes through.
   const request = new Request("http://localhost/api/v1/models");
-  const { result, warnings } = captureWarn(() => tokenizedRequest.withPathTokenApiKey(request));
+  const { result, warnings } = captureWarn(() =>
+    tokenizedRequest.withPathTokenApiKey(request)
+  );
 
   assert.equal(warnings.length, 0);
   assert.equal(result.headers.get("x-api-key"), null);

@@ -92,8 +92,9 @@ function setupFetchMock() {
 describe("CompressionPanel — engine guidance (#7530)", () => {
   it("links to the full compression guide", async () => {
     setupFetchMock();
-    const { default: CompressionPanel } =
-      await import("@/app/(dashboard)/dashboard/context/settings/CompressionPanel");
+    const { default: CompressionPanel } = await import(
+      "@/app/(dashboard)/dashboard/context/settings/CompressionPanel"
+    );
 
     let container!: HTMLElement;
     await act(async () => {
@@ -108,8 +109,9 @@ describe("CompressionPanel — engine guidance (#7530)", () => {
 
   it("shows the safe-default badge only for lossless engines", async () => {
     setupFetchMock();
-    const { default: CompressionPanel } =
-      await import("@/app/(dashboard)/dashboard/context/settings/CompressionPanel");
+    const { default: CompressionPanel } = await import(
+      "@/app/(dashboard)/dashboard/context/settings/CompressionPanel"
+    );
 
     let container!: HTMLElement;
     await act(async () => {
@@ -129,8 +131,9 @@ describe("CompressionPanel — engine guidance (#7530)", () => {
 
   it("expands an engine's guidance detail (tradeoffs + cache impact) on toggle", async () => {
     setupFetchMock();
-    const { default: CompressionPanel } =
-      await import("@/app/(dashboard)/dashboard/context/settings/CompressionPanel");
+    const { default: CompressionPanel } = await import(
+      "@/app/(dashboard)/dashboard/context/settings/CompressionPanel"
+    );
 
     let container!: HTMLElement;
     await act(async () => {

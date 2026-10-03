@@ -704,12 +704,12 @@ test("translateRequest does not replay reasoning-only messages for non-DeepSeek 
   clearReasoningCacheAll();
 });
 
-test("translateRequest uses Kimi Coding's empty thinking marker instead of cached replay", () => {
+test("translateRequest replays cached reasoning before Kimi Coding's empty fallback", () => {
   clearReasoningCacheAll();
   cacheReasoningByKey(
     "toolu_kimi_claude",
-    "kimi-coding",
-    "kimi-for-coding",
+    "kimi-coding-apikey",
+    "k3-256k",
     "cached thinking for Kimi tool call"
   );
 
@@ -718,7 +718,7 @@ test("translateRequest uses Kimi Coding's empty thinking marker instead of cache
   const result = translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
-    "kimi-for-coding",
+    "k3-256k",
     {
       reasoning_effort: "high",
       messages: [
@@ -739,24 +739,23 @@ test("translateRequest uses Kimi Coding's empty thinking marker instead of cache
     },
     false,
     null,
-    "kimi-coding"
+    "kimi-coding-apikey"
   );
 
   const assistantMsg = result.messages.find((m) => m.role === "assistant");
   assert.ok(assistantMsg, "assistant message should exist");
   assert.ok(Array.isArray(assistantMsg.content), "content should be array");
 
-  // Kimi Code CLI 0.26 sends an explicit empty thinking marker before tool_use.
   const thinkingBlock = assistantMsg.content.find((b) => b?.type === "thinking");
   assert.ok(thinkingBlock, "thinking block should be injected");
-  assert.equal(thinkingBlock.thinking, "");
+  assert.equal(thinkingBlock.thinking, "cached thinking for Kimi tool call");
 
   // Thinking block should appear before tool_use
   const thinkingIdx = assistantMsg.content.indexOf(thinkingBlock);
   const toolUseIdx = assistantMsg.content.findIndex((b) => b?.type === "tool_use");
   assert.ok(thinkingIdx < toolUseIdx, "thinking block should be before tool_use");
 
-  assert.equal(getReasoningCacheServiceStats().replays, 0);
+  assert.equal(getReasoningCacheServiceStats().replays, 1);
   clearReasoningCacheAll();
 });
 
@@ -766,7 +765,7 @@ test("translateRequest uses an empty Kimi Coding thinking marker on cache miss",
   const result = translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
-    "kimi-for-coding",
+    "k3-256k",
     {
       reasoning_effort: "high",
       messages: [
@@ -780,7 +779,7 @@ test("translateRequest uses an empty Kimi Coding thinking marker on cache miss",
     },
     false,
     null,
-    "kimi-coding"
+    "kimi-coding-apikey"
   );
 
   const assistantMsg = result.messages.find((m) => m.role === "assistant");
@@ -796,18 +795,26 @@ test("translateRequest uses an empty Kimi Coding thinking marker on cache miss",
 
 test("translateRequest does NOT inject duplicate thinking for Claude-format messages with existing thinking block", () => {
   clearReasoningCacheAll();
+  cacheReasoningByKey(
+    "toolu_existing",
+    "kimi-coding-apikey",
+    "k3-256k",
+    "cached thinking must not replace client thinking"
+  );
 
   const result = translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
-    "kimi-for-coding",
+    "k3-256k",
     {
       messages: [
         { role: "user", content: "hi" },
         {
           role: "assistant",
           content: [
-            { type: "thinking", thinking: "I already have this" },
+            // Signed: a thinking block without a signature is dropped by the request
+            // translator (#12105), which would leave nothing for this test to protect.
+            { type: "thinking", thinking: "I already have this", signature: "sig_existing" },
             { type: "tool_use", id: "toolu_existing", name: "read", input: {} },
           ],
         },
@@ -816,7 +823,7 @@ test("translateRequest does NOT inject duplicate thinking for Claude-format mess
     },
     false,
     null,
-    "kimi-coding"
+    "kimi-coding-apikey"
   );
 
   const assistantMsg = result.messages.find((m) => m.role === "assistant");
@@ -829,6 +836,60 @@ test("translateRequest does NOT inject duplicate thinking for Claude-format mess
     "I already have this",
     "original thinking should be preserved"
   );
+  assert.equal(getReasoningCacheServiceStats().replays, 0);
+
+  clearReasoningCacheAll();
+});
+
+test("translateRequest replays cached reasoning when the client's Claude-format thinking block has no signature", () => {
+  // #12105: an unsigned thinking block cannot be replayed to Claude, so the request
+  // translator drops it instead of stamping a fabricated signature. For Kimi Coding the
+  // tool_use turn still needs a thinking precursor, and the reasoning cache (keyed by the
+  // tool_use id) is the authentic source — it must be re-hydrated exactly once.
+  clearReasoningCacheAll();
+  cacheReasoningByKey("toolu_unsigned", "kimi-coding-apikey", "k3-256k", "cached thinking");
+
+  const result = translateRequest(
+    FORMATS.OPENAI,
+    FORMATS.CLAUDE,
+    "k3-256k",
+    {
+      messages: [
+        { role: "user", content: "hi" },
+        {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "unsigned client thinking" },
+            { type: "tool_use", id: "toolu_unsigned", name: "read", input: {} },
+          ],
+        },
+        { role: "tool", tool_call_id: "toolu_unsigned", content: "data" },
+      ],
+    },
+    false,
+    null,
+    "kimi-coding-apikey"
+  );
+
+  const assistantMsg = result.messages.find((m) => m.role === "assistant");
+  const thinkingBlocks =
+    Array.isArray(assistantMsg.content) &&
+    assistantMsg.content.filter((b) => b?.type === "thinking");
+  assert.equal(thinkingBlocks?.length, 1, "should have exactly one thinking block (no duplicate)");
+  assert.equal(
+    thinkingBlocks[0].thinking,
+    "cached thinking",
+    "cached reasoning should be replayed"
+  );
+  assert.equal(
+    thinkingBlocks[0].signature,
+    undefined,
+    "replayed thinking must not carry a fabricated signature"
+  );
+  const thinkingIdx = assistantMsg.content.indexOf(thinkingBlocks[0]);
+  const toolUseIdx = assistantMsg.content.findIndex((b) => b?.type === "tool_use");
+  assert.ok(thinkingIdx < toolUseIdx, "thinking block should be before tool_use");
+  assert.equal(getReasoningCacheServiceStats().replays, 1);
 
   clearReasoningCacheAll();
 });

@@ -19,19 +19,16 @@ import type { WebFetchResult, WebFetchFormat, WebFetchCredentials } from "../han
 const FIRECRAWL_DEFAULT_BASE_URL = "https://api.firecrawl.dev";
 const FIRECRAWL_DEFAULT_TIMEOUT_MS = 30_000;
 
-/** Resolve Firecrawl base URL from process override, then selected connection data. */
-export function resolveFirecrawlBaseUrl(credentials: WebFetchCredentials): string {
-  // AICODE-NOTE: Resolve per selected connection, not process-wide only. This
-  // keeps fallback attempts isolated when one connection points at self-hosted
-  // Firecrawl and another uses the public cloud endpoint.
+/** Resolve the configured Firecrawl base URL, falling back to the public cloud API. */
+function getFirecrawlBaseUrl(credentials?: WebFetchCredentials): string {
   const envBase = process.env.FIRECRAWL_BASE_URL?.trim();
-  const directBase = typeof credentials.baseUrl === "string" ? credentials.baseUrl.trim() : "";
-  const nestedBase =
-    typeof credentials.providerSpecificData?.baseUrl === "string"
-      ? credentials.providerSpecificData.baseUrl.trim()
-      : "";
-  const selectedBase = envBase || directBase || nestedBase || FIRECRAWL_DEFAULT_BASE_URL;
-  return selectedBase.replace(/\/+$/, "") || FIRECRAWL_DEFAULT_BASE_URL;
+  if (envBase) return envBase.replace(/\/+$/, "");
+  const providerData = credentials?.providerSpecificData;
+  const credBase = typeof credentials?.baseUrl === "string" ? credentials.baseUrl : providerData?.baseUrl;
+  if (typeof credBase === "string" && credBase.trim()) {
+    return credBase.trim().replace(/\/+$/, "");
+  }
+  return FIRECRAWL_DEFAULT_BASE_URL;
 }
 
 /** Whether the given base URL is the default Firecrawl cloud endpoint. */
@@ -76,7 +73,7 @@ interface FirecrawlScrapeOptions {
 export async function firecrawlFetch(opts: FirecrawlScrapeOptions): Promise<WebFetchResult> {
   const { url, format, depth, waitForSelector, includeMetadata, credentials } = opts;
 
-  const baseUrl = resolveFirecrawlBaseUrl(credentials);
+  const baseUrl = getFirecrawlBaseUrl(credentials);
   const isDefaultBaseUrl = isDefaultFirecrawlBaseUrl(baseUrl);
 
   // The API key is mandatory for the public Firecrawl cloud API, but optional

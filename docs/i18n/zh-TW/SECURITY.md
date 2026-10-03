@@ -1,4 +1,8 @@
-# 安全性政策
+# Security Policy (中文 (繁體))
+
+🌐 **Languages:** 🇺🇸 [English](../../../SECURITY.md) · 🇪🇹 [am](../am/SECURITY.md) · 🇸🇦 [ar](../ar/SECURITY.md) · 🇦🇿 [az](../az/SECURITY.md) · 🇧🇬 [bg](../bg/SECURITY.md) · 🇧🇩 [bn](../bn/SECURITY.md) · 🇧🇦 [bs](../bs/SECURITY.md) · 🇨🇿 [cs](../cs/SECURITY.md) · 🇩🇰 [da](../da/SECURITY.md) · 🇩🇪 [de](../de/SECURITY.md) · 🇬🇷 [el](../el/SECURITY.md) · 🇪🇸 [es](../es/SECURITY.md) · 🇪🇪 [et](../et/SECURITY.md) · 🇮🇷 [fa](../fa/SECURITY.md) · 🇫🇮 [fi](../fi/SECURITY.md) · 🇫🇷 [fr](../fr/SECURITY.md) · 🇮🇪 [ga](../ga/SECURITY.md) · 🇮🇳 [gu](../gu/SECURITY.md) · 🇳🇬 [ha](../ha/SECURITY.md) · 🇮🇱 [he](../he/SECURITY.md) · 🇮🇳 [hi](../hi/SECURITY.md) · 🇭🇷 [hr](../hr/SECURITY.md) · 🇭🇺 [hu](../hu/SECURITY.md) · 🇦🇲 [hy](../hy/SECURITY.md) · 🇮🇩 [id](../id/SECURITY.md) · 🇳🇬 [ig](../ig/SECURITY.md) · 🇮🇹 [it](../it/SECURITY.md) · 🇯🇵 [ja](../ja/SECURITY.md) · 🇬🇪 [ka](../ka/SECURITY.md) · 🇰🇭 [km](../km/SECURITY.md) · 🇮🇳 [kn](../kn/SECURITY.md) · 🇰🇷 [ko](../ko/SECURITY.md) · 🇱🇹 [lt](../lt/SECURITY.md) · 🇱🇻 [lv](../lv/SECURITY.md) · 🇮🇳 [ml](../ml/SECURITY.md) · 🇮🇳 [mr](../mr/SECURITY.md) · 🇲🇾 [ms](../ms/SECURITY.md) · 🇲🇹 [mt](../mt/SECURITY.md) · 🇲🇲 [my](../my/SECURITY.md) · 🇳🇵 [ne](../ne/SECURITY.md) · 🇳🇱 [nl](../nl/SECURITY.md) · 🇳🇴 [no](../no/SECURITY.md) · 🇮🇳 [or](../or/SECURITY.md) · 🇮🇳 [pa](../pa/SECURITY.md) · 🇵🇭 [phi](../phi/SECURITY.md) · 🇵🇱 [pl](../pl/SECURITY.md) · 🇵🇹 [pt](../pt/SECURITY.md) · 🇧🇷 [pt-BR](../pt-BR/SECURITY.md) · 🇷🇴 [ro](../ro/SECURITY.md) · 🇷🇺 [ru](../ru/SECURITY.md) · 🇱🇰 [si](../si/SECURITY.md) · 🇸🇰 [sk](../sk/SECURITY.md) · 🇸🇮 [sl](../sl/SECURITY.md) · 🇷🇸 [sr](../sr/SECURITY.md) · 🇸🇪 [sv](../sv/SECURITY.md) · 🇰🇪 [sw](../sw/SECURITY.md) · 🇮🇳 [ta](../ta/SECURITY.md) · 🇮🇳 [te](../te/SECURITY.md) · 🇹🇭 [th](../th/SECURITY.md) · 🇹🇷 [tr](../tr/SECURITY.md) · 🇺🇦 [uk-UA](../uk-UA/SECURITY.md) · 🇵🇰 [ur](../ur/SECURITY.md) · 🇺🇿 [uz](../uz/SECURITY.md) · 🇻🇳 [vi](../vi/SECURITY.md) · 🇳🇬 [yo](../yo/SECURITY.md) · 🇨🇳 [zh-CN](../zh-CN/SECURITY.md)
+
+---
 
 ## 回報漏洞
 
@@ -42,7 +46,7 @@ OmniRoute 採用多層式安全模型：
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **儀表板登入**       | 基於密碼的身分驗證，搭配 JWT Token（HttpOnly Cookie）                                                                                |
 | **API 金鑰驗證**     | HMAC 簽署金鑰搭配 CRC 驗證                                                                                                           |
-| **OAuth 2.0 + PKCE** | 13 個提供者（Claude、Codex、GitHub、Cursor、Antigravity、Gemini、Kimi Coding、Kilo Code、Cline、Kiro、Qoder、Windsurf、GitLab Duo）  |
+| **OAuth 2.0 + PKCE** | 提供者專用的瀏覽器/裝置 OAuth 在支援時使用 PKCE；僅匯入的 Devin 憑證會單獨處理。                                                     |
 | **Token 更新**       | 自動在 OAuth Token 到期前進行更新                                                                                                    |
 | **安全 Cookie**      | 在 HTTPS 環境下設定 `AUTH_COOKIE_SECURE=true`                                                                                        |
 | **授權管道**         | 路由分類（PUBLIC / CLIENT_API / MANAGEMENT）— 請參閱 `docs/architecture/AUTHZ_GUIDE.md`                                              |
@@ -208,17 +212,37 @@ docker run -d \
 10. **`exec()` / `spawn()` 的執行期值應透過 `env` 選項傳遞** — 切勿將外部路徑或不可信賴的值以字串插值方式嵌入 shell 傳遞的腳本中。參考：`src/mitm/cert/install.ts::updateNssDatabases`
 11. **優先選用預設安全的程式庫** — 請參閱 [tldrsec/awesome-secure-defaults](https://github.com/tldrsec/awesome-secure-defaults)（Helmet.js、DOMPurify、ssrf-req-filter、safe-regex、Google Tink）。在自行實作前優先考慮使用這些套件。
 
-## 供應鏈掃描器發現（Socket.dev / Snyk 等）
+## 供應鏈掃描器發現（Socket.dev / Snyk / 類似工具）
 
-已發布的 `omniroute` npm 成品（artifact）採用了 Next.js `output: "standalone"` 建置方式，這表示所有的路由處理器 — 包括已記載的特權功能（MITM、Zed 匯入、Cloud Sync、嵌入式服務監督程式）— 最終都會以壓縮後的 chunk 形式存在於 `.next/server/*.js` 中。啟發式供應鏈掃描器經常會將這些 chunk 比對為惡意軟體特徵。
+> **範圍說明：** 儲存庫根目錄中的 `socket.yml` 僅用於設定 `projectIgnorePaths`，供 Socket.dev 對已發佈 npm 成品執行註冊表端的發佈後掃描；它並非強制執行的 CI/PR 合併閘門。`.github/workflows` 中沒有任何工作流程、`package.json` 中沒有任何指令碼，且沒有任何 `Makefile` 目標會叫用 Socket.dev。
 
-針對每一項發現類別，我們都保留了一份每項發現對應的維護者證明文件：
+已發佈的 `omniroute` npm 成品包含 Next.js `output: "standalone"`
+建置，這表示每個路由處理常式——包括有文件記載的特權
+功能（MITM、Zed 匯入、Cloud Sync、內嵌服務監督器）——最終都會
+出現在 `.next/server/*.js` 的壓縮程式碼區塊中。啟發式供應鏈掃描器
+經常會將這些區塊與惡意軟體特徵進行模式比對。
 
-- **[`docs/security/SOCKET_DEV_FINDINGS.md`](docs/security/SOCKET_DEV_FINDINGS.md)** —  
-  逐項發現對照表：原始檔 ↔ 被標記的 chunk ↔ 行為 ↔ 在 v3.8.6 中採取的緩解措施
-- 每個被標記的函式點皆以原始碼內的 `SECURITY-AUDITOR-NOTE:` 區塊連結回同一份文件。
+我們使用的掃描器設定位於儲存庫根目錄的 [`socket.yml`](socket.yml)
+（Socket.dev GitHub App 格式 v2——請參閱
+<https://docs.socket.dev/docs/socket-yml>）。它明確排除
+未隨套件發佈的目錄（`tests/`、`_tasks/`、`_references/`、`_ideia/`、
+`_mono_repo/`、`docs/` 等），因此掃描器只會回報實際會觸及已發佈版本
+使用者的程式碼路徑——掃描本身是由 Socket GitHub App 讀取該檔案來驅動，
+而非由此儲存庫中的工作流程執行。
 
-對於管線無法放寬此警示的使用者，可以使用 `OMNIROUTE_BUILD_PROFILE=minimal npm run build` 進行建置。該方式會將四個敏感模組替換為執行期回傳 HTTP 503 `feature-disabled` 的樁程式（stub），使特權程式碼路徑從套件中完全移除。發布方式請參閱 [`docs/security/SOCKET_DEV_FINDINGS.md`](docs/security/SOCKET_DEV_FINDINGS.md)。
+針對每個發現類別，我們都維護一份由維護者提供的逐項證明：
+
+- **[`docs/security/SOCKET_DEV_FINDINGS.md`](docs/security/SOCKET_DEV_FINDINGS.md)** —
+  逐項發現對照表：原始碼檔案 ↔ 被標記的區塊 ↔ 行為 ↔
+  v3.8.6 中套用的緩解措施。
+- 每個被標記函式處的原始碼內 `SECURITY-AUDITOR-NOTE:` 區塊，
+  都會連回同一份文件。
+
+若使用者的管線無法放寬此警示，請使用
+`OMNIROUTE_BUILD_PROFILE=minimal npm run build` 進行建置。這會將四個
+敏感模組替換為在執行階段回傳 HTTP 503 `feature-disabled` 的存根，
+使具特權的程式碼路徑實際上不會出現在套件中。
+如需發佈步驟，請參閱 [`docs/security/SOCKET_DEV_FINDINGS.md`](docs/security/SOCKET_DEV_FINDINGS.md)。
 
 ## 參考資料
 

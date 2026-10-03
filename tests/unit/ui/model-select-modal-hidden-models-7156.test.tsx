@@ -47,7 +47,7 @@ beforeEach(() => {
       if (url.includes("/api/combos"))
         return new Response(JSON.stringify({ combos: [] }), { status: 200 });
       if (url.includes("/api/provider-nodes"))
-        return new Response(JSON.stringify({ nodes: [] }), { status: 200 });
+        return new Response(JSON.stringify({ nodes: mockNodes }), { status: 200 });
       if (url.includes("/api/provider-models")) {
         return new Response(
           JSON.stringify({
@@ -101,9 +101,7 @@ describe("ModelSelectModal hidden-model filtering (#7156)", () => {
       modelAliases: {},
       title: "Add model to combo",
     });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
+    await flush();
     expect(el.textContent).toContain("Visible Model");
     expect(el.textContent).not.toContain("Hidden Model");
   });

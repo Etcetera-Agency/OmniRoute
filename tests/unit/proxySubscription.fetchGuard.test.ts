@@ -23,15 +23,14 @@ test("non-http(s) schemes are rejected", () => {
   assert.equal(isSubscriptionFetchUrlAllowed("gopher://example.com"), false);
 });
 
-test("blocked IPv4 literals are rejected", () => {
-  for (const ip of [
-    "127.0.0.1",
-    "10.0.0.5",
-    "172.16.0.1",
-    "192.168.1.1",
-    "169.254.169.254",
-    "0.0.0.0",
-  ]) {
+test("local-first (#10158): loopback/private IPv4 literals are ALLOWED by default", () => {
+  for (const ip of ["127.0.0.1", "10.0.0.5", "172.16.0.1", "192.168.1.1"]) {
+    assert.equal(isSubscriptionFetchUrlAllowed(`https://${ip}/x`), true, ip);
+  }
+});
+
+test("cloud-metadata / link-local / unspecified IPv4 literals are ALWAYS blocked", () => {
+  for (const ip of ["169.254.169.254", "169.254.1.1", "0.0.0.0"]) {
     assert.equal(isSubscriptionFetchUrlAllowed(`https://${ip}/x`), false, ip);
   }
 });

@@ -12,8 +12,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiResponsesToOpenAIRequest } =
-  await import("../../open-sse/translator/request/openai-responses.ts");
+const { openaiResponsesToOpenAIRequest } = await import(
+  "../../open-sse/translator/request/openai-responses.ts"
+);
 
 function codexRequestWithToolSearch() {
   return {
@@ -48,12 +49,12 @@ test("#7532: tool_search survives the Responses->Chat translator as a function t
   assert.ok(out.tools.some((t) => t.function?.name === "bash"));
 
   const toolSearch = out.tools.find((t) => t.function?.name === "tool_search");
-  assert.ok(
-    toolSearch,
-    "tool_search must not be silently dropped during Responses->Chat downgrade"
-  );
+  assert.ok(toolSearch, "tool_search must not be silently dropped during Responses->Chat downgrade");
   assert.equal(toolSearch?.type, "function");
-  assert.equal(toolSearch?.function?.description, "Search for additional deferred tools by query");
+  assert.equal(
+    toolSearch?.function?.description,
+    "Search for additional deferred tools by query"
+  );
 });
 
 test("#7532: tool_search without an explicit schema gets a usable default `query` parameter", () => {

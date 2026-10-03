@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { buildClaudeCodeCompatibleRequest } =
-  await import("../../open-sse/services/claudeCodeCompatible.ts");
+const { buildClaudeCodeCompatibleRequest } = await import(
+  "../../open-sse/services/claudeCodeCompatible.ts"
+);
 
 // #7777 — OpenAI-format clients (OpenCode/Kilo/Cline) reach the CC bridge
 // untranslated: chatCore skips the OpenAI→Claude translator when

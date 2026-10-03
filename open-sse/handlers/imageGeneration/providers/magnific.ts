@@ -170,7 +170,7 @@ async function pollUntilDone(params: {
   startTime: number;
   pollIntervalMs: number;
   pollTimeoutMs: number;
-}): Promise<FreepikImageResult> {
+}): Promise<MagnificImageResult> {
   const {
     providerConfig,
     token,
@@ -266,7 +266,7 @@ export async function handleMagnificImageGeneration({
   if (log) {
     log.info(
       "IMAGE",
-      `${provider}/${model} (freepik-mystic) | prompt: "${prompt.slice(0, 60)}..."`
+      `${provider}/${model} (magnific-mystic) | prompt: "${prompt.slice(0, 60)}..."`
     );
   }
 

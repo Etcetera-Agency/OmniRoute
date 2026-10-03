@@ -65,9 +65,12 @@ test("v1SearchSchema accepts firecrawl for search (unified id)", () => {
   // the schema (route.ts replies "Unknown search provider: firecrawl-search") instead of
   // by an opaque schema-level 400.
   const legacy = v1SearchSchema.safeParse({ query: "q", provider: "firecrawl-search" });
-  assert.equal(legacy.success, true, "upstream firecrawl-search id remains accepted");
-  const unknown = v1SearchSchema.safeParse({ query: "q", provider: "firecrawl-unknown" });
-  assert.equal(unknown.success, false, "unknown search provider id is rejected");
+  assert.equal(legacy.success, true, "provider is a free-form string at the schema layer");
+  assert.equal(
+    resolveSearchProvider("firecrawl-search"),
+    null,
+    "legacy firecrawl-search id does not resolve to a registered provider"
+  );
 });
 
 test("handleSearch firecrawl hits /v2/search with sources web and normalizes data.web", async () => {

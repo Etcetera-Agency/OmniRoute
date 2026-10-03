@@ -311,7 +311,13 @@ function spawnServer(binPath, port, dataDir) {
   return { child, tail };
 }
 
-function derivePackagedCliToken(packageRoot) {
+/**
+ * Derive the loopback machine token exactly as the installed CLI would for this install.
+ * Since #13679/#13909 the token salt is per-install, persisted under <DATA_DIR>, so the
+ * derivation MUST see the same DATA_DIR the server boots on — otherwise the CLI resolves
+ * a different salt, the server rejects the token and health serves the anonymous view.
+ */
+export function derivePackagedCliToken(packageRoot, dataDir) {
   const cliModuleUrl = pathToFileURL(
     path.join(packageRoot, "bin", "cli", "utils", "cliToken.mjs")
   ).href;
@@ -323,7 +329,7 @@ function derivePackagedCliToken(packageRoot) {
       "import(process.argv[1]).then(async m => process.stdout.write(await m.getCliToken()))",
       cliModuleUrl,
     ],
-    { encoding: "utf8", env: { ...process.env } }
+    { encoding: "utf8", env: { ...process.env, DATA_DIR: dataDir } }
   ).trim();
 }
 
@@ -454,7 +460,7 @@ async function main() {
     const dataDir = path.join(tmp, "data");
     fs.mkdirSync(dataDir, { recursive: true });
     const binPath = path.join(prefix, "bin", "omniroute");
-    const packagedCliToken = derivePackagedCliToken(packageRoot);
+    const packagedCliToken = derivePackagedCliToken(packageRoot, dataDir);
 
     // BOOT #1 — boot, prove the forced sql.js tier, PATCH a setting, then shut down cleanly
     // so the sql.js adapter's graceful persist actually lands on disk. The in-flow stopChild
@@ -463,13 +469,51 @@ async function main() {
     ({ child, tail } = spawnServer(binPath, port, dataDir));
     let verdict = await waitForHealthy(port, child, expectedVersion, packagedCliToken);
     if (verdict.ok) {
-      log("✅ the packed tarball boots — #7065 class gate green");
-      exitCode = 0;
-    } else {
-      console.error(`[pack-boot] ❌ boot FAILED: ${verdict.failures.join("; ")}`);
-      console.error(
-        "[pack-boot] last server output:\n" + tail.join("").split("\n").slice(-40).join("\n")
-      );
+      log(`healthy: HTTP 200, version ${expectedVersion}`);
+      const baseUrl = `http://127.0.0.1:${port}`;
+      const machineAuth = await verifyMachineTokenAuth(baseUrl, packagedCliToken);
+      if (!machineAuth.ok) {
+        verdict = machineAuth;
+      } else {
+        log("machine-token auth passed with no/invalid/valid contrast controls");
+      }
+      const roundTrip = verdict.ok
+        ? await verifySettingsRoundTrip(baseUrl, tail.join(""), packagedCliToken)
+        : { ok: false, failures: verdict.failures };
+      if (roundTrip.ok) {
+        log("settings write/read succeeded through the forced sql.js driver");
+        await stopChild(child); // throws here → primaryError; boot #2 is skipped
+        child = null;
+
+        // BOOT #2 — same DATA_DIR, fresh process: the value must be read back FROM DISK.
+        log("boot #2: rebooting on the same DATA_DIR to prove disk persistence…");
+        ({ child, tail } = spawnServer(binPath, port, dataDir));
+        verdict = await waitForHealthy(port, child, expectedVersion, packagedCliToken);
+        if (verdict.ok) {
+          log(`healthy: HTTP 200, version ${expectedVersion}`);
+          const restartValue = await readSettingsDebugMode(
+            `http://127.0.0.1:${port}`,
+            packagedCliToken
+          );
+          const persistence = evaluateRestartPersistence({
+            expectedValue: roundTrip.expectedValue,
+            restartValue,
+          });
+          if (persistence.ok) {
+            log("value survived a clean shutdown + restart — disk persistence proven");
+            await stopChild(child); // throws here → primaryError
+            child = null;
+            exitCode = 0;
+          } else {
+            verdict = persistence;
+          }
+        }
+      } else {
+        verdict = roundTrip;
+      }
+    }
+    if (!verdict.ok) {
+      primaryError = new Error(verdict.failures.join("; "));
       exitCode = 1;
     }
   } catch (e) {

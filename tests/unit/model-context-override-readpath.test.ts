@@ -86,15 +86,26 @@ describe("getModelContextLimit override precedence (5004)", () => {
 
   it("default getResolvedModelCapabilities reflects the override; persistedOverrides:false returns the catalog", () => {
     mco.setModelContextOverride("openai", "gpt-4o", 999999, "auto:discovery");
-    const catalog = caps.getResolvedModelCapabilities({
+    // Default resolution is the effective runtime view: the persisted context
+    // override wins over the catalog.
+    const effective = caps.getResolvedModelCapabilities({
       provider: "openai",
       model: "gpt-4o",
     }).contextWindow;
-    assert.notEqual(catalog, 999999, "getResolvedModelCapabilities must not reflect the override");
+    assert.equal(effective, 999999, "default resolution must reflect the persisted override");
+
+    // The override-free catalog view (used by the reconciler) excludes the override.
+    const catalog = caps.getResolvedModelCapabilities(
+      { provider: "openai", model: "gpt-4o" },
+      { persistedOverrides: false }
+    ).contextWindow;
+    assert.notEqual(catalog, 999999, "persistedOverrides:false must return the catalog value");
+
+    // getModelContextLimit always follows the effective override.
     assert.equal(
       caps.getModelContextLimit("openai", "gpt-4o"),
       999999,
-      "but getModelContextLimit does"
+      "getModelContextLimit reflects the override"
     );
   });
 });

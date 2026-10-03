@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { validateOpenAILikeProvider } =
-  await import("../../src/lib/providers/validation/openaiFormat.ts");
+const { validateOpenAILikeProvider } = await import(
+  "../../src/lib/providers/validation/openaiFormat.ts"
+);
 
 test("#7284: a 429 chat-probe response is reported with a rate-limit warning, not plain valid", async () => {
   const originalFetch = globalThis.fetch;

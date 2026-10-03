@@ -381,12 +381,6 @@ function main() {
       `\n  removedBullets: ${lost.length}; addedBullets: ${added.length}` +
       "\nThere is no environment-variable bypass."
   );
-  if (process.env.ALLOW_CHANGELOG_REMOVALS === "1") {
-    console.error(
-      "[changelog-integrity] ALLOW_CHANGELOG_REMOVALS=1 — reporting only, not failing."
-    );
-    return 0;
-  }
   return 1;
 }
 

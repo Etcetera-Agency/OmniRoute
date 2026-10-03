@@ -47,10 +47,7 @@ test("sortConnectionsByAvailability is a stable sort (preserves relative order w
 });
 
 test("sortConnectionsByAvailability does not mutate the input array", () => {
-  const connections = [
-    { id: "a", testStatus: "error" },
-    { id: "b", testStatus: "active" },
-  ];
+  const connections = [{ id: "a", testStatus: "error" }, { id: "b", testStatus: "active" }];
   const original = [...connections];
 
   sortConnectionsByAvailability(connections);

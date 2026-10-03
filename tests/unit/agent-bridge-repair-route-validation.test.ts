@@ -7,7 +7,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { RepairBodySchema } = await import("../../src/app/api/tools/agent-bridge/repair/route.ts");
+const { RepairBodySchema } = await import(
+  "../../src/app/api/tools/agent-bridge/repair/route.ts"
+);
 
 test("accepts a body with a string sudoPassword", () => {
   const parsed = RepairBodySchema.safeParse({ sudoPassword: "hunter2" });

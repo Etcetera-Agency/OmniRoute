@@ -7,8 +7,9 @@ import assert from "node:assert/strict";
 // through the chat path: it must be registered as an IMAGE provider so requests route
 // to `/v1/images/generations` via the OpenAI-compatible image handler.
 
-const { sensenovaProvider } =
-  await import("../../open-sse/config/providers/registry/sensenova/index.ts");
+const { sensenovaProvider } = await import(
+  "../../open-sse/config/providers/registry/sensenova/index.ts"
+);
 const { getImageProvider } = await import("../../open-sse/config/imageRegistry.ts");
 
 test("SenseNova chat registry includes the deepseek-v4-flash chat model", () => {

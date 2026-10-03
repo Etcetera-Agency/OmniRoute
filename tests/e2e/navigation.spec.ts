@@ -31,10 +31,7 @@ test.describe("Dashboard Navigation", () => {
 
     expect(speculativeRequests).toEqual([]);
 
-    await page
-      .getByRole("link", { name: /providers/i })
-      .first()
-      .click();
+    await page.getByRole("link", { name: /providers/i }).first().click();
     await expect(page).toHaveURL(/\/dashboard\/providers/);
   });
 

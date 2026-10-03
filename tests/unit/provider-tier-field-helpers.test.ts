@@ -6,8 +6,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { normalizeTierValue, fetchProviderTierOverride, saveProviderTierOverride } =
-  await import("../../src/app/(dashboard)/dashboard/providers/[id]/components/modals/providerTierFieldApi.ts");
+const { normalizeTierValue, fetchProviderTierOverride, saveProviderTierOverride } = await import(
+  "../../src/app/(dashboard)/dashboard/providers/[id]/components/modals/providerTierFieldApi.ts"
+);
 
 type FetchCall = { url: string; init?: RequestInit };
 

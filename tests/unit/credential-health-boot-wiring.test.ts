@@ -10,7 +10,8 @@ import { fileURLToPath } from "node:url";
 // (src/instrumentation-node.ts) and NOT in the unused src/server-init.ts — the exact
 // mistake that made the earlier attempt (closed PR #7432) a no-op.
 
-const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const read = (rel: string) =>
+  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
 const instrumentation = read("../../src/instrumentation-node.ts");
 

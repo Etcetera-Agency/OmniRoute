@@ -51,12 +51,7 @@ test("resolveRequestLifecycleEvent: 5xx → request.failed keyed by the same tra
 });
 
 test("resolveRequestLifecycleEvent: a 2xx status carrying an error string is still a failure", () => {
-  const ev = resolveRequestLifecycleEvent({
-    traceId: "x",
-    status: 200,
-    error: "late error",
-    latencyMs: 1,
-  });
+  const ev = resolveRequestLifecycleEvent({ traceId: "x", status: 200, error: "late error", latencyMs: 1 });
   assert.equal(ev.name, "request.failed");
 });
 
@@ -74,12 +69,7 @@ test("resolveRequestLifecycleEvent: tokens resolve from prompt_tokens/completion
 });
 
 test("resolveRequestLifecycleEvent: missing/odd tokens degrade to zero, never NaN", () => {
-  const ev = resolveRequestLifecycleEvent({
-    traceId: "z",
-    status: 200,
-    tokens: "nope",
-    latencyMs: 2,
-  });
+  const ev = resolveRequestLifecycleEvent({ traceId: "z", status: 200, tokens: "nope", latencyMs: 2 });
   assert.equal(ev.name, "request.completed");
   if (ev.name !== "request.completed") return;
   assert.equal(ev.payload.tokensInput, 0);

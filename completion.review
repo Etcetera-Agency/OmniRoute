@@ -1,124 +1,403 @@
-# Completion Review
+# Completion review: Auto bands and SystemOne implementation checkpoint
 
-## 2026-09-08 (migration/runtime follow-up)
+Date: 2026-10-03
+Scope: reviewed local implementation of `add-auto-band-seam`,
+`add-auto-quality-band-filter`, `add-auto-band-demand-reserve`, and
+`add-systemone-decisions-route`. Calibration implementation and local review
+are complete. Production deployment and migration are complete; real-catalog
+validation, authenticated route checks, remaining live-service checks, and
+archiving the four remaining OpenSpec packages remain open. The production
+webpack memory and official-image overlay packages have been archived and
+their deltas merged into living specs.
 
-- Added the missing `134_ccr_blocks` → `139_ccr_blocks` migration compatibility
-  mapping so existing CCR tables free the upstream `134_proxy_logs_egress_ip`
-  slot without losing data or skipping the egress column migration.
-- Restored proxy-health's merged egress-summary imports (`getRecentEgressSharingSummary`,
-  its summary types, and the redaction flag helper); the sweep now executes the
-  persisted egress summary path without a runtime `ReferenceError`.
-- Strengthened the CCR renumber regression with an integrity check and a
-  row-preservation assertion. Code Simplifier review: direct compatibility/import
-  restorations; no further refactor needed.
-- Verification: migration-numbering check, CCR renumber regression, migration
-  constants snapshot, proxy-health egress-summary tests, core typecheck, and
-  backend build passed.
+## Decisions and implemented behavior
 
-## 2026-09-08 (runtime follow-up)
+- Band channels default to `thrifty` only while `OMNIROUTE_AUTO_BANDS` is on.
+  With the flag off, an omitted tier stays unset for upstream handling and an
+  explicit tier keeps upstream behavior.
+- Unrated models pass only `low`; they receive no synthetic score and stay out
+  of `mid` and `high`. The old `agt` role maps to `general + tools`.
+- Enabled band `thrifty` channels order eligible rungs `free → keyless →
+subscription → cheap → premium`. Plain upstream `auto:thrifty` behavior is
+  unchanged. Explicit `:free` retains upstream provider/model classification,
+  including eligible keyless OpenCode models; it is not a per-connection
+  zero-spend guarantee.
+- Calibration cut points use sorted distinct numeric scores from observed
+  rated models. The user approved nearest-rank selection:
+  `c1 = scores[ceil(0.33*N)-1]`, `c2 = scores[ceil(0.67*N)-1]`; for nine
+  distinct values, select the third and seventh. The rule is recorded in the
+  quality design/spec. The calibration minimum-population guard counts
+  candidates retained by each band, including unrated candidates admitted to
+  `low`.
+- The user approved maximum known positive monthly capacity per
+  `(account, provider, poolKey)`. The disabled reserve state is a full stop:
+  no source reads, calculations, refresh, diagnostics, or account narrowing.
+- The user explicitly authorized deployment, production migration, and
+  activation. The supported Node 26 candidate build/start, fresh-copy
+  migration checks, and production cutover have passed. Radar is enabled and
+  public opt-in is true; its sync request returned HTTP 200, but the follow-up
+  status reports `error`, so feed/cache activation is not yet verified.
+  Authenticated route checks and remaining live readiness checks are pending.
 
-- Fixed post-merge runtime gaps exposed by standalone smoke: restored proxy-health
-  probe resolver imports, rebuilt the auto-combo regular/family candidate pools,
-  and restored model capability/context, auth/catalog, search, embedding, and
-  web-fetch symbols removed by the merge resolution.
-- Corrected the combo connection-reference cleanup predicate, pipeline step
-  diagnostics, parallel-extract type guard, and typed search-proxy sanitization;
-  removed the duplicate Firecrawl field and restored the Claude tool-prefix
-  constant.
-- Code Simplifier review completed: changes are direct upstream-compatible
-  restorations and narrow type/runtime fixes; no additional refactor was needed.
-- Verification: `npm run typecheck:core`, `OMNIROUTE_USE_TURBOPACK=0 npm run
-  build:backend`, targeted catalog/auto-combo tests, and standalone runtime
-  smoke (`/healthz` and `/api/monitoring/health`) passed. Docker image smoke was
-  unavailable because the local Docker daemon was not running.
+## Implementation and review
 
-## 2026-09-08
+Band grammar, quality/capability filters, the selector and fallback ordering,
+exact provider/model/account mappings, quota reservation, account allowlist
+narrowing, reserve configuration, demand/capacity calculations, and reserve
+refresh diagnostics are implemented. Disabled paths preserve upstream routing.
+The account selector retains account B when a stale direct pin names A but the
+authoritative allowlist is `[B]`; quota-blocked accounts remain after routable
+rungs and preserve the existing final 429 when all candidates are blocked.
 
-- Repaired four malformed upstream/fork merge resolutions: restored Firefly capability
-  normalization, removed the duplicate JWT decoder, restored Copilot request/trace IDs,
-  and restored the single-flight proxy fallback's negative-cache branch. Removed the
-  duplicate Firefly session-cookie declarations in the image/video handlers and restored
-  provider deletion re-exports required by the local DB compatibility layer. Moved the
-  fork-owned FMO migrations from the upstream-colliding 134–136 slots to 164–166. Removed
-  the merge-generated duplicate connection/api-key destructuring in the search handler and
-  removed stale imports left by the proxy-helper reshaping. Restored the merged search alias
-  and credential-fallback exports, Gemini TTS media helpers, shared media-result type guard,
-  and web-fetch provider exports needed by downstream routes.
-  Added the missing Context7 web-fetch route to the fork's provider chain while keeping it
-  explicit-only and anonymous-capable. Removed the last stale proxy resolver call from the
-  search request path and restored the missing settings import in the v1 search route. Wired
-  the existing Context7 request builder and normalizer into the merged search dispatch.
-- Applied Code Simplifier review; no additional refactor was needed beyond removing the
-  merge-generated duplicate branches.
-- Pinned the Docker build's `tls-client-node` download to `1.15.1` on the
-  legacy asset path because upstream `1.16.0` renamed ARM64 releases to the
-  `tls-client-xgo-*` form that the package resolver does not recognize.
+The confirmed quality-selection issue is fixed: strategies now run within each
+billing rung, rather than allowing a global premium score or LKGP pin to outrank
+eligible free candidates. The quota-cutoff regression also passes. Independent
+review closed both routing findings, the quality hook, reserve configuration,
+capacity behavior, and reserve integration. The identical-positive daily-cap
+regression now retains one known daily axis in either catalog order; differing
+positive caps still fail refresh and preserve the prior snapshot.
 
-## 2026-08-08
+Three independently confirmed SystemOne defects are fixed and closed:
 
-- Resolved the upstream `main` merge while preserving the fork search/FMO overlays,
-  manual-only release workflow, and service-model manifest behavior.
-- Renumbered fork FMO migrations from colliding `118–120` slots to `134–136`, with
-  direct reconciliation for databases that recorded either `110–112` or `118–120`.
-- Restored provider-manifest service injection with explicit exposure gating and
-  canonical `cliproxy` storage IDs mapped to `cliproxyapi` manifest IDs.
-- Reconciled upstream and fork search providers, removed stale explicit-`any`
-  suppressions, and retained both unified `firecrawl` and fork `firecrawl-search`.
-- Applied Code Simplifier cleanup to the conflict resolutions, including shared
-  backend ID sets, explicit search result types, simpler You.com normalization,
-  type-safe Firecrawl timestamp/filter handling, and formatter-clean migration
-  directory discovery.
-- Applied Code Simplifier cleanup to search hardening: explicit connection-ID
-  resolution, non-nested Firecrawl base selection, direct proxy-context clearing,
-  per-attempt proxy notes, and special-provider operation boundaries with
-  category-aware Firecrawl content normalization; HTML payloads now use the
-  schema-valid text content format and unknown/web categories normalize to the
-  schema's `other` source type. HTTP error responses emit error proxy telemetry.
-- Applied Code Simplifier cleanup to web-fetch routing: shared credential-provider
-  mapping and keyless Mdream fixtures now preserve the canonical fallback order.
-- Preserved web-fetch fallback for 401/transport failures while limiting 403
-  fallback to registry-declared quota statuses, and hardened standalone script
-  imports when launched from stdin/module test runners; the route now shares
-  canonical Retry-After normalization for relative seconds, dates, and epoch-ms
-  reset values while retaining the 300-second malformed-value default.
-- Applied Code Simplifier cleanup to release workflow hardening: deterministic artifact
-  provenance/candidate isolation, base-relative file-size coverage, release-rail ratchets,
-  env-safe Docker channels with existing trigger topology preserved, manifest checks, and a
-  blocking previous-version boot proof; quality scanner setup now resolves oasdiff from its
-  official repository, requires pinned workflow scanners, and pins all external workflow
-  actions. Self-target checks now distinguish same-name fork branches, while desktop verification
-  requires both Intel/arm64 DMGs and exact updater manifests.
+- Bounded BYOB reads copy small chunks without retaining near-1 MiB backing
+  buffers.
+- A late upstream success cannot clear a newer concurrent failure cooldown.
+- Upstream error text is not persisted into call-log summaries; client error
+  responses keep their specified shape.
 
-## 2026-07-08
+The earlier config recovery finding is also fixed and independently verified:
+7/7 focused tests cover same-mtime `EACCES` recovery and malformed-range
+warning deduplication. SystemOne routing/auth alias checks found no auth seam.
 
-- Fixed Docker build bundler override wiring: `OMNIROUTE_USE_TURBOPACK=0` is now a
-  declared build arg before it becomes an image env var, so Shlink can build the
-  upstream-synced commit with the webpack escape hatch instead of overloading the
-  2-core host with Turbopack.
+Five independently confirmed calibration findings are fixed and closed:
 
-## 2026-07-04
+- Manual mode now bounds/clears observed model IDs without waiting for a
+  calibration run.
+- The `minPerBand` guard counts unrated candidates admitted to `low`.
+- Guarded-attempt timing persists so a restart does not rerun calibration
+  before `intervalHours`.
+- The CLI report waits for cold config loading before reading configured
+  `ratedSources` and structured-output policy.
+- The first request after restart uses saved ranges before constructing the
+  enabled predicate, avoiding a default-range first request.
 
-- Added skip guards for Docker Hub publish when Docker credentials are missing and
-  for Wiki Sync when the repository wiki is not enabled, preventing guaranteed-red
-  GitHub Actions runs on `main`.
-- Restored green CI gates for the FMO pool merge by documenting new env vars,
-  re-exporting `fmoPools` through `localDb`, and reconciling current quality/file-size
-  baselines already measured by CI.
-- Fixed Parallel Extract credential resolution to use the valid `parallel-search`
-  provider connection instead of the invalid `parallel` id, with shared-credential
-  tests updated to match the managed provider contract.
+The approved formula uses nearest-rank cut points from sorted distinct numeric
+scores. The focused CLI smoke used an isolated DB and returned valid JSON for 10
+baseline models, 0 rated models, and no cut points; it is not a real-catalog
+report.
 
-## 2026-06-30
+## Verification
 
-- Fixed post-archive shared fixture drift: `tests/fixtures/fmo/fmo-pools-v1.golden.json`
-  now matches the FMO canonical fixture byte-for-byte (`quality_band.min/max` are
-  `0.55`/`0.85`).
-- Resolved upstream merge conflicts by keeping the Hermes ordered search chain while
-  adding upstream `duckduckgo-free` fallback support and split provider/schema catalogs.
-- Renumbered fork FMO migrations from colliding `100/101` slots to `110/111`,
-  with compatibility reconciliation so old fork DBs do not skip upstream migrations.
-- Restored web-fetch schema derivation from `webFetchRegistry` so Hermes providers
-  (`mdream`, `parallel-extract`) and the `fallback` flag survive the upstream schema split.
-- Moved fork-owned search providers behind `src/lib/search/providerRegistry.ts` and
-  passed resolved search configs into `handleSearch`, keeping upstream
-  `open-sse/config/searchRegistry.ts` free of Hermes provider entries.
+- Auto-Combo suite before calibration: 40 files / 353 tests passed; core and OpenSSE typechecks
+  passed. Scoped checks: quality E2E 4/4, reserve source tests 25/25 across
+  three suites, reserve account-routing E2E 4/4, config 13/13, capabilities
+  8/8, filter 8/8, billing-rung routing 7/7, and direct upstream
+  resolver/stream/quota tests 27/27. Independent review closed these slices.
+- Calibration tests pass 19/19; the combined Auto-Combo and service regression
+  passes 41 files / 372 tests with two workers. Core/OpenSSE typechecks,
+  scoped ESLint, Prettier, and `git diff --check` pass. Default, missing, and
+  unreadable configuration probes return safe defaults within three seconds.
+  Independent review closed all five calibration findings; final Code
+  Simplifier review found no further cleanup. An initial 20-worker run timed
+  out under resource contention and reported 27 failures; the low-worker rerun
+  passed. Overlapping typechecks were stopped after 16 minutes, and serial
+  typechecks passed.
+- SystemOne: schema/dispatch/route tests 46/46; OpenAPI coverage 8/8; route
+  checker reports 276 baseline entries and 0 new findings. Core/OpenSSE
+  typechecks, ESLint, Prettier, Code Simplifier, and diff checks passed.
+- OpenAPI, environment references, `.env.example`, and the fork deployment
+  guide were updated. `npm run check:docs-all` passed, including environment
+  sync, fabricated-reference checks, and 1,180 internal links. Prettier passes
+  for all changed Markdown/spec docs. Markdownlint reports the same 706
+  findings in three long reference/operations docs at HEAD and in the working
+  tree; changed OpenSpec/TODO docs have no findings. Repository-wide
+  `npm run lint:md` reports 1,738 existing findings across 164 of 182 files.
+- OpenAPI coverage passed at 97.2%; route and security-tier checks passed.
+  `check:openapi-breaking` was skipped because `oasdiff` is absent and the gate
+  is advisory; run it before release when the tool is available.
+- The isolated-copy database rehearsal passed the three-row ledger rekey;
+  missing upstream migrations were replayed and a second init reported 0
+  pending. FMO data/schema remained unchanged; trigger rollback checks and
+  SQLite `quick_check` passed. The runbook is
+  [docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md](docs/ops/AUTO_BANDS_MIGRATION_REHEARSAL.md).
+  The rehearsal itself did not modify production; the later authorized
+  production migration and cutover are recorded below.
+- The deployment playbook and migration rehearsal runbook now reflect the
+  reviewed test state, the historical production source (`f2bddef27ed0807dd5a5e2712bc26536edda8138`)
+  and initial staged target (`db18a17c374506941d10fbc58132eb108d1ea5db`), approved
+  Node 26 production runtime, completed user-authorized migration, keyless
+  public Radar
+  activation, post-deploy dashboard Intel-key step, calibration, reserve
+  rollout, and rollback. Production now serves
+  `omniroute:55f40468-official-overlay`, built from source A
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` and pack B
+  `55f40468137290e8efdc24a1a1b95b111a61d91a`; image ID is
+  `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`.
+  OpenSpec tasks mark seam verification 4.1, reserve
+  integration 4.2, quality playbook 3.7, and reserve isolation 2.6 complete.
+  Independent review closed the isolation tests without findings. Focused
+  isolation tests pass 2/2; isolation, reserve, E2E, demand, and capacity
+  suites pass 5 files / 31 tests with two workers. Default adapters, enabled
+  refresh, real catalog lookup, Radar sync/scheduler guards, and same-DB
+  `.prepare`/`exec` write traps are covered. The feed cache is empty, so the
+  real cache read uses static-baseline fallback; overlay/local-merge behavior
+  is not exercised. This is an optional future focused check if reserve later
+  depends on that branch, not a production gate.
+- Documentation checkpoint validation: `check:docs-all` passed, including
+  1,180 internal links and strict fabricated-claim checks. The independent
+  archive audits moved `reduce-production-webpack-cache-memory` to
+  `openspec/changes/archive/2026-10-03-reduce-production-webpack-cache-memory/`
+  and `add-official-image-backend-overlay` to
+  `openspec/changes/archive/2026-10-03-add-official-image-backend-overlay/`,
+  merging their deltas into the `production-webpack-build-memory` and
+  `official-image-backend-overlay` living specs. Final strict validation passed
+  for both living specs (2/2) and the four remaining active changes (4/4); both
+  archived targets passed strict validation. The first cache-spec validation
+  found missing `Purpose` and `Requirements` headings; the archive audit fixed
+  them before the passing check. Prettier and `git diff --check` passed.
+  Targeted Markdownlint reports only the two existing MD025
+  frontmatter-title conflicts in the operations guides. The docs drift scan
+  emitted 96 potential warnings across 169 files without failing the check.
+- The reviewed reserve/SystemOne checkpoint was pushed as
+  `0860cc7da532d50048058c97ccbb91d734f4719d`. The calibration commit
+  `db18a17c374506941d10fbc58132eb108d1ea5db` was pushed and verified by exact
+  remote SHA; publication hooks passed. Production now serves the later
+  official-UI/backend-overlay candidate described below, not that original
+  full-UI build.
+
+## Remaining gates
+
+- Radar production flag and public opt-in are enabled. Authenticated
+  settings/status calls returned HTTP 200. Sync returned HTTP 200 but status
+  reports `Feed request failed with status 404`; all four caches remain empty.
+  The default `https://radar.omniroute.online/v1/catalog/latest` returns Vercel
+  `deployment-not-found` with the correct schema header and no bearer token.
+  Restore the external service/domain or configure a verified live
+  `RADAR_FEED_URL`, then verify feed version/fetch time plus cache population
+  before running the real-catalog report. Public community-catalog access is
+  keyless. The supporter Intel key is absent; the user will enter it through
+  the dashboard as a separate post-deploy action.
+  Bands remain on the approved Arena/manual score sources; Radar Intel rankings
+  are not fed into `getTaskFitnessWithSource`.
+- After a successful Radar/catalog sync, run the calibration report against
+  the real production model catalog; record rated-source coverage, structured-
+  output coverage, and candidate counts for every Hermes channel. The local
+  isolated-DB CLI smoke is not production evidence. Keep manual ranges for a
+  week before considering automatic recalibration.
+- Validate band chat routing and full-ID `call_logs.combo_name` in a safe live
+  request. Check production catalog/usage ID matches and aggregate-read cost;
+  confirm candidate pools are non-empty and
+  `OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL` is unset.
+- Before production reserve enforcement, inspect shared daily metadata shape,
+  measure refresh/read cost, and compare proposed exclusions with observed
+  quota exhaustion using approved read-only validation. Keep disabled reserve
+  as a full stop.
+- Production uses the reviewed stock Node 26 Dockerfile; `package.json`
+  supports `>=24 <27`. Node 24 portability remains a separate unchecked
+  OpenSpec baseline, not a production-runtime blocker. Two builds of staged
+  target `db18a17c374506941d10fbc58132eb108d1ea5db` failed. Attempt 1
+  (02:57:04–03:08:36 UTC) used a 7-GiB total RAM/swap bound, cpuset 0, and pids
+  512; webpack step 19 exited 1 and builder inspection reported `OOM=true`.
+  Attempt 2 (03:26:10–03:34:11 UTC) used heap 4096 MiB with the same bounds and
+  cached dependencies; it exited 1 on V8 heap exhaustion near 4066 MB and
+  `SIGABRT`, with no new cgroup OOM event. Logs and diagnostics were retained;
+  neither attempt produced an image or caused migration/cutover. A third
+  diagnostic run (03:49:15–03:58:53 UTC) exited 1 as `CANCELED` /
+  `context canceled`, not OOM. The watcher expected an exact 9-GiB container
+  value, misclassified an approved 9.5-GiB same-container update as a builder
+  replacement, then canceled the build. Logs were retained; no image or
+  production DB/service changes resulted. Retry 4 ran 04:03:26–04:12:29 UTC
+  after preflight reported 27,403,431,936 bytes free disk and 15,284,174,848
+  bytes `MemAvailable`. The watcher dry run verified the exact container ID,
+  limits, source, and digests; the container had the approved 10-GiB total
+  memory-plus-swap limit from startup. It used heap 6144 MiB, two workers,
+  webpack, cpuset 0, pids 512, and a 900-second timeout. It exited 1 after a
+  cgroup OOM event at 04:12:22 UTC; the Next worker was SIGKILLed at 535 seconds
+  and builder memory peaked at 9.999/10 GiB. Kernel evidence showed one Node
+  MainThread at 10,220,928 KiB anonymous RSS and 0 file RSS; cgroup memory was
+  10,665,197,568 bytes anonymous and about 1 MiB file-backed. Local read-only
+  diagnosis found `webpackBuildWorker=1`, `webpackMemoryOptimizations=true`,
+  and filesystem-cache `maxMemoryGenerations=Infinity`; CPU/page-worker settings
+  are already minimal. The deployed [Docker Guide](docs/guides/DOCKER_GUIDE.md)
+  records the old f2 full-UI Node 26 webpack `runner-base` build passing with
+  heap 6144 MiB and two workers at 12 GiB (11.1-GiB peak); 8 GiB failed. Retry
+  5 reproduced the profile on staged db18 and OOMed; the old result is
+  version-specific. Webpack documents that `maxMemoryGenerations=0` disables
+  additional memory-cache generations but retains data until disk serialization;
+  it does not bound the live compiler object graph and cannot guarantee a
+  12-GiB fit ([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
+  That cache setting does not cap peak compiler-object memory. Retry 5 for the exact staged SHA ran 07:44:15–07:55:48 UTC. After the
+  approved OmniRoute-only stop, post-stop guards passed at 14.741 GiB RAM and
+  25.519 GiB disk; the read-only watcher dry run passed. The pinned Node 26
+  Compose `runner-base` build used a 12-GiB total cap, cpuset 0, pids 512, heap
+  6144 MiB, two workers, and `OMNIROUTE_USE_TURBOPACK=0`, with an 840-second
+  timeout. A new cgroup OOM occurred at 07:55:44 UTC; the Next worker was
+  SIGKILLed at 687.8 seconds and the build exited 1 at 07:55:48 UTC with no
+  candidate image. The 900-second restoration watchdog remained active until
+  the exact prior f2 container returned healthy at 07:56:19 UTC. OmniRoute was
+  unavailable for 12m04s; Redis remained healthy and no DB/Radar changes or
+  cutover occurred. The historical f2 12-GiB pass does not carry over to staged
+  db18. User decision resolved: apply production `cache.maxMemoryGenerations=0`
+  constantly, without a feature flag. The production callback smoke and
+  `node --check` passed, but no full-image build has passed.
+  Webpack documents that `0` disables additional memory-cache generations but
+  does not bound the live compiler object graph, so a 12-GiB fit is not
+  guaranteed. Next 16.3.5 sets production `Infinity` before the custom callback;
+  after every Next/framework upgrade, verify callback order reapplies `0`.
+  The published candidate uses the attested official UI image plus a backend-only
+  overlay. `maxMemoryGenerations=0` was exercised on the backend-only compile; its
+  effect on a full-UI webpack build and a 12-GiB full-build fit remain unmeasured.
+  Do not claim the cache setting makes full-UI builds fit. If a future delivery
+  rebuilds the dashboard, measure the full target in a separately approved
+  follow-up. Retry 5 remains historical RED evidence. The pinned official Node 26 / Next
+  16.3.5 linux/arm64 base for upstream `23a11484862b3bb589a55e85b00e4ac53ffeb234`
+  passed native/filesystem inspection at
+  `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`;
+  SLSA binds the source and OCI revision/version labels are absent. Source A
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` compiled in 733.7 seconds. The full scratch export was canceled
+  at 09:16:03 UTC to avoid exporting unused cache data, not due to compiler
+  failure. The cached thin export passed in 1.6 seconds (232,614,811 bytes;
+  3,529 server files / 232,234,534 bytes, routes manifest 193,684 bytes,
+  required-server-files 27,866 bytes). Thin-export and route/bundle hashes were
+  verified against the final image; no aggregate artifact/image digest was
+  reported. Source B `55f40468137290e8efdc24a1a1b95b111a61d91a` built `omniroute:55f40468-official-overlay`; target BuildKit parse/import and
+  native Node 26.10.0 / Next 16.3.5 / SQLite 3.53.4 checks passed. All 1,089
+  static asset hashes, `BUILD_ID`, and 159 non-API app-path entries match the
+  base; merged manifest has 725 API routes, 9 function configs, and 16 rewrites.
+  Candidate container health and `/dashboard/radar` 200 passed. SystemOne paths
+  returned handler-specific 404 only with feature/auth disabled, not an
+  enabled-route check. A fresh 112,594,944-byte production-data copy passed
+  `quick_check`; exact three-row ledger rekey preserved all other ledger rows,
+  names, timestamps, FMO schema/counts, and table SHA-256 values. Candidate
+  startup reached migration version 196; after correcting the isolated smoke
+  input, the second start was healthy with 0 migrations applied and 0 pending.
+  Integrity and foreign-key checks passed, and unauthenticated `GET /v1/models`
+  returned the expected `401 AUTH_002`. The Radar probe returned 404 with the
+  copy's Radar flag off. Authenticated `/v1` dispatch and enabled SystemOne/band
+  routes remain unverified. Production now runs candidate image
+  `omniroute:55f40468-official-overlay`, ID
+  `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`,
+  built from source B `55f40468137290e8efdc24a1a1b95b111a61d91a` and
+  runtime-equivalent backend artifact A
+  `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2`; its container and Redis are
+  healthy, and the migration run applied 33 operations. The authorized
+  three-row production ledger rekey followed a fresh 112,594,944-byte backup at
+  `/opt/apps/omniroute-deploy-diagnostics/prod-cutover-55f40468-20261003T095314Z/backup/storage.sqlite`
+  (SHA-256 `d2c5149efb1272edadb09b5ba93378986f71f3943373ee5783dad9f728c901a6`)
+  that passed `quick_check`. Post-migration checks passed: integrity `ok`, zero foreign-key
+  violations, 196 ledger rows (193 numeric and three preserved legacy rows),
+  maximum numeric version 196, exact upstream rows 164–166, unchanged legacy
+  names/timestamps, retirement triggers present, and FMO counts 5/45/1/1.
+  Unauthenticated production `GET /v1/models` returned expected `401 AUTH_002`.
+  Radar is enabled and public opt-in is true. Authenticated settings/status
+  calls and the sync request returned HTTP 200, but sync status reports
+  `Feed request failed with status 404`; all four Radar caches remain empty.
+  The default upstream `https://radar.omniroute.online/v1/catalog/latest`
+  returns Vercel `deployment-not-found` with the correct schema header and
+  without a bearer token. The 489 built-in catalog entries do not prove feed
+  data was loaded. The external Radar service/domain must be restored or
+  replaced by a verified live endpoint; this repository has no private Radar
+  service source/access, only its public export workflow. The earlier
+  unauthenticated `not_found` came from probing the wrong port. The supporter
+  Intel key is absent; the user will enter it through the dashboard as a
+  separate post-deploy action. Other authenticated routes and live
+  catalog/calibration/routing/reserve validation remain pending.
+  See TODO for remaining checks; task 1.4 and remaining live gates stay open.
+
+- SystemOne live gates remain: confirm OpenRouter request/response shape;
+  test Laya-only RU/UK, Laya stop/fallback, and 413/422 recovery followed by a
+  small request; collect 50-request direct/proxy latency; verify allowed-model
+  policy and production flag-off; monitor deployment variables, rollback, and
+  error rows. Laya deployment and the Hermes caller switch are outside this
+  repository.
+- The user explicitly authorized deployment, production migration, and
+  activation. Candidate `omniroute:55f40468-official-overlay`, built from
+  source A `4b29aa12fcc51fb183b196b67f878fb8ca67b5b2` plus pack B
+  `55f40468137290e8efdc24a1a1b95b111a61d91a`, is serving production and passed
+  native, health, and post-migration integrity checks; image ID is
+  `sha256:bfb397b394e6f646583355dbe26bbb879cca2efddef140f786558519eedc4668`.
+  The one-time ledger rekey and 33 migrations completed.
+  Foreign-key, ledger, trigger, and FMO-count checks passed. Authenticated
+  route tests, Radar successful-sync/cache validation, and remaining live
+  checks are still pending. The default external Radar feed currently returns
+  Vercel `deployment-not-found`; restore that service/domain or configure a
+  verified live `RADAR_FEED_URL` before rerunning sync.
+  Permanent migration compatibility code is forbidden.
+- Correct the upstream `QuotaSnapshotRow` declaration/getter contract in a
+  separate slice. The runtime getter returns camelCase fields and numeric
+  `isExhausted` (`0 | 1`); the reserve code currently uses a strict local
+  camelCase boundary without a compatibility shim.
+- After the remaining implementation and operational gates pass, reconcile
+  `openspec/README.md`, merge the three auto-quality-band deltas (26 distinct
+  requirements) and the SystemOne delta (9 requirements) into living specs,
+  validate strictly, then archive the four remaining active packages: the
+  three auto-quality-band changes and the SystemOne change. The production
+  webpack-memory and official-image-overlay packages are already archived and
+  merged into living specs; do not archive or deploy the remaining packages
+  based only on local tests.
+
+## GitHub overlay image build proposal
+
+- Updated OpenSpec package `add-github-overlay-image-build` for building the
+  fork image from GitHub and pulling it on the server. Docker construction and
+  backend compilation run only on a canonical `main` push or manual dispatch
+  selected on exact main. The user decided that no general, unit, static, or
+  workflow-check tests run automatically on feature pushes, PRs, main, or
+  schedules; tests are run manually for a specific task. The main image
+  workflow verifies the actual container artifact before publication and has
+  no unit-test gate; the manifest-merger precompile test is not part of the
+  required build. It uses the existing official
+  UI/backend overlay and pinned ARM64 base digest
+  `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`,
+  verifies one local candidate before GHCR authentication, and publishes the
+  full-SHA and `:main` tags with recorded manifest digest and source/base/run
+  metadata. The operator pulls the main image, compares its digest, starts
+  with `docker compose up -d --no-build`, and retains prior-digest rollback.
+- The smoke contract targets the direct Next UI listener (`20128`):
+  unauthenticated `GET /api/v1/models` returns HTTP 401 with
+  `error.code: "invalid_api_key"`. This is the route-handler response;
+  `AUTH_002` is generated by the separate API-listener proxy and is not the
+  candidate's direct UI response.
+- Proposal, design, tasks, capability delta, and repo TODO track the same
+  main-only image trigger and no-automatic-tests policy. The PR must include reviewed runtime
+  changes and eligible completed OpenSpec archives. GHCR's first publication
+  defaults private; after a successful main publish, the owner switches the
+  package to public and anonymous pull is verified. The workflow leaves
+  visibility unchanged. Automated production deployment is separate follow-up
+  scope.
+- Final manual verification passed 13/13 focused tests, scoped ESLint,
+  Prettier, actionlint (0 findings), the workflow audit (209 findings against
+  a baseline of 233), strict OpenSpec validation (7/7), and
+  `git diff --check`. Independent low-effort review of the final workflow
+  policy found no correctness issues. Code Simplifier reviewed the trigger/job
+  changes and removal of unit-test gates; no additional simplification was
+  needed. These tests are task-specific manual checks, not automatic CI gates.
+- Keep `api-route-typecheck.yml`,
+  `test-quarantine.yml`, and `release-acceptance.yml` manual-only; keep other
+  routine check workflows disabled and preserve only the fork image workflow
+  as active. The server playbook now documents how to preserve this after
+  upstream sync.
+- GitHub settings update completed: the Actions API previously listed 27
+  workflows, with 25 upstream workflows already disabled and API Route
+  Typecheck plus the fork image workflow active. API Route Typecheck was
+  disabled; the current API reports 26 workflows `disabled_manually` and only
+  the fork image workflow active. Feature push run `37121740387` and PR run
+  `37121831813` from the old automatic checks were cancelled. API typecheck PR
+  run `37121831856` had completed before its workflow was disabled. The source
+  workflow source now makes the three auxiliary workflows manual-only; verify
+  settings remain correct after the PR merges.
+- The local Docker daemon did not respond, so no Docker image build or
+  Docker-backed candidate acceptance ran. No successful main image workflow or
+  image publication exists yet. CI commit
+  `38cae506dcfb54a4e01fb5b4828fbd37b29e4d18` is created locally; feature push
+  and PR are pending. No production change has occurred. The review PR must
+  include the runtime work and eligible completed archives; manual review is
+  required without an automatic test-status gate. After merge, the actual native ARM64 main
+  build is the next image gate. Then publish/record digest, switch the package
+  public, verify anonymous pull, and complete server health and rollback
+  acceptance. Audit branch/main/deployed-base history before opening the PR;
+  do not restore legacy fork-only behavior without a reviewed requirement.
+  Keep automated production deployment as separate future scope.
+- Pre-PR history audit: remote `main` is `f2bddef27ed0807dd5a5e2712bc26536edda8138`; pre-integration feature is `11a54874b7e236df5935e54f17a7ffcb5564d88d`; deployed runtime source is `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree follows official upstream v3.8.52 (`23a11484862b3bb589a55e85b00e4ac53ffeb234`). Its PR diff against current `main` is intentionally broad: 17,350 paths (+4,914,997/-536,172), replacing the stale fork tree with the upstream-aligned source plus reviewed overlays. The overlay against the selected upstream release is 88 paths (+16,137/-151). Inventory found no generated build/cache/dependency outputs; environment files are examples, and no private-key, certificate, or database artifacts were found. All 98 tracked blobs larger than 1,000,000 bytes are byte-identical to the upstream release. This tree intentionally removes legacy fork-only web-fetch/search/routing/FMO behavior. Preserve the exact main SHA on the archive ref before integrating its ancestry; call out the broad upstream delta in the PR.
+- Read-only GitHub settings: Actions enabled, allowed actions `all`, default workflow token permission `write`; the image workflow uses narrower explicit permissions. No main branch protection or repo/inherited rulesets are configured, so require manual PR review before merge without automatic test statuses. GHCR has no `omniroute` package yet. After first publish, make it public in GitHub Packages UI and verify anonymous pull; official REST/GraphQL surfaces no package-visibility mutation, and public cannot be reverted to private.
+- Fresh main archive is pushed and verified: `archive/main-before-main-image-pr-2026-10-03` points to `f2bddef27ed0807dd5a5e2712bc26536edda8138`; `main` remained at that SHA through the pre-integration fetch. The feature records this `main` history with an ours-strategy merge, retaining the reviewed upstream-aligned source tree.

@@ -13,7 +13,8 @@ import test from "node:test";
  * `client_disconnected`, so the connection-level cooldown is skipped.
  */
 
-const { shouldSkipConnDisable } = await import("../../open-sse/services/combo/comboPredicates.ts");
+const { shouldSkipConnDisable } =
+  await import("../../open-sse/services/combo/comboPredicates.ts");
 
 const BASE_ARGS = { is401: false, hasExtraKeys: false, provider: "test-provider" } as const;
 

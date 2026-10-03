@@ -17,7 +17,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     if (values) {
-      return Object.entries(values).reduce((acc, [k, v]) => acc.replace(`{${k}}`, String(v)), key);
+      return Object.entries(values).reduce(
+        (acc, [k, v]) => acc.replace(`{${k}}`, String(v)),
+        key
+      );
     }
     return key;
   },
@@ -126,7 +129,9 @@ describe("confirm before removing a single connection (#7361)", () => {
   });
 
   function clickDeleteButton() {
-    const deleteButton = container.querySelector<HTMLButtonElement>("button[title='delete']");
+    const deleteButton = container.querySelector<HTMLButtonElement>(
+      "button[title='delete']"
+    );
     expect(deleteButton).toBeTruthy();
     act(() => {
       deleteButton!.click();

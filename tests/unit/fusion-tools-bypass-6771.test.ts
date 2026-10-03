@@ -73,11 +73,7 @@ test("6771: tool-bearing request bypasses panel fan-out — single call, tools i
   });
 
   // Exactly one call — not once per panel member + once for the judge.
-  assert.equal(
-    calls.length,
-    1,
-    `expected exactly 1 call, got: ${calls.map((c) => c.model).join(", ")}`
-  );
+  assert.equal(calls.length, 1, `expected exactly 1 call, got: ${calls.map((c) => c.model).join(", ")}`);
   assert.equal(calls[0].model, "judge/model");
 
   // The forwarded body still contains the original tools/tool_choice unmodified.
@@ -109,7 +105,7 @@ test("6771: tool-bearing request with no explicit judgeModel targets panel[0]", 
   assert.deepEqual(calls, ["panel/a"]);
 });
 
-test('6771: tools present but tool_choice:"none" still goes through normal fan-out+judge path', async () => {
+test("6771: tools present but tool_choice:\"none\" still goes through normal fan-out+judge path", async () => {
   const calls: string[] = [];
   const handleSingleModel = async (_b: Body, m: string) => {
     calls.push(m);

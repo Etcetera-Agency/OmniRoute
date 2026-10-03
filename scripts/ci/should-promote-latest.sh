@@ -22,8 +22,13 @@ set -euo pipefail
 
 VERSION="${1:?version required}"
 
-# Only stable x.y.z releases can grab :latest. Floating channels and malformed values fail closed.
+# Only a stable x.y.z release may ever grab :latest. Floating channels such as
+# `main` and `next`, plus every pre-release identifier, fail closed here even if
+# a caller forgets to short-circuit them first.
 if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  # Consume the caller's tag stream before exiting. A pre-release decision is
+  # immediate, but closing stdin early can give a piped producer EPIPE.
+  cat >/dev/null
   echo "false"
   exit 0
 fi

@@ -101,12 +101,6 @@ export async function handleGetModels(request: Request, dependencies: GetModelsD
       const settings = await getSettings();
       hidePaid = settings?.hidePaidModels === true;
     } catch {}
-    const filtered = hidePaid
-      ? models.filter(
-          (m: { provider: string; model: string }) =>
-            providerHasFreeModels(m.provider) && isFreeModel(m.provider, { id: m.model })
-        )
-      : models;
 
     // Filter before capability resolution so unavailable/paid rows cannot trigger
     // needless capability work. One request-local snapshot supplies all persisted

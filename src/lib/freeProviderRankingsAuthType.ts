@@ -39,6 +39,8 @@ export function filterRankingsByAuthType(
  * `computeFreeProviderRankings` is preserved *within* each auth-type group
  * (#6915 — "least effort" and "best quality" compose instead of fighting).
  */
-export function sortRankingsAuthTypeFirst(rankings: FreeProviderRanking[]): FreeProviderRanking[] {
+export function sortRankingsAuthTypeFirst(
+  rankings: FreeProviderRanking[]
+): FreeProviderRanking[] {
   return [...rankings].sort((a, b) => AUTH_TYPE_ORDER[a.category] - AUTH_TYPE_ORDER[b.category]);
 }

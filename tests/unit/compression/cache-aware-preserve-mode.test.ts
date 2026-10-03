@@ -70,8 +70,7 @@ describe("T05/C5 preserveSystemPromptMode -> effective boolean", () => {
 
   it("no body: honors the mode at its no-cache baseline", () => {
     assert.equal(
-      resolveCacheAwareConfig(cfg({ preserveSystemPromptMode: "whenNoCache" }))
-        .preserveSystemPrompt,
+      resolveCacheAwareConfig(cfg({ preserveSystemPromptMode: "whenNoCache" })).preserveSystemPrompt,
       false
     );
     assert.equal(

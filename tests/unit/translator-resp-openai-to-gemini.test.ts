@@ -73,7 +73,9 @@ test("OpenAI -> Gemini: reasoning, text, and usage project correctly (mirrors An
     {
       id: "chatcmpl-2",
       model: "gpt-4.1",
-      choices: [{ index: 0, delta: { reasoning_content: "think" }, finish_reason: null }],
+      choices: [
+        { index: 0, delta: { reasoning_content: "think" }, finish_reason: null },
+      ],
     },
     state
   );
@@ -100,6 +102,12 @@ test("OpenAI -> Gemini: reasoning, text, and usage project correctly (mirrors An
 
   const last = (chunk2 as Array<Record<string, unknown>>)[0];
   const lastResponse = (last as { response: Record<string, unknown> }).response;
-  assert.equal((lastResponse.candidates as Array<Record<string, unknown>>)[0].finishReason, "STOP");
-  assert.equal((lastResponse.usageMetadata as Record<string, unknown>).totalTokenCount, 8);
+  assert.equal(
+    (lastResponse.candidates as Array<Record<string, unknown>>)[0].finishReason,
+    "STOP"
+  );
+  assert.equal(
+    (lastResponse.usageMetadata as Record<string, unknown>).totalTokenCount,
+    8
+  );
 });

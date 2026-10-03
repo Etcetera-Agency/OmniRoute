@@ -5,19 +5,12 @@ import {
   GET,
   OPTIONS,
   injectServiceModelsIntoManifest,
-  readServiceModelsForManifest,
 } from "../../../../src/app/api/v1/provider-plugin-manifest/route.ts";
 import type { ServiceModel } from "../../../../src/lib/db/serviceModels.ts";
-import type {
-  ProviderPluginManifest,
-  ProviderPluginManifestEntry,
-} from "../../../../open-sse/config/providerPluginManifest.ts";
+import type { ProviderPluginManifest, ProviderPluginManifestEntry } from "../../../../open-sse/config/providerPluginManifest.ts";
 import { generateProviderPluginManifest } from "../../../../open-sse/config/providerPluginManifestRegistry.ts";
 
-function getProvider(
-  manifest: ProviderPluginManifest,
-  id: string
-): ProviderPluginManifestEntry | undefined {
+function getProvider(manifest: ProviderPluginManifest, id: string): ProviderPluginManifestEntry | undefined {
   return manifest.providers.find((provider) => provider.id === id);
 }
 
@@ -90,33 +83,6 @@ test("provider plugin manifest route handles CORS preflight", async () => {
   assert.equal(response.headers.get("Access-Control-Allow-Headers"), "*");
 });
 
-test("provider plugin manifest route maps plugin ids to canonical service tools", () => {
-  const requestedTools: string[] = [];
-  const models = readServiceModelsForManifest("cliproxyapi", (toolName: string) => {
-    requestedTools.push(toolName);
-    return [{ id: "model-clone", available: true }];
-  });
-
-  assert.deepEqual(requestedTools, ["cliproxy"]);
-  assert.deepEqual(models, [{ id: "model-clone", available: true }]);
-});
-
-test("provider plugin manifest route rewrites persisted service prefixes to plugin ids", async () => {
-  const manifest = withServicePluginEntries(generateProviderPluginManifest());
-  const withModels = await injectServiceModelsIntoManifest(manifest, (pluginId: string) =>
-    readServiceModelsForManifest(pluginId, (serviceTool: string) =>
-      serviceTool === "cliproxy"
-        ? [{ id: "cliproxy/model-z", name: "Cliproxy Model", available: true }]
-        : []
-    )
-  );
-
-  const cliproxyEntry = getProvider(withModels, "cliproxyapi");
-  assert.ok(cliproxyEntry);
-  assert.ok(hasModel(cliproxyEntry, "cliproxyapi/model-z"));
-  assert.equal(hasModel(cliproxyEntry, "cliproxy/model-z"), false);
-});
-
 test("provider plugin manifest route injects service models with a custom reader", async () => {
   const manifest = withServicePluginEntries(generateProviderPluginManifest());
   const withModels = await injectServiceModelsIntoManifest(
@@ -132,7 +98,7 @@ test("provider plugin manifest route injects service models with a custom reader
         return [{ id: "model-clone", name: "Cliproxy Test", available: true }];
       }
       return [];
-    }
+    },
   );
 
   const nineRouterEntry = getProvider(withModels, "9router");
@@ -187,7 +153,7 @@ test("provider plugin manifest route skips unavailable service models", async ()
         ];
       }
       return [];
-    }
+    },
   );
 
   const nineRouterEntry = getProvider(withModels, "9router");
@@ -206,7 +172,7 @@ test("provider plugin manifest route injects only when 9router exposure is enabl
       }
       return [];
     },
-    (toolName: string): boolean => (toolName === "9router" ? false : true)
+    (toolName: string): boolean => (toolName === "9router" ? false : true),
   );
 
   const nineRouterEntry = getProvider(withModels, "9router");
@@ -224,7 +190,7 @@ test("provider plugin manifest route injects for cliproxy when exposure is enabl
       }
       return [];
     },
-    () => true
+    () => true,
   );
 
   const cliproxyEntry = getProvider(withModels, "cliproxyapi");
@@ -242,7 +208,7 @@ test("provider plugin manifest route skips cliproxy models when exposure is disa
       }
       return [];
     },
-    (toolName: string): boolean => (toolName === "cliproxyapi" ? false : true)
+    (toolName: string): boolean => (toolName === "cliproxyapi" ? false : true),
   );
 
   const cliproxyEntry = getProvider(withModels, "cliproxyapi");

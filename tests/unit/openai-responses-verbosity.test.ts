@@ -61,11 +61,7 @@ test("Responses -> Chat drops a stray non-verbosity text wrapper", () => {
   const out = asRecord(
     openaiResponsesToOpenAIRequest(
       "gpt-5.5",
-      {
-        model: "gpt-5.5",
-        input: [{ role: "user", content: "hi" }],
-        text: { format: { type: "json" } },
-      },
+      { model: "gpt-5.5", input: [{ role: "user", content: "hi" }], text: { format: { type: "json" } } },
       false,
       {}
     )

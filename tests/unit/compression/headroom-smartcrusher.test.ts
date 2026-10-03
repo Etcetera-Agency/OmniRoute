@@ -109,20 +109,13 @@ describe("tabular encoder round-trip", () => {
     // A null nested object must not be flattened (its leaves would encode absent and
     // unflatten to a missing key). These must all survive as null, not disappear.
     const cases: Record<string, unknown>[][] = [
-      [
-        { id: 0, meta: { a: 1, b: 2 } },
-        { id: 1, meta: null },
-        { id: 2, meta: { a: 3, b: 4 } },
-      ],
+      [{ id: 0, meta: { a: 1, b: 2 } }, { id: 1, meta: null }, { id: 2, meta: { a: 3, b: 4 } }],
       [
         { id: 0, meta: { owner: { name: "a" } } },
         { id: 1, meta: { owner: null } },
         { id: 2, meta: { owner: { name: "c" } } },
       ],
-      [
-        { id: 0, o: { p: { team: { x: 1 } } } },
-        { id: 1, o: { p: { team: null } } },
-      ],
+      [{ id: 0, o: { p: { team: { x: 1 } } } }, { id: 1, o: { p: { team: null } } }],
     ];
     for (const original of cases) {
       assert.deepEqual(decodeTabular(encodeTabular(original)), original);
@@ -158,7 +151,8 @@ describe("tabular codec — prototype-pollution safety", () => {
 
   it("does not pollute or throw when decoding hostile GCF with a >__proto__> path column", async () => {
     const hostile =
-      "```gcf-generic\nGCF profile=generic\n" + '## [1]{id,"a>__proto__>polluted"}\n@0 0|1\n```';
+      "```gcf-generic\nGCF profile=generic\n" +
+      '## [1]{id,"a>__proto__>polluted"}\n@0 0|1\n```';
     decodeTabular(hostile);
     assert.equal(({} as Record<string, unknown>).polluted, undefined);
   });

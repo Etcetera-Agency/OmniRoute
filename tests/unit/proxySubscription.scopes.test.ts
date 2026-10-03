@@ -9,17 +9,22 @@ test("global mode binds the global scope", () => {
 });
 
 test("rule mode with providers binds one provider scope per selected provider", () => {
-  assert.deepEqual(resolveTargetScopes({ mode: "rule", ruleProviders: ["provA", "provB"] }), [
-    { scope: "provider", scopeId: "provA" },
-    { scope: "provider", scopeId: "provB" },
-  ]);
+  assert.deepEqual(
+    resolveTargetScopes({ mode: "rule", ruleProviders: ["provA", "provB"] }),
+    [
+      { scope: "provider", scopeId: "provA" },
+      { scope: "provider", scopeId: "provB" },
+    ]
+  );
 });
 
 test("rule mode with no providers falls back to the global scope", () => {
-  assert.deepEqual(resolveTargetScopes({ mode: "rule", ruleProviders: [] }), [
-    { scope: "global", scopeId: null },
-  ]);
-  assert.deepEqual(resolveTargetScopes({ mode: "rule", ruleProviders: null }), [
-    { scope: "global", scopeId: null },
-  ]);
+  assert.deepEqual(
+    resolveTargetScopes({ mode: "rule", ruleProviders: [] }),
+    [{ scope: "global", scopeId: null }]
+  );
+  assert.deepEqual(
+    resolveTargetScopes({ mode: "rule", ruleProviders: null }),
+    [{ scope: "global", scopeId: null }]
+  );
 });

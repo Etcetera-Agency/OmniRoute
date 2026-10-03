@@ -79,7 +79,12 @@ export default function CompatibleNodeCard({
           <Button size="sm" icon="add" onClick={() => gateConnectionFlow(openApiKeyAddFlow)}>
             {t("add")}
           </Button>
-          <Button size="sm" variant="secondary" icon="edit" onClick={onOpenEditNodeModal}>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="edit"
+            onClick={onOpenEditNodeModal}
+          >
             {t("edit")}
           </Button>
           <Button
@@ -105,6 +110,7 @@ export default function CompatibleNodeCard({
                 });
                 if (res.ok) {
                   router.push("/dashboard/providers");
+                  router.refresh();
                 }
               } catch (error) {
                 console.error("Error deleting provider node:", error);

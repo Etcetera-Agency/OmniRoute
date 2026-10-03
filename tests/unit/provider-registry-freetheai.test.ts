@@ -30,18 +30,12 @@ test("#6670 freetheai is registered in the executor registry with an OpenAI-comp
   assert.equal(entry.authType, "apikey");
   assert.equal(entry.authHeader, "bearer");
   assert.equal(entry.passthroughModels, true);
-  assert.ok(
-    Array.isArray(entry.models) && entry.models.length > 0,
-    "must seed a fallback model list"
-  );
+  assert.ok(Array.isArray(entry.models) && entry.models.length > 0, "must seed a fallback model list");
 });
 
-test("#6670 freetheai resolves through getExecutor() as a DefaultExecutor instance", () => {
-  const executor = getExecutor("freetheai");
-  assert.ok(
-    executor instanceof DefaultExecutor,
-    "freetheai has no custom executor — must fall through to DefaultExecutor"
-  );
+test("#6670 freetheai resolves through getExecutor() as a DefaultExecutor instance", async () => {
+  const executor = await getExecutor("freetheai");
+  assert.ok(executor instanceof DefaultExecutor, "freetheai has no custom executor — must fall through to DefaultExecutor");
 });
 
 test("#6670 freetheai is classified as an aggregator/gateway provider", () => {

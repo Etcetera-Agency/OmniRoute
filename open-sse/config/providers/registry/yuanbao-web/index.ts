@@ -21,11 +21,7 @@ export const yuanbao_webProvider: RegistryEntry = {
       name: "Hunyuan T1 (via Yuanbao)",
       supportsReasoning: true,
     },
-    {
-      id: "deepseek-v3-search",
-      name: "DeepSeek V3 + Web Search (via Yuanbao)",
-      toolCalling: false,
-    },
+    { id: "deepseek-v3-search", name: "DeepSeek V3 + Web Search (via Yuanbao)", toolCalling: false },
     {
       id: "deepseek-r1-search",
       name: "DeepSeek R1 + Web Search (via Yuanbao)",

@@ -33,10 +33,7 @@ function readPs(data: unknown, keys: readonly string[]): string {
 
 /** Accept bare JWT or `Bearer …`. */
 export function normalizePromptQlToken(raw: string): string {
-  const t = raw
-    .trim()
-    .replace(/^Bearer\s+/i, "")
-    .trim();
+  const t = raw.trim().replace(/^Bearer\s+/i, "").trim();
   return t;
 }
 
@@ -44,7 +41,9 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
   try {
     const part = token.split(".")[1];
     if (!part) return null;
-    const json = Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const json = Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString(
+      "utf8"
+    );
     return JSON.parse(json) as Record<string, unknown>;
   } catch {
     return null;
@@ -151,7 +150,9 @@ export function resolvePromptQlCredentials(credentials: ProviderCredentials | un
 } {
   const credRec = credentials as Record<string, unknown> | undefined;
   const direct =
-    readStr(credentials?.apiKey) || readStr(credRec?.accessToken) || readStr(credRec?.token);
+    readStr(credentials?.apiKey) ||
+    readStr(credRec?.accessToken) ||
+    readStr(credRec?.token);
   const ps = credentials?.providerSpecificData;
   const token = normalizePromptQlToken(
     direct || readPs(ps, ["token", "jwt", "accessToken", "bearer", "apiKey"])

@@ -100,11 +100,7 @@ test("peekCodexSseTransientError does not re-acquire a reader on the original bo
   assert.ok(peek.replacementBody, "must hand back a replacement body to continue draining");
 
   const drained = await drainStream(peek.replacementBody!);
-  assert.equal(
-    drained,
-    normalSse,
-    "replacement body must be byte-identical to the upstream SSE payload"
-  );
+  assert.equal(drained, normalSse, "replacement body must be byte-identical to the upstream SSE payload");
 
   // The regression: the OLD implementation calls response.body.getReader() a
   // SECOND time (after releaseLock()) to "continue" reading the same body. A

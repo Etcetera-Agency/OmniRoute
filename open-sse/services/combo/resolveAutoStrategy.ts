@@ -4,6 +4,7 @@ import {
   errorResponseWithComboDiagnostics,
 } from "../../utils/error.ts";
 import { BudgetExceededError, selectProvider as selectAutoProvider } from "../autoCombo/engine.ts";
+import type { ScoringWeights } from "../autoCombo/scoring.ts";
 import {
   resolveRequestModePack,
   parseRequestBudgetCap,
@@ -21,6 +22,12 @@ import { supportsToolCalling } from "../modelCapabilities.ts";
 import type { ResilienceSettings } from "../../../src/lib/resilience/settings";
 import { parseAutoConfig } from "./autoConfig.ts";
 import { dedupeTargetsByExecutionKey } from "./comboData.ts";
+import {
+  BAND_THRIFTY_RUNG_ORDER,
+  isBandsEnabled,
+  parseBandCategory,
+  type BandThriftyRung,
+} from "../autoCombo/bands";
 import {
   getModelContextLimitForModelString,
   providerSupportsEmulatedToolCalling,
@@ -58,6 +65,111 @@ type BuildAutoCandidates = (
   resilienceSettings?: ResilienceSettings | null
 ) => Promise<AutoProviderCandidate[]>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function bandAccountKey(provider: string, model: string, connectionId: string): string {
+  return JSON.stringify([provider, model, connectionId]);
+}
+
+function bandCandidateKey(candidate: AutoProviderCandidate): string {
+  return JSON.stringify([
+    candidate.stepId,
+    candidate.executionKey,
+    candidate.provider,
+    candidate.model,
+    candidate.connectionId ?? null,
+  ]);
+}
+
+function getBandBillingAssignments(combo: ComboLike): Map<string, BandThriftyRung> | null {
+  if (!isBandsEnabled()) return null;
+
+  const autoConfig = isRecord(combo.autoConfig) ? combo.autoConfig : null;
+  const nestedAutoConfig = isRecord(combo.config?.auto) ? combo.config.auto : null;
+  const raw = autoConfig?.bandBillingPriority ?? nestedAutoConfig?.bandBillingPriority;
+  if (!isRecord(raw) || raw.tier !== "thrifty" || !parseBandCategory(String(raw.category ?? ""))) {
+    return raw === undefined ? null : new Map();
+  }
+
+  if (!Array.isArray(raw.assignments)) return new Map();
+  const assignments = new Map<string, BandThriftyRung>();
+  for (const entry of raw.assignments) {
+    if (!isRecord(entry)) continue;
+    const { provider, model, connectionId, rung } = entry;
+    if (
+      typeof provider !== "string" ||
+      typeof model !== "string" ||
+      typeof connectionId !== "string" ||
+      !BAND_THRIFTY_RUNG_ORDER.includes(rung as BandThriftyRung)
+    ) {
+      continue;
+    }
+    assignments.set(bandAccountKey(provider, model, connectionId), rung as BandThriftyRung);
+  }
+  return assignments;
+}
+
+type BandCandidateTarget = {
+  candidate: AutoProviderCandidate;
+  target: ResolvedComboTarget;
+  rung: BandThriftyRung;
+};
+
+function resolveBandCandidateTargets(
+  candidates: AutoProviderCandidate[],
+  targets: ResolvedComboTarget[],
+  assignments: ReadonlyMap<string, BandThriftyRung>
+): BandCandidateTarget[] {
+  const targetsByExecutionKey = new Map(targets.map((target) => [target.executionKey, target]));
+  const resolved: BandCandidateTarget[] = [];
+
+  for (const candidate of candidates) {
+    const connectionId = candidate.connectionId;
+    if (typeof connectionId !== "string" || connectionId.length === 0) continue;
+
+    const rung = assignments.get(bandAccountKey(candidate.provider, candidate.model, connectionId));
+    if (!rung) continue;
+
+    const baseTarget =
+      targetsByExecutionKey.get(candidate.executionKey) ||
+      targets.find(
+        (target) =>
+          target.stepId === candidate.stepId &&
+          target.provider === candidate.provider &&
+          target.modelStr === candidate.modelStr
+      );
+    if (!baseTarget) continue;
+
+    // AICODE-NOTE: The explicit allowlist outranks a stale direct account pin;
+    // the band marker still admits only exact accounts from that allowlist.
+    if (
+      (Array.isArray(baseTarget.allowedConnectionIds) &&
+        !baseTarget.allowedConnectionIds.includes(connectionId)) ||
+      (!Array.isArray(baseTarget.allowedConnectionIds) &&
+        baseTarget.connectionId &&
+        baseTarget.connectionId !== connectionId)
+    ) {
+      continue;
+    }
+
+    resolved.push({
+      candidate,
+      rung,
+      target: {
+        ...baseTarget,
+        stepId: candidate.stepId,
+        executionKey: candidate.executionKey,
+        modelStr: candidate.modelStr,
+        provider: candidate.provider,
+        connectionId,
+      },
+    });
+  }
+  return resolved;
+}
+
 export interface ResolveAutoStrategyDeps {
   orderedTargets: ResolvedComboTarget[];
   body: Record<string, unknown>;
@@ -82,6 +194,53 @@ export interface ResolveAutoStrategyDeps {
 export type ResolveAutoStrategyResult =
   | { earlyResponse: Response }
   | { orderedTargets: ResolvedComboTarget[]; autoUsedExplicitRouter: boolean };
+
+export interface EvaluateAutoCandidatesOptions {
+  targets: ResolvedComboTarget[];
+  comboName: string;
+  body: Record<string, unknown>;
+  taskType: string;
+  weights: ScoringWeights;
+  sessionId?: string | null;
+  resetWindowConfig?: ResetWindowConfig;
+  resilienceSettings?: ResilienceSettings | null;
+  manifestHint?: RoutingHint | null;
+  buildAutoCandidates: BuildAutoCandidates;
+}
+
+export async function evaluateAutoCandidates(options: EvaluateAutoCandidatesOptions) {
+  const builtCandidates = await options.buildAutoCandidates(
+    options.targets,
+    options.comboName,
+    options.sessionId,
+    options.resetWindowConfig,
+    options.resilienceSettings
+  );
+  const cacheAffinityScores = calculatePromptCacheAffinityScores(
+    builtCandidates,
+    options.body,
+    options.sessionId
+  );
+  const candidates = builtCandidates.map((candidate) => ({
+    ...candidate,
+    cacheAffinity: cacheAffinityScores.get(promptCacheTargetIdentity(candidate)) ?? 0,
+  }));
+  const routableCandidates = candidates.filter(
+    (candidate) => candidate.quotaCutoffBlocked !== true
+  );
+  return {
+    sourceCandidates: builtCandidates,
+    candidates,
+    routableCandidates,
+    scoredTargets: scoreAutoTargets(
+      options.targets,
+      routableCandidates,
+      options.taskType,
+      options.weights,
+      options.manifestHint
+    ),
+  };
+}
 
 /**
  * Resolve target ordering for the `auto` combo strategy.
@@ -245,7 +404,7 @@ export async function resolveAutoStrategyOrder(
 
   let lastKnownGoodProvider: string | undefined;
   try {
-    const { getLKGP } = await import("../../../src/lib/localDb");
+    const { getLKGP } = await import("@/lib/db/settings");
     const lkgp = await getLKGP(combo.name, combo.id || combo.name);
     if (lkgp) lastKnownGoodProvider = lkgp.provider;
   } catch (err) {
@@ -262,24 +421,68 @@ export async function resolveAutoStrategyOrder(
           },
         }
       : resilienceSettings;
-  const candidates = await buildAutoCandidates(
-    eligibleTargets,
-    combo.name,
-    relayOptions?.sessionId,
-    resetWindowConfig,
-    autoCandidateResilienceSettings
-  );
-  const cacheAffinityScores = calculatePromptCacheAffinityScores(
-    candidates,
+  // Complexity-aware routing (2026, opt-in): classify the request's
+  // difficulty and feed a tier hint into scoring so tierAffinity /
+  // specificityMatch favor candidates whose tier matches the request.
+  const autoManifestHint: RoutingHint | null =
+    config.complexityAwareRouting === true
+      ? await buildComplexityRoutingHint(
+          eligibleTargets.filter((t) => t.kind === "model"),
+          body,
+          log
+        )
+      : null;
+
+  const bandBillingAssignments = getBandBillingAssignments(combo);
+  const scoringTargets = eligibleTargets;
+  const evaluated = await evaluateAutoCandidates({
+    targets: eligibleTargets,
+    comboName: combo.name,
     body,
-    relayOptions?.sessionId
-  );
-  for (const candidate of candidates) {
-    candidate.cacheAffinity = cacheAffinityScores.get(promptCacheTargetIdentity(candidate)) ?? 0;
+    taskType,
+    weights,
+    sessionId: relayOptions?.sessionId,
+    resetWindowConfig,
+    resilienceSettings: autoCandidateResilienceSettings,
+    manifestHint: autoManifestHint,
+    buildAutoCandidates,
+  });
+  let { sourceCandidates, candidates, routableCandidates, scoredTargets } = evaluated;
+  let bandCandidateTargets: BandCandidateTarget[] | null = null;
+  if (bandBillingAssignments) {
+    // AICODE-NOTE: A null-connection logical target means active fanout found
+    // no account intersection. Do not let a stale cache or later credential
+    // lookup pick an unranked account from its broad allowlist; only an exact
+    // provider/model/account marker survives selection and fallback.
+    bandCandidateTargets = resolveBandCandidateTargets(
+      sourceCandidates,
+      scoringTargets,
+      bandBillingAssignments
+    );
+    const matchedCandidates = new Set(
+      bandCandidateTargets.map(({ candidate }) => bandCandidateKey(candidate))
+    );
+    sourceCandidates = sourceCandidates.filter((candidate) =>
+      matchedCandidates.has(bandCandidateKey(candidate))
+    );
+    candidates = candidates.filter((candidate) =>
+      matchedCandidates.has(bandCandidateKey(candidate))
+    );
+    routableCandidates = routableCandidates.filter((candidate) =>
+      matchedCandidates.has(bandCandidateKey(candidate))
+    );
+    eligibleTargets = bandCandidateTargets.map(({ target }) => target);
+    scoredTargets = scoreAutoTargets(
+      eligibleTargets,
+      routableCandidates,
+      taskType,
+      weights,
+      autoManifestHint
+    );
   }
-  const routableCandidates = candidates.filter(
-    (candidate) => candidate.quotaCutoffBlocked !== true
-  );
+  for (let index = 0; index < sourceCandidates.length; index += 1) {
+    sourceCandidates[index].cacheAffinity = candidates[index]?.cacheAffinity;
+  }
   const quotaBlockedCount = candidates.length - routableCandidates.length;
   if (quotaBlockedCount > 0) {
     log.info(
@@ -298,131 +501,301 @@ export async function resolveAutoStrategyOrder(
     };
   }
   if (routableCandidates.length > 0) {
-    let selectedProvider: string | null = null;
-    let selectedModel: string | null = null;
-    let selectedConnectionId: string | null = null;
-    let selectionReason = "";
-
-    if (routingStrategy !== "rules") {
-      try {
-        const decision = selectWithStrategy(
-          routableCandidates,
-          {
-            taskType,
-            requestHasTools,
-            lastKnownGoodProvider,
-            // #11181: the Routing tab persists an LKGP on/off toggle and
-            // LKGPStrategy guards on `context.lkgpEnabled === false`, but the
-            // field was never forwarded into this context, so the guard never
-            // saw the setting and the off-switch was unreachable.
-            lkgpEnabled: (settings as { lkgpEnabled?: unknown } | null | undefined)?.lkgpEnabled as
-              boolean | undefined,
-            estimatedInputTokens,
-            sla: slaPolicy,
-          },
-          routingStrategy
-        );
-        selectedProvider = decision.provider;
-        selectedModel = decision.model;
-        selectedConnectionId = decision.connectionId ?? null;
-        selectionReason = decision.reason;
-        autoUsedExplicitRouter = true;
-      } catch (err) {
-        log.warn(
-          "COMBO",
-          `Auto strategy '${routingStrategy}' failed (${err?.message || "unknown"}), falling back to rules`
-        );
-      }
-    }
-
-    if (!selectedProvider || !selectedModel) {
-      let selection;
-      try {
-        selection = selectAutoProvider(
-          {
-            id: combo.id || combo.name,
-            name: combo.name,
-            type: "auto",
-            candidatePool,
-            weights,
-            modePack,
-            budgetCap,
-            budgetFallback,
-            explorationRate,
-          },
-          routableCandidates,
-          taskType
-        );
-      } catch (err) {
-        // #3470: `budgetFallback: "strict"` refuses to select when every candidate
-        // exceeds `budgetCap` — surface a clear cost-exceeds-budget response
-        // instead of letting it propagate as an unhandled 500.
-        if (err instanceof BudgetExceededError) {
-          return { earlyResponse: errorResponse(402, err.message) };
-        }
-        throw err;
-      }
-      selectedProvider = selection.provider;
-      selectedModel = selection.model;
-      selectedConnectionId = selection.connectionId ?? null;
-      selectionReason = `score=${selection.score.toFixed(3)}${selection.isExploration ? " (exploration)" : ""}`;
-    }
-
-    // Complexity-aware routing (2026, opt-in): classify the request's
-    // difficulty and feed a tier hint into scoring so tierAffinity /
-    // specificityMatch favor candidates whose tier matches the request.
-    const autoManifestHint: RoutingHint | null =
-      config.complexityAwareRouting === true
-        ? buildComplexityRoutingHint(
-            eligibleTargets.filter((t) => t.kind === "model"),
-            body,
-            log
-          )
-        : null;
-
-    const scoredTargets = scoreAutoTargets(
-      eligibleTargets,
-      routableCandidates,
-      taskType,
-      weights,
-      autoManifestHint
-    );
-    const rankedTargets = scoredTargets.map((entry) => entry.target);
-    const selectedTarget =
-      scoredTargets.find((entry) => {
-        const parsed = parseModel(entry.target.modelStr);
-        const modelId = parsed.model || entry.target.modelStr;
-        return (
-          entry.target.provider === selectedProvider &&
-          modelId === selectedModel &&
-          (!selectedConnectionId || entry.target.connectionId === selectedConnectionId)
-        );
-      })?.target ||
-      rankedTargets[0] ||
-      eligibleTargets[0];
-    if (!selectedTarget) {
-      return {
-        earlyResponse: unavailableResponse(
-          429,
-          "No auto strategy targets remained after quota cutoff filtering"
-        ),
+    if (bandCandidateTargets && bandBillingAssignments) {
+      const selectionContext = {
+        taskType,
+        requestHasTools,
+        lastKnownGoodProvider,
+        // #11181: preserve the persisted LKGP switch inside each billing rung.
+        lkgpEnabled: (settings as { lkgpEnabled?: unknown } | null | undefined)?.lkgpEnabled as
+          boolean | undefined,
+        estimatedInputTokens,
+        sla: slaPolicy,
+        weights,
+        explorationRate,
       };
+      const selectionByRung = new Map<
+        BandThriftyRung,
+        { target: ResolvedComboTarget; reason: string; explicit: boolean }
+      >();
+      const budgetBlockedRungs = new Set<BandThriftyRung>();
+      let budgetExceeded: BudgetExceededError | null = null;
+
+      for (const rung of BAND_THRIFTY_RUNG_ORDER) {
+        const rungCandidates = routableCandidates.filter(
+          (candidate) =>
+            bandBillingAssignments.get(
+              bandAccountKey(candidate.provider, candidate.model, candidate.connectionId ?? "")
+            ) === rung
+        );
+        if (rungCandidates.length === 0) continue;
+
+        let selected: { provider: string; model: string; connectionId?: string | null } | null =
+          null;
+        let reason = "";
+        let explicit = false;
+        if (routingStrategy !== "rules") {
+          try {
+            const decision = selectWithStrategy(rungCandidates, selectionContext, routingStrategy);
+            selected = decision;
+            reason = decision.reason;
+            explicit = true;
+          } catch (err) {
+            log.warn(
+              "COMBO",
+              `Auto strategy '${routingStrategy}' failed for billing rung '${rung}' (${err?.message || "unknown"}), falling back to rules`
+            );
+          }
+        }
+
+        if (!selected) {
+          try {
+            const decision = selectAutoProvider(
+              {
+                id: combo.id || combo.name,
+                name: combo.name,
+                type: "auto",
+                candidatePool,
+                weights,
+                modePack,
+                budgetCap,
+                budgetFallback,
+                estimatedInputTokens,
+                explorationRate,
+              },
+              rungCandidates,
+              taskType
+            );
+            selected = decision;
+            reason = `score=${decision.score.toFixed(3)}${decision.isExploration ? " (exploration)" : ""}`;
+          } catch (err) {
+            if (!(err instanceof BudgetExceededError)) throw err;
+            budgetExceeded ??= err;
+            budgetBlockedRungs.add(rung);
+            continue;
+          }
+        }
+
+        const parsedSelectedModel = parseModel(selected.model).model || selected.model;
+        const scoredWinner = scoredTargets.find((entry) => {
+          const parsed = parseModel(entry.target.modelStr);
+          const targetRung = bandBillingAssignments.get(
+            bandAccountKey(
+              entry.target.provider,
+              parsed.model || entry.target.modelStr,
+              entry.target.connectionId ?? ""
+            )
+          );
+          return (
+            targetRung === rung &&
+            entry.target.provider === selected.provider &&
+            (parsed.model || entry.target.modelStr) === parsedSelectedModel &&
+            (!selected.connectionId || entry.target.connectionId === selected.connectionId)
+          );
+        })?.target;
+        const candidateWinner = bandCandidateTargets.find(
+          ({ candidate, target, rung: candidateRung }) => {
+            const parsed = parseModel(target.modelStr);
+            return (
+              candidate.quotaCutoffBlocked !== true &&
+              candidateRung === rung &&
+              candidate.provider === selected?.provider &&
+              (parsed.model || target.modelStr) === parsedSelectedModel &&
+              (!selected?.connectionId || candidate.connectionId === selected.connectionId)
+            );
+          }
+        )?.target;
+        const winner = scoredWinner || candidateWinner;
+        if (winner) selectionByRung.set(rung, { target: winner, reason, explicit });
+      }
+
+      if (selectionByRung.size === 0 && budgetExceeded) {
+        return { earlyResponse: errorResponse(402, budgetExceeded.message) };
+      }
+
+      const scoredByRung = new Map<BandThriftyRung, ResolvedComboTarget[]>();
+      for (const entry of scoredTargets) {
+        const { target } = entry;
+        const parsed = parseModel(target.modelStr);
+        const rung = bandBillingAssignments.get(
+          bandAccountKey(
+            target.provider,
+            parsed.model || target.modelStr,
+            target.connectionId ?? ""
+          )
+        );
+        if (!rung || budgetBlockedRungs.has(rung)) continue;
+        const targetsForRung = scoredByRung.get(rung) ?? [];
+        targetsForRung.push(target);
+        scoredByRung.set(rung, targetsForRung);
+      }
+
+      const fallbackByRung = new Map<BandThriftyRung, ResolvedComboTarget[]>();
+      const quotaBlockedByRung = new Map<BandThriftyRung, ResolvedComboTarget[]>();
+      for (const entry of bandCandidateTargets) {
+        if (budgetBlockedRungs.has(entry.rung)) continue;
+        const fallbackByRungForCandidate =
+          entry.candidate.quotaCutoffBlocked === true ? quotaBlockedByRung : fallbackByRung;
+        const targetsForRung = fallbackByRungForCandidate.get(entry.rung) ?? [];
+        targetsForRung.push(entry.target);
+        fallbackByRungForCandidate.set(entry.rung, targetsForRung);
+      }
+
+      const bandOrderedTargets: ResolvedComboTarget[] = [];
+      const seenExecutionKeys = new Set<string>();
+      const appendUnique = (target: ResolvedComboTarget | undefined) => {
+        if (!target || seenExecutionKeys.has(target.executionKey)) return;
+        seenExecutionKeys.add(target.executionKey);
+        bandOrderedTargets.push(target);
+      };
+      for (const rung of BAND_THRIFTY_RUNG_ORDER) {
+        if (budgetBlockedRungs.has(rung)) continue;
+        const rankedForRung = scoredByRung.get(rung) ?? [];
+        const selected = selectionByRung.get(rung)?.target;
+        const firstForRung = selected || rankedForRung[0] || fallbackByRung.get(rung)?.[0];
+        appendUnique(firstForRung);
+        for (const target of rankedForRung) appendUnique(target);
+        for (const target of fallbackByRung.get(rung) ?? []) appendUnique(target);
+      }
+
+      // AICODE-NOTE: Hard-cutoff candidates stay available for terminal retry,
+      // but never compete with routable accounts for a primary or rung fallback.
+      for (const rung of BAND_THRIFTY_RUNG_ORDER) {
+        if (budgetBlockedRungs.has(rung)) continue;
+        for (const target of quotaBlockedByRung.get(rung) ?? []) appendUnique(target);
+      }
+
+      const primaryTarget = bandOrderedTargets[0];
+      if (!primaryTarget) {
+        return {
+          earlyResponse: unavailableResponse(
+            429,
+            "No auto strategy targets remained after account-rung filtering"
+          ),
+        };
+      }
+      const primaryRung = bandCandidateTargets.find(
+        (entry) => entry.target.executionKey === primaryTarget.executionKey
+      )?.rung;
+      const primarySelection = primaryRung ? selectionByRung.get(primaryRung) : undefined;
+      autoUsedExplicitRouter = primarySelection?.explicit ?? false;
+      orderedTargets = bandOrderedTargets;
+
+      log.info(
+        "COMBO",
+        `Auto selection: ${primaryTarget.modelStr} | intent=${intent} task=${taskType} | strategy=${routingStrategy} | ${primarySelection?.reason || "score fallback"}`
+      );
+    } else {
+      let selectedProvider: string | null = null;
+      let selectedModel: string | null = null;
+      let selectedConnectionId: string | null = null;
+      let selectionReason = "";
+
+      if (routingStrategy !== "rules") {
+        try {
+          const decision = selectWithStrategy(
+            routableCandidates,
+            {
+              taskType,
+              requestHasTools,
+              lastKnownGoodProvider,
+              // #11181: the Routing tab persists an LKGP on/off toggle and
+              // LKGPStrategy guards on `context.lkgpEnabled === false`, but the
+              // field was never forwarded into this context, so the guard never
+              // saw the setting and the off-switch was unreachable.
+              lkgpEnabled: (settings as { lkgpEnabled?: unknown } | null | undefined)
+                ?.lkgpEnabled as boolean | undefined,
+              estimatedInputTokens,
+              sla: slaPolicy,
+              weights,
+              explorationRate,
+            },
+            routingStrategy
+          );
+          selectedProvider = decision.provider;
+          selectedModel = decision.model;
+          selectedConnectionId = decision.connectionId ?? null;
+          selectionReason = decision.reason;
+          autoUsedExplicitRouter = true;
+        } catch (err) {
+          log.warn(
+            "COMBO",
+            `Auto strategy '${routingStrategy}' failed (${err?.message || "unknown"}), falling back to rules`
+          );
+        }
+      }
+
+      if (!selectedProvider || !selectedModel) {
+        let selection;
+        try {
+          selection = selectAutoProvider(
+            {
+              id: combo.id || combo.name,
+              name: combo.name,
+              type: "auto",
+              candidatePool,
+              weights,
+              modePack,
+              budgetCap,
+              budgetFallback,
+              estimatedInputTokens,
+              explorationRate,
+            },
+            routableCandidates,
+            taskType
+          );
+        } catch (err) {
+          // #3470: `budgetFallback: "strict"` refuses to select when every candidate
+          // exceeds `budgetCap` — surface a clear cost-exceeds-budget response
+          // instead of letting it propagate as an unhandled 500.
+          if (err instanceof BudgetExceededError) {
+            return { earlyResponse: errorResponse(402, err.message) };
+          }
+          throw err;
+        }
+        selectedProvider = selection.provider;
+        selectedModel = selection.model;
+        selectedConnectionId = selection.connectionId ?? null;
+        selectionReason = `score=${selection.score.toFixed(3)}${selection.isExploration ? " (exploration)" : ""}`;
+      }
+
+      const rankedTargets = scoredTargets.map((entry) => entry.target);
+      const selectedTarget =
+        scoredTargets.find((entry) => {
+          const parsed = parseModel(entry.target.modelStr);
+          const modelId = parsed.model || entry.target.modelStr;
+          return (
+            entry.target.provider === selectedProvider &&
+            modelId === selectedModel &&
+            (!selectedConnectionId || entry.target.connectionId === selectedConnectionId)
+          );
+        })?.target ||
+        rankedTargets[0] ||
+        eligibleTargets[0];
+      if (!selectedTarget) {
+        return {
+          earlyResponse: unavailableResponse(
+            429,
+            "No auto strategy targets remained after quota cutoff filtering"
+          ),
+        };
+      }
+
+      // Keep eligibleTargets as the last-resort fallback tail: dedupe drops the
+      // routable ranked ones (and, when the cutoff is OFF, makes this identical to
+      // the pre-cutoff behavior), but a quota-blocked target still survives as a
+      // final fallback instead of vanishing — the hard cutoff only de-prioritizes.
+      orderedTargets = dedupeTargetsByExecutionKey(
+        [selectedTarget, ...rankedTargets, ...eligibleTargets].filter(
+          (entry): entry is ResolvedComboTarget => entry !== undefined && entry !== null
+        )
+      );
+
+      log.info(
+        "COMBO",
+        `Auto selection: ${selectedTarget?.modelStr || `${selectedProvider}/${selectedModel}`} | intent=${intent} task=${taskType} | strategy=${routingStrategy} | ${selectionReason}`
+      );
     }
-
-    // Keep eligibleTargets as the last-resort fallback tail: dedupe drops the
-    // routable ranked ones (and, when the cutoff is OFF, makes this identical to
-    // the pre-cutoff behavior), but a quota-blocked target still survives as a
-    // final fallback instead of vanishing — the hard cutoff only de-prioritizes.
-    orderedTargets = dedupeTargetsByExecutionKey(
-      [selectedTarget, ...rankedTargets, ...eligibleTargets].filter(
-        (entry): entry is ResolvedComboTarget => entry !== undefined && entry !== null
-      )
-    );
-
-    log.info(
-      "COMBO",
-      `Auto selection: ${selectedTarget?.modelStr || `${selectedProvider}/${selectedModel}`} | intent=${intent} task=${taskType} | strategy=${routingStrategy} | ${selectionReason}`
-    );
   } else {
     log.warn("COMBO", "Auto strategy has no candidates, keeping default ordering");
   }

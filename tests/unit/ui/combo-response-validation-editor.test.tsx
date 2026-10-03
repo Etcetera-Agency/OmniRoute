@@ -78,9 +78,7 @@ describe("ResponseValidationEditor (4985)", () => {
     );
     const rows = container.querySelectorAll('[data-testid="rv-predicate-row"]');
     expect(rows.length).toBe(1);
-    const pathInput = container.querySelector<HTMLInputElement>(
-      '[data-testid="rv-predicate-path"]'
-    );
+    const pathInput = container.querySelector<HTMLInputElement>('[data-testid="rv-predicate-path"]');
     expect(pathInput?.value).toBe("choices[0].message.content");
   });
 });

@@ -51,10 +51,10 @@ describe("DiscoveryPageClient", () => {
     render(<DiscoveryPageClient />);
 
     await waitFor(() => {
-      expect(screen.getByText("huggingchat")).toBeInTheDocument();
+      expect(screen.getByText("huggingchat")).toBeTruthy();
     });
     // status + risk badges render (mocked t returns the key)
-    expect(screen.getByText("verified")).toBeInTheDocument();
+    expect(screen.getByText("verified")).toBeTruthy();
   });
 
   it("shows the empty state when there are no results", async () => {
@@ -63,7 +63,7 @@ describe("DiscoveryPageClient", () => {
     render(<DiscoveryPageClient />);
 
     await waitFor(() => {
-      expect(screen.getByText("emptyTitle")).toBeInTheDocument();
+      expect(screen.getByText("emptyTitle")).toBeTruthy();
     });
   });
 

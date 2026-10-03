@@ -125,7 +125,13 @@ test("#7976/#9175: buildStaticProviderEntry keys combos by bare slug (no prefix 
     models: [],
   } as unknown as OmniRouteRawCombo;
 
-  const block = buildStaticProviderEntry([], [combo], resolved, "https://or.example/v1", "sk-test");
+  const block = buildStaticProviderEntry(
+    [],
+    [combo],
+    resolved,
+    "https://or.example/v1",
+    "sk-test"
+  );
 
   assert.deepEqual(Object.keys(block.models), ["hermes-smart-stack"]);
   assert.equal(

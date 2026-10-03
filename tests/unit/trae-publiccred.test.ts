@@ -23,7 +23,10 @@ test("TRAE_OAUTH_CLIENT_ID env override wins over the embedded default", () => {
 });
 
 test("trae.ts no longer embeds the raw client_id literal (Hard Rule #11)", () => {
-  const src = fs.readFileSync(path.join(repoRoot, "open-sse/executors/trae.ts"), "utf8") as string;
+  const src = fs.readFileSync(
+    path.join(repoRoot, "open-sse/executors/trae.ts"),
+    "utf8"
+  ) as string;
   assert.ok(
     !src.includes("en1oxy7wnw8j9n"),
     "trae.ts must resolve the client_id via resolvePublicCred(), not a string literal"

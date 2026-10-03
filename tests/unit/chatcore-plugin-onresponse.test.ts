@@ -6,9 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-const { registerHook, unregisterHook } = await import("../../src/lib/plugins/hooks.ts");
-const { runPluginOnResponseHook } =
-  await import("../../open-sse/handlers/chatCore/pluginOnResponse.ts");
+const { registerHook, unregisterHook } = await import("../../src/lib/plugins/hooks.ts");const { runPluginOnResponseHook, runPluginOnStreamCompleteHook } = await import("../../open-sse/handlers/chatCore/pluginOnResponse.ts");
 
 async function waitFor(pred: () => boolean, timeoutMs = 2000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
