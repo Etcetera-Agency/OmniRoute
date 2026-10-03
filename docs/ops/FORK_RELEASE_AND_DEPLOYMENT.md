@@ -117,6 +117,21 @@ clear. No image or start result was produced. Preserve the 2-GiB host and
 14-GiB disk hard floors. Production remains at
 `f2bddef27ed0807dd5a5e2712bc26536edda8138`, and staged source remains
 `db18a17c374506941d10fbc58132eb108d1ea5db`.
+Retry 5 for staged `db18a17c374506941d10fbc58132eb108d1ea5db` used the
+historically passing full-UI profile on the actual Compose `runner-base` target:
+pinned Node 26, 12 GiB total, cpuset 0, pids 512, heap 6144 MiB, two workers,
+and `OMNIROUTE_USE_TURBOPACK=0`. Post-stop RAM/disk guards and watcher dry run
+passed. The build still hit cgroup OOM at 07:55:44 UTC; the Next worker was
+SIGKILLed at 687.8 seconds and build exited 1 at 07:55:48 UTC without an image.
+The 900-second restoration watchdog recovered the old f2 container, healthy at
+07:56:19 UTC after 12m04s of OmniRoute-only outage. Redis stayed healthy; DB,
+Radar, and cutover were untouched. The old f2 12-GiB pass does not apply to
+staged db18. `maxMemoryGenerations=0` remains unapproved and unimplemented.
+Webpack documents that it disables additional memory-cache generations but does
+not bound the live compiler object graph, so it cannot guarantee a 12-GiB fit
+([cache docs](https://webpack.js.org/configuration/cache/#cachemaxmemorygenerations)).
+Resolve the default-versus-opt-in scope before amending the OpenSpec or source.
+
 The successful-chat
 `call_logs.combo_name` check, public Radar sync/cache check, real-catalog
 calibration, and reserve live-read validation are also pending. The active
