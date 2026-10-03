@@ -113,28 +113,42 @@
       errors too. Manually test default-user data writes and both error cases;
       focused tests pass 7/7. Scoped ESLint, Prettier, `git diff --check`, and
       Code Simplifier pass. Tests remain manual, outside automatic workflows.
-- [ ] 4.9 After the verifier correction reaches main, pass complete native
-      candidate artifact verification. Only then may the workflow authenticate
-      to GHCR and publish; record exact results if any check fails.
-- [ ] 4.10 After the first successful publication, change the GHCR package to
+- [ ] 4.9 Complete native candidate artifact verification. PR #14
+      (`4d652048`) run `37129219486` built the native candidate in 8m28; the
+      prior EACCES cleanup failure did not recur. The verifier then failed its
+      `/api/v1/models must return 401 invalid_api_key without credentials`
+      assertion. Actual HTTP status, error fields, and body were not logged;
+      source/configuration diagnosis predicts 401 `invalid_api_key` but does
+      not establish runtime behavior. Keep the auth fixture and 401 gate.
+      Complete task 4.10's failure-only safe diagnostics, then require a new
+      native main run to pass the full artifact checks before publication.
+- [x] 4.10 Improve catalog-auth assertion failure diagnostics only. Preserve
+      the disposable auth fixture and expected 401 `invalid_api_key` gate.
+      Report expected status/code, observed HTTP status, and bounded sanitized
+      JSON `error.type` / `error.code` only; never log body, headers,
+      credentials, model data, or serialized errors. Manually test mismatch
+      and unavailable/malformed fields without weakening the assertion.
+      Focused manual regressions pass 7/7; diagnostic probe confirms the
+      64-character bound, control sanitization, and body/object exclusion.
+- [ ] 4.11 After the first successful publication, change the GHCR package to
       public in GitHub Packages. Verify anonymous pull and record run URL,
       commit SHA, tags, digest, labels, and result in TODO and
       `completion.review`.
-- [ ] 4.11 Before server pull, record current digest, Compose config, Docker
+- [ ] 4.12 Before server pull, record current digest, Compose config, Docker
       `HEALTHCHECK`, direct UI root response, and database-migration state.
       Verify `http://127.0.0.1:20128/` returns HTTP 200; do not probe UI health
       through API proxy port `20129`. Pull `:main`, compare digest and labels,
       verify ARM64, then run `docker compose up -d --no-build`.
-- [ ] 4.12 Verify Docker healthcheck, native SQLite, direct UI root, and API
+- [ ] 4.13 Verify Docker healthcheck, native SQLite, direct UI root, and API
       routes separately. On
       failure, restore the prior digest with `docker compose up -d --no-build`
       and verify prior health. Record outcome in TODO and `completion.review`.
 
 ## 5. Future maintenance
 
-- [ ] 5.1 If image acceptance fails after task 4.9's verifier repair and retry,
-      use exact logs and measured evidence to scope any further correction; do
-      not preselect a fix or add speculative resource limits.
+- [ ] 5.1 If image acceptance fails after task 4.10's verifier diagnostic and
+      retry, use exact logs and measured evidence to scope any further
+      correction; do not preselect a fix or add speculative resource limits.
 - [ ] 5.2 Before changing the official base, verify its provenance and repeat
       native SQLite, health, API, and official-UI parity checks on the new
       digest.

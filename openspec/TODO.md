@@ -10,13 +10,12 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   main push or manual exact-main dispatch. It verifies the built container
   before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests are invoked manually for a specific task. All three main
+  schedule. Tests are invoked manually for a specific task. All four main
   attempts failed before publication. PR #13's `NODE_ENV=production` correction
-  is on main, and run `37126849223` completed native ARM64 image compilation;
-  candidate artifact verification failed on temp-data permissions. The
-  tmpfs/cleanup fix is implemented, focused manual tests pass 7/7, and
-  independent low-effort review found no correctness findings. Full main-image
-  acceptance remains open.
+  is on main, and PR #14's tmpfs/cleanup correction passed its focused manual
+  tests and independent review. Native ARM64 candidate compilation passes; the
+  latest image verifier failed an API catalog-auth assertion, with actual HTTP
+  response not logged. Full main-image acceptance remains open.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
@@ -76,6 +75,22 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   low-effort review found no correctness findings; no broader test-suite rerun
   is claimed. The next full main artifact acceptance remains open. No server
   pull, deployment, or database mutation occurred.
+- PR #14 (`4d652048`) includes the tmpfs and cleanup-error correction. Main
+  run `37129219486` completed native candidate build in 8m28; the previous
+  `/app/data` EACCES did not recur. The verifier then failed the assertion
+  `/api/v1/models must return 401 invalid_api_key without credentials`. The
+  run did not record actual HTTP status, `error.type`, `error.code`, or body;
+  runtime response remains unknown. GHCR login and publication were skipped;
+  no image was published. Read-only handler/configuration diagnosis predicts
+  the disposable fixture should return HTTP 401 `invalid_api_key` because
+  `INITIAL_PASSWORD` is set, `requireLogin` is true, and the model-auth opt-out
+  is absent; this source prediction is not runtime proof. Keep the fixture and
+  401 assertion unchanged. Selected correction is failure-message-only:
+  include expected status/code, observed status, and bounded sanitized JSON
+  `error.type` / `error.code`; never log bodies, headers, credentials, model
+  data, or serialized errors. Manually test this diagnostic, then require a new
+  native main run to pass the full artifact gate. Package visibility, anonymous
+  pull, and server acceptance remain open.
 - On GitHub, keep the auxiliary `api-route-typecheck.yml`,
   `test-quarantine.yml`, and `release-acceptance.yml` workflows manual-only.
   Keep all remaining routine check workflows disabled in repository settings;
@@ -91,9 +106,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   run `37121831856` had completed before its workflow was disabled. The merged
   source YAML makes the three auxiliary workflows manual-only. Preserve this
   settings state after every upstream sync; do not enable unrelated workflows.
-- All three main attempts so far failed before publication. Native image
-  compilation now passes; repair and pass candidate verification before any
-  image is considered ready.
+- All four main attempts so far failed before publication. Native image
+  compilation now passes; diagnose and pass the remaining candidate verifier
+  check before any image is considered ready.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in

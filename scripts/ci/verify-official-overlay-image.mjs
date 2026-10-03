@@ -22,6 +22,11 @@ function describeError(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function diagnosticTag(value) {
+  if (typeof value !== "string") return `<${typeof value}>`;
+  return value.slice(0, 64).replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, "?");
+}
+
 export async function withCleanup(action, cleanups) {
   let result;
   let hasPrimaryError = false;
@@ -117,7 +122,13 @@ export function verifyCandidateEvidence(evidence, expected) {
   );
   requireEvidence(
     api.status === 401 && api.body?.error?.code === "invalid_api_key",
-    "direct UI listener /api/v1/models must return 401 invalid_api_key without credentials"
+    // AICODE-NOTE: Allowlist bounded error tags; never expose response bodies or credentials.
+    "direct UI listener /api/v1/models must return 401 invalid_api_key without credentials; " +
+      `observed ${JSON.stringify({
+        status: Number.isInteger(api.status) ? api.status : "<invalid>",
+        type: diagnosticTag(api.body?.error?.type),
+        code: diagnosticTag(api.body?.error?.code),
+      })}`
   );
 
   requireEvidence(candidate.ui?.buildId === official.ui?.buildId, "official UI BUILD_ID changed");
