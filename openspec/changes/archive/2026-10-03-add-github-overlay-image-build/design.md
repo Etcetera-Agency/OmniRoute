@@ -379,3 +379,38 @@ server acceptance pass.
 - [GitHub-hosted runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 - [GitHub Container Registry access and visibility](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [Dockerfile CMD and ENTRYPOINT interaction](https://docs.docker.com/reference/dockerfile/#understand-how-cmd-and-entrypoint-interact)
+
+### Current acceptance record — 2026-10-03
+
+Main Actions run
+[`37142905181`](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/37142905181)
+passed all native `linux/arm64` artifact checks and published source
+`9e6e053efe56fc13ea6d9b106feb18503a9a70a7`. Full-SHA and `:main` tags point
+to manifest digest
+`sha256:671177c97f894c2bebb2da6cc9dadc0b89fc65bc031eeb044862276eb2322c66`;
+the source is `https://github.com/Etcetera-Agency/OmniRoute`, and the pinned
+official base is
+`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+Verified gates: ARM64, SQLite 3.53.4, configured healthcheck, UI root HTTP
+200, API HTTP 401 `AUTH_002`, non-root headed Chromium under Xvfb on
+`about:blank` with clean close, and byte-for-byte official UI parity. Summary
+metadata agrees with the published registry digest.
+
+The package is public. Organization settings were restored after temporarily
+allowing public package creation. Credentialless registry manifest requests
+for `:main` and the exact digest returned HTTP 200 with matching digest; the
+full anonymous Docker pull matched ARM64 and OCI source/revision/base labels.
+The four-input Compose cutover preserved the existing runtime configuration
+and Redis, and changed only the app image. App health, SQLite 3.53.4 integrity
+and foreign-key checks, migration table state 196 (193 numeric versions,
+maximum 196, three legacy rows), empty token/request-cost ledgers, UI/API/
+dashboard responses, and headed Chromium open/close as UID 1000 passed. No
+database migration ran. The old browser image and fresh backup remain intact.
+After verifying no active build, only the dedicated builder and unused
+BuildKit cache were removed; cache became 0 B and measured root-filesystem
+space gain was 73,019,129,856 bytes (73.02 GB / 68.02 GiB). App and Redis
+remained healthy. Durable sanitized evidence is in
+`/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md` and
+`/opt/apps/omniroute-deploy-diagnostics/main-image-9e6e053e-precutover-20261003T182221Z/deploy-acceptance-cache.txt`.
+Build-context optimization, base-provenance revalidation, and CapRover
+automatic CD remain separate deferred scope in `openspec/TODO.md`.

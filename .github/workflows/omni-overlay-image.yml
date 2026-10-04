@@ -12,10 +12,6 @@ on:
         type: choice
         options: [refs/heads/main]
 
-concurrency:
-  group: omni-overlay-image-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
@@ -27,6 +23,9 @@ jobs:
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.ref == 'refs/heads/main' &&
       github.ref == 'refs/heads/main'))
+    outputs:
+      image_digest: ${{ steps.publish-sha.outputs.digest }}
+      main_tag_updated: ${{ steps.publish-main.outputs.pushed }}
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -134,4 +133,73 @@ jobs:
             echo "- OCI source/revision/base labels verified before GHCR login."
             printf -- '- Current `:main` tag updated: `%s`.\n' "$MAIN_TAG_UPDATED"
             printf -- '- Workflow run: `%s/%s/actions/runs/%s`\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    name: Deploy the published main image to production
+    needs: publish-main-image
+    if: >-
+      github.repository == 'Etcetera-Agency/OmniRoute' &&
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.ref == 'refs/heads/main' &&
+      github.ref == 'refs/heads/main')) &&
+      needs.publish-main-image.result == 'success' &&
+      needs.publish-main-image.outputs.image_digest != '' &&
+      needs.publish-main-image.outputs.main_tag_updated == 'true'
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+    concurrency:
+      group: omniroute-production-deploy
+      cancel-in-progress: false
+    # Bounded pull and full failure/restore path can approach 61m; keep 9m runner/API margin.
+    timeout-minutes: 70
+    steps:
+      - name: Checkout the published source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Deploy the immutable main image digest
+        id: deploy
+        env:
+          IMAGE_DIGEST: ${{ needs.publish-main-image.outputs.image_digest }}
+          SOURCE_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_TOKEN: ${{ github.token }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          OMNI_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.OMNI_DEPLOY_SSH_PRIVATE_KEY }}
+          OMNI_DEPLOY_SSH_KNOWN_HOSTS: ${{ vars.OMNI_DEPLOY_SSH_KNOWN_HOSTS }}
+        run: node scripts/ci/deploy-main-image.mjs
+
+      - name: Record production deployment result
+        if: always()
+        env:
+          IMAGE_DIGEST: ${{ needs.publish-main-image.outputs.image_digest }}
+          SOURCE_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          DEPLOY_STATUS: ${{ steps.deploy.outputs.status || 'FAILED' }}
+          DEPLOY_FAILURE_CODE: ${{ steps.deploy.outputs.failure_code || '' }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## OmniRoute production deployment"
+            echo
+            printf -- '- Image: `ghcr.io/etcetera-agency/omniroute@%s`\n' "$IMAGE_DIGEST"
+            printf -- '- Source: `https://github.com/Etcetera-Agency/OmniRoute/tree/%s`\n' "$SOURCE_SHA"
+            printf -- '- Workflow run: `https://github.com/Etcetera-Agency/OmniRoute/actions/runs/%s`\n' "$GITHUB_RUN_ID"
+            printf -- '- Run attempt: `%s-%s`\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf -- '- Result: `%s`\n' "$DEPLOY_STATUS"
+            if [[ -n "$DEPLOY_FAILURE_CODE" ]]; then
+              printf -- '- Failure code: `%s`\n' "$DEPLOY_FAILURE_CODE"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

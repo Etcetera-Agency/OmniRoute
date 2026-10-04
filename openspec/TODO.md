@@ -4,31 +4,95 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## GitHub overlay-image build
 
-- After successful deployment and health acceptance, and only after verifying
-  no build is active, remove the unused dedicated OmniRoute builder (16.31 GB
-  isolated in read-only attribution) and remove only the default builder's
-  unused cache with:
+- Native acceptance and publication passed on 2026-10-03. Main Actions run
+  [`37142905181`](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/37142905181)
+  built and verified source `9e6e053efe56fc13ea6d9b106feb18503a9a70a7` from
+  `https://github.com/Etcetera-Agency/OmniRoute`, then published the full-SHA
+  and `:main` tags to `ghcr.io/etcetera-agency/omniroute`. Both tags resolve
+  to manifest digest
+  `sha256:671177c97f894c2bebb2da6cc9dadc0b89fc65bc031eeb044862276eb2322c66`;
+  pinned base digest is
+  `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+  ARM64, SQLite 3.53.4, configured healthcheck, direct UI root HTTP 200,
+  unauthenticated direct UI API HTTP 401 `AUTH_002`, non-root headed Chromium
+  under Xvfb opening/closing `about:blank`, and full stock-UI parity including
+  `BUILD_ID` `FCRnAAEuFvuYgqTcrQCSQ` passed. OCI source/revision/base metadata,
+  registry digest, tags, and workflow summary agree.
+- GHCR visibility gate passed. The owner temporarily enabled only organization
+  public-package creation, switched only `omniroute` to public, then restored
+  the organization setting (`Public` off, `Private` on, `Internal` off).
+  Credentialless manifest requests for `main` and the exact digest both
+  returned HTTP 200; registry `Docker-Content-Digest` and manifest-body
+  SHA-256 matched
+  `sha256:671177c97f894c2bebb2da6cc9dadc0b89fc65bc031eeb044862276eb2322c66`.
+  The full anonymous Docker image pull succeeded; ARM64 and OCI
+  source/revision/base labels match the published run. Browser-owner evidence:
+  `/tmp/hermes-ghcr-public-20261003.md`.
+- The server owner completed the four-file Compose preflight, anonymous image
+  pull, and app-only digest-pinned cutover with
+  `--no-build --no-deps --pull never`. Health/UI/API/dashboard, SQLite,
+  headed-browser, and migration 196 checks passed: 193 numeric rows (maximum 196) plus three preserved legacy rows, with token/request-cost ledgers empty.
+  Old browser image and fresh backup remain preserved. Redis container
+  identity/health is unchanged. No database migration ran. Full sanitized
+  server acceptance and cache-cleanup evidence:
+  `/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md` and
+  `/opt/apps/omniroute-deploy-diagnostics/main-image-9e6e053e-precutover-20261003T182221Z/deploy-acceptance-cache.txt`.
+- Authorized cleanup completed after a no-active-build check. The dedicated
+  `omniroute-deploy-db18a17` builder was removed, followed by
+  `docker builder prune --all --force` for the default builder only. Cache
+  changed from 72.35 GB reclaimable to 0 B. Root filesystem used bytes fell
+  from `130258251776` to `57239121920`, a measured gain of
+  `73019129856` bytes (73.02 GB / 68.02 GiB); dedicated/default cache totals
+  overlap and are not additive. No image, system, or volume pruning occurred.
+  App and Redis remained healthy, and rollback image plus backup were retained.
 
-  ```sh
-  docker builder prune --all --force
-  ```
-
-  The user authorized cleanup of the reported ~60 GB build cache after
-  migration to the published image. Record actual before/after cache usage; do
-  not claim the full reported amount was reclaimed in advance. Preserve
-  rollback runtime images, databases, volumes, backups, Redis, and unrelated
-  services. Do not run `docker image prune`, `docker system prune`, or volume
-  pruning.
-
+- Deferred base provenance: before changing the pinned official base, verify
+  its source and digest, then repeat native SQLite, health, API, and official-UI
+  parity checks against the replacement digest. Align the root-owned CD
+  configuration's accepted base identity with that reviewed replacement.
 - Deferred build-context optimization: Dockerfile `COPY .` currently includes
   OpenSpec and completion metadata, so metadata-only edits can invalidate the
   backend compile cache. Keep this separate from the current correction; review
   exact safe exclusions before changing the build context.
-- Deferred delivery automation: this scope builds and publishes the main image;
-  production cutover remains an authorized operator-run digest update on the
-  existing Compose host. CapRover is a separate host and no automatic pull or
-  deploy is wired. Do not imply that publishing `:main` updates production;
-  scope future CD separately with an agreed host, migration, and credentials.
+- `add-main-image-ssh-cd` server implementation, independent reviews and actual
+  host acceptance are complete. Protected canonical Compose inputs, forced SSH
+  principal, main-only GitHub environment, digest/source guards, durable systemd
+  transaction and app-only cutover are installed. No compatibility shims or
+  regular automatic tests were added.
+- Real fixture `20261004030000-1` proved automatic startup migration196,
+  genuine public404 failure, preserved candidate diagnostic, and restored DB
+  SHA equal to the fresh protected backup before prior startup. Backup omitted
+  196; candidate contained196. Prior native integrity/FK/full coverage, health
+  and private probes passed; Redis stayed unchanged.
+- Production current-main smoke `20261004040000-1` survived SSH disconnect,
+  completed SUCCEEDED, and reattached through the restricted pinned key with
+  canonical SUCCEEDED/run-attempt output. Same-terminal-tuple reattach changed
+  neither journal timestamp nor unit/app/Redis identities. Native DB/private
+  UI/API/public dashboard checks passed. Backup SHA is
+  `d667b6941e6a78549f2e894db99ed635bd98a6bde1cd0606220f8649ced921ae`.
+- Server acceptance fixes are complete: resolved effective Compose guards and
+  exact no-op dry-run; private in-container20128 probes; isolated internal
+  no-publication fixture with temporary loopback404 proxy; owner-correct native
+  read-only SQL/live WAL validation; standalone snapshot sidecar invariants;
+  canonical terminal entrypoint framing. Review/TDD evidence is in
+  `completion.review`. Temporary owned fixture proxy/containers/internal network
+  are removed; protected recovery artifacts remain.
+- Final pre-commit Code Simplifier checkpoint completed 2026-10-04 for the
+  frozen workflow/CI dispatcher diff. No code change was needed; frozen server
+  helpers remain unchanged. See `completion.review`.
+- Remaining CD phase: commit the frozen implementation and metadata, push the
+  feature branch and merge through PR, prove a real main image-publication-to-
+  server workflow, then archive the change and merge living specs. Publishing
+  `:main` does not yet invoke the new CD workflow until these source changes
+  reach main.
+- CD backup/failed-database retention needs a separate maintenance policy;
+  preserve existing backups, failed candidate diagnostics and rollback images.
+  Do not add automatic image, volume, or backup pruning.
+- Automatic recovery after a host reboot needs a separate boot-time journal
+  recovery procedure. The current CD task survives SSH/runner disconnect;
+  transient systemd execution alone does not guarantee reboot recovery.
+  Preserve transaction state and snapshots for operator recovery until a
+  reviewed boot-time reconciliation policy is implemented.
 
 - PR #11 merged at `3a484460`, heap correction PR #12 at `a06fcfb3`, and
   builder production-mode correction PR #13 at `b6cfc9ad`. Only the fork image
@@ -36,8 +100,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   main push or manual exact-main dispatch. It verifies the built container
   before publication and has no unit-test gate. Do not run general, unit,
   static, or workflow checks automatically on feature push, PR, main, or a
-  schedule. Tests are invoked manually for a specific task. All six main
-  attempts failed before publication. PR #13's `NODE_ENV=production` correction
+  schedule. Tests are invoked manually for a specific task. The six earlier
+  main attempts failed before publication; successful run `37142905181`
+  later closed native artifact verification and publication. PR #13's `NODE_ENV=production` correction
   is on main, and PR #14's tmpfs/cleanup correction passed its focused manual
   tests and independent review. Native ARM64 candidate compilation passes; the
   fifth image verifier run observed HTTP 401 `AUTH_002` with `error.type`
@@ -67,15 +132,16 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   `docker exec` inside that container. The focused startup regression was RED
   before the flag and the suite passes 9/9 after it; scoped ESLint, Prettier,
   `git diff --check`, Code Simplifier, and independent review (`GREEN[]`) pass.
-  Final native image, browser, and publication gates remain open.
+  At run `37138784470`, final native image, browser, and publication gates
+  remained open; run `37142905181` later passed those native gates.
 - Final manual verification passed 13/13 focused tests, scoped ESLint,
   Prettier, actionlint (0 findings), the full workflow audit (209 findings
   against a baseline of 233), and `git diff --check`. Independent low-effort
   review found no correctness findings. Code Simplifier reviewed the final
   trigger/job policy and test-gate removal; no further simplification was
   needed. OpenSpec validation passes strictly (7/7). These manual test and
-  audit results preceded the builder environment corrections. No local image
-  build, successful main publication, or production change has occurred.
+  audit results preceded the builder environment corrections. At that
+  checkpoint, no local image build or production change had occurred.
 - First main image run `37124029642` failed after 4m17 in
   `npm run build:backend` with repeated V8 ineffective mark-compacts and
   allocation failure at an effective old-space limit near 1043 MiB. No image
@@ -125,8 +191,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   the local verifier, and focused manual tests pass 7/7. Scoped ESLint,
   Prettier, `git diff --check`, and Code Simplifier pass. Independent
   low-effort review found no correctness findings; no broader test-suite rerun
-  is claimed. The next full main artifact acceptance remains open. No server
-  pull, deployment, or database mutation occurred.
+  is claimed. At this checkpoint full main artifact acceptance remained open;
+  later run `37142905181` passed and the server acceptance record below closes
+  the rollout. No server pull or deployment had occurred at that checkpoint.
 - PR #14 (`4d652048`) includes the tmpfs and cleanup-error correction. Main
   run `37129219486` completed native candidate build in 8m28; the previous
   `/app/data` EACCES did not recur. The verifier then failed the assertion
@@ -147,8 +214,8 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   credentials, models, or serialized errors. Manually verify the fixture
   correction before the next main acceptance. The auth-fixture correction
   returned 3/7 RED before the guard fix and 7/7 GREEN after it. Scoped ESLint,
-  Prettier, Code Simplifier, and summary shell probe passed. Package visibility,
-  anonymous pull, and server acceptance remain open.
+  Prettier, Code Simplifier, and summary shell probe passed. At that checkpoint,
+  package visibility, anonymous access, and server acceptance remained open.
 - The final Actions summary had a shell quoting defect: literal backticks
   inside double-quoted `echo` strings caused seven command substitutions and
   missing source, tag, digest, base, and run URL values while the block exited 0.
@@ -193,55 +260,63 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
   run `37121831856` had completed before its workflow was disabled. The merged
   source YAML makes the three auxiliary workflows manual-only. Preserve this
   settings state after every upstream sync; do not enable unrelated workflows.
-- All six main attempts so far failed before publication. The sixth built
+- The six earlier main attempts failed before publication. Successful run
+  `37142905181` later passed native artifact verification and published. The
+  sixth built
   `runtime-web` and Playwright Chromium but failed Docker healthcheck; no API,
   browser, or UI acceptance is proven. Exact-CMD declaration and config
   preflight now pass focused manual tests 9/9, scoped lint/format/diff checks,
   Code Simplifier, and independent review (`GREEN[]`). The old-backend Docker
   init differential passes health, direct UI/API, and headed-browser checks as
-  detailed above. Browser smoke on the new `runtime-web` image and all remaining
-  artifact checks remain open; no image is ready for publication.
+  detailed above. At that historical point, browser smoke on the new
+  `runtime-web` image and remaining artifact checks were open; run
+  `37142905181` later passed the native artifact gate.
 - Record the successful run URL, full source SHA, pinned official base digest,
   full-SHA and `:main` tag equality, registry manifest digest, OCI
   source/revision/base labels, and run-summary consistency here and in
   `completion.review`. The manifest digest is image identity; do not assume
   SHA tags are immutable. Preserve real capacity evidence without inferring
   fit from runner specifications.
-- After first publication, change
-  `ghcr.io/etcetera-agency/omniroute` from GHCR's default private visibility
-  to public in GitHub Packages; the workflow does not change package settings.
-  Verify an anonymous pull succeeds and record its result. No server pull
-  credential is used.
+- Publication and public visibility are complete. Organization
+  public-package creation is restored to disabled; credentialless manifest
+  access and full anonymous Docker pull are verified. Durable server-owner
+  evidence is in `/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md`
+  and `/opt/apps/omniroute-deploy-diagnostics/main-image-9e6e053e-precutover-20261003T182221Z/deploy-acceptance-cache.txt`.
+  The workflow does not change package settings and no server pull credential
+  is used.
 - Read-only server readiness check reports the configured Docker healthcheck
   (`CMD node healthcheck.mjs`) healthy and direct UI
   `http://127.0.0.1:20128/` returning HTTP 200. Prior 404s came from probing a
   health path through API proxy port `20129`; this is not a stale UI route.
-  This checks current deployment only and does not replace candidate-image
-  acceptance. No server mutation occurred.
-- Before the operator-run server pull, record current digest, Compose config,
-  Docker health status, direct UI response, and database migration state. Use
-  the configured Docker `HEALTHCHECK` (currently `CMD node healthcheck.mjs`)
-  and verify `http://127.0.0.1:20128/` returns HTTP 200. Do not probe a UI
-  health path through the separate API proxy on `20129`. Pull `:main`, compare
-  resolved digest and labels to the successful main run, verify ARM64, then
-  start with `docker compose up -d --no-build`. Check Docker health, native
-  SQLite, dashboard, and separately check API routes. Direct UI listener
-  `20128` unauthenticated `GET /api/v1/models` with
-  `REQUIRE_API_KEY=true` returns HTTP 401 with `error.code: "AUTH_002"` from
-  the client-API auth middleware. Record the deployed digest.
-- Exercise rollback by restoring the previous digest and running
-  `docker compose up -d --no-build`; verify prior health. The workflow does
-  not connect to production, deploy automatically, or run migrations.
+  This was a pre-cutover readiness snapshot; the completed candidate deployment
+  and acceptance are recorded above. The operator-run pull compared digest,
+  labels, and ARM64, preserved Compose state, verified Docker health, native
+  SQLite, dashboard, API, and browser behavior, and recorded migration state.
+  The API response on direct UI listener `20128` was HTTP 401 `AUTH_002` with
+  `REQUIRE_API_KEY=true`. No migration ran. The rollback command remains the
+  documented recovery path; it was not invoked because acceptance passed. The
+  workflow did not connect to production or run migrations at that CI-only
+  checkpoint. The separately requested `add-main-image-ssh-cd` package adds
+  automatic deployment and snapshot-based migration recovery.
 - Fresh main archive is pushed and verified: `archive/main-before-main-image-pr-2026-10-03` points to `f2bddef27ed0807dd5a5e2712bc26536edda8138`; `main` remained at that SHA through the pre-integration fetch. The feature records this `main` history with an ours-strategy merge, preserving the reviewed upstream-aligned source tree; the broad upstream delta and retired fork behavior are described in the PR. Do not restore old fork behavior without an explicit reviewed requirement.
 - Pre-PR audit completed against current `main` `f2bddef27ed0807dd5a5e2712bc26536edda8138`, pre-integration feature `11a54874b7e236df5935e54f17a7ffcb5564d88d`, and deployed runtime `55f40468137290e8efdc24a1a1b95b111a61d91a`. The reviewed feature tree intentionally follows official OmniRoute upstream v3.8.52 (`23a11484862b3bb589a55e85b00e4ac53ffeb234`). Its PR diff against `main` is intentionally broad: 17,350 paths (+4,914,997/-536,172), replacing the stale fork tree with the upstream-aligned source plus reviewed overlays. Against the selected upstream release, the overlay is 88 paths (+16,137/-151). Inventory found no generated build/cache/dependency outputs; environment files are examples, and no private-key, certificate, or database artifacts were found. All 98 tracked blobs larger than 1,000,000 bytes are byte-identical to the upstream release. The tree retires legacy fork-only web-fetch/search/routing/FMO behavior. Do not restore old fork behavior without an explicit reviewed requirement.
-- GitHub settings were checked read-only: Actions are enabled, all actions are allowed, and the default workflow token permission is write. The image workflow declares scoped permissions. Neither branch protection nor repository/inherited rulesets are configured for `main`; perform manual PR review before merge. No GHCR package exists yet; after first publish, set it public in GitHub Packages UI and verify anonymous pull. GitHub exposes no package-visibility REST or GraphQL mutation; public visibility cannot be reverted to private.
+- Initial GitHub settings review found Actions enabled, all actions allowed,
+  default workflow token permission `write`, and no main branch protection or
+  repository/inherited rulesets. The image workflow declares scoped
+  permissions. Package `omniroute` has since been published and set public;
+  organization public-package creation is restored to disabled. Manifest-level
+  credentialless access and full anonymous Docker pull are verified; durable
+  server-owner evidence is linked above. Public visibility cannot be reverted to
+  private.
 - For any later hosted-build failure, preserve exact logs and measured
   resource/disk evidence before scoping a correction through a follow-up PR.
   Do not invent memory, swap, process, disk, or build-time limits. Reverify
   upstream provenance and overlay compatibility whenever the official base
   digest changes.
-- Automated production deployment is a separate future scope. Record its
-  design and selected target in a separate OpenSpec package before adding it.
+- Automated production deployment is now scoped in
+  `openspec/changes/add-main-image-ssh-cd`: GitHub Actions over restricted SSH
+  to `etc2nd-shlink`, automatic migrations, and snapshot/previous-image
+  recovery on failure. Implementation and live acceptance are in progress.
 
 ## Deferred Items
 
