@@ -381,8 +381,13 @@ dispatch. English, Russian and Ukrainian choice calls returned 200 and selected
 1024/768 context and no truncation. Browser smoke verifies profile connectivity,
 not live action execution or general accuracy. Private keyless requests return
 401, public `/v1/systemone` returns403, Redis DNS/TCP pass, and the application
-remains healthy. The temporary patch disappears on container recreation;
-`fix-overlay-http-route-registration` tracks permanent source-image replacement.
+remains healthy. Durable image replacement passed CI37193326716 and production
+HTTP acceptance after container recreation: source
+`2a6c97ef0942db1c716da5b3893ae9fcd224b022`, digest
+`sha256:2af8dc00414eff32c80aa8f84b52eb26a17f8878cfd93bb5a29e8fe37e75f7af`.
+An isolated container from that immutable image also contains the SystemOne URL
+map; temporary manifest edits are no longer needed. The fix package is archived
+under `2026-10-04-fix-overlay-http-route-registration`.
 
 Laya failure and oversized-state fallback, OpenRouter live-shape validation,
 restricted-key acceptance, and the 50-request direct-versus-OmniRoute latency

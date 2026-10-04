@@ -2,9 +2,7 @@
 
 Define how the fork adds backend API routes to the verified official OmniRoute
 image while retaining its compiled dashboard and runtime output.
-
 ## Requirements
-
 ### Requirement: Official dashboard preservation
 
 The image build SHALL retain the official dashboard routes, page bundles,
@@ -82,3 +80,36 @@ GIVEN an API manifest value is absolute or traverses outside `server/app/api`
 WHEN the merge validates the route bundle
 THEN the merge fails with the route key identified
 AND the official manifest is not rewritten with that path
+
+### Requirement: Overlay API URL registration
+
+WHEN the backend overlay adds or replaces an API route, the image build SHALL
+merge its compiled URL mapping into the root app-path-routes manifest, retain
+its isolated bundle mapping in the server app-path manifest, and copy both
+merged manifests into the final image. The build SHALL validate API mappings
+before output writes and SHALL preserve official dashboard URL mappings.
+
+#### Scenario: New API route is discoverable by HTTP
+
+- **GIVEN** SystemOne exists only in the overlay build
+- **WHEN** Next's production filesystem router discovers `/api/v1/systemone`
+- **THEN** discovery returns an appFile entry
+- **AND** `/v1/systemone` rewrites to that registered route rather than catch-all
+
+#### Scenario: Invalid URL mapping fails assembly
+
+- **GIVEN** an overlay API route lacks a valid matching URL mapping
+- **WHEN** manifests are assembled
+- **THEN** assembly fails before replacing output manifests
+
+### Requirement: Compiler routing descriptors remain consistent
+
+WHEN overlay API routes are assembled, the image build SHALL merge their
+compiled static and dynamic route descriptors by route page, preserve official
+UI descriptors, and retain structural rewrite deduplication.
+
+#### Scenario: Compiled routes are retained
+
+- **GIVEN** overlay static and dynamic API descriptors and official UI routes
+- **WHEN** route manifests are merged
+- **THEN** overlay API descriptors appear once and official UI descriptors remain
