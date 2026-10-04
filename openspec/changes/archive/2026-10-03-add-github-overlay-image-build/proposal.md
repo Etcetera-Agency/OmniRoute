@@ -1,7 +1,12 @@
 # Change: Build and Pull OmniRoute Overlay Image from GitHub
 
-**Status:** Approved. Main image publication remains gated on successful
-native build and artifact verification.
+**Status:** Complete, ready to archive. Native artifact verification,
+publication, anonymous pull, app-only server cutover, health/browser/database
+acceptance, and authorized builder-cache cleanup passed on 2026-10-03. Durable
+sanitized evidence is recorded in `/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md`
+and `/opt/apps/omniroute-deploy-diagnostics/main-image-9e6e053e-precutover-20261003T182221Z/deploy-acceptance-cache.txt`.
+No database migration ran. Future base provenance, build-context optimization,
+and production CD remain in repo-level `openspec/TODO.md`.
 
 ## Why
 
@@ -93,6 +98,38 @@ UID 1000. This differential confirms init behavior for that fixture, not the
 new `runtime-web` image or main artifact gate. Start only the candidate service
 container with Docker init enabled; keep final native-image, browser, and
 production acceptance gates open.
+
+## Acceptance update — 2026-10-03
+
+Main Actions run
+[`37142905181`](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/37142905181)
+passed the native `linux/arm64` candidate artifact gate and published source
+`9e6e053efe56fc13ea6d9b106feb18503a9a70a7` from
+`https://github.com/Etcetera-Agency/OmniRoute` to
+`ghcr.io/etcetera-agency/omniroute`. Both the full-SHA tag and `:main` resolve
+to manifest digest
+`sha256:671177c97f894c2bebb2da6cc9dadc0b89fc65bc031eeb044862276eb2322c66`;
+the image records pinned base digest
+`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+The run passed ARM64, native SQLite 3.53.4, configured healthcheck, direct UI
+root HTTP 200, unauthenticated direct UI API HTTP 401 `AUTH_002`, non-root
+headed Chromium under Xvfb opening and closing `about:blank`, and full official
+UI parity. Workflow summary and registry digest agree.
+
+This closes native artifact verification, publication, public image pull, and
+operator-run server acceptance. The package is public, and organization
+settings were restored after temporarily allowing public package creation.
+Credentialless manifest requests for `:main` and the exact digest returned
+HTTP 200 with matching digest; the full anonymous Docker pull matched ARM64
+and OCI source/revision/base labels. Server acceptance passed on the digest:
+app health, SQLite 3.53.4 integrity and foreign keys, migration table state
+196 (193 numeric versions, maximum 196, and three legacy rows), empty
+token/request-cost ledgers, UI/API/dashboard responses, and headed Chromium as
+UID 1000. No database migration ran. The old browser image, Redis identity,
+and fresh backup remain preserved. Cache cleanup removed only the dedicated
+builder and unused BuildKit cache; measured root-filesystem space gain was
+73,019,129,856 bytes. Evidence paths are listed in the status and task 4.12.
+Publishing `:main` alone does not deploy the Compose service.
 
 Production currently runs a separate browser-capable layer,
 `omniroute:55f40468-official-overlay-web-browser-20261003`, through the third
@@ -247,7 +284,7 @@ None. This packages the existing backend overlay.
 
 - [ ] Database migration
 - [ ] API version bump
-- [ ] Production deployment
+- [x] Production deployment
 - [x] GitHub image build and container artifact verification before publication
 
 ## Security and Registry Access
