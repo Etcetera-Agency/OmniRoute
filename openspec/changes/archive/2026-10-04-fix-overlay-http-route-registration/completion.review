@@ -1,6 +1,6 @@
 # Completion review — 2026-10-04
 
-Status: source runtime packaging corrected and reviewed; accepted-image publication and durable deployment pending.
+Status: reviewed source deployed; durable HTTP acceptance passed; ready to archive.
 
 ## Fixes and Code Simplifier
 
@@ -36,16 +36,28 @@ Status: source runtime packaging corrected and reviewed; accepted-image publicat
   public403, Redis DNS/TCP pass, container healthy. call_logs200 for all three
   selectors, stored request/response body flags0.
 
-## Outstanding deployment and scope
+## Durable production acceptance
 
-- Server manifests are temporary and disappear upon recreation. Do not record
-  permanent cutover until accepted main image is built/deployed and HTTP smokes
-  pass again. Initial source0e12d43fde was pushed; CI37192253790 was cancelled
-  before publication after a live probe found build-only sortable-routes.js
-  absent from the pinned runtime. Replaced it with runtime sorted-routes.js
-  getSortedRouteObjects and added a denied-module loading/precedence regression.
-  Exact corrected merger module loads successfully in an isolated no-network
-  container using the pinned current image. No final image deployed yet.
+- CI37193326716 passed build, official UI parity, publication and deployment.
+  Source2a6c97ef0942db1c716da5b3893ae9fcd224b022; immutable image
+  ghcr.io/etcetera-agency/omniroute@sha256:2af8dc00414eff32c80aa8f84b52eb26a17f8878cfd93bb5a29e8fe37e75f7af.
+- Fresh container healthy. Actual authenticated HTTP: English/RU/UK200 and
+  technical; frozen browser200 and choice2. All selectors reached their named
+  native model with laya:200 and no truncation. Single request timings:
+  English0.756s, RU9.422s, UK0.304s, browser12.431s; not benchmark medians.
+- Independent no-network container from immutable image contains SystemOne
+  root URL map. Acceptance no longer depends on temporary container patch.
+- Private keyless401, public403; Redis DNS/TCP pass. New call_logs rows200 for
+  all profiles, request/response body flags0.
+- Code Simplifier final review: documentation/archive slice adds no runtime
+  code; no additional safe simplification required. Strict spec validation
+  and diff checks are required before archive commit.
+
+## Remaining separate scope
+
+- First CI37192253790 was cancelled before publication after the live
+  runtime-helper probe. Corrected sorter module loads in the pinned runtime;
+  regression8/8 verifies runtime imports and precedence. No compatibility shim.
 - Original SystemOne fallback/capacity/latency/OpenRouter/restricted-key gates
-  and browser micro-loop work remain open in openspec/TODO.md. Do not archive
-  original SystemOne package on Laya-only smoke evidence.
+  and browser micro-loop work remain open in openspec/TODO.md. Original
+  SystemOne package remains active; this archive covers manifest assembly only.
