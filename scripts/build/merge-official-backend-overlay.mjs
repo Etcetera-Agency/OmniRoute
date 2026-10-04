@@ -7,9 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { normalizeAppPath } = require("next/dist/shared/lib/router/utils/app-paths.js");
-const {
-  sortSortableRouteObjects,
-} = require("next/dist/shared/lib/router/utils/sortable-routes.js");
+// AICODE-NOTE: The standalone-image merger needs a sorter shipped with Next's runtime.
+const { getSortedRouteObjects } = require("next/dist/shared/lib/router/utils/sorted-routes.js");
 const REWRITE_GROUPS = ["beforeFiles", "afterFiles", "fallback"];
 const API_ROUTE_PREFIX = "/api/";
 
@@ -85,10 +84,7 @@ function mergeApiRouteEntries(baseEntries, overlayEntries, manifestGroup) {
     if (isApiRoute(route.page)) routesByPage.set(route.page, route);
   }
 
-  return sortSortableRouteObjects([...routesByPage.values()], (route) => ({
-    sourcePage: route.sourcePage ?? route.page,
-    page: route.page,
-  }));
+  return getSortedRouteObjects([...routesByPage.values()], (route) => route.page);
 }
 
 function validateObject(value, file) {

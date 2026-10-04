@@ -60,3 +60,14 @@ that app-path-routes was absent and unnecessary. Production evidence and
 Next16.3.5 filesystem routing show that assumption is false. The archive
 remains historical evidence; this change and its merged living requirements
 supersede that claim. Direct requirePage tests validated module loading only.
+
+## Runtime helper packaging correction
+
+A live probe of the pinned official-derived image on2026-10-04 showed
+`sortable-routes.js` absent from standalone runtime, despite its presence in
+local full Next dependencies. Runtime `sorted-routes.js` exports the route
+ordering helpers and is retained. The merger must use the retained runtime
+helper and test loading against the runtime dependency subset. Workflow
+37192253790 for source0e12d43fde was cancelled before publication; the server's
+working temporary patch remained intact. No fallback dependency resolver or
+vendored Next compatibility code is introduced.

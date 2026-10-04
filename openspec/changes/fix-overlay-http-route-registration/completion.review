@@ -1,6 +1,6 @@
 # Completion review — 2026-10-04
 
-Status: source reviewed and ready; main publication and durable image deployment pending.
+Status: source runtime packaging corrected and reviewed; accepted-image publication and durable deployment pending.
 
 ## Fixes and Code Simplifier
 
@@ -12,7 +12,7 @@ Status: source reviewed and ready; main publication and durable image deployment
   pinned Next normalizeAppPath; added missing/traversal/wrong-map regressions
   proving failure before output writes or overlay copy.
 - Added explicit official UI URL preservation regression.
-- Code Simplifier applied after initial slice and correction. No compatibility
+- Code Simplifier applied after initial slice, mapping correction, and runtime-helper correction. No compatibility
   shim, duplicate route implementation, or further safe simplification needed.
 - Historical archive remains unchanged; this package supersedes its inaccurate
   app-path-routes assumption.
@@ -21,7 +21,7 @@ Status: source reviewed and ready; main publication and durable image deployment
 
 - TDD red: new route URL absent despite loadable module. Negative mapping tests
   reproduced acceptance of wrong API URL before normalization correction.
-- Green: focused merger regression7/7, including real Next16.3.5 setupFsCheck
+- Green: focused merger regression8/8, including real Next16.3.5 setupFsCheck
   getItem('/api/v1/systemone') → appFile, isolated chunk loading, UI preservation,
   dynamic ordering, and fail-before-write checks.
 - Existing SystemOne schema/dispatch/route tests46/46.
@@ -40,7 +40,12 @@ Status: source reviewed and ready; main publication and durable image deployment
 
 - Server manifests are temporary and disappear upon recreation. Do not record
   permanent cutover until accepted main image is built/deployed and HTTP smokes
-  pass again. No image build, Git push or final deploy completed yet.
+  pass again. Initial source0e12d43fde was pushed; CI37192253790 was cancelled
+  before publication after a live probe found build-only sortable-routes.js
+  absent from the pinned runtime. Replaced it with runtime sorted-routes.js
+  getSortedRouteObjects and added a denied-module loading/precedence regression.
+  Exact corrected merger module loads successfully in an isolated no-network
+  container using the pinned current image. No final image deployed yet.
 - Original SystemOne fallback/capacity/latency/OpenRouter/restricted-key gates
   and browser micro-loop work remain open in openspec/TODO.md. Do not archive
   original SystemOne package on Laya-only smoke evidence.

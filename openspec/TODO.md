@@ -440,8 +440,10 @@ Deferred cross-repository and operations work:
 - [ ] Finish `fix-overlay-http-route-registration`: permanent source regression,
   main transfer, accepted-image publication/deployment, then verify actual
   HTTP dispatch after container recreation. Authorized server hotfix currently
-  works but recreation discards patched manifests. Push is not yet explicitly
-  authorized. See the package design for protected rollback paths.
+  works but recreation discards patched manifests. Push was authorized and source0e12d43fde published. First CI37192253790
+  was cancelled before publication after runtime-helper probing; corrected
+  source uses the shipped Next sorter and passes8/8 plus isolated-image module
+  loading. Accepted-image deployment remains pending. See design for rollback.
 - [ ] Preserve remaining `add-systemone-decisions-route` acceptance gates:
   TypeSafe failover/capacity, latency comparison, live OpenRouter shape,
   restricted-key policies, flag-off final-image smoke. This Laya-only cutover
@@ -456,3 +458,11 @@ Deferred cross-repository and operations work:
   checkout and this fix worktree; unrelated to overlay registration changes.
   Correct GitHub runner-variable documentation/allowlist in separate CD docs
   work. Other doc-check warnings remain advisory baseline output.
+
+- [x] Runtime sorter correction within `fix-overlay-http-route-registration`:
+  the official standalone image omits build-only `sortable-routes.js`. Use the
+  retained `sorted-routes.js` helper; runtime loading/precedence regression8/8
+  and exact isolated-image module load pass.
+  First CI run37192253790 cancelled before publication; live temporary fix
+  remains healthy. Corrected source publication/deployment remains tracked in
+  the main cutover item above.

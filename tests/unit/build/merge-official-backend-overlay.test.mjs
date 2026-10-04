@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 import { mergeOfficialBackendOverlay } from "../../../scripts/build/merge-official-backend-overlay.mjs";
@@ -12,6 +14,9 @@ const { requirePage } = require("next/dist/server/require.js");
 const { pageToRoute } = require("next/dist/build/utils.js");
 const { normalizeAppPath } = require("next/dist/shared/lib/router/utils/app-paths.js");
 const { setupFsCheck } = require("next/dist/server/lib/router-utils/filesystem.js");
+const mergerScript = fileURLToPath(
+  new URL("../../../scripts/build/merge-official-backend-overlay.mjs", import.meta.url)
+);
 assert.equal(require("next/package.json").version, "16.3.5");
 
 async function writeJson(file, value) {
@@ -313,6 +318,51 @@ test("API runtime settings merge and route rewrites deduplicate without dropping
   assert.deepEqual(
     routes.dynamicRoutes.map((route) => route.page),
     ["/api/v1/[...path]", "/api/v1beta/models/[...path]"]
+  );
+});
+
+test("merger runs without the build-only sorter and keeps dynamic API precedence", async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+
+  const baseRoutesFile = path.join(fixture.baseDistDir, "routes-manifest.json");
+  const overlayRoutesFile = path.join(fixture.overlayDistDir, "routes-manifest.json");
+  const baseRoutes = await readJson(baseRoutesFile);
+  const overlayRoutes = await readJson(overlayRoutesFile);
+  baseRoutes.dynamicRoutes = [pageToRoute("/api/[...path]")];
+  overlayRoutes.dynamicRoutes = [pageToRoute("/api/v1/[...path]"), pageToRoute("/api/v1/[id]")];
+  await writeJson(baseRoutesFile, baseRoutes);
+  await writeJson(overlayRoutesFile, overlayRoutes);
+
+  const runnerScript = path.join(fixture.root, "deny-build-only-sorter.mjs");
+  await fs.writeFile(
+    runnerScript,
+    `import { createRequire } from "node:module";
+const require = createRequire(${JSON.stringify(mergerScript)});
+const Module = require("node:module");
+const originalLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+  if (request === "next/dist/shared/lib/router/utils/sortable-routes.js") {
+    throw new Error("build-only sorter is unavailable in runtime");
+  }
+  return originalLoad.call(this, request, parent, isMain);
+};
+const { mergeOfficialBackendOverlay } = await import(${JSON.stringify(pathToFileURL(mergerScript).href)});
+await mergeOfficialBackendOverlay({
+  baseDistDir: ${JSON.stringify(fixture.baseDistDir)},
+  overlayServerDir: ${JSON.stringify(fixture.overlayServerDir)},
+  overlayRoutesManifestPath: ${JSON.stringify(overlayRoutesFile)},
+  overlayAppPathRoutesManifestPath: ${JSON.stringify(path.join(fixture.overlayDistDir, "app-path-routes-manifest.json"))},
+  runtimeOverlayServerDir: ${JSON.stringify(fixture.runtimeOverlayServerDir)},
+});
+`
+  );
+  execFileSync(process.execPath, [runnerScript], { encoding: "utf8" });
+
+  const mergedRoutes = await readJson(baseRoutesFile);
+  assert.deepEqual(
+    mergedRoutes.dynamicRoutes.map((route) => route.page),
+    ["/api/v1/[id]", "/api/v1/[...path]", "/api/[...path]"]
   );
 });
 
