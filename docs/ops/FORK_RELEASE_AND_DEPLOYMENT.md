@@ -415,13 +415,48 @@ workflow summary records the actual manifest digest, source commit, pinned base,
 and run URL. A SHA tag is a convenient reference; deploy by digest because tags
 can move.
 
-The first successful GHCR package remains private. After that first main image
-is published, the package owner must switch it to public and verify an
-anonymous pull; the workflow never changes package visibility. Until then, use
-authorized registry access. Public images can be pulled without a supporter
-key or other application credential.
+The first successful GHCR publication passed in main Actions run
+[`37142905181`](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/37142905181)
+for source `9e6e053efe56fc13ea6d9b106feb18503a9a70a7`. Both the full-SHA and
+`:main` tags resolve to manifest digest
+`sha256:671177c97f894c2bebb2da6cc9dadc0b89fc65bc031eeb044862276eb2322c66`;
+the pinned official base digest is
+`sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+Native acceptance passed for ARM64, SQLite 3.53.4, configured healthcheck,
+direct UI root HTTP 200, unauthenticated direct UI API HTTP 401 `AUTH_002`,
+non-root headed Chromium under Xvfb opening/closing `about:blank`, and complete
+official-UI parity. Registry digest, tags, and workflow summary agree.
 
-## Pull the image on the server
+The GHCR package is public. The owner temporarily allowed organization public
+package creation, changed only this package to public, then restored the
+organization setting to Public off, Private on, and Internal off. Credentialless
+manifest requests returned HTTP 200 with matching digest; the server owner
+also completed a full anonymous Docker image pull and verified ARM64 and OCI
+source/revision/base labels. Evidence is recorded in
+`/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md`. The workflow
+never changes package visibility. Public images can
+be pulled without a supporter key or other application credential.
+
+## Initial server cutover and manual recovery
+
+Completed operator run on 2026-10-03: the server owner completed the anonymous
+Docker image pull and verified ARM64 plus OCI source, revision, and base labels
+against the published run. Preflight of the combined four-file Compose
+configuration retained the three existing Compose files plus the digest
+override, `init: true`, data bind, API port `20129`, and all four networks; the
+rollback configuration still resolves to the previous
+browser-capable image. An app-only `docker compose up -d --no-build --no-deps
+--pull never` cutover recreated and started the service. Health, SQLite 3.53.4,
+UI/API/dashboard, migration table 196 with 193 numeric rows (maximum 196) and
+three preserved legacy rows, and UID 1000 headed-browser acceptance passed.
+No migration ran. Redis container identity/health, old browser image, and fresh
+backup remain preserved. Durable sanitized evidence is recorded in
+`/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md` and
+`/opt/apps/omniroute-deploy-diagnostics/main-image-9e6e053e-precutover-20261003T182221Z/deploy-acceptance-cache.txt`.
+After confirming no active build, only the dedicated builder and unused
+BuildKit cache were removed. Cache fell from 72.35 GB reclaimable to 0 B; the
+measured root-filesystem space gain was 73,019,129,856 bytes (73.02 GB /
+68.02 GiB). App and Redis remained healthy; rollback image and backup remain.
 
 Use the server's existing Docker Compose configuration. Before
 changing the image, record the currently configured image digest, service
@@ -457,7 +492,7 @@ sudo -n docker compose --project-directory /opt/apps/omniroute -p omniroute \
   -f /opt/apps/omniroute/docker-compose.yml \
   -f /opt/apps/omniroute-deploy-diagnostics/prod-cutover-55f40468-20261003T095314Z/candidate-compose.yml \
   -f /opt/apps/omniroute/recovery/free-web-guests-20261003/browser-compose.yml \
-  -f "$cutover_dir/image-compose.yml" up -d --no-build --pull never omniroute
+  -f "$cutover_dir/image-compose.yml" up -d --no-build --no-deps --pull never omniroute
 REMOTE
 ```
 
@@ -485,19 +520,103 @@ REMOTE
 For rollback, run the same Compose command with the three original files,
 omitting the new digest override; use `--no-build --pull never` and verify the
 previous browser image and health. Preserve this image until acceptance is
-complete. Restore database state only through the separate migration recovery
-procedure. This workflow does not deploy
-automatically and does not reverse migrations.
+complete. This manual image-only rollback does not reverse database changes;
+use the protected database snapshot when migration recovery is required.
 
-After successful deployment and acceptance, measure and remove the
-user-authorized unused build cache. Readiness found about 50–72 GB in the
-aggregate/default builder and 16.31 GB in the named OmniRoute builder. Confirm
-that no build is active, remove the unused `omniroute-deploy-db18a17` builder
-without `--keep-state`, and run `docker builder prune --all --force` for unused
-default build cache. This targets build artifacts; never use Docker system,
-image, or volume pruning. Preserve the rollback image, databases, backups,
-Redis, and unrelated services. Record actual reclaimed space and verify the
-application remains healthy afterward.
+## Automatic deployment after main publication
+
+The `add-main-image-ssh-cd` change connects successful main-image publication
+to the existing Compose service on `etc2nd-shlink`. Its live acceptance remains
+open until an actual main run completes the server deployment. Image builds
+remain confined to main; feature pushes, pull requests, and schedules run no
+automatic tests or image builds.
+
+The deployment job uses the GitHub `production` environment, restricted to the
+main branch. Only that job receives `OMNI_DEPLOY_SSH_PRIVATE_KEY`; the public
+`OMNI_DEPLOY_SSH_KNOWN_HOSTS` variable pins the server's ED25519 identity.
+The dedicated SSH account accepts only `deploy-main`, with one validated
+stdin record containing the published digest, source SHA, run ID, and run
+attempt. It cannot choose image repositories, commands, Compose files, or data
+paths. Keep the human `opc` key out of GitHub Actions.
+
+Install and recover the restricted host boundary with
+[`scripts/deploy/SERVER-INSTALL.md`](../../scripts/deploy/SERVER-INSTALL.md).
+The authoritative Compose copies live under `/etc/omniroute-deploy/compose/`;
+the fixed configuration uses the actual `omniroute-redis` service. Preserve
+root ownership and protected modes for configuration, journals, and backups.
+
+The publisher and deployment have separate concurrency groups. A newer push
+may replace an obsolete build, but it cannot cancel a running deployment.
+The runner checks current main before SSH; the server checks it again before
+stopping the app. An obsolete source is skipped without changing the service
+or database. The server starts a durable systemd task, so runner cancellation
+or SSH loss does not interrupt migration or recovery. Repeating the same
+run/attempt attaches to its existing result; a GitHub rerun has a new attempt.
+
+The server pulls the accepted immutable digest without registry credentials,
+checks architecture and source identity, and takes the deployment lock. It
+stops only OmniRoute, then creates and validates a protected SQLite backup
+including WAL state. Candidate startup applies the application's migrations.
+Acceptance checks service health, UI/API behavior, database integrity and
+migration coverage, and the unchanged Redis service. Compose uses
+`--no-build --no-deps --pull never`; the server does not compile source.
+
+Standalone WAL-mode backup checks allow the native read-only SQL connection
+to create temporary sidecars in the snapshot directory under the DB file's
+numeric owner/group. Existing companions are rejected; only newly created
+regular matching-owner companions are cleaned up. Main-file hash and
+ownership/mode must remain unchanged. Live checks use the actual read-only
+data directory and preserve shared WAL/SHM files, running as the actual DB
+file's numeric owner/group. With Linux capabilities dropped, UID0 does not
+bypass app-owned file permissions; no owner fallback is used.
+
+Private UI/API acceptance runs through Node inside the app container against
+its loopback listener on 20128. The published host listener on 20129 is the
+private gateway and does not serve those probe paths. Public dashboard
+acceptance runs from the host through HTTPS; no new port binding is needed.
+
+If deployment fails after the candidate may have changed the database, recovery
+stops the app, preserves the failed database, restores the snapshot while
+handling WAL/SHM files, restores the previous image, and checks its health.
+If backup fails before candidate startup, recovery restarts the previous
+service without restoring the untouched database. Original backups and
+rollback images remain protected. Automatic database restoration is the
+user-selected policy; writes accepted after candidate startup can be discarded
+by recovery. OmniRoute is unavailable while stopped for backup and restart.
+If candidate diagnostics cannot be preserved, database restoration fails, or
+the previous service cannot pass acceptance, recovery keeps the app stopped
+and retains the protected backup and candidate files. An unresolved post-stop
+worker journal remains retryable; a terminal rollback failure requires repair
+using its protected artifacts. Host reboot recovery remains separate work.
+
+Before enabling live CD, rehearse actual migration and failed-deployment
+recovery against an isolated database copy. Fixture containers stay on internal
+networks without published ports; a temporary root-controlled host-loopback
+proxy relays the fixture gateway's actual HTTP 404 to the public probe. Remove
+the proxy after proof and retain protected recovery artifacts. Task-specific checks run manually;
+they must not become regular push, PR, main, or scheduled test gates. Snapshot
+retention is separate maintenance work recorded in `openspec/TODO.md`.
+
+Host acceptance completed on 2026-10-04. Isolated transaction
+`20261004030000-1` applied real migration196, rejected the actual public404,
+retained the failed candidate, and restored a DB whose SHA-256 matched the
+protected backup before prior startup. Prior app/native checks passed and
+fixture Redis stayed unchanged. Production smoke `20261004040000-1` survived
+SSH loss and completed SUCCEEDED; restricted exact-tuple reattachment returned
+canonical success without changing the journal, unit or production containers.
+Native DB, private UI/API and public dashboard acceptance passed. The fresh
+production backup SHA-256 is
+`d667b6941e6a78549f2e894db99ed635bd98a6bde1cd0606220f8649ced921ae`.
+The automatic main-publication workflow still requires its first actual run.
+
+The authorized cache cleanup is complete. The measured 72.35 GB reclaimable
+default cache fell to 0 B after removing the unused
+`omniroute-deploy-db18a17` builder and running `docker builder prune --all
+--force` on the default builder. Used root-filesystem bytes fell from
+`130258251776` to `57239121920` (73,019,129,856 bytes / 73.02 GB / 68.02 GiB).
+The 16.31 GB dedicated-builder and 72.35 GB default-cache figures overlap, so
+they are not additive. No image, system, or volume prune ran. The application,
+Redis, rollback image, databases, volumes, and fresh backup were preserved.
 
 Enable band routing only after its production gates pass by setting
 `OMNIROUTE_AUTO_BANDS=1`. Leaving it unset or setting it to `0` disables band

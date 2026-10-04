@@ -178,7 +178,7 @@
       errors too. Manually test default-user data writes and both error cases;
       focused tests pass 7/7. Scoped ESLint, Prettier, `git diff --check`, and
       Code Simplifier pass. Tests remain manual, outside automatic workflows.
-- [ ] 4.9 Complete native candidate artifact verification. Run
+- [x] 4.9 Complete native candidate artifact verification. Earlier main runs
       `37129219486` built the candidate in 8m28; verifier message lacked the
       observed response. Latest run `37132155004` completed native candidate
       image build, then observed HTTP 401, `error.code: "AUTH_002"`, and no
@@ -202,8 +202,18 @@
       before Node; with it, the `node` process ran healthy, direct UI root
       returned HTTP 200 after redirect, API returned HTTP 401 `AUTH_002`, and
       headed Chromium opened/closed `about:blank` under Xvfb as UID 1000. This
-      does not prove the corrected `runtime-web` artifact. Require a successful
-      native main run to pass every artifact check before publication.
+      does not prove the corrected `runtime-web` artifact. Main Actions run
+      `37142905181` later passed the corrected native `linux/arm64` candidate
+      gate and published source
+      `9e6e053efe56fc13ea6d9b106feb18503a9a70a7`. Verified checks: ARM64,
+      SQLite 3.53.4, configured healthcheck, direct UI root HTTP 200,
+      unauthenticated direct UI API HTTP 401 `AUTH_002`, non-root headed
+      Chromium under Xvfb opening and closing `about:blank`, and full official
+      UI parity. Full-SHA and `:main` tags resolve to
+      `sha256:671177c97f894c2bebb2da6cc9dadc0b89fc65bc031eeb044862276eb2322c66`;
+      pinned base digest is
+      `sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`.
+      See [run 37142905181](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/37142905181).
 - [x] 4.10 Improve catalog-auth assertion failure diagnostics only. Preserve
       the disposable auth fixture and expected 401 gate.
       Report expected status/code, observed HTTP status, and bounded sanitized
@@ -212,24 +222,40 @@
       and unavailable/malformed fields without weakening the assertion.
       Focused manual regressions pass 7/7; diagnostic probe confirms the
       64-character bound, control sanitization, and body/object exclusion.
-- [ ] 4.11 After the first successful publication, change the GHCR package to
-      public in GitHub Packages. Verify anonymous pull and record run URL,
-      commit SHA, tags, digest, labels, and result in TODO and
-      `completion.review`.
-- [ ] 4.12 Before server pull, record current digest, Docker `HEALTHCHECK`,
+- [x] 4.11 The first publication passed in run `37142905181`. The package is
+      public; organization settings were restored after temporarily allowing
+      public package creation. Credentialless manifest requests for `:main`
+      and the exact digest returned HTTP 200 with matching manifest digest.
+      The server owner confirmed a full anonymous Docker image pull succeeded;
+      ARM64 and OCI source/revision/base labels match the published run. Run
+      URL, source SHA, tags, digest, labels, and pull result are recorded in
+      TODO and `completion.review`.
+- [x] 4.12 Before server pull, record current digest, Docker `HEALTHCHECK`,
       direct UI root response, and database-migration state. Record all three
       active Compose file inputs, final image-digest override, and current
       browser-capable image digest for rollback. Confirm `runtime-web` retains
       Chromium providers before pulling. Verify
       `http://127.0.0.1:20128/` returns HTTP 200; do not probe UI health through
       API proxy port `20129`. Pull `:main`, compare digest and labels, verify
-      ARM64, then run `docker compose up -d --no-build`.
-- [ ] 4.13 Verify Docker healthcheck, native SQLite, direct UI root, and API
+      ARM64, then run `docker compose up -d --no-build`. PASS: anonymous full
+      pull matched ARM64 and OCI source/revision/base; four-input Compose
+      preflight retained init, data bind, environment, ports, labels, networks,
+      and Redis; app-only `--no-build --no-deps --pull never` cutover completed.
+      No database migration ran. Sanitized evidence:
+      `/tmp/hermes-omniroute-deploy-acceptance-9e6e053e-20261003.md` and
+      `/opt/apps/omniroute-deploy-diagnostics/main-image-9e6e053e-precutover-20261003T182221Z/deploy-acceptance-cache.txt`.
+- [x] 4.13 Verify Docker healthcheck, native SQLite, direct UI root, and API
       routes separately. On success, launch Playwright Chromium with
       `headless: false` as non-root on `about:blank` and close it without
       external requests. On failure, restore the prior browser-capable image
       digest with `docker compose up -d --no-build` and verify prior health.
-      Record outcome in TODO and `completion.review`.
+      Record outcome in TODO and `completion.review`. PASS: app healthy;
+      SQLite 3.53.4 integrity `ok`, zero FK violations; migration table 196
+      rows (193 numeric, max 196, 3 legacy), token/request-cost ledgers empty;
+      UI/login and dashboard/login HTTP 200; exact API HTTP 401 `AUTH_002`;
+      headed Chromium opened/closed `about:blank` as UID 1000. No migration ran.
+      Redis identity/health, rollback image, and fresh backup were preserved.
+      See evidence paths in 4.12.
 - [x] 4.14 Replace backtick-containing interpolating `echo` in the published
       image summary with single-quoted `printf` formats and separately quoted
       value args. Manually run summary block with representative public values;
@@ -244,27 +270,32 @@
       out of automatic workflows. The unchanged fixture with the corrected
       expectation gave 3/7 RED before the verifier guard fix and 7/7 GREEN
       after it; scoped ESLint, Prettier, and Code Simplifier passed.
-- [ ] 4.16 After successful server deployment and health acceptance, verify no
+- [x] 4.16 After successful server deployment and health acceptance, verify no
       build is active, remove the unused dedicated OmniRoute builder, and run
       `docker builder prune --all --force` for the default builder's unused
       cache only. Record measured pre/post cache usage; preserve rollback
       runtime images, databases, volumes, backups, Redis, and unrelated
-      services. Do not run image, system, or volume pruning.
+      services. Do not run image, system, or volume pruning. PASS: no active
+      build CLI was found; only the dedicated builder and unused builder cache
+      were removed. Cache fell from 72.35 GB reclaimable to 0 B; root filesystem
+      used bytes fell by 73,019,129,856 (73.02 GB / 68.02 GiB). App and Redis
+      stayed healthy and rollback image remained present. Detailed measurements
+      and durable server evidence are recorded in 4.12.
 
-## 5. Future maintenance
+## Deferred maintenance (not archive gates)
 
-- [ ] 5.1 If image acceptance fails after the command/preflight correction and
-      retry, use exact logs and measured evidence to scope any further
-      correction; do not preselect a fix or add speculative resource limits.
-- [ ] 5.2 Before changing the official base, verify its provenance and repeat
-      native SQLite, health, API, and official-UI parity checks on the new
-      digest.
-- [ ] 5.3 Keep automated production deployment separate. This scope publishes
-      the main image; cutover stays operator-run on the existing Compose host.
-      CapRover is a separate host and automatic pull/deploy is not wired. Do not
-      imply publishing `:main` updates production. Write a new OpenSpec package
-      before adding CD, with agreed host, migration, and credentials.
-- [ ] 5.4 Reduce backend build-cache invalidation from broad `COPY .` inputs.
-      Metadata-only OpenSpec and completion changes currently enter the build
-      context and can invalidate backend compilation. Scope exclusions only in
-      a separate reviewed change; do not add speculative exclusions here.
+The final retry passed, so the conditional follow-up correction path from the
+former task 5.1 did not trigger. Keep exact evidence for the earlier failures
+in the proposal and TODO; do not add speculative limits or fixes.
+
+- Before changing the official base, verify its provenance and repeat native
+  SQLite, health, API, and official-UI parity checks on the new digest.
+- Keep automated production deployment separate. This scope publishes the
+  main image; cutover stays operator-run on the existing Compose host. CapRover
+  is a separate host and automatic pull/deploy is not wired. Publishing `:main`
+  does not update production. Write a new OpenSpec package before adding CD,
+  with agreed host, migration, and credentials.
+- Reduce backend build-cache invalidation from broad `COPY .` inputs in a
+  separate reviewed change. Metadata-only OpenSpec and completion changes
+  currently enter the build context and can invalidate backend compilation;
+  review safe exclusions before changing it.

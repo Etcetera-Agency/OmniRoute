@@ -23,20 +23,72 @@ test("fork overlay image workflow runs only on canonical main or manual dispatch
   assert.equal(workflow.on?.schedule, undefined);
   assert.deepEqual(workflow.on?.workflow_dispatch?.inputs?.ref?.options, ["refs/heads/main"]);
 
-  assert.deepEqual(Object.keys(workflow.jobs ?? {}), ["publish-main-image"]);
+  assert.deepEqual(Object.keys(workflow.jobs ?? {}), ["publish-main-image", "deploy-production"]);
+  assert.equal(workflow.concurrency, undefined, "publishing cannot cancel a running deploy");
 
-  const publishers = Object.values(workflow.jobs ?? {}).filter(
-    (job) => job.permissions?.packages === "write"
-  );
+  const jobs = Object.values(workflow.jobs ?? {});
+  const publishers = jobs.filter((job) => job.permissions?.packages === "write");
   assert.equal(publishers.length, 1, "only one job may receive GHCR write access");
 
   const publisher = publishers[0];
+  const deploy = workflow.jobs["deploy-production"];
   assert.equal(publisher["runs-on"], "ubuntu-24.04-arm");
   assert.match(publisher.if ?? "", /Etcetera-Agency\/OmniRoute/);
   assert.match(publisher.if ?? "", /refs\/heads\/main/);
   assert.match(publisher.if ?? "", /push/);
   assert.match(publisher.if ?? "", /workflow_dispatch/);
   assert.equal(publisher.needs, undefined);
+  assert.deepEqual(publisher.outputs, {
+    image_digest: "${{ steps.publish-sha.outputs.digest }}",
+    main_tag_updated: "${{ steps.publish-main.outputs.pushed }}",
+  });
+  assert.deepEqual(publisher.concurrency, {
+    group: "omni-overlay-main-publisher",
+    "cancel-in-progress": true,
+  });
+
+  assert.equal(deploy.needs, "publish-main-image");
+  assert.equal(deploy.environment, "production");
+  assert.equal(deploy.permissions.contents, "read");
+  assert.equal(deploy.permissions.packages, undefined);
+  assert.equal(deploy.concurrency.group, "omniroute-production-deploy");
+  assert.equal(deploy.concurrency["cancel-in-progress"], false);
+  assert.equal(deploy["timeout-minutes"], 70);
+  assert.match(deploy.if ?? "", /Etcetera-Agency\/OmniRoute/);
+  assert.match(deploy.if ?? "", /refs\/heads\/main/);
+  assert.match(deploy.if ?? "", /needs\.publish-main-image\.result/);
+  assert.match(deploy.if ?? "", /outputs\.main_tag_updated/);
+
+  const deployCheckout = deploy.steps.find((step) => step.uses?.includes("actions/checkout@"));
+  assert.equal(deployCheckout.with.ref, "${{ github.sha }}");
+  assert.equal(deployCheckout.with["persist-credentials"], false);
+  const deployTransport = deploy.steps.find((step) => step.run?.includes("deploy-main-image.mjs"));
+  assert.ok(deployTransport, "deploy job must use the tracked transport helper");
+  assert.equal(
+    deployTransport.env.OMNI_DEPLOY_SSH_PRIVATE_KEY,
+    "${{ secrets.OMNI_DEPLOY_SSH_PRIVATE_KEY }}"
+  );
+  assert.equal(
+    deployTransport.env.OMNI_DEPLOY_SSH_KNOWN_HOSTS,
+    "${{ vars.OMNI_DEPLOY_SSH_KNOWN_HOSTS }}"
+  );
+  assert.equal(deployTransport.env.GITHUB_TOKEN, "${{ github.token }}");
+  assert.doesNotMatch(
+    JSON.stringify(publisher),
+    /OMNI_DEPLOY_SSH_PRIVATE_KEY|OMNI_DEPLOY_SSH_KNOWN_HOSTS/,
+    "publisher must not receive production SSH credentials"
+  );
+  assert.doesNotMatch(
+    JSON.stringify(deploy),
+    /test:unit:ci|test:vitest|eslint|prettier|check:workflows|openspec.*validate/i
+  );
+  const deploymentSummary = deploy.steps.find(
+    (step) => step.name === "Record production deployment result"
+  );
+  assert.match(deploymentSummary.run, /omniroute@%s/);
+  assert.match(deploymentSummary.run, /tree\/%s/);
+  assert.match(deploymentSummary.run, /actions\/runs\/%s/);
+  assert.match(deploymentSummary.run, /GITHUB_RUN_ATTEMPT/);
   const build = publisher.steps.find((step) => step.uses?.includes("docker/build-push-action@"));
   assert.ok(build, "main publisher must build through Buildx");
   assert.equal(build.with.platforms, "linux/arm64");
