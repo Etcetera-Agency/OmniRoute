@@ -433,3 +433,26 @@ Deferred cross-repository and operations work:
 - Keep `docs/ops/FORK_RELEASE_AND_DEPLOYMENT.md` aligned with verified operational evidence. It documents keyless public Radar activation, the post-deploy dashboard Intel-key step, manual calibration, reserve enablement/rollback, and reviewed test results. Production deployment and migration are complete. Authenticated route smoke, Radar public sync/cache verification, real-catalog calibration, live band routing/log identity, and reserve read-only checks remain open; Radar's correct route/port mapping is confirmed by auth responses.
 - After the remaining implementation and operational gates pass, reconcile stale approval-only wording in `openspec/README.md`, merge the three auto-quality-band deltas (26 distinct requirements) and the SystemOne delta (9 requirements) into the living specs, validate strictly, then archive the four remaining active packages: the three auto-quality-band changes and the SystemOne change. The production webpack-memory and official-image-overlay packages are already archived; keep the remaining packages open until their gates pass.
 - After band behavior and role mapping are validated, migrate Hermes `fmo-grid-*` profiles to the selected `auto/<task>_<band>[_<cap>...][:<tier>]` channels.
+
+
+## Laya SystemOne HTTP registration — 2026-10-04
+
+- [ ] Finish `fix-overlay-http-route-registration`: permanent source regression,
+  main transfer, accepted-image publication/deployment, then verify actual
+  HTTP dispatch after container recreation. Authorized server hotfix currently
+  works but recreation discards patched manifests. Push is not yet explicitly
+  authorized. See the package design for protected rollback paths.
+- [ ] Preserve remaining `add-systemone-decisions-route` acceptance gates:
+  TypeSafe failover/capacity, latency comparison, live OpenRouter shape,
+  restricted-key policies, flag-off final-image smoke. This Laya-only cutover
+  cannot close or archive that broader package.
+- [ ] Browser micro-loop/Camofox-to-BrowserUse ref/coordinate integration remains
+  separate Hermes work; frozen browser-profile HTTP200 proves connectivity,
+  not live browser action execution or general decision accuracy.
+
+- [ ] Existing main docs gate: `check:env-doc-sync` fails because
+  `GITHUB_API_URL`, `GITHUB_REF`, `GITHUB_REPOSITORY` are referenced by CD code
+  but absent from `.env.example`. Reproduced on unchanged e461ed673d main
+  checkout and this fix worktree; unrelated to overlay registration changes.
+  Correct GitHub runner-variable documentation/allowlist in separate CD docs
+  work. Other doc-check warnings remain advisory baseline output.

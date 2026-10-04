@@ -1,0 +1,46 @@
+# Completion review — 2026-10-04
+
+Status: source reviewed and ready; main publication and durable image deployment pending.
+
+## Fixes and Code Simplifier
+
+- Fixed missing root App Router URL registration in overlay assembly and all
+  Docker paths, including prebuilt backend export and final-image manifest copy.
+- Merge API static/dynamic descriptors using pinned Next route precedence;
+  preserve official UI entries and isolated module/chunk resolution.
+- Parent review found valid-but-wrong API URL accepted. Fixed by comparing with
+  pinned Next normalizeAppPath; added missing/traversal/wrong-map regressions
+  proving failure before output writes or overlay copy.
+- Added explicit official UI URL preservation regression.
+- Code Simplifier applied after initial slice and correction. No compatibility
+  shim, duplicate route implementation, or further safe simplification needed.
+- Historical archive remains unchanged; this package supersedes its inaccurate
+  app-path-routes assumption.
+
+## Verification
+
+- TDD red: new route URL absent despite loadable module. Negative mapping tests
+  reproduced acceptance of wrong API URL before normalization correction.
+- Green: focused merger regression7/7, including real Next16.3.5 setupFsCheck
+  getItem('/api/v1/systemone') → appFile, isolated chunk loading, UI preservation,
+  dynamic ordering, and fail-before-write checks.
+- Existing SystemOne schema/dispatch/route tests46/46.
+- Node syntax, Prettier for owned code, git diff check passed.
+- OpenSpec fix and original SystemOne change strict validation passed.
+- Docs sync/frontmatter/counts, deprecated-version advisory check, internal
+  links1183/1183 and fabricated-doc check passed. check:docs-all stops at existing
+  env-contract failure for GITHUB_API_URL/GITHUB_REF/GITHUB_REPOSITORY; same
+  failure reproduced on unchanged e461ed673d main checkout, recorded in TODO.
+- Authorized server patch: actual HTTP English/RU/UK200→technical, browser
+  frozen payload200→choice2/native1024/768/no truncation. Private keyless401,
+  public403, Redis DNS/TCP pass, container healthy. call_logs200 for all three
+  selectors, stored request/response body flags0.
+
+## Outstanding deployment and scope
+
+- Server manifests are temporary and disappear upon recreation. Do not record
+  permanent cutover until accepted main image is built/deployed and HTTP smokes
+  pass again. No image build, Git push or final deploy completed yet.
+- Original SystemOne fallback/capacity/latency/OpenRouter/restricted-key gates
+  and browser micro-loop work remain open in openspec/TODO.md. Do not archive
+  original SystemOne package on Laya-only smoke evidence.

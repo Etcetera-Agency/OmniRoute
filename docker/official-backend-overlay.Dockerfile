@@ -48,6 +48,7 @@ ENV NODE_ENV=production
 RUN mkdir -p /app/data \
   && npm run build:backend \
   && test -s /app/.build/backend-overlay/server/app-paths-manifest.json \
+  && test -s /app/.build/backend-overlay/app-path-routes-manifest.json \
   && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \
   && test -s /app/.build/backend-overlay/routes-manifest.json
 
@@ -56,6 +57,9 @@ RUN mkdir -p /app/data \
 # backend-builder stage, so packaging does not compile a second time.
 FROM scratch AS prebuilt-backend
 COPY --from=backend_export /server /app/.build/backend-overlay/server
+COPY --from=backend_export \
+  /app-path-routes-manifest.json \
+  /app/.build/backend-overlay/app-path-routes-manifest.json
 COPY --from=backend_export /routes-manifest.json /app/.build/backend-overlay/routes-manifest.json
 
 # Resolve the chosen source through FROM, where Dockerfile ARG expansion is
@@ -73,17 +77,24 @@ COPY --from=selected-backend --chown=node:node \
 COPY --from=selected-backend \
   /app/.build/backend-overlay/routes-manifest.json \
   /tmp/omni-overlay-routes-manifest.json
-COPY scripts/build/merge-official-backend-overlay.mjs /tmp/merge-official-backend-overlay.mjs
+COPY --from=selected-backend \
+  /app/.build/backend-overlay/app-path-routes-manifest.json \
+  /tmp/omni-overlay-app-path-routes-manifest.json
+COPY scripts/build/merge-official-backend-overlay.mjs /app/.merge-official-backend-overlay.mjs
 
-RUN node /tmp/merge-official-backend-overlay.mjs \
+RUN node /app/.merge-official-backend-overlay.mjs \
     --base-dist /app/.build/next \
     --overlay-server /app/.build/next/omni-overlay/server \
     --overlay-routes /tmp/omni-overlay-routes-manifest.json \
+    --overlay-app-path-routes /tmp/omni-overlay-app-path-routes-manifest.json \
     --runtime-overlay-server /app/.build/next/omni-overlay/server \
-  && rm -f /tmp/omni-overlay-routes-manifest.json /tmp/merge-official-backend-overlay.mjs
+  && rm -f \
+    /tmp/omni-overlay-routes-manifest.json \
+    /tmp/omni-overlay-app-path-routes-manifest.json \
+    /app/.merge-official-backend-overlay.mjs
 
 # The published filesystem starts from the verified official image. Copy only
-# the isolated backend subtree and the three merged routing manifests.
+# the isolated backend subtree and the four merged routing manifests.
 FROM ${OFFICIAL_IMAGE} AS runtime
 COPY --from=merged-backend \
   /app/.build/next/omni-overlay/server \
@@ -91,6 +102,9 @@ COPY --from=merged-backend \
 COPY --from=merged-backend \
   /app/.build/next/server/app-paths-manifest.json \
   /app/.build/next/server/app-paths-manifest.json
+COPY --from=merged-backend \
+  /app/.build/next/app-path-routes-manifest.json \
+  /app/.build/next/app-path-routes-manifest.json
 COPY --from=merged-backend \
   /app/.build/next/server/functions-config-manifest.json \
   /app/.build/next/server/functions-config-manifest.json
