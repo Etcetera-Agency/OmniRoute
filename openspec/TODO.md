@@ -80,11 +80,19 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 - Final pre-commit Code Simplifier checkpoint completed 2026-10-04 for the
   frozen workflow/CI dispatcher diff. No code change was needed; frozen server
   helpers remain unchanged. See `completion.review`.
-- Remaining CD phase: commit the frozen implementation and metadata, push the
-  feature branch and merge through PR, prove a real main image-publication-to-
-  server workflow, then archive the change and merge living specs. Publishing
-  `:main` does not yet invoke the new CD workflow until these source changes
-  reach main.
+- Automatic main CD is live: PR18 merged implementation/CI, main run
+  `37171754347` published digest
+  `sha256:d653f0812ce6f5201713f862d4dbcefb80ee5d151eb93f6909b82cb757525a2b`
+  and server transaction37171754347-1 completed SUCCEEDED for source
+  `4407a3c1929675b023d55abcf5d0909aa3a6bd23`. Actual image/OCI source,
+  canonical override, protected backup SHA and healthy app match; original
+  Redis ID remains healthy. Regular automatic tests stay disabled everywhere.
+  OpenSpec is archived at `changes/archive/2026-10-04-add-main-image-ssh-cd`;
+  new CD and updated image-build living specs are synchronized. This archive
+  documentation goes through the same feature→PR→main release path.
+  Release rule: after each main merge, wait for image/CD success and confirm
+  its matching SUCCEEDED server journal before declaring that revision live;
+  record latest source/digest/backup in the OmniRoute server playbook.
 - CD backup/failed-database retention needs a separate maintenance policy;
   preserve existing backups, failed candidate diagnostics and rollback images.
   Do not add automatic image, volume, or backup pruning.

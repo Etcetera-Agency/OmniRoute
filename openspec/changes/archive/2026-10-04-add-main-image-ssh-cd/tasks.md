@@ -106,12 +106,12 @@
 - [x] 5.2 Provision the production key, pinned known-hosts value, main-only
       Environment, and server helper/config. Verify durable root-owned Compose
       copies, runtime-web image identity, backup location, and local health probes.
-- [ ] 5.3 Deploy a current-main image through the normal workflow. Verify
+- [x] 5.3 Deploy a current-main image through the normal workflow. Verify
       automatic production deployment, terminal run-attempt status,
       dashboard/API behavior, DB checks, and unchanged Redis.
 - [x] 5.4 Record deferred backup-retention policy work in repo-level
       openspec/TODO.md; keep that file in any implementation commit.
 - [x] 5.5 Use Code Simplifier before each implementation commit. If it causes
       fixes, update completion.review. Do not push without user approval.
-- [ ] 5.6 Archive only after the production run proves automatic deployment
+- [x] 5.6 Archive only after the production run proves automatic deployment
       and required review/record updates are complete.

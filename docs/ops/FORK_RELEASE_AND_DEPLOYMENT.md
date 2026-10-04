@@ -525,11 +525,20 @@ use the protected database snapshot when migration recovery is required.
 
 ## Automatic deployment after main publication
 
-The `add-main-image-ssh-cd` change connects successful main-image publication
-to the existing Compose service on `etc2nd-shlink`. Its live acceptance remains
-open until an actual main run completes the server deployment. Image builds
-remain confined to main; feature pushes, pull requests, and schedules run no
-automatic tests or image builds.
+Successful main-image publication automatically deploys the existing Compose
+service on `etc2nd-shlink`. The first complete workflow and actual host
+acceptance passed on 2026-10-04:
+[PR18](https://github.com/Etcetera-Agency/OmniRoute/pull/18) and
+[main run37171754347](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/37171754347).
+Image builds remain confined to main; feature pushes, pull requests, and
+schedules run no automatic tests or image builds.
+
+The accepted change is archived in
+[`2026-10-04-add-main-image-ssh-cd`](../../openspec/changes/archive/2026-10-04-add-main-image-ssh-cd/design.md).
+Its current contract lives in
+[`main-image-ssh-cd`](../../openspec/specs/main-image-ssh-cd/spec.md).
+Later main merges use the same image/CD workflow; verify the matching server
+SUCCEEDED journal and record the current source/digest in the server playbook.
 
 The deployment job uses the GitHub `production` environment, restricted to the
 main branch. Only that job receives `OMNI_DEPLOY_SSH_PRIVATE_KEY`; the public
@@ -607,7 +616,19 @@ canonical success without changing the journal, unit or production containers.
 Native DB, private UI/API and public dashboard acceptance passed. The fresh
 production backup SHA-256 is
 `d667b6941e6a78549f2e894db99ed635bd98a6bde1cd0606220f8649ced921ae`.
-The automatic main-publication workflow still requires its first actual run.
+Actual automatic server transaction `37171754347-1` then completed
+`SUCCEEDED/complete` for main source
+`4407a3c1929675b023d55abcf5d0909aa3a6bd23`, image
+`ghcr.io/etcetera-agency/omniroute@sha256:d653f0812ce6f5201713f862d4dbcefb80ee5d151eb93f6909b82cb757525a2b`.
+The protected backup is
+`/opt/apps/omniroute-deploy-diagnostics/transactions/37171754347-1/pre-deploy.sqlite`
+(root:root0600), SHA-256
+`20474dcfd9ab5812ecb1e73c2609f51d71bc027035b528bdabbff44dec1bc32b`.
+Its manifest is the corresponding protected status journal's backup path/hash.
+The actual image revision and accepted root-owned Compose override match this
+source/digest; the app is healthy and original Redis identity is preserved.
+The temporary fixture proxy, containers and internal network are removed;
+protected fixture recovery evidence remains.
 
 The authorized cache cleanup is complete. The measured 72.35 GB reclaimable
 default cache fell to 0 B after removing the unused
