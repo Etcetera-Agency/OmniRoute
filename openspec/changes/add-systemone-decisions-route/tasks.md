@@ -21,7 +21,7 @@
 
 - [x] 3.1 `systemone-*` tests pass (46/46); OpenAPI coverage 8/8 and route checker has 276 baseline entries with 0 new findings.
 - [x] 3.2 SystemOne implementation is isolated to new route/service/test files; no pre-existing upstream file was changed by this package.
-- [ ] 3.3 Test instance, flag on, Laya only: Russian and Ukrainian `state` return normalized answers.
+- [x] 3.3 Flag on, Laya only: production Russian and Ukrainian HTTP `state` calls returned typed choice answers200/technical on2026-10-04 after authorized temporary route-manifest repair. English and browser-v10s profile smokes also passed; durable image replacement tracked by fix-overlay-http-route-registration.
 - [ ] 3.4 Laya stopped: request is answered by TypeSafe; attempts header and call logs show both attempts.
 - [ ] 3.5 Oversized `state`: Laya `422`, TypeSafe answers, next small request goes to Laya.
 - [ ] 3.6 Latency: 50 requests direct to Laya and 50 through OmniRoute; record both medians in the deploy playbook.

@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+const require = createRequire(import.meta.url);
+const { normalizeAppPath } = require("next/dist/shared/lib/router/utils/app-paths.js");
+const {
+  sortSortableRouteObjects,
+} = require("next/dist/shared/lib/router/utils/sortable-routes.js");
 const REWRITE_GROUPS = ["beforeFiles", "afterFiles", "fallback"];
 const API_ROUTE_PREFIX = "/api/";
 
@@ -57,6 +63,34 @@ function mergeRewriteGroups(baseRewrites, overlayRewrites) {
   return merged;
 }
 
+function mergeApiRouteEntries(baseEntries, overlayEntries, manifestGroup) {
+  if (!Array.isArray(baseEntries) || !Array.isArray(overlayEntries)) {
+    throw new Error(`routes-manifest ${manifestGroup} must be an array`);
+  }
+
+  const routesByPage = new Map();
+  for (const route of baseEntries) {
+    if (!route || typeof route !== "object" || typeof route.page !== "string") {
+      throw new Error(`routes-manifest ${manifestGroup} entries must contain a page string`);
+    }
+    routesByPage.set(route.page, route);
+  }
+
+  for (const route of overlayEntries) {
+    if (!route || typeof route !== "object" || typeof route.page !== "string") {
+      throw new Error(
+        `overlay routes-manifest ${manifestGroup} entries must contain a page string`
+      );
+    }
+    if (isApiRoute(route.page)) routesByPage.set(route.page, route);
+  }
+
+  return sortSortableRouteObjects([...routesByPage.values()], (route) => ({
+    sourcePage: route.sourcePage ?? route.page,
+    page: route.page,
+  }));
+}
+
 function validateObject(value, file) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${file} must contain a JSON object`);
@@ -70,6 +104,22 @@ function validateManifest(value, file, key) {
     throw new Error(`${file} must contain an object-valued ${key} field`);
   }
   return value;
+}
+
+function validateApiRoutePath(routeKey, routePath) {
+  const expectedPath = normalizeAppPath(routeKey);
+  if (
+    typeof routePath !== "string" ||
+    routePath !== expectedPath ||
+    !isApiRoute(routePath) ||
+    path.posix.normalize(routePath) !== routePath ||
+    routePath.includes("\\")
+  ) {
+    throw new Error(
+      `API route ${routeKey} must map to normalized app path ${expectedPath}; got ${String(routePath)}`
+    );
+  }
+  return routePath;
 }
 
 function validateApiBundlePath(serverDir, routeKey, bundlePath) {
@@ -122,18 +172,26 @@ function hasV1ApiRewrite(rewrites) {
 
 /**
  * Merge fork API server artifacts into an official standalone Next.js dist.
- * @param {{baseDistDir:string,overlayServerDir:string,overlayRoutesManifestPath:string,runtimeOverlayServerDir:string}} options
+ * @param {{
+ *   baseDistDir:string,
+ *   overlayServerDir:string,
+ *   overlayRoutesManifestPath:string,
+ *   overlayAppPathRoutesManifestPath:string,
+ *   runtimeOverlayServerDir:string
+ * }} options
  * @returns {Promise<{apiRouteCount:number,rewriteCount:number,functionConfigCount:number,overlayServerDir:string}>}
  */
 export async function mergeOfficialBackendOverlay({
   baseDistDir,
   overlayServerDir,
   overlayRoutesManifestPath,
+  overlayAppPathRoutesManifestPath,
   runtimeOverlayServerDir = path.resolve(baseDistDir, "omni-overlay/server"),
 }) {
   const baseServerDir = path.join(baseDistDir, "server");
   const baseAppPathsFile = path.join(baseServerDir, "app-paths-manifest.json");
   const overlayAppPathsFile = path.join(overlayServerDir, "app-paths-manifest.json");
+  const baseAppPathRoutesFile = path.join(baseDistDir, "app-path-routes-manifest.json");
   const baseFunctionsFile = path.join(baseServerDir, "functions-config-manifest.json");
   const overlayFunctionsFile = path.join(overlayServerDir, "functions-config-manifest.json");
   const baseRoutesFile = path.join(baseDistDir, "routes-manifest.json");
@@ -141,6 +199,8 @@ export async function mergeOfficialBackendOverlay({
   const [
     baseAppPaths,
     overlayAppPaths,
+    baseAppPathRoutes,
+    overlayAppPathRoutes,
     baseFunctions,
     overlayFunctions,
     baseRoutes,
@@ -148,6 +208,8 @@ export async function mergeOfficialBackendOverlay({
   ] = await Promise.all([
     readJson(baseAppPathsFile),
     readJson(overlayAppPathsFile),
+    readJson(baseAppPathRoutesFile),
+    readJson(overlayAppPathRoutesManifestPath),
     readJson(baseFunctionsFile),
     readJson(overlayFunctionsFile),
     readJson(baseRoutesFile),
@@ -156,6 +218,8 @@ export async function mergeOfficialBackendOverlay({
 
   validateObject(baseAppPaths, baseAppPathsFile);
   validateObject(overlayAppPaths, overlayAppPathsFile);
+  validateObject(baseAppPathRoutes, baseAppPathRoutesFile);
+  validateObject(overlayAppPathRoutes, overlayAppPathRoutesManifestPath);
   validateObject(baseRoutes, baseRoutesFile);
   validateObject(overlayRoutes, overlayRoutesManifestPath);
   validateManifest(baseFunctions, baseFunctionsFile, "functions");
@@ -235,8 +299,34 @@ export async function mergeOfficialBackendOverlay({
   }
 
   const mergedRewrites = mergeRewriteGroups(baseRoutes.rewrites, overlayRoutes.rewrites);
+  const mergedStaticRoutes = mergeApiRouteEntries(
+    baseRoutes.staticRoutes,
+    overlayRoutes.staticRoutes,
+    "staticRoutes"
+  );
+  const mergedDynamicRoutes = mergeApiRouteEntries(
+    baseRoutes.dynamicRoutes,
+    overlayRoutes.dynamicRoutes,
+    "dynamicRoutes"
+  );
   if (!hasV1ApiRewrite(mergedRewrites)) {
     throw new Error("Merged routes manifest is missing the /v1/:path* to /api/v1/:path* rewrite");
+  }
+
+  const mergedAppPaths = { ...baseAppPaths };
+  const mergedAppPathRoutes = { ...baseAppPathRoutes };
+  for (const [routeKey, bundlePath] of resolvedBundles) {
+    // AICODE-NOTE: Next 16.3.5 preserves absolute app-path entries; keeping a route and its chunks under one dist subtree lets Node resolve the route's relative webpack imports without touching official UI chunks.
+    mergedAppPaths[routeKey] = path.resolve(
+      normalizedRuntimeOverlayServerDir,
+      ...bundlePath.split("/")
+    );
+
+    // AICODE-NOTE: Next 16.3.5 registers requestable App Router paths from this map; app-paths-manifest only locates the bundle after route matching.
+    if (!Object.hasOwn(overlayAppPathRoutes, routeKey)) {
+      throw new Error(`Backend overlay app-path-routes manifest is missing API route ${routeKey}`);
+    }
+    mergedAppPathRoutes[routeKey] = validateApiRoutePath(routeKey, overlayAppPathRoutes[routeKey]);
   }
 
   if (normalizedOverlayServerDir !== normalizedRuntimeOverlayServerDir) {
@@ -248,19 +338,16 @@ export async function mergeOfficialBackendOverlay({
     });
   }
 
-  const mergedAppPaths = { ...baseAppPaths };
-  for (const [routeKey, bundlePath] of resolvedBundles) {
-    // AICODE-NOTE: Next 16.3.5 preserves absolute app-path entries; keeping a route and its chunks under one dist subtree lets Node resolve the route's relative webpack imports without touching official UI chunks.
-    mergedAppPaths[routeKey] = path.resolve(
-      normalizedRuntimeOverlayServerDir,
-      ...bundlePath.split("/")
-    );
-  }
-
   await Promise.all([
     writeJsonAtomic(baseAppPathsFile, mergedAppPaths),
+    writeJsonAtomic(baseAppPathRoutesFile, mergedAppPathRoutes),
     writeJsonAtomic(baseFunctionsFile, { ...baseFunctions, functions: mergedFunctions }),
-    writeJsonAtomic(baseRoutesFile, { ...baseRoutes, rewrites: mergedRewrites }),
+    writeJsonAtomic(baseRoutesFile, {
+      ...baseRoutes,
+      staticRoutes: mergedStaticRoutes,
+      dynamicRoutes: mergedDynamicRoutes,
+      rewrites: mergedRewrites,
+    }),
   ]);
 
   return {
@@ -281,13 +368,19 @@ function parseArguments(args) {
     values.set(key, args[index + 1]);
     index += 1;
   }
-  for (const key of ["--base-dist", "--overlay-server", "--overlay-routes"]) {
+  for (const key of [
+    "--base-dist",
+    "--overlay-server",
+    "--overlay-routes",
+    "--overlay-app-path-routes",
+  ]) {
     if (!values.has(key)) throw new Error(`Missing required argument ${key}`);
   }
   return {
     baseDistDir: values.get("--base-dist"),
     overlayServerDir: values.get("--overlay-server"),
     overlayRoutesManifestPath: values.get("--overlay-routes"),
+    overlayAppPathRoutesManifestPath: values.get("--overlay-app-path-routes"),
     runtimeOverlayServerDir: values.get("--runtime-overlay-server"),
   };
 }

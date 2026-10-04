@@ -343,8 +343,17 @@ listed in the [environment reference](../reference/ENVIRONMENT.md#28-systemone-d
 
 `OMNIROUTE_SYSTEMONE_ORDER` defaults to `laya,typesafe,openrouter`; only
 configured upstreams participate. `OMNIROUTE_SYSTEMONE_TIMEOUT_MS` defaults to
-`5000` and `OMNIROUTE_SYSTEMONE_COOLDOWN_MS` to `30000`. Keep the default order
-until live failover and latency checks are complete.
+`5000` and `OMNIROUTE_SYSTEMONE_COOLDOWN_MS` to `30000`. Production Laya-only
+cutover uses order `laya` and timeout `180000` to allow lazy CPU checkpoint
+loading. TypeSafe/OpenRouter failover is not configured by this cutover.
+
+Select the upstream checkpoint with `model: "laya/english"`,
+`"laya/multilingual"`, or `"laya/laya-browser-v10s"`. OmniRoute strips the
+provider prefix and forwards the checkpoint name. Omit `model` for Laya's
+automatic routing when the deployment checkpoint override remains unset.
+Browser state must be a serialized page-state JSON string as required by its
+native adapter. Caller bearer token is the OmniRoute key; the upstream Laya
+key remains in the protected server env file.
 
 ### SystemOne cutover gates and rollback
 
@@ -362,12 +371,27 @@ Before enabling the flag, verify in the production-like test instance that:
 
 Local SystemOne implementation validation is complete: 46 schema, dispatch,
 and route tests pass; OpenAPI coverage passes 8/8 and the route checker reports
-276 baseline entries with 0 new findings. No live upstream calls are recorded.
-Russian/Ukrainian answer checks, Laya failure and oversized-state fallback,
-OpenRouter live-shape validation, `laya` error-row monitoring, and the
-50-request direct-versus-OmniRoute latency comparison remain pending. Record
-both latency medians before enabling the route. The candidate passed supported
-Node 26 build/start against the isolated copy described above.
+276 baseline entries with 0 new findings. On 2026-10-04 the user authorized
+Laya-only production connection. Initial authenticated HTTP dispatch returned
+404 despite enabled env settings. The overlay bundle was loadable, but the
+root app-path-routes manifest omitted SystemOne; static route descriptors were
+also stale. Authorized temporary container-manifest repair restored real HTTP
+dispatch. English, Russian and Ukrainian choice calls returned 200 and selected
+`technical`; a frozen browser-v10s request returned 200/choice2 with native
+1024/768 context and no truncation. Browser smoke verifies profile connectivity,
+not live action execution or general accuracy. Private keyless requests return
+401, public `/v1/systemone` returns403, Redis DNS/TCP pass, and the application
+remains healthy. The temporary patch disappears on container recreation;
+`fix-overlay-http-route-registration` tracks permanent source-image replacement.
+
+Laya failure and oversized-state fallback, OpenRouter live-shape validation,
+restricted-key acceptance, and the 50-request direct-versus-OmniRoute latency
+comparison remain pending in the original SystemOne package. Individual smoke
+latencies are not that benchmark. Secrets live in the protected deployment
+`.env`; pre-cutover backup is
+`/opt/apps/omniroute/.env.before-laya-20261004T085725Z`. Temporary manifest
+backups are under
+`/opt/apps/omniroute-deploy-diagnostics/laya-systemone-20261004/`.
 
 Rollback the route switch by unsetting `OMNIROUTE_SYSTEMONE` or setting it to
 `0` through the verified service configuration, then restart the application
