@@ -1,4 +1,10 @@
-## MODIFIED Requirements
+# SystemOne Decisions
+
+## Purpose
+
+Describe shipped SystemOne request validation. Broader routing and failover acceptance remains tracked in the active add-systemone-decisions-route change.
+
+## Requirements
 
 ### Requirement: Request validation
 

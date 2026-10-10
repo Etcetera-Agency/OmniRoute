@@ -6,3 +6,6 @@
 4. [x] Implement scoped structured instruction validation; all three focused SystemOne test files pass (50/50) and core typecheck passes.
 5. [x] Run Code Simplifier on changed implementation; no further simplification was safe or needed. Record review evidence in `completion.review`.
 6. [x] Add pending deployment approval and production Browser v19s verification to repo-level `openspec/TODO.md`; keep this change unarchived until operational checks pass.
+
+7. [x] Production PR20/CI38092417701 deployed and verified: five explicit profiles200, private keyless401/public403, app healthy and Redis identity preserved.
+8. [x] Create scoped living request-validation requirement and archive this completed correction; preserve broader SystemOne acceptance work in TODO.
