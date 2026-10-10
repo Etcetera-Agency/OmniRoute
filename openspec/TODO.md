@@ -434,34 +434,41 @@ Deferred cross-repository and operations work:
 - After the remaining implementation and operational gates pass, reconcile stale approval-only wording in `openspec/README.md`, merge the three auto-quality-band deltas (26 distinct requirements) and the SystemOne delta (9 requirements) into the living specs, validate strictly, then archive the four remaining active packages: the three auto-quality-band changes and the SystemOne change. The production webpack-memory and official-image-overlay packages are already archived; keep the remaining packages open until their gates pass.
 - After band behavior and role mapping are validated, migrate Hermes `fmo-grid-*` profiles to the selected `auto/<task>_<band>[_<cap>...][:<tier>]` channels.
 
-
 ## Laya SystemOne HTTP registration — 2026-10-04
 
 - [x] `fix-overlay-http-route-registration` deployed and HTTP accepted:
-  source2a6c97ef0942db1c716da5b3893ae9fcd224b022, CI37193326716;
-  image sha256:2af8dc00414eff32c80aa8f84b52eb26a17f8878cfd93bb5a29e8fe37e75f7af.
-  Fresh container and immutable-image map verified. All three selectors200,
-  RU/UK200; private keyless401/public403; Redis healthy, body-free call logs.
-  Fix requirements merged and package archived2026-10-04. Broader gates below
-  remain separate.
+      source2a6c97ef0942db1c716da5b3893ae9fcd224b022, CI37193326716;
+      image sha256:2af8dc00414eff32c80aa8f84b52eb26a17f8878cfd93bb5a29e8fe37e75f7af.
+      Fresh container and immutable-image map verified. All three selectors200,
+      RU/UK200; private keyless401/public403; Redis healthy, body-free call logs.
+      Fix requirements merged and package archived2026-10-04. Broader gates below
+      remain separate.
 - [ ] Preserve remaining `add-systemone-decisions-route` acceptance gates:
-  TypeSafe failover/capacity, latency comparison, live OpenRouter shape,
-  restricted-key policies, flag-off final-image smoke. This Laya-only cutover
-  cannot close or archive that broader package.
+      TypeSafe failover/capacity, latency comparison, live OpenRouter shape,
+      restricted-key policies, flag-off final-image smoke. This Laya-only cutover
+      cannot close or archive that broader package.
+- [ ] `fix-systemone-browser-instruction-objects` local implementation and
+      focused tests are complete. The pinned `laya/laya-browser-v19s` request now
+      matches `ops/laya/browser-checkpoint/browser_adapter.py`: string or string
+      list rules, `CLICK`/`TYPE_TEXT`/`SELECT` operations, and operation required
+      only for matching target question IDs. The object stays intact through the
+      proxy. Owner explicitly approved push, PR merge and deployment on2026-10-11.
+      Production Browser v19s HTTP verification is pending. Keep the
+      OpenSpec change unarchived until that live check passes.
 - [ ] Browser micro-loop/Camofox-to-BrowserUse ref/coordinate integration remains
-  separate Hermes work; frozen browser-profile HTTP200 proves connectivity,
-  not live browser action execution or general decision accuracy.
+      separate Hermes work; frozen browser-profile HTTP200 proves connectivity,
+      not live browser action execution or general decision accuracy.
 
 - [ ] Existing main docs gate: `check:env-doc-sync` fails because
-  `GITHUB_API_URL`, `GITHUB_REF`, `GITHUB_REPOSITORY` are referenced by CD code
-  but absent from `.env.example`. Reproduced on unchanged e461ed673d main
-  checkout and this fix worktree; unrelated to overlay registration changes.
-  Correct GitHub runner-variable documentation/allowlist in separate CD docs
-  work. Other doc-check warnings remain advisory baseline output.
+      `GITHUB_API_URL`, `GITHUB_REF`, `GITHUB_REPOSITORY` are referenced by CD code
+      but absent from `.env.example`. Reproduced on unchanged e461ed673d main
+      checkout and this fix worktree; unrelated to overlay registration changes.
+      Correct GitHub runner-variable documentation/allowlist in separate CD docs
+      work. Other doc-check warnings remain advisory baseline output.
 
 - [x] Runtime sorter correction within `fix-overlay-http-route-registration`:
-  the official standalone image omits build-only `sortable-routes.js`. Use the
-  retained `sorted-routes.js` helper; runtime loading/precedence regression8/8
-  and exact isolated-image module load pass.
-  First CI run37192253790 cancelled before publication; corrected source deployment and durable HTTP acceptance passed as recorded
-  in the cutover item above.
+      the official standalone image omits build-only `sortable-routes.js`. Use the
+      retained `sorted-routes.js` helper; runtime loading/precedence regression8/8
+      and exact isolated-image module load pass.
+      First CI run37192253790 cancelled before publication; corrected source deployment and durable HTTP acceptance passed as recorded
+      in the cutover item above.

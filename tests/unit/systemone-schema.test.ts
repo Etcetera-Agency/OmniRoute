@@ -47,6 +47,109 @@ test("state supports string, object, and array without rewriting question instru
   }
 });
 
+test("browser instructions object is valid only for pinned Laya Browser v19s", () => {
+  const instructions = {
+    goal: "Find the account settings page",
+    operation: "CLICK",
+    rules: "Choose Books",
+  };
+  const body = {
+    ...validBody(),
+    model: "laya/laya-browser-v19s",
+    questions: {
+      click_target: { type: "choice", instructions, criteria: { CLICK: "Click" } },
+    },
+  };
+  const parsed = parseSystemOneRequest(body);
+
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.deepEqual(parsed.data.questions.click_target.instructions, instructions);
+  }
+
+  const listRules = {
+    goal: "Enter the search term",
+    operation: "TYPE_TEXT",
+    rules: ["Use the visible search field", "Keep exact spelling"],
+  };
+  const parsedList = parseSystemOneRequest({
+    ...validBody(),
+    model: "laya/laya-browser-v19s",
+    questions: { type_text_target: { type: "choice", instructions: listRules, criteria: {} } },
+  });
+  assert.equal(parsedList.success, true);
+  if (parsedList.success) {
+    assert.deepEqual(parsedList.data.questions.type_text_target.instructions, listRules);
+  }
+
+  const selectInstructions = {
+    goal: "Choose a shipping method",
+    operation: "SELECT",
+    rules: [],
+  };
+  const parsedSelect = parseSystemOneRequest({
+    ...validBody(),
+    model: "laya/laya-browser-v19s",
+    questions: {
+      select_target: { type: "choice", instructions: selectInstructions, criteria: {} },
+    },
+  });
+  assert.equal(parsedSelect.success, true);
+  if (parsedSelect.success) {
+    assert.deepEqual(parsedSelect.data.questions.select_target.instructions, selectInstructions);
+  }
+
+  const nonTarget = { goal: "Choose whether page is ready", rules: "Choose Books" };
+  const parsedNonTarget = parseSystemOneRequest({
+    ...validBody(),
+    model: "laya/laya-browser-v19s",
+    questions: { operation: { type: "choice", instructions: nonTarget, criteria: {} } },
+  });
+  assert.equal(parsedNonTarget.success, true, "non-target instruction may omit operation");
+
+  for (const model of [undefined, "auto", "laya/multilingual", "typesafe/jev-latest"]) {
+    const rejected = parseSystemOneRequest({ ...body, model });
+    assert.equal(
+      rejected.success,
+      false,
+      `object instructions must reject for ${model ?? "omitted model"}`
+    );
+  }
+});
+
+test("browser instruction object requires its exact typed fields", () => {
+  const malformed: unknown[] = [
+    { rules: "rule" },
+    { goal: "Open the account page" },
+    { goal: "Open the account page", rules: 42 },
+    { goal: "Open the account page", rules: ["rule", 42] },
+    { goal: "Open the account page", rules: "rule", operation: "HOVER" },
+    { goal: "Open the account page", rules: "rule", extra: true },
+  ];
+
+  for (const instructions of malformed) {
+    const parsed = parseSystemOneRequest({
+      ...validBody(),
+      model: "laya/laya-browser-v19s",
+      questions: { operation: { type: "choice", instructions, criteria: {} } },
+    });
+    assert.equal(parsed.success, false, JSON.stringify(instructions));
+  }
+
+  const targetFailures = [
+    { goal: "Open the account page", rules: "rule" },
+    { goal: "Open the account page", operation: "TYPE_TEXT", rules: "rule" },
+  ];
+  for (const instructions of targetFailures) {
+    const parsed = parseSystemOneRequest({
+      ...validBody(),
+      model: "laya/laya-browser-v19s",
+      questions: { click_target: { type: "choice", instructions, criteria: {} } },
+    });
+    assert.equal(parsed.success, false, JSON.stringify(instructions));
+  }
+});
+
 test("SystemOne schema reports required fields and invalid question shapes", () => {
   const invalidBodies: Array<[string, unknown, string]> = [
     ["non-object body", null, "body"],
