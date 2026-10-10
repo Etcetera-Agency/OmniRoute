@@ -51,3 +51,7 @@ No request field, auth header, retry path, route policy, upstream config, or
 response normalization changes. Existing dispatch serializes the original
 `questions` subtree, so regression tests verify byte-equivalent JSON value
 preservation at the object level.
+
+## Living specification baseline
+
+The broader add-systemone-decisions-route package remains open and has no living capability yet. This archive creates only the shipped Request validation baseline; its delta is ADDED because no living requirement existed. Broader failover/capacity and acceptance requirements remain in their active package and TODO.

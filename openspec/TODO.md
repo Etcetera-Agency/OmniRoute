@@ -447,14 +447,14 @@ Deferred cross-repository and operations work:
       TypeSafe failover/capacity, latency comparison, live OpenRouter shape,
       restricted-key policies, flag-off final-image smoke. This Laya-only cutover
       cannot close or archive that broader package.
-- [ ] `fix-systemone-browser-instruction-objects` local implementation and
-      focused tests are complete. The pinned `laya/laya-browser-v19s` request now
-      matches `ops/laya/browser-checkpoint/browser_adapter.py`: string or string
-      list rules, `CLICK`/`TYPE_TEXT`/`SELECT` operations, and operation required
-      only for matching target question IDs. The object stays intact through the
-      proxy. Owner explicitly approved push, PR merge and deployment on2026-10-11.
-      Production Browser v19s HTTP verification is pending. Keep the
-      OpenSpec change unarchived until that live check passes.
+- [x] `fix-systemone-browser-instruction-objects` deployed and accepted:
+      PR20, CI38092417701, source3118278b8cfcbbdd774c42ce2ef8be9036346544;
+      image sha256:afbe9594c6d1bbc5448153acc6192dfcfcacef2216589a1dbcec955b2857480f.
+      All five explicit profiles200 with matching routing identity; Browser v19s
+      structured instructions reach Laya intact. Private keyless401/public403,
+      app healthy, Redis identity preserved, journal SUCCEEDED/complete.
+      Scoped request-validation living spec created; correction archived2026-10-11.
+      Broader SystemOne package and navigation-quality work remain separate.
 - [ ] Browser micro-loop/Camofox-to-BrowserUse ref/coordinate integration remains
       separate Hermes work; frozen browser-profile HTTP200 proves connectivity,
       not live browser action execution or general decision accuracy.
