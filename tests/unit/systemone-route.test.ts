@@ -266,6 +266,39 @@ test("omitted model uses systemone/auto policy and ordinary page text is dispatc
   assert.equal(dispatchedBody?.state, injectionPhrase);
 });
 
+test("route dispatches pinned Browser v19s instructions intact and rejects other models", async () => {
+  const instructions = {
+    goal: "Find the account settings page",
+    operation: "CLICK",
+    rules: "Choose Books",
+  };
+  const requestBody = validRequestBody({
+    model: "laya/laya-browser-v19s",
+    questions: {
+      click_target: {
+        type: "choice",
+        instructions,
+        criteria: { CLICK: "Click a visible link" },
+      },
+    },
+  });
+  let dispatchedBody: SystemOneRequest | null = null;
+  const handler = route({
+    dispatch: async (body) => {
+      dispatchedBody = body;
+      return successfulDispatch();
+    },
+  });
+
+  const accepted = await handler(postRequest(requestBody));
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(dispatchedBody?.questions.click_target.instructions, instructions);
+
+  const rejected = await handler(postRequest({ ...requestBody, model: "laya/multilingual" }));
+  assert.equal(rejected.status, 400);
+  assert.deepEqual(dispatchedBody?.questions.click_target.instructions, instructions);
+});
+
 test("logs every upstream attempt without storing request or answer content and attaches metadata", async () => {
   const marker = "private-state-secret-marker";
   const logs: Record<string, unknown>[] = [];

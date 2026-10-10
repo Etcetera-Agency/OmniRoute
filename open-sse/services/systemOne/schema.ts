@@ -6,13 +6,24 @@ export const MAX_SYSTEMONE_BODY_BYTES = 1024 * 1024;
 export const SYSTEMONE_ACCEPTED_MODEL_FORMS =
   "auto, systemone/auto, jev-*, laya, laya/checkpoint, typesafe/model, openrouter/model";
 const SYSTEMONE_READ_BUFFER_BYTES = 16 * 1024;
+// AICODE-NOTE: Keep this target suffix pattern aligned with browser_adapter.py's native question-ID check.
+const BROWSER_TARGET_QUESTION_PATTERN = /(?:^|_)(click|type_text|select)_target$/i;
+const nonEmptyInstructionTextSchema = z.string().refine((value) => value.trim().length > 0, {
+  message: "must be a non-empty string",
+});
+
+const browserInstructionSchema = z
+  .object({
+    goal: z.string(),
+    operation: z.enum(["CLICK", "TYPE_TEXT", "SELECT"]).optional(),
+    rules: z.union([z.string(), z.array(z.string())]),
+  })
+  .strict();
 
 const questionSchema = z
   .object({
     type: z.enum(["choice", "score", "noul"]),
-    instructions: z.string().refine((value) => value.trim().length > 0, {
-      message: "must be a non-empty string",
-    }),
+    instructions: z.union([nonEmptyInstructionTextSchema, browserInstructionSchema]),
   })
   .passthrough()
   .superRefine((question, context) => {
@@ -38,7 +49,39 @@ export const systemOneRequestSchema = z
       .refine((questions) => Object.keys(questions).length > 0),
     model: z.string().optional(),
   })
-  .passthrough();
+  .passthrough()
+  .superRefine((request, context) => {
+    for (const [name, question] of Object.entries(request.questions)) {
+      if (typeof question.instructions === "string") continue;
+
+      if (request.model !== "laya/laya-browser-v19s") {
+        // AICODE-NOTE: Native Browser v19s instructions are allowed only on its exact pinned SystemOne model; all other model paths keep string instructions.
+        context.addIssue({
+          code: "custom",
+          path: ["questions", name, "instructions"],
+          message: "object instructions require model laya/laya-browser-v19s",
+        });
+        continue;
+      }
+
+      const targetQuestion = BROWSER_TARGET_QUESTION_PATTERN.exec(name);
+      if (!targetQuestion) continue;
+
+      if (!question.instructions.operation) {
+        context.addIssue({
+          code: "custom",
+          path: ["questions", name, "instructions", "operation"],
+          message: "operation is required for browser target questions",
+        });
+      } else if (question.instructions.operation !== targetQuestion[1]?.toUpperCase()) {
+        context.addIssue({
+          code: "custom",
+          path: ["questions", name, "instructions", "operation"],
+          message: "operation must match the browser target question",
+        });
+      }
+    }
+  });
 
 export type SystemOneQuestion = z.infer<typeof questionSchema>;
 export type SystemOneRequest = z.infer<typeof systemOneRequestSchema>;
