@@ -162,6 +162,40 @@ test("dispatch sends only the normalized request fields and upstream-specific mo
   }
 });
 
+test("pinned Browser v19s forwards structured question instructions unchanged", async () => {
+  const instructions = {
+    goal: "Find the account settings page",
+    operation: "CLICK",
+    rules: "Choose Books",
+  };
+  const body = {
+    ...DEFAULT_BODY,
+    model: "laya/laya-browser-v19s",
+    questions: {
+      click_target: {
+        type: "choice",
+        instructions,
+        criteria: { CLICK: "Click a visible link" },
+      },
+    },
+  } as unknown as SystemOneRequest;
+  const { calls, fetchImpl } = captureFetch(() => response(200, successBody()));
+  const config = configFor({ OMNIROUTE_SYSTEMONE_LAYA_API_KEY: "laya-key" });
+
+  await dispatchSystemOneRequest(body, config, {
+    fetchImpl,
+    now: () => 1000,
+    cooldowns: new Map(),
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.url, "https://laya.example/v1/systemone");
+  assert.deepEqual(calls[0]?.body.questions.click_target.instructions, instructions);
+  assert.equal(calls[0]?.body.model, "laya-browser-v19s");
+  assert.equal(new Headers(calls[0]?.init.headers).get("authorization"), "Bearer laya-key");
+  assert.deepEqual(Object.keys(calls[0]?.body).sort(), ["model", "questions", "state"]);
+});
+
 test("Jev model uses chain and is rewritten only where required", async () => {
   const { calls, fetchImpl } = captureFetch((call) => {
     if (call.url.startsWith("https://laya"))
