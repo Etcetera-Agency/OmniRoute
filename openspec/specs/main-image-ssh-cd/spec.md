@@ -10,46 +10,57 @@ image and database snapshot.
 
 ### Requirement: Automatically deploy a verified current-main image
 
-The repository SHALL keep .github/workflows/omni-overlay-image.yml as the
-sole automatic image workflow and SHALL deploy production from that workflow
-only after its verified ARM64 candidate is published by immutable digest and
-the publisher confirms that the main tag update succeeded. The deploy job
-SHALL require the canonical repository, exact refs/heads/main, successful
-publisher result, published digest, and main_tag_updated == true. It SHALL
-use the source commit SHA, workflow run ID, and workflow run attempt as
-separate validated values. The image digest SHALL be the only deployment
-identity; no mutable tag SHALL select the deployed image.
+Production deployment SHALL follow successful verified canonical-main publication and use the publisher’s immutable digest plus separately validated source SHA and run tuple.
 
-The job SHALL use a GitHub Environment named production that accepts only
-main and requires no reviewer pause. Only the deploy job's SSH step SHALL
-receive the private key and pinned host-key material. The job SHALL have
-contents-read permission, check out exactly github.sha, and disable
-persisted checkout credentials. The publisher SHALL NOT receive production
-SSH credentials.
+#### Scenario: Only successful main publication dispatches deploy
 
-Before SSH, the runner SHALL validate the digest as sha256: followed by 64
-lowercase hexadecimal digits, source SHA as 40 lowercase hexadecimal digits,
-run ID as bounded positive decimal up to 20 digits, and run attempt as
-bounded positive decimal up to 10 digits. It SHALL treat numeric fields as
-strings. Immediately before transport, it SHALL require the canonical
-current-main SHA to equal both requested source SHA and github.sha. On
-mismatch it SHALL record SKIPPED_STALE <run-id>-<attempt> and make no SSH
-call or temporary private-key file.
+- **GIVEN** The publisher has not successfully updated the main tag
+- **WHEN** The deploy job evaluates its gate
+- **THEN** No production deployment is dispatched
 
-The runner SHALL use strict pinned host-key checking, batch mode, identity
-only, no TTY, no agent or port forwarding, bounded connect/keepalive/wait
-settings, and no runtime key scan or trust-on-first-use. It SHALL send one
-literal remote command, deploy-main, and exactly one LF-terminated
-four-field stdin record: digest, source SHA, run ID, and attempt. It SHALL
-remove the temporary key on every exit and SHALL NOT log credentials,
-secret environment, unbounded remote output, response bodies, or database
-contents.
+### Requirement: Restrict production SSH to one validated deployment request
 
-The workflow SHALL have no workflow-wide concurrency group. The publisher
-job SHALL keep canceling concurrency scoped to image publication. The deploy
-job SHALL use one static non-canceling concurrency group so a newer main push
-cannot cancel a running server transaction. The server SHALL independently
-serialize transactions with a nonblocking lock.
+Production SSH SHALL use pinned host trust and a single validated deploy record, routed through a dedicated unprivileged forced-command account to a fixed root-owned launcher.
+
+#### Scenario: Malformed record is rejected
+
+- **GIVEN** The SSH record contains an extra field
+- **WHEN** The gate validates it
+- **THEN** No launcher is invoked
+
+### Requirement: Preserve Compose state and run only the digest-pinned app
+
+Deployment SHALL use durable protected Compose inputs, mutate only the app service to the passed digest, and preserve Redis identity and resolved production configuration.
+
+#### Scenario: Redis is unchanged during app cutover
+
+- **GIVEN** A candidate app digest is deployed
+- **WHEN** The transaction completes
+- **THEN** Redis container and image identities remain unchanged
+
+### Requirement: Snapshot SQLite before automatic startup migrations
+
+Before normal candidate startup can migrate data, the host SHALL quiesce app writers, create and validate a protected online backup, and persist exact prior state.
+
+#### Scenario: Snapshot precedes startup migration
+
+- **GIVEN** Candidate startup may run migrations
+- **WHEN** The transaction prepares cutover
+- **THEN** A validated protected snapshot and rollback state already exist
+
+### Requirement: Accept the migrated candidate or automatically restore DB and image
+
+The host SHALL accept only after bounded health, route, database, and Redis probes; on failure it SHALL restore and verify the exact backup bytes and prior image or leave the app stopped with recovery files.
+
+#### Scenario: Failed acceptance restores the prior release
+
+- **GIVEN** A post-migration acceptance probe fails
+- **WHEN** Rollback runs
+- **THEN** The protected DB snapshot and exact prior image are restored and verified
+
+### Requirement: Dispatch only after successful verified main publication
+
+The repository SHALL keep `.github/workflows/omni-overlay-image.yml` as the sole automatic image workflow and deploy production only after its verified ARM64 candidate is published by immutable digest and the publisher confirms the main-tag update succeeded.
 
 #### Scenario: Verified current main publishes and deploys
 
@@ -72,12 +83,29 @@ serialize transactions with a nonblocking lock.
 - **AND** no production secret is available to the publisher
 - **AND** no SSH call is made
 
-#### Scenario: Main advances before transport
+### Requirement: Require canonical main publisher outputs and immutable digest identity
 
-- **GIVEN** canonical main moves after publication
-- **WHEN** the runner performs its immediate pre-SSH check
-- **THEN** it records SKIPPED_STALE <run-id>-<attempt>
-- **AND** it does not materialize the private key or open SSH
+The deploy job SHALL require canonical repository, exact `refs/heads/main`, successful publisher result, published digest, and `main_tag_updated == true`. Source SHA, run ID, and attempt SHALL be separately validated. Image digest SHALL be the only deployment identity; no mutable tag SHALL select the image.
+
+#### Scenario: Publisher digest is only deployment identity
+
+- **GIVEN** publisher outputs contain a verified digest and current main tag
+- **WHEN** the deploy job selects the image
+- **THEN** it uses only the digest and retains source SHA, run ID, and attempt separately
+
+### Requirement: Scope production credentials to the protected deploy step
+
+The job SHALL use production Environment accepting only main with no reviewer pause. Only deploy SSH step SHALL receive private key and pinned host key. It SHALL have contents-read permission, check out exactly `github.sha`, and disable persisted checkout credentials. Publisher SHALL NOT receive production SSH credentials.
+
+#### Scenario: Publisher and deploy credentials remain separate
+
+- **GIVEN** publisher and production deploy jobs run in one workflow
+- **WHEN** workflow credentials are assigned
+- **THEN** only deploy SSH receives production key material
+
+### Requirement: Validate digest, source SHA, and run tuple before SSH
+
+Before SSH, the runner SHALL validate digest as `sha256:` plus 64 lowercase hex digits, source SHA as 40 lowercase hex digits, run ID as bounded positive decimal up to 20 digits, and attempt as bounded positive decimal up to 10 digits. Numeric fields SHALL be treated as strings.
 
 #### Scenario: Request values are malformed
 
@@ -88,6 +116,21 @@ serialize transactions with a nonblocking lock.
 - **THEN** it exits before key-file creation and SSH
 - **AND** no dynamic value reaches a shell command or remote command string
 
+### Requirement: Reject stale source before transport or temporary key creation
+
+Immediately before transport, the runner SHALL require canonical current-main SHA to equal requested source SHA and `github.sha`. On mismatch it SHALL record `SKIPPED_STALE <run-id>-<attempt>` and make no SSH call or temporary private-key file.
+
+#### Scenario: Main advances before transport
+
+- **GIVEN** canonical main moves after publication
+- **WHEN** the runner performs its immediate pre-SSH check
+- **THEN** it records SKIPPED_STALE <run-id>-<attempt>
+- **AND** it does not materialize the private key or open SSH
+
+### Requirement: Use strict pinned SSH and send one literal deployment record
+
+The runner SHALL use strict pinned host-key checking, batch mode, identity only, no TTY, no agent or port forwarding, bounded connection/keepalive/wait settings, and no runtime key scan or trust-on-first-use. It SHALL send literal `deploy-main` and one LF-terminated four-field record: digest, source SHA, run ID, attempt.
+
 #### Scenario: SSH host key is wrong
 
 - **GIVEN** the server presents an unknown or changed host key
@@ -95,46 +138,19 @@ serialize transactions with a nonblocking lock.
 - **THEN** SSH fails closed before remote command execution
 - **AND** it performs no key scan or trust-on-first-use fallback
 
-### Requirement: Restrict production SSH to one validated deployment request
+### Requirement: Remove temporary keys and prevent sensitive transport output
 
-The production host SHALL use a dedicated unprivileged deploy account and a
-single restricted SSH key. The key SHALL force a root-owned gate and SHALL
-disable TTY, agent forwarding, X11 forwarding, port forwarding, user rc, and
-tunnels. The account SHALL have no general shell, Docker access, production
-data access, or backup access. The gate SHALL accept only literal
-SSH_ORIGINAL_COMMAND=deploy-main and exactly one LF-terminated record with
-four validated fields: digest, source SHA, bounded positive run ID, bounded
-positive attempt. It SHALL reject extra fields, lines, bytes, wrong command,
-or malformed fields before invoking the root launcher.
+The runner SHALL remove the temporary key on every exit and SHALL NOT log credentials, secret environment, unbounded remote output, response bodies, or database contents.
 
-The gate SHALL invoke only a root-owned fixed launcher through an exact
-no-argument sudo rule. The launcher SHALL revalidate the entire record and
-construct the repository image reference from the fixed repository name and
-validated digest. It SHALL accept no shell fragments, image ref, Compose
-arguments, config paths, environment selection, DB path, or helper path from
-the request.
+#### Scenario: Temporary key is removed after SSH failure
 
-The host SHALL pull and inspect the requested digest, require ARM64 and
-matching canonical source, source revision, and pinned-base OCI labels, then
-acquire a nonblocking host lock. Immediately before stopping the app, it
-SHALL query the fixed public canonical GitHub main-ref API and require its
-SHA to equal the requested source SHA. A mismatch SHALL persist
-SKIPPED_STALE <run-id>-<attempt> and exit without changing the app,
-Compose, or database. API failure SHALL fail before mutation.
+- **GIVEN** a temporary private key exists and pinned host verification fails
+- **WHEN** the SSH step exits
+- **THEN** the key is removed and credentials and response bodies are not logged
 
-The root-owned launcher SHALL run the deployment transaction as a durable
-systemd unit that survives SSH and runner disconnect. It SHALL persist
-RUNNING, SUCCEEDED, SKIPPED_STALE, or FAILED for each <run-id>-<attempt> and
-return bounded status output. Repeating the same four-field tuple SHALL
-reattach to its in-progress or terminal result without starting another
-deploy. Reusing the same transaction key with different fields SHALL fail
-closed. A GitHub rerun with a new attempt SHALL create a separate transaction.
+### Requirement: Use a dedicated unprivileged SSH account without general host access
 
-Production SSH SHALL load only a fixed root-owned production config. A
-separate root-admin-only fixture CLI MAY select an explicit root-owned
-mode-0600 fixture config after verifying that its Compose project, ports,
-volumes, and cloned DB are isolated under the fixture root. The SSH request
-SHALL never select or override this fixture profile.
+The host SHALL use a dedicated deploy account and one restricted SSH key forcing a root-owned gate. The key SHALL disable TTY, agent/X11/port forwarding, user rc, and tunnels. The account SHALL have no shell, Docker, production data, or backup access.
 
 #### Scenario: Restricted command reaches the fixed launcher
 
@@ -144,6 +160,10 @@ SHALL never select or override this fixture profile.
 - **THEN** it invokes only the fixed root-owned no-argument launcher
 - **AND** the launcher revalidates the request before starting the unit
 
+### Requirement: Validate the SSH record and invoke only a fixed root-owned launcher
+
+The gate SHALL accept only literal `SSH_ORIGINAL_COMMAND=deploy-main` and one LF-terminated tuple of digest, SHA, bounded positive run ID, and attempt. It SHALL reject extra fields/lines/bytes and malformed input before invoking a root-owned launcher via exact no-argument sudo. The launcher SHALL revalidate the tuple and build the image reference from fixed repository plus digest; callers SHALL supply no shell fragments, image, Compose/config arguments, environment, DB, or helper paths.
+
 #### Scenario: Invalid SSH request is rejected
 
 - **GIVEN** an alternate original command, malformed tuple, extra field,
@@ -151,6 +171,20 @@ SHALL never select or override this fixture profile.
 - **WHEN** the forced-command gate receives it
 - **THEN** it exits with a bounded error
 - **AND** it invokes no sudo, systemd, Docker, Compose, or database command
+
+### Requirement: Load only fixed production config and keep fixtures outside SSH selection
+
+Production SSH SHALL load only fixed root-owned config. A separate root-admin-only fixture CLI MAY select explicit root-owned mode-0600 config after verifying isolated Compose project, ports, volumes, and cloned DB under fixture root. SSH requests SHALL never select or override the fixture profile.
+
+#### Scenario: SSH cannot select the fixture profile
+
+- **GIVEN** a root-admin fixture config exists beside production config
+- **WHEN** the validated SSH request loads config
+- **THEN** it can load only fixed production config
+
+### Requirement: Verify image provenance and current main before stopping the app
+
+The host SHALL pull and inspect the requested digest, require ARM64 and matching canonical source, source revision, and pinned-base OCI labels, then acquire a nonblocking host lock. Immediately before stopping the app, it SHALL query the fixed public canonical GitHub main-ref API and require its SHA to equal the requested source SHA. A mismatch SHALL persist `SKIPPED_STALE <run-id>-<attempt>` and exit without changing the app, Compose, or database. API failure SHALL fail before mutation.
 
 #### Scenario: Host sees a stale source
 
@@ -160,6 +194,10 @@ SHALL never select or override this fixture profile.
 - **THEN** it records terminal SKIPPED_STALE <run-id>-<attempt>
 - **AND** it makes no app, Compose, or database mutation
 
+### Requirement: Run each deployment transaction durably and reattach matching retries
+
+The launcher SHALL run deployment as a durable systemd unit surviving SSH and runner disconnect. It SHALL persist RUNNING, SUCCEEDED, SKIPPED_STALE, or FAILED by `<run-id>-<attempt>` and return bounded status. Repeating the same four-field tuple SHALL reattach to its in-progress or terminal result without another deploy.
+
 #### Scenario: SSH disconnects after transaction launch
 
 - **GIVEN** the host has started the systemd transaction
@@ -167,6 +205,10 @@ SHALL never select or override this fixture profile.
 - **THEN** the transaction retains its lock and continues through success or
   rollback
 - **AND** the same tuple can reconnect to its status
+
+### Requirement: Serialize deploy attempts and reject transaction-key collisions
+
+Reusing one transaction key with different fields SHALL fail closed; a GitHub rerun with a new attempt SHALL create a separate transaction. The workflow SHALL have no workflow-wide concurrency group. Publisher canceling concurrency SHALL be scoped to image publication; deploy SHALL use a static non-canceling group, and the host SHALL independently serialize with a nonblocking lock.
 
 #### Scenario: Concurrent or duplicate invocation arrives
 
@@ -177,45 +219,9 @@ SHALL never select or override this fixture profile.
 - **WHEN** another distinct tuple reaches the server
 - **THEN** it records failure before Compose or DB mutation
 
-### Requirement: Preserve Compose state and run only the digest-pinned app
+### Requirement: Copy effective Compose inputs into durable root-owned deployment files
 
-The host SHALL copy the currently effective production base, candidate,
-browser, and image-only Compose inputs into durable root-owned files under
-/etc/omniroute-deploy/compose/. It SHALL verify that these copies render the
-currently running project with the same services, ports, environment,
-mounts, init behavior, restart policy, networks, and app/Redis image
-identities. These copies SHALL become the authoritative inputs for deploy
-and rollback; the host SHALL NOT rely on dated diagnostics or temporary
-snapshot paths. Before app stop, it SHALL render and validate the root-owned
-project and confirm Redis identity. It SHALL pull the exact repository
-digest, SHALL NOT build source, and SHALL change only the omniroute app
-service. Every app start SHALL use no-build, no-deps, and pull-never
-behavior. Redis SHALL remain running and retain its container/image identity.
-
-Preflight SHALL compare both running services with the resolved effective
-configuration in memory, including identities, image reference/ID,
-environment, command/entrypoint, user/workdir, init/restart/health, ports,
-mounts, networks, and user labels. It SHALL resolve inherited image defaults,
-omit generated `com.docker.compose.*` label metadata (including historical
-paths and version/hash) from label equality while enforcing project/service
-identity and protected input paths separately, reject unsupported or missing
-projection fields, and SHALL NOT print or persist environment values.
-Historical hash metadata SHALL NOT require a dependency restart.
-
-The fixed project's app-only dry-run SHALL use no-deps, no-build, and
-pull-never behavior and SHALL report only the existing app Running with no
-mutation. Empty, unknown, dependency, create/recreate/start/stop/pull/build
-plans SHALL fail before app stop. After normalizing only the candidate app
-image back to the baseline image, the complete candidate rendering SHALL
-equal the baseline. Redis identity and health SHALL be checked before
-cutover, during acceptance, before commit, and after rollback.
-
-Before candidate startup, the host SHALL record the actual prior app image,
-persistent image-only override, and filesystem metadata needed for exact
-restore. Candidate startup SHALL use a root-owned temporary override that
-pins the passed digest. After acceptance, the host SHALL atomically persist
-that digest as the stable image-only override. On failure, it SHALL restore
-the previous override and prior image.
+The host SHALL copy current production base, candidate, browser, and image-only Compose inputs under `/etc/omniroute-deploy/compose/` and verify they render the running project with the same services, ports, environment, mounts, init, restart policy, networks, and app/Redis image identities.
 
 #### Scenario: Candidate is accepted by the host
 
@@ -228,12 +234,29 @@ the previous override and prior image.
 - **AND** Redis container/image identity stays unchanged
 - **AND** the persistent image override changes only after acceptance
 
-#### Scenario: Compose or image preflight fails
+### Requirement: Use protected Compose inputs for deploy and rollback
 
-- **GIVEN** Compose inputs differ from the root-owned config, image labels
-  mismatch, architecture is not ARM64, or Redis would be changed
-- **WHEN** the server validates the transaction
-- **THEN** it fails before stopping the current app or changing its database
+These durable copies SHALL be authoritative for deploy and rollback; dated diagnostics or temporary snapshots SHALL NOT be runtime dependencies. Before app stop, the host SHALL render and validate root-owned project and confirm Redis identity.
+
+#### Scenario: Dated diagnostics are not runtime dependencies
+
+- **GIVEN** protected Compose inputs render the current production project
+- **WHEN** the host prepares deployment
+- **THEN** it uses root-owned inputs without dated diagnostics or temporary snapshots
+
+### Requirement: Compare both running services with resolved effective configuration
+
+Preflight SHALL compare both running services with resolved effective config in memory, including identity, image reference/ID, environment, command/entrypoint, user/workdir, init/restart/health, ports, mounts, networks, and user labels.
+
+#### Scenario: Runtime projection checks every supported field
+
+- **GIVEN** app and Redis run with known effective configuration
+- **WHEN** preflight compares runtime state
+- **THEN** it checks each supported identity and configuration field
+
+### Requirement: Resolve defaults and omit generated Compose labels without hiding drift
+
+Preflight SHALL resolve inherited image defaults and omit generated `com.docker.compose.*` labels, including historical paths and version/hash, from label equality while enforcing project/service identity and protected paths separately. It SHALL reject unsupported or missing fields, SHALL NOT print or persist environment values, and historical hash metadata SHALL NOT require dependency restart.
 
 #### Scenario: Historical Compose metadata differs but runtime is unchanged
 
@@ -242,6 +265,21 @@ the previous override and prior image.
 - **WHEN** the app-only baseline dry-run reports only the existing app Running
 - **THEN** preflight succeeds without restarting Redis or adding version-specific logic
 
+### Requirement: Run only the requested app digest and preserve Redis identity
+
+The host SHALL pull the exact repository digest, SHALL NOT build source, and SHALL change only the app service. Every app start SHALL use no-build, no-deps, and pull-never behavior. Redis SHALL remain running with container/image identity unchanged.
+
+#### Scenario: Compose or image preflight fails
+
+- **GIVEN** Compose inputs differ from the root-owned config, image labels
+  mismatch, architecture is not ARM64, or Redis would be changed
+- **WHEN** the server validates the transaction
+- **THEN** it fails before stopping the current app or changing its database
+
+### Requirement: Reject unexpected plans in a no-mutation app-only dry run
+
+The fixed app-only dry run SHALL use no-deps, no-build, and pull-never and report only existing app Running with no mutation. Empty, unknown, dependency, create/recreate/start/stop/pull/build plans SHALL fail before app stop. After normalizing only candidate app image to baseline, candidate rendering SHALL equal baseline. Redis identity and health SHALL be checked before cutover, during acceptance, before commit, and after rollback.
+
 #### Scenario: Effective configuration or dry-run plan changes
 
 - **GIVEN** an effective runtime field differs, the candidate changes more than
@@ -249,52 +287,54 @@ the previous override and prior image.
 - **WHEN** preflight validates the fixed project
 - **THEN** it fails before stopping the app or modifying the database
 
-### Requirement: Snapshot SQLite before automatic startup migrations
+### Requirement: Record the actual prior image and pin candidate startup to passed digest
 
-Before any candidate can run migration code, the host SHALL stop the current
-app service to quiesce writers and create a new SQLite online backup from the
-live production DB. The backup SHALL be created under a root-owned mode-0700
-diagnostics directory with umask 077, mode 0600, a source/run/attempt
-manifest, and a SHA-256 digest. It SHALL be checked with the app's native
-SQLite implementation; integrity_check SHALL return exactly ok and
-foreign_key_check SHALL return no rows. Failure to create or validate the
-backup SHALL prevent candidate startup and restart the prior app against the
-untouched DB.
+Before candidate startup, the host SHALL record the actual prior app image, persistent image-only override, and filesystem metadata needed for exact restore. Candidate startup SHALL use a root-owned temporary override that pins the passed digest. After acceptance, the host SHALL atomically persist that digest as the stable image-only override. On failure, it SHALL restore the previous override and prior image.
 
-The host SHALL preserve the original backup through the whole transaction.
-After the verified snapshot exists, it SHALL persist the prior image,
-prior image-only override, DB owner/group/mode, and
-candidate_may_mutate=true before any Compose start that can run migrations.
-The candidate SHALL apply its migrations through normal app startup; no
-separate migration command or reverse migration SHALL run.
+#### Scenario: Candidate app uses only the passed digest
 
-After candidate startup, the host SHALL compare sorted numeric SQL migration
-IDs under /app/migrations with numeric versions in _omniroute_migrations.
-The sets SHALL match exactly; existing nonnumeric legacy ledger rows SHALL
-be preserved and excluded from numeric comparison.
+- **GIVEN** the request contains a validated immutable digest and the current app has a different image
+- **WHEN** the host starts the candidate app
+- **THEN** the temporary override pins the requested digest and the stable prior override remains available for restore
 
-For standalone backup/restored-file validation, the host SHALL reject any
-pre-existing WAL/SHM/journal companion, including dangling symlinks. It SHALL
-record main-file SHA-256 and owner/group/mode, mount the parent writable only
-for the native validator, and run read-only SQL as the file's numeric UID/GID.
-Finally it SHALL remove only newly created regular companions with matching
-owner/group, without following symlinks, and verify the main-file hash and
-metadata remain unchanged. Cleanup or invariant failure SHALL reject the
-check. Live DB validation SHALL require a regular actual main DB via lstat,
-run as its exact numeric UID/GID without fallback, and retain the read-only
-complete directory mount, read-only SQL, and shared real WAL/SHM. It SHALL not
-clean live sidecars or require a stable main hash during concurrent app
-writes. No immutable-mode bypass or existing-sidecar deletion SHALL be
-introduced.
+### Requirement: Quiesce SQLite and create a protected online backup before migrations
 
-#### Scenario: Live DB belongs to the application user
+Before migration code can run, the host SHALL stop the current app to quiesce writers and create a fresh SQLite online backup. It SHALL use a root-owned mode-0700 diagnostics directory, umask 077, mode 0600, source/run/attempt manifest, and SHA-256 digest.
 
-- **GIVEN** the app owns the main DB and WAL/SHM with mode0660
-- **AND** the native validator drops all Linux capabilities
-- **WHEN** live integrity/FK/migration checks run
-- **THEN** the validator uses the main file's exact numeric UID/GID
-- **AND** the whole data directory and SQL connection remain read-only
-- **AND** actual shared WAL/SHM are preserved without copies or cleanup
+#### Scenario: Fresh protected snapshot passes
+
+- **GIVEN** the app service is stopped and all other fixed Compose inputs
+  validate
+- **WHEN** the host creates and checks the new SQLite online backup
+- **THEN** it stores a mode-0600 hashed snapshot and rollback manifest
+- **AND** it may persist candidate_may_mutate and start the candidate
+
+### Requirement: Validate the online backup before candidate startup
+
+The app-native SQLite checker SHALL return exactly `ok` from `integrity_check` and no rows from `foreign_key_check`. Failure SHALL block candidate startup and restart the prior app against untouched DB.
+
+#### Scenario: Snapshot fails before migration
+
+- **GIVEN** backup creation, hashing, native integrity, or foreign-key check
+  fails
+- **WHEN** the transaction reaches the snapshot gate
+- **THEN** no candidate migration runs
+- **AND** the prior image restarts against the unchanged database
+- **AND** the transaction records FAILED
+
+### Requirement: Persist rollback state before normal candidate startup migrations
+
+The host SHALL preserve original backup through the transaction. After verification it SHALL persist prior image/override, DB owner/group/mode, and `candidate_may_mutate=true` before Compose starts. Candidate migrations SHALL run through normal app startup; no separate migration command or reverse migration SHALL run.
+
+#### Scenario: Migration boundary is durable before startup
+
+- **GIVEN** protected snapshot and prior release metadata are verified
+- **WHEN** Compose starts the candidate
+- **THEN** candidate_may_mutate and prior restore state were persisted first
+
+### Requirement: Reject pre-existing SQLite sidecars before standalone validation
+
+Standalone backup/restored-file validation SHALL reject pre-existing WAL/SHM/journal companions, including dangling symlinks. It SHALL record main-file SHA-256 and owner/group/mode, mount parent writable only for native validator, and run read-only SQL as file numeric UID/GID.
 
 #### Scenario: Standalone WAL-mode snapshot needs temporary sidecars
 
@@ -311,74 +351,42 @@ introduced.
 - **THEN** validation fails before the native process starts
 - **AND** no existing companion is deleted or followed
 
-#### Scenario: Fresh protected snapshot passes
+### Requirement: Remove only validator-created sidecars and verify the main file is unchanged
 
-- **GIVEN** the app service is stopped and all other fixed Compose inputs
-  validate
-- **WHEN** the host creates and checks the new SQLite online backup
-- **THEN** it stores a mode-0600 hashed snapshot and rollback manifest
-- **AND** it may persist candidate_may_mutate and start the candidate
+Standalone validation SHALL remove only newly created regular companions with matching owner/group, without following symlinks, and verify main-file hash and metadata remain unchanged. Cleanup or invariant failure SHALL reject the check.
 
-#### Scenario: Snapshot fails before migration
+#### Scenario: Validator cleans only sidecars it created
 
-- **GIVEN** backup creation, hashing, native integrity, or foreign-key check
-  fails
-- **WHEN** the transaction reaches the snapshot gate
-- **THEN** no candidate migration runs
-- **AND** the prior image restarts against the unchanged database
-- **AND** the transaction records FAILED
+- **GIVEN** native validation created regular WAL sidecars with matching owner and group
+- **WHEN** cleanup runs
+- **THEN** it removes only those companions and main-file bytes and metadata stay unchanged
 
-### Requirement: Accept the migrated candidate or automatically restore DB and image
+### Requirement: Validate live DB with exact owner and shared read-only WAL state
 
-The host SHALL accept a candidate only when Docker health is healthy, direct
-UI root and public dashboard return HTTP 200, unauthenticated
-GET /api/v1/models returns HTTP 401 with AUTH_002, native SQLite integrity
-and foreign-key checks pass, migration source-ID coverage is exact, and Redis
-identity remains unchanged. Each check SHALL have a finite bound derived from
-the image health interval, timeout, retries, start period, image pull/start
-allowance, and local route checks.
+Live DB validation SHALL require a regular actual main DB via `lstat` and run as exact numeric UID/GID without fallback. It SHALL retain a read-only complete directory mount, read-only SQL, and shared real WAL/SHM. It SHALL not clean live sidecars or require a stable main hash during writes. No immutable-mode bypass or existing-sidecar deletion SHALL be introduced.
 
-Private UI/API checks SHALL execute through the app container's Node runtime
-against its loopback listener on port 20128, for both candidate and prior
-image. They SHALL emit only sanitized HTTP status and error-code results.
-The public dashboard check SHALL execute from the host. The existing
-production gateway binding on port 20129 SHALL remain unchanged. The fixture
-SHALL use the same private probe context and a root-controlled temporary
-host-loopback proxy for the deliberately failing public dashboard URL
-`http://127.0.0.1:<explicit-port>/dashboard/radar`. The proxy SHALL forward only
-that fixed path to the fixture app's isolated gateway on port 20129 and relay
-its actual HTTP status. Every fixture container network SHALL remain internal
-and nonexternal; fixture services SHALL publish no host ports. The profile
-SHALL reject URL credentials, query, fragment, missing/invalid port, and
-nonliteral loopback destinations. The proxy SHALL mask request/body logs and
-stop after proof while protected database artifacts remain. Production
-networks, firewall, ports, and URL acceptance SHALL remain unchanged.
+#### Scenario: Live DB belongs to the application user
 
-On acceptance, the host SHALL atomically persist the candidate digest in the
-image-only override and record SUCCEEDED <run-id>-<attempt>. It SHALL keep
-the fresh pre-deploy backup protected.
+- **GIVEN** the app owns the main DB and WAL/SHM with mode0660
+- **AND** the native validator drops all Linux capabilities
+- **WHEN** live integrity/FK/migration checks run
+- **THEN** the validator uses the main file's exact numeric UID/GID
+- **AND** the whole data directory and SQL connection remain read-only
+- **AND** actual shared WAL/SHM are preserved without copies or cleanup
 
-After candidate_may_mutate becomes true, any migration, startup, health,
-route, SQLite, migration-ledger, or Compose-persistence failure SHALL trigger
-automatic rollback. The host SHALL stop the candidate, create a protected
-SQLite diagnostic copy if candidate DB exists, remove candidate WAL/SHM,
-restore the pre-deploy snapshot atomically, restore its recorded owner/group/
-mode and the prior image override. Before starting the prior app image, it
-SHALL require the restored DB file SHA-256 to equal the protected backup
-file's SHA-256 recorded in the transaction manifest, byte-for-byte. This
-comparison SHALL use the backup file produced by SQLite's online backup,
-not the live DB file hash from before backup creation; those files may differ
-in bytes while representing the same logical database. Before marking
-rollback complete, it SHALL verify the restored DB with native integrity,
-foreign-key, and prior-image migration-ledger checks plus the old image's
-Docker health, UI, and API-auth probes.
+### Requirement: Match applied numeric migration versions to the SQL source set
 
-If restoring the snapshot or verifying the prior image fails, the host SHALL
-leave the app stopped, preserve all recovery files, and record FAILED with a
-bounded rollback-failure reason. It SHALL never start an app against an
-unverified DB or delete the original backup. Since no ingress maintenance
-gate is confirmed, writes accepted after candidate startup MAY be lost when
-the requested pre-deploy DB snapshot is restored.
+After candidate startup, the host SHALL compare sorted numeric SQL migration IDs under `/app/migrations` with numeric versions in `_omniroute_migrations`. The sets SHALL match exactly; existing nonnumeric legacy ledger rows SHALL be preserved and excluded from numeric comparison.
+
+#### Scenario: Migration ledger contains exactly the SQL source IDs
+
+- **GIVEN** candidate startup completed with the SQL migration directory and migration ledger available
+- **WHEN** the host checks migration coverage
+- **THEN** sorted numeric IDs match exactly and nonnumeric legacy ledger rows remain untouched
+
+### Requirement: Accept candidate only after bounded health, route, SQLite, and Redis probes
+
+Acceptance SHALL require healthy Docker status, direct UI root and public dashboard HTTP 200, unauthenticated `GET /api/v1/models` HTTP 401 with `AUTH_002`, native SQLite integrity and foreign-key checks, exact migration-source coverage, and unchanged Redis identity. Each check SHALL have a finite bound from health timing, startup allowance, and route checks.
 
 #### Scenario: Migrated candidate passes acceptance
 
@@ -388,6 +396,50 @@ the requested pre-deploy DB snapshot is restored.
 - **THEN** the stable image override records the exact candidate digest
 - **AND** status is SUCCEEDED <run-id>-<attempt>
 - **AND** the protected pre-deploy backup remains available
+
+### Requirement: Run private probes in the app and public dashboard probe on the host
+
+Private UI/API checks SHALL execute through app-container Node against loopback port 20128 for candidate and prior image and emit only sanitized status/error codes. Public dashboard check SHALL run from host. Production gateway binding on port 20129 SHALL remain unchanged.
+
+#### Scenario: Private and public probes use their assigned contexts
+
+- **GIVEN** candidate and prior images are under acceptance and public dashboard is reachable
+- **WHEN** the checks run
+- **THEN** private UI/API checks use app-container loopback while public dashboard runs from host
+
+### Requirement: Keep the failing dashboard fixture isolated on its fixed loopback proxy
+
+The fixture SHALL use the private probe context and a root-controlled temporary host-loopback proxy for only `http://127.0.0.1:<explicit-port>/dashboard/radar`. The proxy SHALL forward that fixed path to the fixture app isolated gateway on port 20129 and relay actual HTTP status.
+
+#### Scenario: Deliberately failing dashboard proof stays fixture-local
+
+- **GIVEN** the fixture uses a loopback dashboard URL and private fixture gateway
+- **WHEN** the dashboard acceptance probe runs
+- **THEN** the fixed proxy relays the fixture app status without publishing fixture ports or changing production settings
+
+### Requirement: Keep fixture network private and preserve production configuration
+
+Fixture networks SHALL be internal/nonexternal with no host ports. The profile SHALL reject URL credentials, query, fragment, missing/invalid port, and nonliteral loopback. The proxy SHALL mask request/body logs and stop after proof while protected DB artifacts remain. Production networks, firewall, ports, and URL acceptance SHALL remain unchanged.
+
+#### Scenario: Fixture URLs cannot affect production
+
+- **GIVEN** fixture uses invalid destinations and protected database artifacts
+- **WHEN** the proof finishes
+- **THEN** invalid URLs are rejected and production network and URL settings stay unchanged
+
+### Requirement: Persist accepted candidate digest only after acceptance passes
+
+On acceptance, the host SHALL atomically persist candidate digest in image-only override and record `SUCCEEDED <run-id>-<attempt>`. It SHALL keep fresh pre-deploy backup protected.
+
+#### Scenario: Accepted candidate digest is committed
+
+- **GIVEN** all acceptance probes pass for an immutable candidate digest
+- **WHEN** the transaction commits
+- **THEN** the stable override and SUCCEEDED status record that digest and the pre-deploy backup remains protected
+
+### Requirement: Restore the protected snapshot and prior image after candidate failure
+
+After `candidate_may_mutate` becomes true, any migration, startup, health, route, SQLite, ledger, or Compose-persistence failure SHALL trigger rollback. The host SHALL stop candidate, create protected DB diagnostic copy if it exists, remove candidate WAL/SHM, atomically restore snapshot and recorded owner/group/mode, then restore prior image override.
 
 #### Scenario: Post-migration acceptance fails
 
@@ -399,6 +451,20 @@ the requested pre-deploy DB snapshot is restored.
   SHA-256 before starting the prior image
 - **AND** restores the prior image and stable override
 - **AND** verifies old health, routes, and DB before recording FAILED
+
+### Requirement: Verify restored DB bytes and prior release before rollback completes
+
+Before prior app startup, restored DB SHA-256 SHALL equal protected online-backup file hash byte-for-byte, not the pre-backup live DB hash. Before rollback completes, native integrity, foreign-key, prior-image migration-ledger, Docker health, UI, and API-auth probes SHALL pass.
+
+#### Scenario: Rollback verifies exact snapshot bytes before prior startup
+
+- **GIVEN** candidate acceptance failed and online backup hash is recorded
+- **WHEN** the prior app is about to restart
+- **THEN** restored DB bytes match the protected online backup and prior release probes pass
+
+### Requirement: Leave app stopped and preserve recovery files if rollback cannot be verified
+
+If restore or prior-image verification fails, the host SHALL leave app stopped, preserve all recovery files and original backup, and record FAILED with bounded reason. It SHALL never start against unverified DB or delete the backup. With no confirmed maintenance gate, writes accepted after candidate startup MAY be lost when restoring the pre-deploy snapshot.
 
 #### Scenario: Database or prior-image restore fails
 

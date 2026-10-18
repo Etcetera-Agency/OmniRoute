@@ -676,14 +676,24 @@ pinned mode:
 | `typesafe/<id>`                                   | Pin TypeSafe and send `<id>` as its model.                                                                                                      |
 | `openrouter/<id>`                                 | Pin OpenRouter and send `<id>` as its model.                                                                                                    |
 
-Unknown model forms and pins to unconfigured upstreams return `400`. Only
-`state`, `questions`, and the selected outgoing `model` are sent upstream; other
-top-level request fields are not forwarded. If the feature is enabled but no
-configured upstream is selected, the route returns `503`; when none are
-configured, the error names the required environment variables. Malformed JSON, invalid question
-shapes, and unsupported model forms return `400` in the OmniRoute JSON error
-envelope; a request over the size limit returns `413`. The route intentionally
-does not apply the prompt-injection guard.
+The optional `max_len` and `head_max_len` fields are positive safe integer JSON
+numbers. `head_max_len` requires `max_len` and cannot exceed it. `max_len` is
+bounded by OmniRoute's `LAYA_MAX_TOKEN_BUDGET` environment setting, which
+defaults to `8192` when unset or invalid; a larger value returns `400` before
+API-key policy or upstream dispatch. Keep the gateway setting aligned with the
+Laya service ceiling. The fields are forwarded unchanged only when `model`
+explicitly pins Laya (`laya` or `laya/<checkpoint>`). They are omitted from
+automatic/`jev-*` chain requests and pinned TypeSafe/OpenRouter requests.
+
+Unknown model forms and pins to unconfigured upstreams return `400`. Upstream
+requests contain `state`, `questions`, and the selected outgoing `model`, plus
+supplied budgets only for explicitly pinned Laya requests; other top-level
+request fields are not forwarded. If the feature is enabled but no configured
+upstream is selected, the route returns `503`; when none are configured, the
+error names the required environment variables. Malformed JSON, invalid
+question shapes, and unsupported model forms return `400` in the OmniRoute
+JSON error envelope; a request over the size limit returns `413`. The route
+intentionally does not apply the prompt-injection guard.
 
 The route reads at most 1 MiB plus one byte from the body stream, regardless of
 `Content-Length`. Bodies over 1 MiB return `413` without calling an upstream.

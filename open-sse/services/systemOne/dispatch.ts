@@ -271,10 +271,21 @@ function buildUpstreamRequestBody(
   body: SystemOneRequest,
   plan: SystemOneAttemptPlan
 ): Record<string, unknown> {
+  const selection = parseSystemOneModelSelection(body.model);
+  const pinnedLaya =
+    selection.kind === "pinned" && selection.upstream === "laya" && plan.upstream.name === "laya";
+
   return {
     state: body.state,
     questions: body.questions,
     ...(plan.sentModel !== undefined ? { model: plan.sentModel } : {}),
+    // AICODE-NOTE: Chain attempts keep their existing payload when they reach Laya after fallback.
+    ...(pinnedLaya
+      ? {
+          ...(body.max_len === undefined ? {} : { max_len: body.max_len }),
+          ...(body.head_max_len === undefined ? {} : { head_max_len: body.head_max_len }),
+        }
+      : {}),
   };
 }
 

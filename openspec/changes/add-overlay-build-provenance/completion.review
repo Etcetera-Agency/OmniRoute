@@ -1,0 +1,58 @@
+# Completion review — 2026-10-18
+
+Status: implementation source independently reviewed; focused checks pass.
+Official ARM64 build, artifact identity, SDK pin, and A5 acceptance remain open.
+
+## Review, corrections, and Code Simplifier
+
+- Independent review caught that prebuilt stamps needed validation in
+  `merged-backend` before route merging, not only after image creation. Added
+  the shared selected-server gate so both compiled and prebuilt outputs require
+  exact full-SHA equality; missing prebuilt stamps fail during COPY.
+- Review caught whitespace trimming on the expected SHA in `--verify-server`.
+  Strict modes now validate the raw environment value, with a regression for
+  whitespace-wrapped input. Normal writer mode keeps its previous trimming and
+  output behavior.
+- Review caught incorrect argument indexes in the one-shot container test;
+  corrected checks for image, `-e`, and script positions.
+- Root corrected a portability gap in the reviewed test fixture: its path was
+  hardcoded to the developer's macOS checkout. Fixtures now resolve beneath the
+  current repository's `.tmp/build-sha-tests`, assert repository-relative
+  containment, use process-ID leaves, and perform no cleanup. Earlier external
+  fixtures remain untouched.
+- Code Simplifier pass clarified strict SHA mode selection and added anchors
+  for the provenance validation and selected-server gate. No further safe
+  simplification identified.
+
+## Verification
+
+- Focused RED/GREEN history: restored focused suite first reported 22/23 due to
+  a stale expected inline script string in the new verifier test. Corrected the
+  assertion; final focused suite passes 23/23. The earlier implementation
+  RED-run log was not present in the approved temp artifact directory.
+- Node 24.1.0 syntax checks passed for both scripts and both test files.
+- `git diff --check` passed.
+- Root used the existing canonical checkout's Prettier binary without installing
+  dependencies. It formatted three changed JavaScript files; the focused suite
+  then passed 23/23. Strict OpenSpec validation passed all 10 items. No build
+  was attempted.
+- Independent source review accepted patch SHA256
+  `f05b86fee56e1ebf9db3d1c0ee47b76ed2b143d738e89664e71eac699f71221d` before
+  this review document and task status update.
+
+## Remaining acceptance
+
+- Build locally with the official Linux ARM64 image/toolchain; record source SHA, server
+  `BUILD_SHA`, compiled SystemOne route hash, OCI revision, and image digest
+  from the actual candidate image.
+- Pin the SDK integration to the reviewed image and run authenticated
+  SystemOne acceptance. Keep A5 public-response acceptance pending until that
+  image exists.
+- Keep `openspec/TODO.md` follow-ups open. Do not archive this change until
+  those gates are evidenced.
+
+
+Linux E2E infrastructure correction: retained interrupted v2 log reached106/146 with six failures, no final collector result, so no passing/cleanup proof claimed. Five failures used hardcoded20128 instead of configured20158; dashboard auth used page.evaluate while legacy client redirects destroyed execution context. Tests now use configured baseURL and BrowserContext-shared page.request probes, preserving assertions/auth cookies; responses disposed, catch narrowed to unknown. Focused ESLint and diffcheck pass; independent review ACCEPT and Code Simplifier no further change. APIRequestContext bypasses page.route mocks; full rerun includes those consumers. Fresh local v3 full146-test run pending; no target/container/deploy action. No timeouts, retries or exclusions changed.
+
+
+Owner scope correction: unrelated E2E repairs are no longer a prerequisite for the small Laya-budget change. Stopped only owned local v3 collector; its owned server has exited and port20158 is closed. Partial full E2E is not accepted. Existing targeted SystemOne schema/dispatch/route suite rerun56/56passed in4.79s; no retries/exclusions added. Preserve unrelated dirty work for separate review rather than silently mixing it into this patch. No remote deployment/push occurred.

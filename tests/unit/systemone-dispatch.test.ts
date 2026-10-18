@@ -83,8 +83,16 @@ test("configuration uses only configured upstreams, stable order, and documented
   assert.equal(config.upstreams.openrouter?.model, "typesafe/jev-1.13");
   assert.equal(config.timeoutMs, 7000);
   assert.equal(config.cooldownMs, 60000);
+  assert.equal(config.layaMaxTokenBudget, 8192);
   assert.equal(loadSystemOneConfig({}).enabled, false);
   assert.equal(loadSystemOneConfig({ OMNIROUTE_SYSTEMONE: "yes" }).enabled, false);
+});
+
+test("configuration uses a valid Laya ceiling and defaults invalid values to 8192", () => {
+  assert.equal(configFor({ LAYA_MAX_TOKEN_BUDGET: "4096" }).layaMaxTokenBudget, 4096);
+  for (const value of ["", "0", "-1", "1.5", "9007199254740992"]) {
+    assert.equal(configFor({ LAYA_MAX_TOKEN_BUDGET: value }).layaMaxTokenBudget, 8192, value);
+  }
 });
 
 test("chain configuration excludes providers without required environment values", () => {
@@ -159,6 +167,71 @@ test("dispatch sends only the normalized request fields and upstream-specific mo
       new Headers(calls[0]?.init.headers).get("authorization"),
       scenario.expectedAuthorization
     );
+    assert.equal(
+      calls[0]?.init.body,
+      JSON.stringify({
+        state: DEFAULT_BODY.state,
+        questions: DEFAULT_BODY.questions,
+        ...(scenario.expectedModel !== undefined ? { model: scenario.expectedModel } : {}),
+      })
+    );
+  }
+});
+
+test("token budgets pass only to explicitly pinned Laya and preserve omission bytes", async () => {
+  const budgets = { max_len: 4096, head_max_len: 512 };
+  for (const [model, expectedModel] of [
+    ["laya", undefined],
+    ["laya/multilingual", "multilingual"],
+  ] as const) {
+    const layaCall = captureFetch(() => response(200, successBody()));
+    const layaResult = await dispatchSystemOneRequest(
+      { ...DEFAULT_BODY, model, ...budgets },
+      configFor(),
+      { fetchImpl: layaCall.fetchImpl, now: () => 1000, cooldowns: new Map() }
+    );
+
+    assert.equal(layaResult.ok, true, model);
+    assert.deepEqual(layaCall.calls[0]?.body, {
+      state: DEFAULT_BODY.state,
+      questions: DEFAULT_BODY.questions,
+      ...(expectedModel === undefined ? {} : { model: expectedModel }),
+      ...budgets,
+    });
+  }
+
+  for (const model of ["typesafe/jev-latest", "openrouter/typesafe/jev-1.13"]) {
+    const otherCall = captureFetch(() => response(200, successBody()));
+    const otherResult = await dispatchSystemOneRequest(
+      { ...DEFAULT_BODY, model, ...budgets },
+      configFor(),
+      { fetchImpl: otherCall.fetchImpl, now: () => 1000, cooldowns: new Map() }
+    );
+
+    assert.equal(otherResult.ok, true, model);
+    assert.equal(otherCall.calls.length, 1, model);
+    assert.equal("max_len" in (otherCall.calls[0]?.body ?? {}), false, model);
+    assert.equal("head_max_len" in (otherCall.calls[0]?.body ?? {}), false, model);
+  }
+
+  for (const model of [undefined, "auto", "jev-1.13"] as const) {
+    const chainCall = captureFetch((call) =>
+      call.url.startsWith("https://laya")
+        ? response(422, { error: { message: "request does not fit" } })
+        : response(200, successBody())
+    );
+    const chainResult = await dispatchSystemOneRequest(
+      { ...DEFAULT_BODY, ...(model === undefined ? {} : { model }), ...budgets },
+      configFor(),
+      { fetchImpl: chainCall.fetchImpl, now: () => 1000, cooldowns: new Map() }
+    );
+
+    assert.equal(chainResult.ok, true, model ?? "omitted model");
+    assert.equal(chainCall.calls.length, 2, model ?? "omitted model");
+    for (const call of chainCall.calls) {
+      assert.equal("max_len" in call.body, false, call.url);
+      assert.equal("head_max_len" in call.body, false, call.url);
+    }
   }
 });
 

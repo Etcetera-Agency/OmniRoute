@@ -233,6 +233,66 @@ test("invalid model is rejected before API policy or upstream dispatch", async (
   assert.equal(dispatchCalls, 0);
 });
 
+test("token budget above configured ceiling returns 400 before policy or dispatch", async () => {
+  let policyCalls = 0;
+  let dispatchCalls = 0;
+  const config = loadSystemOneConfig({
+    OMNIROUTE_SYSTEMONE: "1",
+    OMNIROUTE_SYSTEMONE_LAYA_URL: "https://laya.example",
+    LAYA_MAX_TOKEN_BUDGET: "4096",
+  });
+  const handler = route({
+    getConfig: () => config,
+    enforceApiKeyPolicy: async () => {
+      policyCalls += 1;
+      return { apiKeyInfo: null, rejection: null };
+    },
+    dispatch: async () => {
+      dispatchCalls += 1;
+      return successfulDispatch();
+    },
+  });
+  const response = await handler(
+    postRequest(validRequestBody({ model: "laya/multilingual", max_len: 4097 }))
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(body.error.message, /max_len.*4096/i);
+  assert.equal(policyCalls, 0);
+  assert.equal(dispatchCalls, 0);
+});
+
+test("invalid or unpaired token budgets return 400 before policy or dispatch", async () => {
+  for (const [field, value, errorPattern] of [
+    ["max_len", 1.5, /max_len/],
+    ["max_len", true, /max_len/],
+    ["head_max_len", 512, /head_max_len.*max_len/i],
+  ] as const) {
+    let policyCalls = 0;
+    let dispatchCalls = 0;
+    const handler = route({
+      enforceApiKeyPolicy: async () => {
+        policyCalls += 1;
+        return { apiKeyInfo: null, rejection: null };
+      },
+      dispatch: async () => {
+        dispatchCalls += 1;
+        return successfulDispatch();
+      },
+    });
+    const response = await handler(
+      postRequest(validRequestBody({ model: "laya/multilingual", [field]: value }))
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 400, `${field}=${String(value)}`);
+    assert.match(body.error.message, errorPattern);
+    assert.equal(policyCalls, 0);
+    assert.equal(dispatchCalls, 0);
+  }
+});
+
 test("pinned upstream that is not configured returns 400 with accepted forms", async () => {
   const handler = createSystemOnePostHandler({
     getConfig: () => ENABLED_CONFIG,
