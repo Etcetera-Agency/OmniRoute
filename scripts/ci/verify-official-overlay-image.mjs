@@ -134,6 +134,11 @@ export function verifyCandidateEvidence(evidence, expected) {
     labels["org.opencontainers.image.base.digest"] === expected.baseDigest,
     "candidate OCI base digest label does not match the pinned official image"
   );
+  requireEvidence(
+    evidence.candidate.buildSha === expected.revision &&
+      evidence.candidate.buildSha === labels["org.opencontainers.image.revision"],
+    "server BUILD_SHA does not match the source revision and OCI revision"
+  );
 
   requireEvidence(
     candidate.sqlite?.ok === true &&
@@ -451,6 +456,68 @@ export function buildSmokeContainerArguments(candidate, container) {
   ];
 }
 
+export function buildBuildShaCheckArguments(candidate) {
+  const script =
+    "const fs=require('node:fs');" +
+    "const p='/app/.build/next/omni-overlay/server/BUILD_SHA';" +
+    "process.stdout.write(fs.readFileSync(p).toString('base64'));";
+  return [
+    "run",
+    "--rm",
+    "--platform",
+    "linux/arm64",
+    "--network",
+    "none",
+    "--read-only",
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges=true",
+    "--pids-limit",
+    "16",
+    "--memory",
+    "64m",
+    "--cpus",
+    "0.5",
+    "--entrypoint",
+    "node",
+    candidate,
+    "-e",
+    script,
+  ];
+}
+
+export function readCandidateBuildSha(candidate, expectedRevision) {
+  try {
+    const encodedStamp = docker(buildBuildShaCheckArguments(candidate));
+    requireEvidence(
+      /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encodedStamp),
+      "candidate server BUILD_SHA probe returned invalid encoding"
+    );
+    const stamp = Buffer.from(encodedStamp, "base64");
+    requireEvidence(
+      stamp.toString("base64") === encodedStamp,
+      "candidate server BUILD_SHA probe returned invalid encoding"
+    );
+    requireEvidence(
+      stamp.length === 41 && stamp[40] === 0x0a,
+      "candidate server BUILD_SHA has invalid byte framing"
+    );
+    const buildSha = stamp.subarray(0, 40).toString("ascii");
+    requireEvidence(
+      /^[a-f0-9]{40}$/.test(buildSha) && stamp.equals(Buffer.from(`${buildSha}\n`, "ascii")),
+      "candidate server BUILD_SHA has invalid byte framing"
+    );
+    requireEvidence(
+      buildSha === expectedRevision,
+      "candidate server BUILD_SHA does not match the expected full source revision"
+    );
+    return buildSha;
+  } catch (error) {
+    throw new Error(`candidate server BUILD_SHA is missing or unreadable: ${describeError(error)}`);
+  }
+}
+
 async function smokeCandidate(candidate) {
   const container = `omni-overlay-smoke-${randomBytes(6).toString("hex")}`;
   const password = randomBytes(32).toString("base64url");
@@ -515,6 +582,15 @@ export async function verifyImages(options) {
   // AICODE-NOTE: Validate actual image config, not assumed Dockerfile inheritance.
   verifyCandidateRuntimeConfiguration(candidateMetadata.Config);
   const candidateLabels = candidateMetadata.Config?.Labels ?? {};
+  const buildSha = readCandidateBuildSha(options.candidate, options.revision);
+  requireEvidence(
+    /^[a-f0-9]{40}$/.test(buildSha) && buildSha === options.revision,
+    "candidate server BUILD_SHA does not match the expected full source revision"
+  );
+  requireEvidence(
+    candidateLabels["org.opencontainers.image.revision"] === expected.revision,
+    "candidate OCI revision label does not match the expected source revision"
+  );
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omni-overlay-ui-"));
   return withCleanup(async () => {
     const sqlite = runNativeSqliteCheck(options.candidate);
@@ -525,6 +601,7 @@ export async function verifyImages(options) {
       candidate: {
         architecture: candidateMetadata.Architecture,
         labels: candidateLabels,
+        buildSha,
         sqlite,
         ...runtime,
         ui: candidateUi,

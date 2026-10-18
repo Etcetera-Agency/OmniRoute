@@ -61,6 +61,7 @@ jobs:
           provenance: false
           build-args: |
             OFFICIAL_BASE_DIGEST=${{ env.OFFICIAL_BASE_DIGEST }}
+            OMNIROUTE_BUILD_SHA=${{ github.sha }}
           labels: |
             org.opencontainers.image.source=${{ env.SOURCE_REPOSITORY }}
             org.opencontainers.image.revision=${{ github.sha }}

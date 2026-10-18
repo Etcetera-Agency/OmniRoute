@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 const verifierUrl = new URL(
@@ -56,6 +59,7 @@ function makeEvidence() {
         "org.opencontainers.image.revision": EXPECTED.revision,
         "org.opencontainers.image.base.digest": EXPECTED.baseDigest,
       },
+      buildSha: EXPECTED.revision,
       sqlite: { ok: true, version: "3.53.4", queryResult: 1 },
       healthStatus: "healthy",
       dashboardStatus: 200,
@@ -87,6 +91,7 @@ function requireVerifier() {
 function requireSmokeHelpers() {
   assert.ok(verifier, "official overlay image verifier must exist");
   assert.equal(typeof verifier.buildSmokeContainerArguments, "function");
+  assert.equal(typeof verifier.buildBuildShaCheckArguments, "function");
   assert.equal(typeof verifier.withCleanup, "function");
   return verifier;
 }
@@ -100,6 +105,24 @@ function requireRuntimeConfigVerifier() {
 test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
+});
+
+test("verifier rejects a missing or mismatched overlay BUILD_SHA", () => {
+  const verifyCandidateEvidence = requireVerifier();
+
+  const missing = makeEvidence();
+  delete missing.candidate.buildSha;
+  assert.throws(
+    () => verifyCandidateEvidence(missing, EXPECTED),
+    /server BUILD_SHA does not match the source revision/i
+  );
+
+  const mismatch = makeEvidence();
+  mismatch.candidate.buildSha = "e461ed673dd360d3759d3fbfa7ec402068448570";
+  assert.throws(
+    () => verifyCandidateEvidence(mismatch, EXPECTED),
+    /server BUILD_SHA does not match the source revision/i
+  );
 });
 
 test("verifier requires headed non-root Chromium smoke to close on about:blank", () => {
@@ -212,6 +235,141 @@ test("smoke startup enables init and uses isolated tmpfs writable by the image d
   assert.equal(args.includes("--mount"), false);
   assert.equal(args.includes("--user"), false);
   assert.equal(args.at(-1), "candidate:image");
+});
+
+test("build SHA preflight reads in a bounded, isolated, read-only one-shot container", () => {
+  const { buildBuildShaCheckArguments } = requireSmokeHelpers();
+  const args = buildBuildShaCheckArguments("candidate:image");
+
+  assert.equal(args[0], "run");
+  assert.equal(args.includes("--rm"), true);
+  assert.equal(args[args.indexOf("--platform") + 1], "linux/arm64");
+  assert.equal(args[args.indexOf("--network") + 1], "none");
+  assert.equal(args.includes("--read-only"), true);
+  assert.equal(args[args.indexOf("--cap-drop") + 1], "ALL");
+  assert.equal(args[args.indexOf("--security-opt") + 1], "no-new-privileges=true");
+  assert.equal(args[args.indexOf("--pids-limit") + 1], "16");
+  assert.equal(args[args.indexOf("--memory") + 1], "64m");
+  assert.equal(args[args.indexOf("--cpus") + 1], "0.5");
+  assert.equal(args.at(-3), "candidate:image");
+  assert.equal(args.at(-2), "-e");
+  assert.equal(
+    args.at(-1),
+    "const fs=require('node:fs');const p='/app/.build/next/omni-overlay/server/BUILD_SHA';process.stdout.write(fs.readFileSync(p).toString('base64'));"
+  );
+});
+
+test("build SHA preflight enforces exact sentinel bytes through mocked Docker probe", async () => {
+  const helpers = requireSmokeHelpers();
+  assert.equal(typeof helpers.readCandidateBuildSha, "function");
+  const { readCandidateBuildSha } = helpers;
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "overlay-build-sha-test-"));
+  const dockerPath = path.join(temporaryDirectory, "docker");
+  const originalPath = process.env.PATH;
+  const expectedBytes = Buffer.from(`${EXPECTED.revision}\n`);
+
+  await fs.writeFile(dockerPath, "#!/bin/sh\nprintf '%s' \"$OVERLAY_TEST_DOCKER_OUTPUT\"\n", {
+    mode: 0o755,
+  });
+
+  try {
+    process.env.PATH = `${temporaryDirectory}${path.delimiter}${originalPath ?? ""}`;
+    for (const bytes of [
+      Buffer.from(EXPECTED.revision),
+      Buffer.from(`${EXPECTED.revision}\n\n`),
+      Buffer.from(`${EXPECTED.revision} \n`),
+      Buffer.from(`${EXPECTED.revision}\t\n`),
+    ]) {
+      process.env.OVERLAY_TEST_DOCKER_OUTPUT = bytes.toString("base64");
+      assert.throws(
+        () => readCandidateBuildSha("candidate:image", EXPECTED.revision),
+        /BUILD_SHA.*(framing|expected|revision)/i
+      );
+    }
+
+    process.env.OVERLAY_TEST_DOCKER_OUTPUT = expectedBytes.toString("base64");
+    assert.equal(readCandidateBuildSha("candidate:image", EXPECTED.revision), EXPECTED.revision);
+
+    process.env.OVERLAY_TEST_DOCKER_OUTPUT = Buffer.from(`${"f".repeat(40)}\n`).toString("base64");
+    assert.throws(
+      () => readCandidateBuildSha("candidate:image", EXPECTED.revision),
+      /BUILD_SHA.*(expected|revision)/i
+    );
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    delete process.env.OVERLAY_TEST_DOCKER_OUTPUT;
+    await fs.rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("wrong OCI revision label fails before native or app startup", async () => {
+  assert.ok(verifier, "official overlay image verifier must exist");
+  assert.equal(typeof verifier.verifyImages, "function");
+  const { verifyImages } = verifier;
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "overlay-label-gate-test-"));
+  const dockerPath = path.join(temporaryDirectory, "docker");
+  const dockerLogPath = path.join(temporaryDirectory, "docker.log");
+  const originalPath = process.env.PATH;
+  const expectedBytes = Buffer.from(`${EXPECTED.revision}\n`);
+  const metadata = [
+    {
+      Architecture: "arm64",
+      Config: {
+        ...makeRuntimeConfig(),
+        Labels: {
+          "org.opencontainers.image.source": EXPECTED.source,
+          "org.opencontainers.image.revision": "f".repeat(40),
+          "org.opencontainers.image.base.digest": EXPECTED.baseDigest,
+        },
+      },
+    },
+  ];
+
+  await fs.writeFile(
+    dockerPath,
+    [
+      "#!/bin/sh",
+      'printf \'%s\\n\' "$*" >> "$OVERLAY_TEST_DOCKER_LOG"',
+      'if [ "$1" = image ] && [ "$2" = inspect ]; then printf \'%s\' "$OVERLAY_TEST_IMAGE_METADATA"; exit 0; fi',
+      'if [ "$1" = run ]; then printf \'%s\' "$OVERLAY_TEST_DOCKER_OUTPUT"; exit 0; fi',
+      "exit 91",
+      "",
+    ].join("\n"),
+    { mode: 0o755 }
+  );
+
+  try {
+    process.env.PATH = `${temporaryDirectory}${path.delimiter}${originalPath ?? ""}`;
+    process.env.OVERLAY_TEST_DOCKER_LOG = dockerLogPath;
+    process.env.OVERLAY_TEST_IMAGE_METADATA = JSON.stringify(metadata);
+    process.env.OVERLAY_TEST_DOCKER_OUTPUT = expectedBytes.toString("base64");
+
+    await assert.rejects(
+      verifyImages({
+        candidate: "candidate:image",
+        official: "official:image",
+        ...EXPECTED,
+      }),
+      /OCI revision label does not match/i
+    );
+
+    const dockerCalls = (await fs.readFile(dockerLogPath, "utf8")).trim().split("\n");
+    assert.equal(
+      dockerCalls.length,
+      2,
+      "only inspect and BUILD_SHA probe may run before label gate"
+    );
+    assert.match(dockerCalls[0], /^image inspect candidate:image$/);
+    assert.match(dockerCalls[1], /^run .*BUILD_SHA/);
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    delete process.env.OVERLAY_TEST_DOCKER_LOG;
+    delete process.env.OVERLAY_TEST_IMAGE_METADATA;
+    delete process.env.OVERLAY_TEST_DOCKER_OUTPUT;
+    await fs.rm(temporaryDirectory, { recursive: true, force: true });
+  }
 });
 
 test("cleanup errors retain primary verification error and collect every cleanup failure", async () => {

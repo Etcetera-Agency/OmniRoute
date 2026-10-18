@@ -483,3 +483,5 @@ Deferred cross-repository and operations work:
 - [ ] After release acceptance, reconcile pre-existing delta archive applicability notices separately; strict schema validation is not archive readiness. Seven existing atomic-format reconciliations imported as a docs-only prerequisite, not permission to reopen unrelated runtime/E2E work.
 
 - [ ] A2 source is locally verified (56focused, strict11/11, ESLint, independent review/Simplifier); obtain exact CI image tuple and run authorized A5/A6 before claiming live Laya budget delivery or semantic discrimination.
+
+- [ ] A4 source ready after26focused/strict11/11/independent review/Simplifier; obtain owner-authorized push/main integration for existing GitHub image workflow. Verify actual fullSHA/BUILD_SHA/compiledrouteSHA/image digest, then follow A5backup/deploy/smokes and A6matrix. Existing unrelated test repairs remain outside minimal release.
