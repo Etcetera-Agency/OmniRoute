@@ -139,7 +139,7 @@ export function createSystemOnePostHandler(
       return wrapErrorResponse(response, [], { latencyMs: 0 });
     }
 
-    const parsed = parseSystemOneRequest(readResult.value);
+    const parsed = parseSystemOneRequest(readResult.value, config.layaMaxTokenBudget);
     if (parsed.success === false) {
       const response = createErrorResponse({ status: 400, message: parsed.message });
       return wrapErrorResponse(response, [], { latencyMs: 0 });

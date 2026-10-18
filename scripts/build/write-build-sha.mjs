@@ -23,11 +23,15 @@ import { dirname } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..", "..");
+const SHA_PATTERN = /^[a-f0-9]{40}$/;
 
 // Resolve the build SHA: prefer the env var (set by build:release script), fall
 // back to running git rev-parse.
 function resolveBuildSha() {
   if (process.env.OMNIROUTE_BUILD_SHA) {
+    const strictShaMode =
+      process.argv.includes("--validate-only") || process.argv.includes("--verify-server");
+    if (strictShaMode) return process.env.OMNIROUTE_BUILD_SHA;
     return process.env.OMNIROUTE_BUILD_SHA.trim();
   }
   try {
@@ -43,6 +47,45 @@ function resolveBuildSha() {
 
 const sha = resolveBuildSha();
 const NEXT_DIST = process.env.NEXT_DIST_DIR || ".build/next";
+const selectedServer = path.join(ROOT, NEXT_DIST, "server");
+
+function requireFullSha(value) {
+  if (!SHA_PATTERN.test(value)) {
+    console.error("[write-build-sha] Expected a 40-character lowercase commit SHA.");
+    process.exit(1);
+  }
+}
+
+// AICODE-NOTE: Strict modes validate the full source identity before writing or packaging.
+if (process.argv.includes("--validate-only")) {
+  requireFullSha(sha);
+  console.log("[write-build-sha] Validated full source SHA.");
+  process.exit(0);
+}
+
+if (process.argv.includes("--verify-server")) {
+  requireFullSha(sha);
+  const sentinel = path.join(selectedServer, "BUILD_SHA");
+  if (!fs.existsSync(sentinel)) {
+    console.error("[write-build-sha] Selected server BUILD_SHA is missing.");
+    process.exit(1);
+  }
+  const stamp = fs.readFileSync(sentinel, "utf8");
+  const observed = stamp.endsWith("\n") ? stamp.slice(0, -1) : stamp;
+  if (!SHA_PATTERN.test(observed) || stamp !== `${observed}\n`) {
+    console.error("[write-build-sha] Selected server BUILD_SHA is invalid.");
+    process.exit(1);
+  }
+  if (observed !== sha) {
+    console.error(
+      "[write-build-sha] Selected server BUILD_SHA does not match expected source SHA."
+    );
+    process.exit(1);
+  }
+  console.log("[write-build-sha] Selected server BUILD_SHA matches expected source SHA.");
+  process.exit(0);
+}
+
 const standaloneDir = path.join(ROOT, NEXT_DIST, "standalone");
 const distDir = path.join(ROOT, "dist");
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { SystemOneUpstreamName } from "./config.ts";
+import { DEFAULT_LAYA_MAX_TOKEN_BUDGET, type SystemOneUpstreamName } from "./config.ts";
 
 export const MAX_SYSTEMONE_BODY_BYTES = 1024 * 1024;
 export const SYSTEMONE_ACCEPTED_MODEL_FORMS =
@@ -11,6 +11,11 @@ const BROWSER_TARGET_QUESTION_PATTERN = /(?:^|_)(click|type_text|select)_target$
 const nonEmptyInstructionTextSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "must be a non-empty string",
 });
+const positiveSafeIntegerSchema = z
+  .number({ invalid_type_error: "must be a positive safe integer" })
+  .int("must be a positive safe integer")
+  .min(1, "must be a positive safe integer")
+  .max(Number.MAX_SAFE_INTEGER, "must be a positive safe integer");
 
 const browserInstructionSchema = z
   .object({
@@ -48,6 +53,8 @@ export const systemOneRequestSchema = z
       .record(z.string(), questionSchema)
       .refine((questions) => Object.keys(questions).length > 0),
     model: z.string().optional(),
+    max_len: positiveSafeIntegerSchema.optional(),
+    head_max_len: positiveSafeIntegerSchema.optional(),
   })
   .passthrough()
   .superRefine((request, context) => {
@@ -81,6 +88,24 @@ export const systemOneRequestSchema = z
         });
       }
     }
+
+    if (request.head_max_len !== undefined && request.max_len === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["head_max_len"],
+        message: "requires max_len",
+      });
+    } else if (
+      typeof request.head_max_len === "number" &&
+      typeof request.max_len === "number" &&
+      request.head_max_len > request.max_len
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["head_max_len"],
+        message: "must be less than or equal to max_len",
+      });
+    }
   });
 
 export type SystemOneQuestion = z.infer<typeof questionSchema>;
@@ -89,13 +114,24 @@ export type SystemOneRequest = z.infer<typeof systemOneRequestSchema>;
 export type ParsedSystemOneRequest =
   { success: true; data: SystemOneRequest } | { success: false; message: string };
 
-export function parseSystemOneRequest(value: unknown): ParsedSystemOneRequest {
+export function parseSystemOneRequest(
+  value: unknown,
+  layaMaxTokenBudget = DEFAULT_LAYA_MAX_TOKEN_BUDGET
+): ParsedSystemOneRequest {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return { success: false, message: "body must be a JSON object" };
   }
 
   const parsed = systemOneRequestSchema.safeParse(value);
-  if (parsed.success) return { success: true, data: parsed.data };
+  if (parsed.success) {
+    if (parsed.data.max_len !== undefined && parsed.data.max_len > layaMaxTokenBudget) {
+      return {
+        success: false,
+        message: `max_len: must be less than or equal to LAYA_MAX_TOKEN_BUDGET (${layaMaxTokenBudget})`,
+      };
+    }
+    return { success: true, data: parsed.data };
+  }
 
   const firstIssue = parsed.error.issues[0];
   const field = firstIssue?.path.map(String).join(".") || "body";

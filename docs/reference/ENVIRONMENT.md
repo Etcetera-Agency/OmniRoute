@@ -1,7 +1,7 @@
 ---
 title: "Environment Variables Reference"
 version: 3.8.52
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-18
 ---
 
 # Environment Variables Reference
@@ -1667,6 +1667,7 @@ deployment secret store; the values below are never populated with credentials.
 | `OMNIROUTE_SYSTEMONE_LAYA_URL` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Required to configure Laya. Set its base URL; OmniRoute appends `/v1/systemone`. |
 | `OMNIROUTE_SYSTEMONE_LAYA_API_KEY` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Optional Laya bearer key. When unset, OmniRoute sends no Authorization header to Laya. |
 | `OMNIROUTE_SYSTEMONE_LAYA_MODEL` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Optional Laya checkpoint. When unset, OmniRoute omits `model` from an unpinned Laya request. |
+| `LAYA_MAX_TOKEN_BUDGET` | `8192` | `open-sse/services/systemOne/config.ts` | Maximum accepted per-request `max_len`; unset or invalid values use `8192`. Keep aligned with the Laya service ceiling. |
 | `OMNIROUTE_SYSTEMONE_TYPESAFE_API_KEY` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Required to configure TypeSafe at `https://api.typesafe.ai/v1/systemone`. |
 | `OMNIROUTE_SYSTEMONE_TYPESAFE_MODEL` | `jev-latest` | `open-sse/services/systemOne/config.ts` | Default TypeSafe model when the request does not pin a model or provide a `jev-*` model. |
 | `OMNIROUTE_SYSTEMONE_OPENROUTER_API_KEY` | _(unset)_ | `open-sse/services/systemOne/config.ts` | Required to configure OpenRouter at `https://openrouter.ai/api/alpha/decisions`. |
