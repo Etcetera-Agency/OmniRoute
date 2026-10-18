@@ -472,3 +472,12 @@ Deferred cross-repository and operations work:
       and exact isolated-image module load pass.
       First CI run37192253790 cancelled before publication; corrected source deployment and durable HTTP acceptance passed as recorded
       in the cutover item above.
+
+## Minimal Laya budgets and overlay provenance release gates — 2026-10-18
+
+- [ ] After integration on approved current source, run the native/production Laya acceptance: verify valid pinned budgets arrive unchanged, invalid/unpaired/over-ceiling values stop before auth/dispatch, chain and non-Laya pins omit budgets, and the configured Laya ceiling matches service limit. Keep `add-systemone-laya-token-budgets` open until accepted.
+- [ ] Build the official ARM64 overlay in authorized CI from the exact full source SHA. Verify compiled SystemOne route, selected server `BUILD_SHA` exact framing/value, OCI revision label, and immutable image digest all identify that SHA. No local image build/pull was done. Keep `add-overlay-build-provenance` open until image evidence passes.
+- [ ] Against that verified image, complete approved SDK integration and authenticated SystemOne runtime acceptance; record image/source identities and results before archiving either package.
+- [ ] Run strict OpenSpec validation and the owner-approved final verification matrix on the integrated source. The scoped worktree has no OpenSpec CLI; its focused suites pass, but this does not close integration gates.
+
+- [ ] After release acceptance, reconcile pre-existing delta archive applicability notices separately; strict schema validation is not archive readiness. Seven existing atomic-format reconciliations imported as a docs-only prerequisite, not permission to reopen unrelated runtime/E2E work.

@@ -6,31 +6,30 @@ Describe shipped SystemOne request validation. Broader routing and failover acce
 
 ## Requirements
 
+### Requirement: Bound request-body reads independent of Content-Length
+
+The route SHALL read at most 1 MiB plus one byte from the request stream, independent of `Content-Length`, and SHALL reject a larger body with `413` without buffering the remainder or calling an upstream.
+
+#### Scenario: Oversized request is rejected before dispatch
+
+- **GIVEN** the body exceeds 1 MiB and `Content-Length` is missing or inaccurate
+- **WHEN** the route reads the request stream
+- **THEN** it reads at most 1 MiB plus one byte and returns `413`
+- **AND** it does not buffer the unread remainder or call an upstream
+
 ### Requirement: Request validation
 
-The route SHALL read at most 1 MiB plus one byte from the request stream,
-independent of `Content-Length`, and SHALL reject a larger body with `413`
-without buffering the remainder or calling an upstream. It SHALL reject a
-request before any upstream call when the body is not a JSON object, lacks
-`state`, has a `state` that is not a string, object, or array, or has a missing
-or empty `questions` object. Each question SHALL have `type` equal to
-`choice`, `score`, or `noul`. Question `instructions` SHALL be a non-empty
-string for all models. When request `model` is exactly
-`laya/laya-browser-v19s`, question `instructions` MAY instead be a strict
-object containing string `goal` and `rules`, where `rules` is either a string
-or an array of strings. Its optional `operation` SHALL be one of `CLICK`,
-`TYPE_TEXT`, or `SELECT`. For question IDs matching
-`(?:^|_)(click|type_text|select)_target$` case-insensitively, `operation` SHALL
-be present and match the captured target operation. Structured instruction
-objects SHALL be rejected for all other model values. `choice` and `score`
-questions SHALL have `criteria`; the contents of `criteria` SHALL NOT be
-validated.
+Before any upstream call, the route SHALL reject a body that is not a JSON object, lacks `state`, has a `state` that is not a string, object, or array, or has a missing or empty `questions` object. Each question SHALL have `type` equal to `choice`, `score`, or `noul` and non-empty string `instructions`. `choice` and `score` questions SHALL have `criteria`; its contents SHALL NOT be validated.
 
 #### Scenario: Existing string instructions remain valid
 
 - **GIVEN** a valid request whose question has a non-empty string `instructions`
 - **WHEN** it is posted with any supported model selection
 - **THEN** existing validation and dispatch behavior is preserved
+
+### Requirement: Allow structured instructions only for the pinned Browser v19s model
+
+When request `model` is exactly `laya/laya-browser-v19s`, question `instructions` MAY instead be a strict object containing string `goal` and `rules`, where `rules` is either a string or an array of strings. Structured instruction objects SHALL be rejected for all other model values.
 
 #### Scenario: Pinned Browser v19s structured instructions
 
@@ -47,6 +46,18 @@ validated.
 - **WHEN** it is posted
 - **THEN** the response is `400` and no upstream is called
 
+#### Scenario: Malformed Browser instruction object
+
+- **GIVEN** a request pinned to `laya/laya-browser-v19s`
+- **AND** an instruction object omits `goal` or `rules`, uses a non-string goal
+  or invalid rules value, names an unsupported operation, or has an extra field
+- **WHEN** it is posted
+- **THEN** the response is `400` and no upstream is called
+
+### Requirement: Require Browser operation metadata for matching target question IDs
+
+A structured instruction object's optional `operation` SHALL be one of `CLICK`, `TYPE_TEXT`, or `SELECT`. For question IDs matching `(?:^|_)(click|type_text|select)_target$` case-insensitively, `operation` SHALL be present and match the captured target operation.
+
 #### Scenario: Non-target Browser question may omit operation
 
 - **GIVEN** a request pinned to `laya/laya-browser-v19s`
@@ -58,13 +69,5 @@ validated.
 
 - **GIVEN** a request pinned to `laya/laya-browser-v19s`
 - **AND** a `click_target` question omits `operation` or names `TYPE_TEXT`
-- **WHEN** it is posted
-- **THEN** the response is `400` and no upstream is called
-
-#### Scenario: Malformed Browser instruction object
-
-- **GIVEN** a request pinned to `laya/laya-browser-v19s`
-- **AND** an instruction object omits `goal` or `rules`, uses a non-string goal
-  or invalid rules value, names an unsupported operation, or has an extra field
 - **WHEN** it is posted
 - **THEN** the response is `400` and no upstream is called
