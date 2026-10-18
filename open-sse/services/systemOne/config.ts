@@ -12,6 +12,7 @@ export interface SystemOneConfig {
   enabled: boolean;
   order: SystemOneUpstreamName[];
   upstreams: Record<SystemOneUpstreamName, SystemOneUpstreamConfig | null>;
+  layaMaxTokenBudget: number;
   timeoutMs: number;
   cooldownMs: number;
 }
@@ -25,6 +26,7 @@ export const SYSTEMONE_REQUIRED_VARIABLES: Record<SystemOneUpstreamName, string>
 const DEFAULT_ORDER: SystemOneUpstreamName[] = ["laya", "typesafe", "openrouter"];
 const DEFAULT_TIMEOUT_MS = 5000;
 const DEFAULT_COOLDOWN_MS = 30_000;
+export const DEFAULT_LAYA_MAX_TOKEN_BUDGET = 8192;
 
 function readOptionalEnvironmentValue(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -32,6 +34,12 @@ function readOptionalEnvironmentValue(value: string | undefined): string | undef
 }
 
 function readMilliseconds(value: string | undefined, fallback: number): number {
+  if (!value?.trim()) return fallback;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readPositiveSafeInteger(value: string | undefined, fallback: number): number {
   if (!value?.trim()) return fallback;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -107,6 +115,11 @@ export function loadSystemOneConfig(env: NodeJS.ProcessEnv = process.env): Syste
     enabled: systemOneIsEnabled(env.OMNIROUTE_SYSTEMONE),
     order,
     upstreams,
+    // AICODE-NOTE: Keep request validation capped at Laya's deployment budget.
+    layaMaxTokenBudget: readPositiveSafeInteger(
+      env.LAYA_MAX_TOKEN_BUDGET,
+      DEFAULT_LAYA_MAX_TOKEN_BUDGET
+    ),
     timeoutMs: readMilliseconds(env.OMNIROUTE_SYSTEMONE_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
     cooldownMs: readMilliseconds(env.OMNIROUTE_SYSTEMONE_COOLDOWN_MS, DEFAULT_COOLDOWN_MS),
   };

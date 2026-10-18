@@ -188,6 +188,43 @@ test("SystemOne schema reports required fields and invalid question shapes", () 
   }
 });
 
+test("token budgets accept positive integers and reject invalid or unpaired values", () => {
+  for (const field of ["max_len", "head_max_len"] as const) {
+    for (const value of [true, 1.5, 0, -1, null, "512"]) {
+      const parsed = parseSystemOneRequest({ ...validBody(), [field]: value });
+      assert.equal(parsed.success, false, `${field}=${String(value)}`);
+      if (!parsed.success) assert.match(parsed.message, new RegExp(field));
+    }
+  }
+
+  for (const budget of [1, 512, 8192]) {
+    assert.equal(parseSystemOneRequest({ ...validBody(), max_len: budget }).success, true);
+  }
+  assert.equal(
+    parseSystemOneRequest({ ...validBody(), max_len: 512, head_max_len: 512 }).success,
+    true
+  );
+
+  const headWithoutMax = parseSystemOneRequest({ ...validBody(), head_max_len: 512 });
+  assert.equal(headWithoutMax.success, false);
+  if (!headWithoutMax.success) assert.match(headWithoutMax.message, /head_max_len.*max_len/i);
+
+  const headAboveMax = parseSystemOneRequest({ ...validBody(), max_len: 512, head_max_len: 513 });
+  assert.equal(headAboveMax.success, false);
+  if (!headAboveMax.success) assert.match(headAboveMax.message, /head_max_len.*max_len/i);
+
+  const overDefault = parseSystemOneRequest({ ...validBody(), max_len: 8193 });
+  assert.equal(overDefault.success, false);
+  if (!overDefault.success) assert.match(overDefault.message, /max_len.*8192/i);
+});
+
+test("token budget parser honors the configured Laya ceiling", () => {
+  assert.equal(parseSystemOneRequest({ ...validBody(), max_len: 4096 }, 4096).success, true);
+  const rejected = parseSystemOneRequest({ ...validBody(), max_len: 4097 }, 4096);
+  assert.equal(rejected.success, false);
+  if (!rejected.success) assert.match(rejected.message, /max_len.*4096/i);
+});
+
 test("model selection maps automatic, Jev, and pinned forms", () => {
   assert.deepEqual(parseSystemOneModelSelection(undefined), { kind: "chain" });
   assert.deepEqual(parseSystemOneModelSelection("auto"), { kind: "chain" });

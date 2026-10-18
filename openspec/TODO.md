@@ -481,3 +481,5 @@ Deferred cross-repository and operations work:
 - [ ] Run strict OpenSpec validation and the owner-approved final verification matrix on the integrated source. The scoped worktree has no OpenSpec CLI; its focused suites pass, but this does not close integration gates.
 
 - [ ] After release acceptance, reconcile pre-existing delta archive applicability notices separately; strict schema validation is not archive readiness. Seven existing atomic-format reconciliations imported as a docs-only prerequisite, not permission to reopen unrelated runtime/E2E work.
+
+- [ ] A2 source is locally verified (56focused, strict11/11, ESLint, independent review/Simplifier); obtain exact CI image tuple and run authorized A5/A6 before claiming live Laya budget delivery or semantic discrimination.
