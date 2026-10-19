@@ -25,8 +25,10 @@
 
 ## 3. Verification and operational follow-up
 
-- [ ] 3.1 Run focused SystemOne tests, `npm run test:all`, lint, core/OpenSSE
-      typechecks, docs checks, and strict OpenSpec validation.
+- [ ] 3.1 Run focused SystemOne schema, dispatch, and route tests, lint,
+      core/OpenSSE typechecks, docs checks, and strict OpenSpec validation. Per
+      owner decision on 2026-10-19, `npm run test:all` is not a gate for this
+      package; use package-scoped verification.
 - [ ] 3.2 Run Code Simplifier and an independent review; fix findings and
       rerun affected checks.
 - [ ] 3.3 After integration onto the approved current source, build and run the

@@ -1,7 +1,10 @@
 # Completion review — 2026-10-18
 
-Status: implementation source independently reviewed; focused checks pass.
-Official ARM64 build, artifact identity, SDK pin, and A5 acceptance remain open.
+Status: A2/A4 source implementation independently reviewed; focused checks pass.
+CI `39159761994` on approved main source `876c6c4b471c5a1eb344418a249217f5b309d706`
+completed the official ARM64 build, artifact verification, publication, and deployment.
+The exact artifact tuple is recorded in the SDK completion review. A2 native budget
+delivery, SDK integration, and authenticated A5 response acceptance remain open.
 
 ## Review, corrections, and Code Simplifier
 
@@ -42,12 +45,13 @@ Official ARM64 build, artifact identity, SDK pin, and A5 acceptance remain open.
 
 ## Remaining acceptance
 
-- Build locally with the official Linux ARM64 image/toolchain; record source SHA, server
-  `BUILD_SHA`, compiled SystemOne route hash, OCI revision, and image digest
-  from the actual candidate image.
-- Pin the SDK integration to the reviewed image and run authenticated
-  SystemOne acceptance. Keep A5 public-response acceptance pending until that
-  image exists.
+- The A4 artifact tuple is verified from CI `39159761994` on approved main source
+  `876c6c4b471c5a1eb344418a249217f5b309d706`; the SDK completion review records
+  the measured source SHA, server `BUILD_SHA`, compiled route hash, OCI revision,
+  and image digest from the actual image.
+- Pin SDK integration to that verified image and run authenticated SystemOne
+  acceptance. Keep A5 public-response acceptance open until the authenticated
+  response is accepted and recorded.
 - Keep `openspec/TODO.md` follow-ups open. Do not archive this change until
   those gates are evidenced.
 
@@ -55,4 +59,11 @@ Official ARM64 build, artifact identity, SDK pin, and A5 acceptance remain open.
 Linux E2E infrastructure correction: retained interrupted v2 log reached106/146 with six failures, no final collector result, so no passing/cleanup proof claimed. Five failures used hardcoded20128 instead of configured20158; dashboard auth used page.evaluate while legacy client redirects destroyed execution context. Tests now use configured baseURL and BrowserContext-shared page.request probes, preserving assertions/auth cookies; responses disposed, catch narrowed to unknown. Focused ESLint and diffcheck pass; independent review ACCEPT and Code Simplifier no further change. APIRequestContext bypasses page.route mocks; full rerun includes those consumers. Fresh local v3 full146-test run pending; no target/container/deploy action. No timeouts, retries or exclusions changed.
 
 
-Owner scope correction: unrelated E2E repairs are no longer a prerequisite for the small Laya-budget change. Stopped only owned local v3 collector; its owned server has exited and port20158 is closed. Partial full E2E is not accepted. Existing targeted SystemOne schema/dispatch/route suite rerun56/56passed in4.79s; no retries/exclusions added. Preserve unrelated dirty work for separate review rather than silently mixing it into this patch. No remote deployment/push occurred.
+Earlier owner scope correction: unrelated E2E repairs are no longer a prerequisite for the small Laya-budget change. Stopped only owned local v3 collector; its owned server has exited and port20158 is closed. Partial full E2E is not accepted. Existing targeted SystemOne schema/dispatch/route suite rerun56/56passed in4.79s; no retries/exclusions added. Preserve unrelated dirty work for separate review rather than silently mixing it into this patch. No remote deployment/push had occurred at that checkpoint.
+
+
+## Owner-scoped A2/A4 verification — 2026-10-19
+
+A2 source checks passed: 56/56 focused schema/dispatch/route tests, strict OpenSpec 11/11, clean ESLint, independent review ACCEPT, and Code Simplifier found no further changes. A4 writer/verifier checks passed 26/26 with strict OpenSpec 11/11, independent review ACCEPT, and no Code Simplifier changes. The approved PR22 tree is main revision `876c6c4b471c5a1eb344418a249217f5b309d706`; CI `39159761994` completed build, verification, publication, and deployment. The verified source/BUILD_SHA/compiled-route/OCI/image tuple is recorded in the [SDK completion review](../../../../../nomadic-sdk/openspec/changes/add-code-mode-foundation/completion.review). This proves the A4 artifact tuple, not authenticated SystemOne response acceptance, SDK integration, or A6 semantic acceptance.
+
+Owner decision on 2026-10-19: the full OmniRoute repository test matrix is not a gate for these A2/A4 source slices. Existing receipt `.tmp/test-matrix/20261018T231356Z/` is diagnostic only (HEAD `32b905ba0e78f3de7051a514ca69c2b61bc51029`; `summary.txt` and `SHA256SUMS`). It records unit exit 1 (Vitest 605 passed, 1 failed in `workflows-no-foreign-fork-publishers`; the assertion expects no Etcetera-specific guard while this fork has such guards, and whether either requires reconciliation is unresolved), UI 2845 passed, integration 942 passed/78 skipped, ecosystem 20 passed, protocol 2 passed, E2E web server exit 143 before tests, coverage exit 1 mirroring unit, and two ESLint unused options in `tests/unit/build/merge-official-backend-overlay.test.mjs`. These results are not a full-repository pass or a proven baseline. A separate scope audit found that the two lint bindings at lines 211–212 predate this slice: the target file has no diff from minimal-release base `484bae128d6c895ff1f106adb9afebd001e9073a`, and blame points to `0e12d43fde7` from 2026-10-04. Exclude this lint pair from A2/A4; this does not classify other matrix failures as baseline. Keep applicable repository-wide diagnosis separate; no related source repair was made here.
