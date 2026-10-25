@@ -158,13 +158,15 @@ export type BandCandidateFilter = (candidate: BandCandidate) => boolean;
 
 // AICODE-NOTE: Band predicates constrain the pool only when the feature flag is
 // enabled; quality stays ahead of capability resolution to avoid needless lookups.
-export function buildBandCheck(category?: string): BandCandidateFilter | null {
+export function buildBandCheck(category?: string, tier?: string): BandCandidateFilter | null {
   if (!isBandsEnabled()) return null;
 
   const parsed = parseBandCategory(category);
   if (!parsed) return null;
 
-  const qualityCheck = createQualityBandCheck(parsed.task, parsed.band);
+  const qualityCheck = createQualityBandCheck(parsed.task, parsed.band, {
+    allowModelsDevTier: tier === "free",
+  });
   const capabilityCheck = buildCapabilityCheck(
     parsed.capabilities,
     getBandConfig().capabilities.so.unknown

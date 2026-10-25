@@ -12,6 +12,7 @@ export interface QualityBandFilterDependencies {
   getBandRange(task: BandTask, band: QualityBand): BandRange;
   getRatedSources(): readonly string[];
   getTaskFitnessWithSource(model: string, taskType: string): { score: number; source: string };
+  allowModelsDevTier?: boolean;
 }
 
 type QualityBandFilterOverrides = Partial<QualityBandFilterDependencies>;
@@ -20,8 +21,8 @@ function getConfiguredRatedSources(): readonly string[] {
   return getBandConfig().ratedSources;
 }
 
-// AICODE-NOTE: Upstream `:inherited` source suffixes remain rated by prefix.
-// Tier, static-table, and wildcard scores are unmeasured and stay available in low only.
+// AICODE-NOTE: models.dev scores count only for free coding-high; other tier,
+// static-table, and wildcard scores remain unmeasured and stay available in low.
 export function createQualityBandCheck(
   task: BandTask,
   band: QualityBand,
@@ -37,7 +38,13 @@ export function createQualityBandCheck(
   return (candidate) => {
     try {
       const { score, source } = resolveFitness(candidate.model, taskType);
-      const isRated = ratedSources.some((ratedSource) => source.startsWith(ratedSource));
+      const isModelsDevTier =
+        overrides.allowModelsDevTier === true &&
+        task === "coding" &&
+        band === "high" &&
+        (source === "models_dev_tier" || source.startsWith("models_dev_tier:"));
+      const isRated =
+        ratedSources.some((ratedSource) => source.startsWith(ratedSource)) || isModelsDevTier;
       if (!isRated) return band === "low";
       return score >= min && score <= max;
     } catch {
