@@ -1,5 +1,32 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## Kev request concurrency checkpoint (2026-10-12)
+
+- Current self-hosted Kev profile selected with `model: laya/kev` handles
+  inference sequentially: its per-profile IPC lock serializes records, and one
+  Kev child process handles requests in sequence. OmniRoute accepts concurrent
+  HTTP requests, which queue at Kev. ONNX CPU threads do not mean separate
+  inference jobs run concurrently.
+- Two ~1k-chunk requests produced the same successful outputs and routes in
+  both runs. Sequential pair: 13.466s total (7.094s, 6.371s). Concurrent HTTP
+  pair: 12.449s total (first 6.417s, second 12.447s), showing queueing rather
+  than concurrent Kev inference. Caller concurrency should be one for this
+  profile. This is not evidence about other Laya profiles or other OmniRoute
+  upstreams.
+- Deployment caps `/opt/kev-model/kev.json` at 8192 for both
+  `max_state_tokens` and `max_row_tokens`. A prior oversized request returned
+  502 to its caller at 180s while Kev continued processing; HTTP timeout does
+  not cancel inference. Worker-pool concurrency remains future work, not
+  current behavior.
+- Documentation checks rerun with Node 24: docs sync, frontmatter, counts,
+  links, and fabricated-doc checks pass. `check:docs-all` stops at existing
+  environment sync drift: `GITHUB_API_URL`, `GITHUB_REF`, and
+  `GITHUB_REPOSITORY` are referenced by code but absent from `.env.example`;
+  none were added by this change. Counts report only three soft warnings for
+  unrelated executor/OAuth docs. Deprecated-version scan reports 97 existing
+  candidate findings. Markdownlint reports 706 issues in three source docs;
+  unchanged HEAD copies report the same 706, so this change adds none.
+
 Date: 2026-10-03
 Scope: reviewed local implementation of `add-auto-band-seam`,
 `add-auto-quality-band-filter`, `add-auto-band-demand-reserve`, and
@@ -649,6 +676,8 @@ Strict CLI1.14.3 prerequisite: restored the already independently reviewed seven
 A2 pre-commit gate: independent review ACCEPT and Code Simplifier found no safe changes in the minimal Laya budget diff. Focused schema/dispatch/route56/56 pass; ESLint no errors; strict all11/11 after separate pre-existing spec-format prerequisite. Defaults, no-budget request bytes, pinned-upstream behavior and configured ceiling are covered. Live acceptance/build identity remain pending; no old E2E cleanup imported.
 
 A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful safe change. Writer/verifier26/26 and strict11/11 pass. Full source SHA is passed by workflow, selected prebuilt server stamp is validated before final image assembly, and actual image stamp/OCI revision are checked before app startup. Real compiled-route/image identity must still come from approved CI; no local image build/pull. No live deploy or A6 semantic acceptance claimed.
+
+- Concurrency wording clarified: one request at a time does not promise FIFO arrival ordering; documented serialization only.
 
 ## OmniRoute free coding high-band rating source — 2026-10-25
 

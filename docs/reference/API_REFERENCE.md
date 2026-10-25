@@ -719,6 +719,13 @@ Responses include OmniRoute meta headers and
 `call_logs` stores one metadata row per upstream attempt, never the request or
 response body.
 
+The self-hosted Kev profile selected with `model: laya/kev` currently processes
+inference requests sequentially. OmniRoute can accept concurrent HTTP requests
+to `POST /v1/systemone`, but requests routed to that profile queue in its single
+worker. Limit callers to one in-flight `laya/kev` request to avoid adding queue
+latency. This describes the current Kev deployment only; it does not describe
+other upstreams or prove cross-profile concurrency.
+
 For clients that cannot attach `Authorization: Bearer ...`, OmniRoute also accepts API keys in the URL via either query-string compatibility (`?token=...`, `?apiKey=...`, `?api_key=...`, `?key=...`) or the dedicated `/api/v1/vscode/{token}/...` endpoints documented below.
 
 ```bash
