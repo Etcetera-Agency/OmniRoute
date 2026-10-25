@@ -420,6 +420,19 @@ Before completing the later band-filter/reserve packages and enabling production
   latency sample; verify `allowedModels` policy, production flag-off,
   deployment variables and rollback, and error-row monitoring. Laya deployment
   and the Hermes caller switch are outside OmniRoute's repository scope.
+- The current self-hosted Kev profile selected with `model: laya/kev` is
+  sequential: concurrent HTTP calls are accepted by OmniRoute but queue at
+  Kev's per-profile IPC lock. Set caller concurrency to one for `laya/kev`.
+  Two ~1k-chunk calls returned the same
+  successful outputs sequentially (13.466s total) and concurrently at HTTP
+  level (12.449s total); the second concurrent call took 12.447s. This does not
+  establish behavior for other profiles or upstreams. A worker pool remains
+  future work only if concurrent Kev inference is needed.
+- Node 24 documentation validation passes sync, frontmatter, strict counts,
+  links, and fabricated-doc checks. Full `check:docs-all` remains stopped by
+  existing `.env.example` drift (`GITHUB_API_URL`, `GITHUB_REF`,
+  `GITHUB_REPOSITORY`). Markdownlint baseline comparison is unchanged at 706
+  existing findings; deprecated-version scan reports 97 existing candidates.
 
 Deferred cross-repository and operations work:
 

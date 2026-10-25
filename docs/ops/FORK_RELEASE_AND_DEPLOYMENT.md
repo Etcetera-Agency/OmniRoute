@@ -355,6 +355,13 @@ Browser state must be a serialized page-state JSON string as required by its
 native adapter. Caller bearer token is the OmniRoute key; the upstream Laya
 key remains in the protected server env file.
 
+The current self-hosted Kev profile selected with `model: laya/kev` is
+sequential. OmniRoute accepts concurrent HTTP calls, but the profile's
+per-record IPC lock queues them for its single Kev worker; caller concurrency
+for `laya/kev` should be one. ONNX CPU threading does not provide concurrent
+inference jobs. This finding is scoped to the current Kev profile; no
+cross-profile concurrency claim is established.
+
 ### SystemOne cutover gates and rollback
 
 Before enabling the flag, verify in the production-like test instance that:
