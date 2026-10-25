@@ -1660,6 +1660,14 @@ and the [fork release and deployment guide](../ops/FORK_RELEASE_AND_DEPLOYMENT.m
 All settings are read from the server environment. Keep API keys in the
 deployment secret store; the values below are never populated with credentials.
 
+For the current self-hosted Kev profile selected with `model: laya/kev`,
+inference is sequential: concurrent OmniRoute requests queue at Kev's
+per-profile IPC lock and one Kev worker process handles one request at a time. Configure
+callers for one in-flight `laya/kev` request. ONNX CPU thread settings do not
+make separate inference requests run concurrently. This operational note
+applies to the deployed Kev profile; other Laya profiles have separate workers,
+and their cross-profile concurrency has not been measured.
+
 | Variable | Default | Source File | Description |
 | --- | --- | --- | --- |
 | `OMNIROUTE_SYSTEMONE` | _(unset; off)_ | `open-sse/services/systemOne/config.ts` | Master switch. Only `1` or `true` enables `POST /v1/systemone`; unset or other values leave it disabled. |
