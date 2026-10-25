@@ -14,8 +14,9 @@
 // test:unit:ci does not walk this dir), so this suite uses the vitest API even
 // though it asserts via node:assert. (#4753 originally landed it with node:test
 // imports → vitest reported "No test suite found" and the test ran nowhere.)
-import { describe, it, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import assert from "node:assert/strict";
+import * as bands from "../../../open-sse/services/autoCombo/bands";
 import {
   buildAutoCandidateFilter,
   parseAutoSuffix,
@@ -83,6 +84,22 @@ describe("suffixComposition :free tier (#4517)", () => {
     // "coding" with no tier must NOT filter by tier — pass-through.
     const filter = buildAutoCandidateFilter("coding", undefined);
     assert.equal(filter, null);
+  });
+
+  it("enables models.dev scores only for the free tier", () => {
+    process.env.OMNIROUTE_AUTO_BANDS = "1";
+    const buildBandCheck = vi.spyOn(bands, "buildBandCheck");
+
+    buildAutoCandidateFilter("coding_high", "free");
+    assert.equal(buildBandCheck.mock.lastCall?.[1], "free");
+
+    buildAutoCandidateFilter("coding_high", "pro");
+    assert.equal(buildBandCheck.mock.lastCall?.[1], "pro");
+
+    buildAutoCandidateFilter("coding_high", "thrifty");
+    assert.equal(buildBandCheck.mock.lastCall?.[1], "thrifty");
+
+    buildBandCheck.mockRestore();
   });
 
   it("buildAutoCandidateFilter keeps free candidates alongside capability checks", () => {

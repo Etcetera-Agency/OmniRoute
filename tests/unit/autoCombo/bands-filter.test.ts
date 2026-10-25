@@ -53,9 +53,41 @@ describe("quality band filter", () => {
     expect(createQualityBandCheck("general", "high", highDeps)(candidate)).toBe(false);
   });
 
-  it.each(["models_dev_tier", "fitness_table"])("treats %s fitness as unrated", (source) => {
-    const dependencies = makeDependencies(() => ({ score: 0.75, source }));
-    expect(createQualityBandCheck("coding", "mid", dependencies)(candidate)).toBe(false);
+  it.each(["fitness_table", "models_dev_tier_extra"])(
+    "treats %s scores as unrated outside low",
+    (source) => {
+      const dependencies = makeDependencies(() => ({ score: 0.75, source }));
+      expect(createQualityBandCheck("coding", "high", dependencies)(candidate)).toBe(false);
+    }
+  );
+
+  it.each(["models_dev_tier", "models_dev_tier:inherited"])(
+    "admits free coding high with %s fitness",
+    (source) => {
+      const dependencies = makeDependencies(() => ({ score: 0.75, source }));
+      expect(
+        createQualityBandCheck("coding", "high", { ...dependencies, allowModelsDevTier: true })(
+          candidate
+        )
+      ).toBe(true);
+    }
+  );
+
+  it.each([
+    ["paid coding high", "coding", "high", false],
+    ["thrifty coding high", "coding", "high", false],
+    ["free general high", "general", "high", true],
+    ["free coding mid", "coding", "mid", true],
+  ] as const)("keeps models.dev tier unrated for %s", (_name, task, band, allowModelsDevTier) => {
+    const dependencies = makeDependencies(() => ({ score: 0.75, source: "models_dev_tier" }));
+    expect(
+      createQualityBandCheck(task, band, { ...dependencies, allowModelsDevTier })(candidate)
+    ).toBe(false);
+  });
+
+  it("keeps unrated models available in low without applying their score", () => {
+    const dependencies = makeDependencies(() => ({ score: 0.99, source: "models_dev_tier" }));
+    expect(createQualityBandCheck("coding", "low", dependencies)(candidate)).toBe(true);
   });
 
   it("treats inherited Arena fitness as rated", () => {
