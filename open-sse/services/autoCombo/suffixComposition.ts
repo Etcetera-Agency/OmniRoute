@@ -191,7 +191,7 @@ export function buildAutoCandidateFilter(
 
   // AICODE-NOTE: bands seam — append fork-only hard checks after upstream tier
   // filters so the existing category/tier behavior retains its precedence.
-  const bandCheck = buildBandCheck(category);
+  const bandCheck = buildBandCheck(category, tier);
   if (bandCheck) checks.push(bandCheck);
 
   if (checks.length === 0) return null;
