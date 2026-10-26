@@ -18,6 +18,14 @@
       configured Ollama credential, selects only `ollama-search`, requires
       zero cost, and never falls back to another search provider. RED reproduced
       the missing Ollama search configuration; GREEN passes in the focused suite.
+- [x] 1.6 Add failing tests for one-row-at-a-time claims, immediate row
+      completion, and preserving discovery evidence when strict-SO times out.
+- [x] 1.7 Add failing tests that a fresh `running` row schedules retry at its
+      stale boundary and becomes claimable after that boundary.
+- [x] 1.8 Add a failing regression proving exhausted rows are terminally cleaned
+      before source snapshots load, with claim/list/eligibility predicates aligned.
+- [x] 1.9 Add a failing regression proving an exact AA/official match blocks
+      discovery search when the direct evidence has no usable fitness score.
 
 ## 2. Implementation
 
@@ -38,10 +46,19 @@
       explicit `ollama-search` execution path; stop before search if its
       registry price is nonzero and reject results with another provider or
       nonzero reported cost. Preserve strict-SO and unrated-evidence gates.
+- [x] 2.8 Claim and finish one queue row at a time; persist each result before
+      claiming another. Bound and abort strict-SO at five minutes while keeping
+      collected search evidence review-required and unrated on timeout.
+- [x] 2.9 Schedule stale-running recovery at the existing 15-minute retry
+      boundary without changing the daily models.dev sync cadence.
+- [x] 2.10 Clean max-attempt rows before checking claimable work so terminal
+      cleanup does not trigger another source refresh.
+- [x] 2.11 Finish exact-match/no-score rows as review-required without HF or web
+      search, preserving the complete-miss search boundary.
 
 ## 3. Verification and acceptance
 
-- [x] 3.1 Run focused RED/GREEN tests (30/30 pass) and `typecheck:core`; the
+- [x] 3.1 Run focused RED/GREEN tests (34/34 pass) and `typecheck:core`; the
       repository-wide check reports 757 errors in other files, with none in
       this diff.
 - [x] 3.2 Check OpenSpec validation availability; the CLI is unavailable in this
@@ -49,8 +66,9 @@
 - [x] 3.3 Verify migration rollback description, `git diff --check`, and that
       frozen score map files are unchanged.
 - [x] 3.4 Independently review configured Ollama credentials, explicit
-      zero-cost provider selection/no alternate, and the exact pinned strict-SO
-      provider/model path; follow-up review found no remaining findings.
+      zero-cost provider selection/no alternate, exact-match search boundary,
+      and pinned strict-SO provider/model path; follow-up review found no
+      remaining findings.
 - [ ] 3.4a Verify live endpoint metadata, exact free connection, internal-key
       availability, and search quota through read-only checks before inference.
 - [ ] 3.5 Commit after Code Simplifier; then use the owner-authorized PR/main
@@ -60,3 +78,5 @@
       connection, output validation, route, zero cost, and absence of fallback.
 - [ ] 3.7 Record the provider's live monthly quota and remaining search capacity
       before allowing the full-catalog worker to consume its allowance.
+- [ ] 3.8 Verify the stuck-row recovery cases, focused suite, independent review,
+      and controlled live search/SO receipt after deployment.

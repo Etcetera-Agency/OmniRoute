@@ -12,6 +12,7 @@ const chatHelpers = await import("../../src/sse/handlers/chatHelpers.ts");
 const originalFetch = globalThis.fetch;
 const originalEnv = { ...process.env };
 const core = await import("../../src/lib/db/core.ts");
+const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const searchDb = await import("../../src/lib/db/modelBenchmarkSearch.ts");
 const processor = await import("../../src/lib/modelBenchmarkSearchProcessor.ts");
@@ -217,7 +218,7 @@ test("web search stops before calling Ollama when registry cost is nonzero", asy
   const originalCost = provider.costPerQuery;
   const urls: string[] = [];
   provider.costPerQuery = 0.001;
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input, _init) => {
     const url = requestUrl(input);
     urls.push(url);
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
@@ -838,6 +839,35 @@ test("search retries stop after five attempts", () => {
   assert.equal(searchDb.listModelBenchmarkSearchRuns()[0].status, "retry_exhausted_unrated");
 });
 
+test("max-attempt rows are cleaned before the queue loads sources", async () => {
+  searchDb.enqueueModelBenchmarkSearches([{ id: "exhausted-model", name: "Exhausted Model" }]);
+  core
+    .getDbInstance()
+    .prepare(
+      `UPDATE model_benchmark_search_models
+       SET status = 'pending_unrated', attempts = 5, last_run_at = ?, last_error = ?
+       WHERE model_id = ?`
+    )
+    .run(new Date().toISOString(), "Search source failed", "exhausted-model");
+
+  const originalFetch = globalThis.fetch;
+  let sourceFetchCalled = false;
+  globalThis.fetch = async () => {
+    sourceFetchCalled = true;
+    throw new Error("Exhausted rows must not load source snapshots");
+  };
+
+  try {
+    await search.drainModelBenchmarkSearchQueue();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(sourceFetchCalled, false);
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
+  assert.equal(searchDb.listModelBenchmarkSearchRuns()[0].status, "retry_exhausted_unrated");
+});
+
 test("full-catalog drain processes a bounded batch and resumes remaining models", async () => {
   searchDb.enqueueModelBenchmarkSearches(
     Array.from({ length: 21 }, (_, index) => ({
@@ -1227,6 +1257,63 @@ test("direct AA scores avoid search while retaining an exact official SWE row", 
   );
 });
 
+test("an exact AA model without a usable score is reviewed without web search", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  const urls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [
+          { slug: "metadata-only-model", name: "Metadata Only Model" },
+          {
+            slug: "peer-model",
+            name: "Peer Model",
+            evaluations: {
+              artificial_analysis_coding_index: 10,
+              artificial_analysis_intelligence_index: 15,
+            },
+          },
+        ],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url === "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json") {
+      return jsonResponse({ rows: [] });
+    }
+    throw new Error(`Discovery search must not run: ${url}`);
+  };
+
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "metadata-only-model", name: "Metadata Only Model" },
+    { id: "peer-model", name: "Peer Model" },
+  ]);
+  await search.drainModelBenchmarkSearchQueue();
+
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(run.status, "review_required");
+  assert.equal(run.sourceStatus.artificialAnalysis.status, "found");
+  assert.equal(run.normalizationStatus, "not_needed");
+  assert.equal(run.sourceStatus.fitness.codingFitness, null);
+  assert.equal(run.sourceStatus.fitness.generalFitness, null);
+  assert.equal(
+    urls.some((url) => url.includes("huggingface.co")),
+    false
+  );
+  assert.equal(
+    urls.some((url) => url === "https://ollama.com/api/web_search"),
+    false
+  );
+});
+
 test("AA exact slug matches when display name includes a reasoning effort", async () => {
   process.env.AA_API_KEY = "test-only-key";
   globalThis.fetch = async (input) => {
@@ -1281,4 +1368,200 @@ test("AA exact slug matches when display name includes a reasoning effort", asyn
   const [row] = searchDb.listModelBenchmarkSearchEvidence("new-model");
   assert.equal(row.matchedModelId, "new-model");
   assert.equal(row.reasoningEffort, "high");
+});
+
+test("a timed-out strict-SO row is saved before the next model is claimed", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-timeout-test",
+    apiKey: "ollama-search-timeout-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  await providersDb.createProviderConnection({
+    provider: "openrouter",
+    authType: "apikey",
+    name: "openrouter-normalization-timeout-test",
+    apiKey: "openrouter-normalization-timeout-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const db = core.getDbInstance();
+  const connectionId = db
+    .prepare("SELECT id FROM provider_connections WHERE provider = 'openrouter' LIMIT 1")
+    .get() as { id: string };
+  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+    "syncedAvailableModels",
+    `openrouter:${connectionId.id}`,
+    JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
+  );
+  process.env.API_KEY_SECRET = "test-only-api-key-secret";
+  await apiKeysDb.createApiKey("benchmark-timeout-test", "test-machine", ["manage"]);
+
+  const originalSetTimeout = globalThis.setTimeout;
+  let fireNormalizationTimeout: (() => void) | null = null;
+  let releaseChatRequest: (() => void) | null = null;
+  let chatRequestStarted = false;
+  const urls: string[] = [];
+  globalThis.setTimeout = ((
+    callback: (...args: unknown[]) => void,
+    delay?: number,
+    ...args: unknown[]
+  ) => {
+    const timer = originalSetTimeout(callback, delay, ...args);
+    if (delay === processor.NORMALIZATION_TIMEOUT_MS) {
+      fireNormalizationTimeout = () => callback(...args);
+    }
+    return timer;
+  }) as typeof globalThis.setTimeout;
+
+  globalThis.fetch = async (input, init) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url === "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints") {
+      return jsonResponse(openRouterEndpointMetadata());
+    }
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url === "https://ollama.com/api/web_search") {
+      const query = JSON.parse(String(init?.body)).query as string;
+      return jsonResponse(
+        query.includes("slow-model")
+          ? { results: [{ title: "Benchmark report", url: "https://example.org/slow-eval" }] }
+          : { results: [] }
+      );
+    }
+    if (url.includes("openrouter.ai/api/v1/chat/completions")) {
+      chatRequestStarted = true;
+      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+      return new Promise<Response>((_resolve, reject) => {
+        releaseChatRequest = () => reject(new DOMException("Test cleanup", "AbortError"));
+        if (signal?.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+      });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "a-slow-model", name: "Slow Model" },
+    { id: "z-next-model", name: "Next Model" },
+  ]);
+  let drain: Promise<void> | null = null;
+  try {
+    drain = search.drainModelBenchmarkSearchQueue();
+    assert.ok(await waitFor(() => chatRequestStarted));
+    const activeRuns = searchDb.listModelBenchmarkSearchRuns();
+    const slow = activeRuns.find((run) => run.modelId === "a-slow-model");
+    const next = activeRuns.find((run) => run.modelId === "z-next-model");
+    assert.ok(slow);
+    assert.ok(next);
+    assert.equal(slow.status, "running");
+    assert.equal(next.status, "pending");
+
+    if (fireNormalizationTimeout) fireNormalizationTimeout();
+    else if (releaseChatRequest) releaseChatRequest();
+    await drain;
+
+    const runs = searchDb.listModelBenchmarkSearchRuns();
+    assert.deepEqual(
+      runs
+        .map((run) => [run.modelId, run.status])
+        .sort(([left], [right]) => left.localeCompare(right)),
+      [
+        ["a-slow-model", "review_required"],
+        ["z-next-model", "unrated_no_evidence"],
+      ]
+    );
+    const completedSlow = runs.find((run) => run.modelId === "a-slow-model");
+    assert.ok(completedSlow);
+    assert.equal(completedSlow.normalizationStatus, "normalization_timeout_unrated");
+    assert.equal(completedSlow.sourceStatus.ollamaSearch.provider, "ollama-search");
+    assert.equal(completedSlow.sourceStatus.ollamaSearch.searchCostUsd, 0);
+    assert.ok(
+      searchDb
+        .listModelBenchmarkSearchEvidence("a-slow-model")
+        .some((row) => row.source === "ollama-search")
+    );
+    assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 2);
+  } finally {
+    if (fireNormalizationTimeout) (fireNormalizationTimeout as () => void)();
+    else if (releaseChatRequest) releaseChatRequest();
+    await drain?.catch(() => undefined);
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("a fresh running row schedules recovery at its stale boundary", async () => {
+  searchDb.enqueueModelBenchmarkSearches([{ id: "stale-model", name: "Stale Model" }]);
+  const db = core.getDbInstance();
+  db.prepare(
+    `UPDATE model_benchmark_search_models
+     SET status = 'running', attempts = 1, last_run_at = ?
+     WHERE model_id = ?`
+  ).run(new Date().toISOString(), "stale-model");
+
+  const originalSetTimeout = globalThis.setTimeout;
+  let recoveryTimer: { callback: (...args: unknown[]) => void; delay: number } | null = null;
+  globalThis.setTimeout = ((
+    callback: (...args: unknown[]) => void,
+    delay?: number,
+    ...args: unknown[]
+  ) => {
+    const timer = originalSetTimeout(callback, delay, ...args);
+    if (typeof delay === "number" && delay > 60_000) {
+      recoveryTimer = { callback: () => callback(...args), delay };
+    }
+    return timer;
+  }) as typeof globalThis.setTimeout;
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    await search.drainModelBenchmarkSearchQueue();
+    assert.ok(recoveryTimer);
+    assert.ok((recoveryTimer as { delay: number }).delay > 0);
+    assert.ok((recoveryTimer as { delay: number }).delay <= 15 * 60 * 1000);
+    assert.equal(searchDb.listModelBenchmarkSearchRuns()[0].status, "running");
+
+    db.prepare("UPDATE model_benchmark_search_models SET last_run_at = ? WHERE model_id = ?").run(
+      new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+      "stale-model"
+    );
+    (recoveryTimer as { callback: () => void }).callback();
+    const recovered = await waitFor(() => {
+      const [run] = searchDb.listModelBenchmarkSearchRuns();
+      return run.attempts === 2 && run.status === "source_error" ? run : null;
+    });
+    assert.ok(recovered);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
 });

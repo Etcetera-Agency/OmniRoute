@@ -61,21 +61,34 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## Missing-model benchmark search
 
-- [ ] Finish live acceptance for scheduled search. The deployed
-      implementation invokes `duckduckgo-free` directly with empty credentials;
-      the current live queue shows `duckduckgoFree:error` on 45 of the latest
-      100 runs. Direct DDG requests time out from this host. Live provider
-      catalog reports `ollama-search` configured at zero cost with a 1,000
-      requests/month quota; it is the only configured zero-cost web provider.
-      Local source now uses the credential-resolving search service, pins
-      `ollama-search`, rejects nonzero cost/provider changes, and has no
-      alternate. Deploy, prove one controlled live search and strict-SO result,
-      and establish the remaining quota before the full-catalog drain. The live
-      queue has 3,999 rows (3,770 prior missing-AA-key errors); enabled
-      models.dev sync triggers an initial drain and chains batches of 100. The
-      registry allows 1,000 searches/month, but current usage is unknown. The
-      service container has `AA_API_KEY` set. No paid provider is authorized
-      as fallback.
+- [x] Prepare queue liveness fix on `fix/model-benchmark-search-recovery`.
+      Live inspection on 2026-10-26 found 20 rows all `running`, each claimed
+      at 17:02:47Z with attempt 2; queue counts and timestamps had not moved,
+      and there were no matching search/benchmark logs. Source proves the drain
+      preclaimed 20 rows and persisted status only after the whole batch; the
+      exact awaited operation remains unproven. The local fix claims and
+      finishes one row at a time, persists search evidence before strict-SO,
+      aborts strict-SO after five minutes, and schedules recovery for fresh
+      running rows at their 15-minute stale boundary. A complete AA/official
+      match now blocks HF/web discovery even when it has no usable fitness
+      score. Focused regression tests pass 34/34. Independent review found and
+      prompted a fix for exhausted rows being treated as eligible before
+      terminal cleanup; follow-up reviews confirmed both fixes with no
+      remaining findings. PR, deployment, and live acceptance remain pending.
+
+- [ ] Finish live acceptance for scheduled search. At 2026-10-26 18:55 UTC,
+      production was healthy on revision `dbb02d7d40c9dd8aa4c7328fabc9342e3ebca90d`,
+      image `ghcr.io/etcetera-agency/omniroute@sha256:e1ef8194e2f889bb7f1b59124cd2bf61cc48fe96404fafc3a8f8ea7868b24ba2`.
+      The current read-only queue has 4,095 rows (38 review-required, 20
+      running, 9 scored, 3,978 source-error, 50 unrated/no-evidence); 20 stale
+      running rows remain unchanged from 17:02:47Z. `AA_API_KEY` is set. The
+      `ollama-search` registry lists zero cost and 1,000 requests/month, but
+      exact account usage/remain is unknown. The local fix pins
+      credential-resolved `ollama-search`, rejects nonzero cost/provider
+      changes, keeps no alternate, and bounds exact free strict-SO. After
+      deploy, prove one controlled search and strict-SO request, then establish
+      remaining quota before resuming the full-catalog drain. Paid fallback is
+      prohibited.
 
 - [x] Local `add-model-benchmark-search` source-lookup slice: successful
       non-dry-run models.dev capability syncs detect exact new model IDs after
