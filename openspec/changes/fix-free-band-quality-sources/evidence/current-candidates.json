@@ -1,0 +1,554 @@
+{
+  "captured_at": "2026-10-25T18:47:57.198Z",
+  "live": true,
+  "source": "etc2nd-shlink /api/v1/auto-combo/best-free/candidates",
+  "account_candidate_count": 106,
+  "candidates": [
+    {
+      "provider": "api-airforce",
+      "model": "google/gemma3-270m:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "gemini",
+      "model": "lyria-3-clip-preview",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "gemini",
+      "model": "lyria-3-pro-preview",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "groq",
+      "model": "allam-2-7b",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "canopylabs/orpheus-arabic-saudi",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "canopylabs/orpheus-v1-english",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "groq/compound",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "groq/compound-mini",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "llama-3.1-8b-instant",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "meta-llama/llama-prompt-guard-2-22m",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "meta-llama/llama-prompt-guard-2-86m",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-120b",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-20b",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-safeguard-20b",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3-32b",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3.6-27b",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "groq",
+      "model": "whisper-large-v3",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "groq",
+      "model": "whisper-large-v3-turbo",
+      "configuration": null,
+      "account_count": 3,
+      "available_account_count": 3
+    },
+    {
+      "provider": "kilocode",
+      "model": "cohere/north-mini-code:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "kilo-auto/free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "liquid/lfm-2.5-2.6b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3.5-content-safety:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "poolside/laguna-s-2.1:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "poolside/laguna-xs-2.1:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "reflection/beam-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "stealth/glyph-cluster",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "kilocode",
+      "model": "xingchen-agi/xing4.0-29b-a4b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "mistral",
+      "model": "mistral-medium-3-5",
+      "configuration": null,
+      "account_count": 2,
+      "available_account_count": 2
+    },
+    {
+      "provider": "nvidia",
+      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "google/diffusiongemma-26b-a4b-it",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "google/gemma-4-31b-it",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "meta/llama-3.2-11b-vision-instruct",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "meta/llama-3.2-90b-vision-instruct",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "meta/muse-glimmer-30b",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "poolside/laguna-xs-2.1",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "stepfun-ai/step-5-preview",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "z-ai/glm-5.3",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "nvidia",
+      "model": "z-ai/glm-5.3-flash",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "beam-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "big-pickle",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "deepseek-v4.1-flash-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "glm-5.3-flash-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "longcat-2.5-preview-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "mimo-v2.6-flash-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "nemotron-3.5-lightning-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "nemotron-3.5-super-vl-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "space-bunny-free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "cohere/north-mini-code:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/gemma-4-26b-a4b-it:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/gemma-4-31b-it:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/lyria-3-clip-preview",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/lyria-3-pro-preview",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "liquid/lfm-2.5-2.6b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-content-safety:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "openrouter/free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "poolside/laguna-s-2.1:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "poolside/laguna-xs-2.1:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "recursive/flint-v1.0:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "thinkingmachines/inkling-small:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "thinkingmachines/inkling:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    },
+    {
+      "provider": "openrouter",
+      "model": "xingchen-agi/xing4.0-29b-a4b:free",
+      "configuration": null,
+      "account_count": 1,
+      "available_account_count": 1
+    }
+  ]
+}

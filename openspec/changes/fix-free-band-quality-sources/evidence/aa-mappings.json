@@ -1,0 +1,1943 @@
+[
+  {
+    "provider": "groq",
+    "model": "llama-3.1-8b-instant",
+    "canonical_model_id": "meta/llama-3.1-8b-instruct",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "groq",
+      "models_dev_model": "llama-3.1-8b-instant",
+      "canonical_model_id": "meta/llama-3.1-8b-instruct",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/llama-3-1-instruct-8b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "739684ba-0f63-4e2a-b4ee-30741c9e9320",
+        "name": "Llama 3.1 Instruct 8B",
+        "creator_id": "e1694725-0192-4e54-b1b8-c97e816c6cbe",
+        "release_date": "2024-07-23"
+      }
+    ],
+    "aa_id": "739684ba-0f63-4e2a-b4ee-30741c9e9320",
+    "configuration": "non-reasoning",
+    "configuration_evidence": {
+      "provider_record_reasoning": false,
+      "aa_isReasoning": false,
+      "source": "models-dev-subset.json + aa-public-metadata.json"
+    },
+    "fixed_configuration": true
+  },
+  {
+    "provider": "groq",
+    "model": "llama-3.3-70b-versatile",
+    "canonical_model_id": "meta/llama-3.3-70b-instruct",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "groq",
+      "models_dev_model": "llama-3.3-70b-versatile",
+      "canonical_model_id": "meta/llama-3.3-70b-instruct",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/llama-3-3-instruct-70b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "976cc8ad-7904-4056-83c5-960181f47d5f",
+        "name": "Llama 3.3 Instruct 70B",
+        "creator_id": "e1694725-0192-4e54-b1b8-c97e816c6cbe",
+        "release_date": "2024-12-06"
+      }
+    ],
+    "aa_id": "976cc8ad-7904-4056-83c5-960181f47d5f",
+    "configuration": "non-reasoning",
+    "configuration_evidence": {
+      "provider_record_reasoning": false,
+      "aa_isReasoning": false,
+      "source": "models-dev-subset.json + aa-public-metadata.json"
+    },
+    "fixed_configuration": true
+  },
+  {
+    "provider": "groq",
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "identity_evidence": {
+      "source": "https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct",
+      "provider_metadata": "evidence/models-dev-subset.json",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/llama-4-scout"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "adf9a85e-abc3-4f28-937b-db6655cc5238",
+        "name": "Llama 4 Scout",
+        "creator_id": "e1694725-0192-4e54-b1b8-c97e816c6cbe",
+        "release_date": "2025-04-05"
+      }
+    ],
+    "aa_id": "adf9a85e-abc3-4f28-937b-db6655cc5238",
+    "configuration": "non-reasoning",
+    "fixed_configuration": true,
+    "configuration_evidence": {
+      "source": "https://console.groq.com/docs/model/meta-llama/llama-4-scout-17b-16e-instruct",
+      "aa_metadata": "evidence/aa-public-metadata.json",
+      "finding": "Model has no selectable reasoning mode."
+    }
+  },
+  {
+    "provider": "groq",
+    "model": "openai/gpt-oss-120b",
+    "canonical_model_id": "openai/gpt-oss-120b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "groq",
+      "models_dev_model": "openai/gpt-oss-120b",
+      "canonical_model_id": "openai/gpt-oss-120b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/gpt-oss-120b-low",
+        "https://artificialanalysis.ai/models/gpt-oss-120b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "c99f3bde-7c08-4de8-bd5c-8ee9123ebffa",
+        "name": "gpt-oss-120b (Low)",
+        "creator_id": "e67e56e3-15cd-43db-b679-da4660a69f41",
+        "release_date": "2025-08-05"
+      },
+      {
+        "id": "f0083258-8646-45b8-8082-7aaf6c2ea82a",
+        "name": "gpt-oss-120b (High)",
+        "creator_id": "e67e56e3-15cd-43db-b679-da4660a69f41",
+        "release_date": "2025-08-05"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Groq API reference",
+      "controls": "reasoning_effort",
+      "default_mode": "medium",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/openai/gpt-oss-120b",
+        "https://models.dev/catalog.json",
+        "https://console.groq.com/docs/api-reference"
+      ],
+      "notes": [
+        "Groq default is medium; AA snapshot only has Low and High. Median is an estimate for missing Medium."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "groq",
+    "model": "openai/gpt-oss-20b",
+    "canonical_model_id": "openai/gpt-oss-20b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "groq",
+      "models_dev_model": "openai/gpt-oss-20b",
+      "canonical_model_id": "openai/gpt-oss-20b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/gpt-oss-20b-low",
+        "https://artificialanalysis.ai/models/gpt-oss-20b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "16149b9c-a1e9-4669-a5cb-ff3c00d78f89",
+        "name": "gpt-oss-20b (Low)",
+        "creator_id": "e67e56e3-15cd-43db-b679-da4660a69f41",
+        "release_date": "2025-08-05"
+      },
+      {
+        "id": "36f73aaf-d38a-4b56-a2b3-d04d17186910",
+        "name": "gpt-oss-20b (High)",
+        "creator_id": "e67e56e3-15cd-43db-b679-da4660a69f41",
+        "release_date": "2025-08-05"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Groq API reference",
+      "controls": "reasoning_effort",
+      "default_mode": "medium",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/openai/gpt-oss-20b",
+        "https://models.dev/catalog.json",
+        "https://console.groq.com/docs/api-reference"
+      ],
+      "notes": [
+        "Groq default is medium; AA snapshot only has Low and High. Median is an estimate for missing Medium."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "groq",
+    "model": "qwen/qwen3-32b",
+    "identity_evidence": {
+      "source": "https://console.groq.com/docs/model/qwen/qwen3-32b",
+      "provider_metadata": "evidence/models-dev-subset.json",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/qwen3-32b-instruct",
+        "https://artificialanalysis.ai/models/qwen3-32b-instruct-reasoning"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "bf60740e-6aa5-422f-ba49-ef6e9d171205",
+        "name": "Qwen3 32B (Non-reasoning)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2025-04-28"
+      },
+      {
+        "id": "b00ecd62-a53f-4aed-b833-3e9d6b0170ba",
+        "name": "Qwen3 32B (Reasoning)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2025-04-28"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Groq API reference",
+      "controls": "reasoning_effort",
+      "default_mode": "reasoning",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/Qwen/Qwen3-32B",
+        "https://models.dev/catalog.json",
+        "https://console.groq.com/docs/api-reference"
+      ],
+      "notes": [
+        "Groq Qwen3/Qwen3.6 expose none/default, not graded high. Enabled mode maps to AA Reasoning; no invented low/medium/high distinction."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "groq",
+    "model": "qwen/qwen3.6-27b",
+    "canonical_model_id": "alibaba/qwen3.6-27b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "groq",
+      "models_dev_model": "qwen/qwen3.6-27b",
+      "canonical_model_id": "alibaba/qwen3.6-27b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/qwen3-6-27b-non-reasoning",
+        "https://artificialanalysis.ai/models/qwen3-6-27b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "3b156101-b0d7-4438-b350-2d1f1168f40a",
+        "name": "Qwen3.6 27B (Non-reasoning)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2026-04-22"
+      },
+      {
+        "id": "8c29d66d-bf98-4ea3-8572-5409353ecc66",
+        "name": "Qwen3.6 27B (Reasoning)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2026-04-22"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Groq API reference",
+      "controls": "reasoning_effort",
+      "default_mode": "reasoning",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/Qwen/Qwen3.6-27B",
+        "https://models.dev/catalog.json",
+        "https://console.groq.com/docs/api-reference"
+      ],
+      "notes": [
+        "Groq Qwen3/Qwen3.6 expose none/default, not graded high. Enabled mode maps to AA Reasoning; no invented low/medium/high distinction."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "groq",
+    "model": "qwen/qwen3.8-27b",
+    "canonical_model_id": "alibaba/qwen3.8-27b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "groq",
+      "models_dev_model": "qwen/qwen3.8-27b",
+      "canonical_model_id": "alibaba/qwen3.8-27b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/qwen3-8-27b-non-reasoning",
+        "https://artificialanalysis.ai/models/qwen3-8-27b-low",
+        "https://artificialanalysis.ai/models/qwen3-8-27b-medium",
+        "https://artificialanalysis.ai/models/qwen3-8-27b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "353c92f3-2148-4c2d-9231-aa7e1322a1fd",
+        "name": "Qwen3.8 27B (Non-reasoning)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2026-08-14"
+      },
+      {
+        "id": "7e30585f-fad7-40df-a8cb-03c1d96df38a",
+        "name": "Qwen3.8 27B (Low)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2026-08-14"
+      },
+      {
+        "id": "6657d7de-a2a9-40bc-a32f-86e80ad63698",
+        "name": "Qwen3.8 27B (Medium)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2026-08-14"
+      },
+      {
+        "id": "b01dee41-c62b-48ed-8d16-984adc405e5c",
+        "name": "Qwen3.8 27B (Xhigh)",
+        "creator_id": "d874d370-74d3-4fa0-ba00-5272f92f946b",
+        "release_date": "2026-08-14"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Groq API reference",
+      "controls": "reasoning_effort",
+      "default_mode": "none",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "xhigh"
+      },
+      "sources": [
+        "https://huggingface.co/Qwen/Qwen3.8-27B",
+        "https://models.dev/catalog.json",
+        "https://console.groq.com/docs/api-reference"
+      ],
+      "notes": [
+        "Groq high selects native Qwen xhigh; default is none. Source: current Groq API reference, not native Qwen defaults."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "cohere/north-mini-code:free",
+    "canonical_model_id": "cohere/north-mini-code-1-0",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "kilo",
+      "models_dev_model": "cohere/north-mini-code:free",
+      "canonical_model_id": "cohere/north-mini-code-1-0",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/north-mini-code"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+        "name": "North Mini Code",
+        "creator_id": "671d3708-c407-4b8f-b350-f728e4689d26",
+        "release_date": "2026-06-09"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/CohereLabs/North-Mini-Code-1.0",
+        "https://models.dev/catalog.json",
+        "https://api.kilo.ai/api/openrouter/models",
+        "https://kilo.ai/docs/gateway/models-and-providers"
+      ],
+      "notes": [
+        "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "liquid/lfm-2.5-2.6b:free",
+    "identity_evidence": {
+      "source": "https://huggingface.co/LiquidAI/LFM2.5-2.6B",
+      "provider_metadata": "evidence/models-dev-subset.json",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/lfm2-5-2-6b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+        "name": "LFM2.5-2.6B",
+        "creator_id": "5b1886c4-43ba-4007-b840-9d21a2b7d42c",
+        "release_date": "2026-08-04"
+      }
+    ],
+    "aa_id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+    "configuration": "fixed-reasoning",
+    "fixed_configuration": true,
+    "configuration_evidence": {
+      "source": "https://huggingface.co/LiquidAI/LFM2.5-2.6B",
+      "aa_metadata": "evidence/aa-public-metadata.json",
+      "finding": "Official model card documents always-thinking behavior; AA records reasoning without effort suffix."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "canonical_model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "kilo",
+      "models_dev_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "canonical_model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-nano-omni-30b-a3b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+        "name": "Nemotron 3 Nano Omni 30B A3B Reasoning",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-04-29"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+        "https://models.dev/catalog.json",
+        "https://api.kilo.ai/api/openrouter/models",
+        "https://kilo.ai/docs/gateway/models-and-providers"
+      ],
+      "notes": [
+        "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "nvidia/nemotron-3-super-120b-a12b:free",
+    "canonical_model_id": "nvidia/nemotron-3-super-120b-a12b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "kilo",
+      "models_dev_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "canonical_model_id": "nvidia/nemotron-3-super-120b-a12b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nvidia-nemotron-3-super-120b-a12b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+        "name": "Nemotron 3 Super 120B A12B (Reasoning)",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-03-11"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.effort",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "https://models.dev/catalog.json",
+        "https://api.kilo.ai/api/openrouter/models",
+        "https://kilo.ai/docs/gateway/models-and-providers"
+      ],
+      "notes": [
+        "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo.",
+        "AA only labels Reasoning, so scores do not distinguish its low-effort switch from normal thinking."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "canonical_model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "kilo",
+      "models_dev_model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "canonical_model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nvidia-nemotron-3-ultra-550b-a55b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+        "name": "Nemotron 3 Ultra 550B A55B (Reasoning)",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-06-04"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.effort",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
+        "https://models.dev/catalog.json",
+        "https://api.kilo.ai/api/openrouter/models",
+        "https://kilo.ai/docs/gateway/models-and-providers"
+      ],
+      "notes": [
+        "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo.",
+        "AA only labels Reasoning; no separate published per-effort scores in this snapshot."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "kilo",
+      "models_dev_model": "nvidia/nemotron-3.5-lightning:free",
+      "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-lightning"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+        "name": "Nemotron 3.5 Lightning",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-08-11"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "https://models.dev/catalog.json",
+        "https://api.kilo.ai/api/openrouter/models",
+        "https://kilo.ai/docs/gateway/models-and-providers"
+      ],
+      "notes": [
+        "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "kilocode",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "kilo",
+      "models_dev_model": "nvidia/nemotron-3.5-super-vl:free",
+      "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-super-vl"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+        "name": "Nemotron 3.5 Super VL",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-10-15"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+        "https://models.dev/catalog.json",
+        "https://api.kilo.ai/api/openrouter/models",
+        "https://kilo.ai/docs/gateway/models-and-providers"
+      ],
+      "notes": [
+        "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "mistral",
+    "model": "mistral-medium-3-5",
+    "identity_evidence": {
+      "source": "https://docs.mistral.ai/models/mistral-medium-3-5-26-04",
+      "provider_metadata": "evidence/models-dev-subset.json",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/mistral-medium-3-5"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "dd059b25-d82a-4ead-82a4-4adceaaec48b",
+        "name": "Mistral Medium 3.5",
+        "creator_id": "b5c0639a-cc9c-443b-a07e-bae6b7088933",
+        "release_date": "2026-04-29"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "reasoning_effort",
+      "default_mode": "none",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/mistralai/Mistral-Medium-3.5-128B",
+        "https://models.dev/catalog.json",
+        "https://docs.mistral.ai/studio/conversations/reasoning"
+      ],
+      "notes": [
+        "Mistral supports none/high; requested positive reasoning uses high. AA has one reasoning result, not three measured levels."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "deepseek-ai/deepseek-v4.1-flash",
+    "canonical_model_id": "deepseek/deepseek-v4.1-flash",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "deepseek-ai/deepseek-v4.1-flash",
+      "canonical_model_id": "deepseek/deepseek-v4.1-flash",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning",
+        "https://artificialanalysis.ai/models/deepseek-v4-1-flash"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "73c96f99-0de3-4668-a4bd-b106a0fe18f2",
+        "name": "DeepSeek V4.1 Flash (Non-reasoning)",
+        "creator_id": "58b835bf-4c87-4f87-a846-df4b692c6e7d",
+        "release_date": "2026-09-10"
+      },
+      {
+        "id": "dbe7c625-3100-4463-b479-a228c41f75dd",
+        "name": "DeepSeek V4.1 Flash (Max)",
+        "creator_id": "58b835bf-4c87-4f87-a846-df4b692c6e7d",
+        "release_date": "2026-09-10"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "reasoning_effort",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+        "https://models.dev/catalog.json",
+        "https://docs.api.nvidia.com/nim/reference/nvidia-deepseek-v4_1-flash"
+      ],
+      "notes": [
+        "Model card documents numeric effort 1..100. This prototype does not claim that OmniRoute string effort is translated to that numeric API. AA Max is only a model proxy for requested high."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "google/diffusiongemma-26b-a4b-it",
+    "canonical_model_id": "google/diffusiongemma-26b-a4b-it",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "google/diffusiongemma-26b-a4b-it",
+      "canonical_model_id": "google/diffusiongemma-26b-a4b-it",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/diffusiongemma-26b-a4b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "c3f12f61-9d57-4e2c-9106-5a82bb1cfee2",
+        "name": "DiffusionGemma 26B A4B",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-06-10"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "chat_template_kwargs.enable_thinking",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/google/diffusiongemma-26B-A4B-it",
+        "https://models.dev/catalog.json"
+      ],
+      "notes": [
+        "Catalog declares reasoning controls; precise hosted default is not documented in captured sources. AA estimate is not a transport verification."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "google/gemma-4-31b-it",
+    "canonical_model_id": "google/gemma-4-31b-it",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "google/gemma-4-31b-it",
+      "canonical_model_id": "google/gemma-4-31b-it",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/gemma-4-31b-non-reasoning",
+        "https://artificialanalysis.ai/models/gemma-4-31b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "d0aa27aa-4705-4184-9a1d-483b78c9331c",
+        "name": "Gemma 4 31B (Non-reasoning)",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-04-02"
+      },
+      {
+        "id": "cd26a386-4873-46ff-b853-d239050025a2",
+        "name": "Gemma 4 31B (Reasoning)",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-04-02"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "chat_template_kwargs.enable_thinking",
+      "default_mode": "none",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/google/gemma-4-31B-it",
+        "https://models.dev/catalog.json",
+        "https://docs.api.nvidia.com/nim/reference/google-gemma-4-31b-it-infer"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "meta/llama-3.2-11b-vision-instruct",
+    "canonical_model_id": "meta/llama-3.2-11b-vision-instruct",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "meta/llama-3.2-11b-vision-instruct",
+      "canonical_model_id": "meta/llama-3.2-11b-vision-instruct",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/llama-3-2-instruct-11b-vision"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "5fb47ff6-a30e-4c2c-96f2-55e95a13390f",
+        "name": "Llama 3.2 Instruct 11B (Vision)",
+        "creator_id": "e1694725-0192-4e54-b1b8-c97e816c6cbe",
+        "release_date": "2024-09-25"
+      }
+    ],
+    "aa_id": "5fb47ff6-a30e-4c2c-96f2-55e95a13390f",
+    "configuration": "non-reasoning",
+    "configuration_evidence": {
+      "provider_record_reasoning": false,
+      "aa_isReasoning": false,
+      "source": "models-dev-subset.json + aa-public-metadata.json"
+    },
+    "fixed_configuration": true
+  },
+  {
+    "provider": "nvidia",
+    "model": "meta/llama-3.2-90b-vision-instruct",
+    "canonical_model_id": "meta/llama-3.2-90b-vision-instruct",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "meta/llama-3.2-90b-vision-instruct",
+      "canonical_model_id": "meta/llama-3.2-90b-vision-instruct",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/llama-3-2-instruct-90b-vision"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "9ca71ac4-41c8-42c0-87dd-5704a9e5b94d",
+        "name": "Llama 3.2 Instruct 90B (Vision)",
+        "creator_id": "e1694725-0192-4e54-b1b8-c97e816c6cbe",
+        "release_date": "2024-09-25"
+      }
+    ],
+    "aa_id": "9ca71ac4-41c8-42c0-87dd-5704a9e5b94d",
+    "configuration": "non-reasoning",
+    "configuration_evidence": {
+      "provider_record_reasoning": false,
+      "aa_isReasoning": false,
+      "source": "models-dev-subset.json + aa-public-metadata.json"
+    },
+    "fixed_configuration": true
+  },
+  {
+    "provider": "nvidia",
+    "model": "meta/muse-glimmer-30b",
+    "canonical_model_id": "meta/muse-glimmer-30b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "meta/muse-glimmer-30b",
+      "canonical_model_id": "meta/muse-glimmer-30b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/muse-glimmer"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "583f98fb-c4b8-4df3-8d40-60ac0ed69882",
+        "name": "Muse Glimmer (High)",
+        "creator_id": "e1694725-0192-4e54-b1b8-c97e816c6cbe",
+        "release_date": "2026-08-10"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "reasoning_effort",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+        "https://models.dev/catalog.json"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-lightning"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+        "name": "Nemotron 3.5 Lightning",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-08-11"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "chat_template_kwargs.enable_thinking",
+      "default_mode": "reasoning",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "https://models.dev/catalog.json",
+        "https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-super-vl"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+        "name": "Nemotron 3.5 Super VL",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-10-15"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "chat_template_kwargs.enable_thinking",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+        "https://models.dev/catalog.json",
+        "https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3_5-super-vl-120b-a12b"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "stepfun-ai/step-5-preview",
+    "canonical_model_id": "stepfun/step-5-preview",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "stepfun-ai/step-5-preview",
+      "canonical_model_id": "stepfun/step-5-preview",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/step-5"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "094ea3e3-ce41-419e-8bd1-723389663158",
+        "name": "Step 5 Preview",
+        "creator_id": "ce2e2e8b-7a22-4020-98ec-8ef71000dd42",
+        "release_date": "2026-09-18"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "chat_template_kwargs.enable_thinking",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/stepfun-ai/Step-5-Preview",
+        "https://models.dev/catalog.json"
+      ],
+      "notes": [
+        "Catalog declares reasoning controls; precise hosted default is not documented in captured sources. AA estimate is not a transport verification."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "z-ai/glm-5.3",
+    "canonical_model_id": "zhipuai/glm-5.3",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "z-ai/glm-5.3",
+      "canonical_model_id": "zhipuai/glm-5.3",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/glm-5-3-low",
+        "https://artificialanalysis.ai/models/glm-5-3"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "cc1e488b-8ba4-464d-875d-690166b15ad3",
+        "name": "GLM-5.3 (Low)",
+        "creator_id": "67437eb6-7dc1-4e93-befd-22c8b8ec2065",
+        "release_date": "2026-08-18"
+      },
+      {
+        "id": "cd684ea4-b475-4269-b001-d469d06d8a7a",
+        "name": "GLM-5.3 (Max)",
+        "creator_id": "67437eb6-7dc1-4e93-befd-22c8b8ec2065",
+        "release_date": "2026-08-18"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "reasoning_effort",
+      "default_mode": "max",
+      "aa_modes": {
+        "low": "low",
+        "medium": "high",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/zai-org/GLM-5.3",
+        "https://models.dev/catalog.json",
+        "https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3"
+      ],
+      "notes": [
+        "Shared sanitizer maps medium to high; high stays high. The low-default injection is restricted to zai/glm-coding-apikey, not NVIDIA."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "nvidia",
+    "model": "z-ai/glm-5.3-flash",
+    "canonical_model_id": "zhipuai/glm-5.3-flash",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "nvidia",
+      "models_dev_model": "z-ai/glm-5.3-flash",
+      "canonical_model_id": "zhipuai/glm-5.3-flash",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/glm-5-3-flash"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+        "name": "GLM-5.3-Flash",
+        "creator_id": "67437eb6-7dc1-4e93-befd-22c8b8ec2065",
+        "release_date": "2026-08-26"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "reasoning_effort",
+      "default_mode": "max",
+      "aa_modes": {
+        "low": "low",
+        "medium": "high",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/zai-org/GLM-5.3-Flash",
+        "https://models.dev/catalog.json",
+        "https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3"
+      ],
+      "notes": [
+        "Shared sanitizer maps medium to high; high stays high. The low-default injection is restricted to zai/glm-coding-apikey, not NVIDIA."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "opencode-zen",
+    "model": "beam-free",
+    "canonical_model_id": "reflection/beam-1.0-501b-a23b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "opencode",
+      "models_dev_model": "beam-free",
+      "canonical_model_id": "reflection/beam-1.0-501b-a23b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/reflection-beam"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "69468cce-7b5c-414a-b498-41df4c34df85",
+        "name": "Beam 1.0",
+        "creator_id": "90bf1f7e-b589-4f69-8efc-bd04bbd0b494",
+        "release_date": "2026-10-16"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "provider-specific effort carrier",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/reflection/Beam-1.0-501B-A23B",
+        "https://models.dev/catalog.json",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "notes": [
+        "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "opencode-zen",
+    "model": "deepseek-v4.1-flash-free",
+    "canonical_model_id": "deepseek/deepseek-v4.1-flash",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "opencode",
+      "models_dev_model": "deepseek-v4.1-flash-free",
+      "canonical_model_id": "deepseek/deepseek-v4.1-flash",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/deepseek-v4-1-flash-non-reasoning",
+        "https://artificialanalysis.ai/models/deepseek-v4-1-flash"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "73c96f99-0de3-4668-a4bd-b106a0fe18f2",
+        "name": "DeepSeek V4.1 Flash (Non-reasoning)",
+        "creator_id": "58b835bf-4c87-4f87-a846-df4b692c6e7d",
+        "release_date": "2026-09-10"
+      },
+      {
+        "id": "dbe7c625-3100-4463-b479-a228c41f75dd",
+        "name": "DeepSeek V4.1 Flash (Max)",
+        "creator_id": "58b835bf-4c87-4f87-a846-df4b692c6e7d",
+        "release_date": "2026-09-10"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "provider-specific effort carrier",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+        "https://models.dev/catalog.json",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "notes": [
+        "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "opencode-zen",
+    "model": "glm-5.3-flash-free",
+    "canonical_model_id": "zhipuai/glm-5.3-flash",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "opencode",
+      "models_dev_model": "glm-5.3-flash-free",
+      "canonical_model_id": "zhipuai/glm-5.3-flash",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/glm-5-3-flash"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+        "name": "GLM-5.3-Flash",
+        "creator_id": "67437eb6-7dc1-4e93-befd-22c8b8ec2065",
+        "release_date": "2026-08-26"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "provider-specific effort carrier",
+      "default_mode": "max",
+      "aa_modes": {
+        "low": "low",
+        "medium": "high",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/zai-org/GLM-5.3-Flash",
+        "https://models.dev/catalog.json",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "notes": [
+        "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate.",
+        "Native GLM default max is an assumption for this gateway, not a documented gateway override."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "opencode-zen",
+    "model": "mimo-v2.6-flash-free",
+    "canonical_model_id": "xiaomi/mimo-v2.6-flash",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "opencode",
+      "models_dev_model": "mimo-v2.6-flash-free",
+      "canonical_model_id": "xiaomi/mimo-v2.6-flash",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/mimo-v2-6-flash"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "127de816-57d3-4037-8484-480a613cd413",
+        "name": "MiMo-V2.6-Flash",
+        "creator_id": "5147c8b4-61d5-4070-9324-8adf8aa144c2",
+        "release_date": "2026-09-21"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "provider-specific effort carrier",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL",
+        "https://models.dev/catalog.json",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "notes": [
+        "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "opencode-zen",
+    "model": "nemotron-3.5-lightning-free",
+    "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "opencode",
+      "models_dev_model": "nemotron-3.5-lightning-free",
+      "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-lightning"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+        "name": "Nemotron 3.5 Lightning",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-08-11"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "provider-specific effort carrier",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "https://models.dev/catalog.json",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "notes": [
+        "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "opencode-zen",
+    "model": "nemotron-3.5-super-vl-free",
+    "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "opencode",
+      "models_dev_model": "nemotron-3.5-super-vl-free",
+      "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-super-vl"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+        "name": "Nemotron 3.5 Super VL",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-10-15"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "models.dev catalog plus model card",
+      "controls": "provider-specific effort carrier",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+        "https://models.dev/catalog.json",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "notes": [
+        "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "cohere/north-mini-code:free",
+    "canonical_model_id": "cohere/north-mini-code-1-0",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "cohere/north-mini-code:free",
+      "canonical_model_id": "cohere/north-mini-code-1-0",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/north-mini-code"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+        "name": "North Mini Code",
+        "creator_id": "671d3708-c407-4b8f-b350-f728e4689d26",
+        "release_date": "2026-06-09"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/CohereLabs/North-Mini-Code-1.0",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "canonical_model_id": "google/gemma-4-26b-a4b-it",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "google/gemma-4-26b-a4b-it:free",
+      "canonical_model_id": "google/gemma-4-26b-a4b-it",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/gemma-4-26b-a4b-non-reasoning",
+        "https://artificialanalysis.ai/models/gemma-4-26b-a4b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "70882ec6-914c-41f0-9754-5e8f75005f77",
+        "name": "Gemma 4 26B A4B (Non-reasoning)",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-04-02"
+      },
+      {
+        "id": "6e1b44ff-c227-496b-aef4-19b70cd18c76",
+        "name": "Gemma 4 26B A4B (Reasoning)",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-04-02"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "none",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/google/gemma-4-26B-A4B-it",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "google/gemma-4-31b-it:free",
+    "canonical_model_id": "google/gemma-4-31b-it",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "google/gemma-4-31b-it:free",
+      "canonical_model_id": "google/gemma-4-31b-it",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/gemma-4-31b-non-reasoning",
+        "https://artificialanalysis.ai/models/gemma-4-31b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "d0aa27aa-4705-4184-9a1d-483b78c9331c",
+        "name": "Gemma 4 31B (Non-reasoning)",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-04-02"
+      },
+      {
+        "id": "cd26a386-4873-46ff-b853-d239050025a2",
+        "name": "Gemma 4 31B (Reasoning)",
+        "creator_id": "faddc6d9-2c14-445f-9b28-56726f59c793",
+        "release_date": "2026-04-02"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "none",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/google/gemma-4-31B-it",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "liquid/lfm-2.5-2.6b:free",
+    "identity_evidence": {
+      "source": "https://huggingface.co/LiquidAI/LFM2.5-2.6B",
+      "provider_metadata": "evidence/models-dev-subset.json",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/lfm2-5-2-6b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+        "name": "LFM2.5-2.6B",
+        "creator_id": "5b1886c4-43ba-4007-b840-9d21a2b7d42c",
+        "release_date": "2026-08-04"
+      }
+    ],
+    "aa_id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+    "configuration": "fixed-reasoning",
+    "fixed_configuration": true,
+    "configuration_evidence": {
+      "source": "https://huggingface.co/LiquidAI/LFM2.5-2.6B",
+      "aa_metadata": "evidence/aa-public-metadata.json",
+      "finding": "Official model card documents always-thinking behavior; AA records reasoning without effort suffix."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "canonical_model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "canonical_model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-nano-omni-30b-a3b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+        "name": "Nemotron 3 Nano Omni 30B A3B Reasoning",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-04-29"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "reasoning",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-super-120b-a12b:free",
+    "canonical_model_id": "nvidia/nemotron-3-super-120b-a12b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "canonical_model_id": "nvidia/nemotron-3-super-120b-a12b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nvidia-nemotron-3-super-120b-a12b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+        "name": "Nemotron 3 Super 120B A12B (Reasoning)",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-03-11"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.effort",
+      "default_mode": "medium",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [
+        "AA only labels Reasoning, so scores do not distinguish its low-effort switch from normal thinking."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "canonical_model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "canonical_model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nvidia-nemotron-3-ultra-550b-a55b"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+        "name": "Nemotron 3 Ultra 550B A55B (Reasoning)",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-06-04"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.effort",
+      "default_mode": "high",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [
+        "AA only labels Reasoning; no separate published per-effort scores in this snapshot."
+      ],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "nvidia/nemotron-3.5-lightning:free",
+      "canonical_model_id": "nvidia/nemotron-3.5-lightning",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-lightning"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+        "name": "Nemotron 3.5 Lightning",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-08-11"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "nvidia/nemotron-3.5-super-vl:free",
+      "canonical_model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/nemotron-3-5-super-vl"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+        "name": "Nemotron 3.5 Super VL",
+        "creator_id": "0c303112-430d-4367-a484-51defaa2e166",
+        "release_date": "2026-10-15"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.enabled",
+      "default_mode": "unknown",
+      "aa_modes": {
+        "low": "reasoning",
+        "medium": "reasoning",
+        "high": "reasoning"
+      },
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "thinkingmachines/inkling-small:free",
+    "canonical_model_id": "thinkingmachines/inkling-small",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "thinkingmachines/inkling-small:free",
+      "canonical_model_id": "thinkingmachines/inkling-small",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/inkling-small"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "7261504e-503c-4a66-a9d3-a3272cdf9ad6",
+        "name": "Inkling Small",
+        "creator_id": "8f3f9fdd-e42f-4814-a35e-5da1925b539b",
+        "release_date": "2026-07-30"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.effort",
+      "default_mode": "high",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/thinkingmachines/Inkling-Small",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  },
+  {
+    "provider": "openrouter",
+    "model": "thinkingmachines/inkling:free",
+    "canonical_model_id": "thinkingmachines/inkling",
+    "identity_evidence": {
+      "source": "https://models.dev/catalog.json",
+      "models_dev_provider": "openrouter",
+      "models_dev_model": "thinkingmachines/inkling:free",
+      "canonical_model_id": "thinkingmachines/inkling",
+      "aa_model_pages": [
+        "https://artificialanalysis.ai/models/inkling"
+      ]
+    },
+    "aa_models": [
+      {
+        "id": "0de09623-2b1a-4c8d-86ef-7f5245d4e24b",
+        "name": "Inkling (Xhigh)",
+        "creator_id": "8f3f9fdd-e42f-4814-a35e-5da1925b539b",
+        "release_date": "2026-07-15"
+      }
+    ],
+    "aa_id": null,
+    "configuration": null,
+    "configuration_note": "The live listing does not expose effective reasoning effort/budget; no AA configuration selected.",
+    "reasoning_audit": {
+      "reasoning_supported": true,
+      "support_basis": "Exact provider model catalog includes reasoning parameter",
+      "controls": "reasoning.effort",
+      "default_mode": "high",
+      "aa_modes": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "sources": [
+        "https://huggingface.co/thinkingmachines/Inkling",
+        "https://models.dev/catalog.json",
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+      ],
+      "notes": [],
+      "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+    }
+  }
+]

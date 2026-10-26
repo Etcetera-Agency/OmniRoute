@@ -1,0 +1,128 @@
+{
+  "model_id": "opencode-zen/longcat-2.5-preview-free",
+  "benchmarks": {
+    "SWE-bench Verified": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "SWE-bench official Verified leaderboard",
+          "url": "https://www.swebench.com/verified.html",
+          "queries": [
+            "site:swebench.com/verified.html \"LongCat-2.5-Preview\"",
+            "site:swebench.com \"LongCat-2.5-Preview\" \"Verified\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "Meituan LongCat API changelog",
+          "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+          "queries": [
+            "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "SWE-bench Multilingual": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "SWE-bench official Multilingual leaderboard and benchmark page",
+          "url": "https://www.swebench.com/multilingual.html",
+          "queries": [
+            "site:swebench.com/multilingual \"LongCat-2.5-Preview\"",
+            "site:swebench.com \"LongCat-2.5-Preview\" \"Multilingual\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "Meituan LongCat API changelog",
+          "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+          "queries": [
+            "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "SWE-bench Pro": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Scale AI official SWE-Bench Pro V2 leaderboard",
+          "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=full",
+          "queries": [
+            "site:labs.scale.com/leaderboard/swe_bench_pro_public_v2 \"LongCat-2.5-Preview\"",
+            "site:labs.scale.com/leaderboard/swe_bench_pro \"LongCat-2.5-Preview\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "Meituan LongCat API changelog",
+          "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+          "queries": [
+            "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "Terminal-Bench": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Terminal-Bench official leaderboard",
+          "url": "https://www.tbench.ai/?version=2.1",
+          "queries": [
+            "site:tbench.ai \"LongCat-2.5-Preview\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "Meituan LongCat API changelog",
+          "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+          "queries": [
+            "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "DeepSWE": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Datacurve official DeepSWE leaderboard",
+          "url": "https://deepswe.datacurve.ai/",
+          "queries": [
+            "site:deepswe.datacurve.ai \"longcat-2.5-preview\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "Meituan LongCat API changelog",
+          "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+          "queries": [
+            "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    }
+  }
+}

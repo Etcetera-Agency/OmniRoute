@@ -1,0 +1,110 @@
+{
+  "model_id": "opencode-zen/big-pickle",
+  "benchmarks": {
+    "SWE-bench Verified": {
+      "status": "found",
+      "results": [
+        {
+          "model": "Big Pickle",
+          "model_version": null,
+          "score": 65,
+          "unit": "% resolved (13/20)",
+          "benchmark_version": "SWE-bench Verified Mini (20-task fixed-seed subset)",
+          "effort": null,
+          "agent": "OpenCode 1.18.33",
+          "source_url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+          "source_date": "2026-10-04",
+          "evidence_quote": "Big Pickle 13 of 20"
+        }
+      ],
+      "search_log": [
+        {
+          "source": "Fellipe Soares, primary benchmark report",
+          "url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+          "queries": ["\"Big Pickle\" \"SWE-bench Verified Mini\"", "\"Big Pickle\" \"SWE-bench Verified\""],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        },
+        {
+          "source": "Official SWE-bench leaderboard",
+          "url": "https://www.swebench.com/",
+          "queries": ["site:swebench.com \"Big Pickle\""],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Multilingual": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench leaderboard, Multilingual track",
+          "url": "https://www.swebench.com/",
+          "queries": ["SWE-bench Multilingual leaderboard official Big Pickle", "\"opencode-zen/big-pickle\" \"SWE-bench Multilingual\""],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Pro": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Scale AI official SWE-Bench Pro V2 public leaderboard",
+          "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2",
+          "queries": ["SWE-bench Pro leaderboard \"Big Pickle\"", "site:scale.com SWE-bench Pro Big Pickle", "\"Big Pickle\" \"SWE-bench Pro\""],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "Terminal-Bench": {
+      "status": "found",
+      "results": [
+        {
+          "model": "Big Pickle",
+          "model_version": null,
+          "score": 71,
+          "unit": "% tasks solved (10/14)",
+          "benchmark_version": "Terminal-Bench 2.1 (14-task subset)",
+          "effort": null,
+          "agent": "OpenCode 1.18.33",
+          "source_url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+          "source_date": "2026-10-04",
+          "evidence_quote": "Big Pickle 10 of 14"
+        }
+      ],
+      "search_log": [
+        {
+          "source": "Fellipe Soares, primary benchmark report",
+          "url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+          "queries": ["\"Big Pickle\" \"Terminal-Bench 2.1\""],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        },
+        {
+          "source": "Official Terminal-Bench 2.0 leaderboard on Harbor Hub",
+          "url": "https://hub.harborframework.com/datasets/terminal-bench/terminal-bench-2/latest?leaderboard=2-0&tab=leaderboard",
+          "queries": ["\"Big Pickle\" \"Terminal-Bench 2.0\"", "Terminal-Bench official leaderboard Big Pickle"],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "DeepSWE": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Datacurve official DeepSWE leaderboard",
+          "url": "https://deepswe.datacurve.ai/",
+          "queries": ["site:deepswe.datacurve.ai \"Big Pickle\"", "site:deepswe.datacurve.ai \"opencode-zen/big-pickle\""],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    }
+  }
+}

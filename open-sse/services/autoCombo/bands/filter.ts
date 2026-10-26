@@ -11,8 +11,13 @@ export type QualityBandCheck = (candidate: QualityBandCandidate) => boolean;
 export interface QualityBandFilterDependencies {
   getBandRange(task: BandTask, band: QualityBand): BandRange;
   getRatedSources(): readonly string[];
-  getTaskFitnessWithSource(model: string, taskType: string): { score: number; source: string };
+  getTaskFitnessWithSource(
+    model: string,
+    taskType: string,
+    profile: "low" | "medium" | "high"
+  ): { score: number; source: string };
   allowModelsDevTier?: boolean;
+  allowBenchmarkConsensus?: boolean;
 }
 
 type QualityBandFilterOverrides = Partial<QualityBandFilterDependencies>;
@@ -21,8 +26,8 @@ function getConfiguredRatedSources(): readonly string[] {
   return getBandConfig().ratedSources;
 }
 
-// AICODE-NOTE: models.dev scores count only for free coding-high; other tier,
-// static-table, and wildcard scores remain unmeasured and stay available in low.
+// AICODE-NOTE: models.dev scores count for all free quality bands; static-table
+// and wildcard scores remain unmeasured and stay available in low.
 export function createQualityBandCheck(
   task: BandTask,
   band: QualityBand,
@@ -34,17 +39,25 @@ export function createQualityBandCheck(
   const { min, max } = resolveRange(task, band);
   const ratedSources = resolveRatedSources();
   const taskType = task === "general" ? "default" : "coding";
+  const profile = band === "mid" ? "medium" : band;
 
   return (candidate) => {
     try {
-      const { score, source } = resolveFitness(candidate.model, taskType);
+      const { score, source } = resolveFitness(candidate.model, taskType, profile);
       const isModelsDevTier =
-        overrides.allowModelsDevTier === true &&
-        task === "coding" &&
-        band === "high" &&
-        (source === "models_dev_tier" || source.startsWith("models_dev_tier:"));
-      const isRated =
-        ratedSources.some((ratedSource) => source.startsWith(ratedSource)) || isModelsDevTier;
+        source === "models_dev_tier" || source.startsWith("models_dev_tier:");
+      const isBenchmarkConsensus =
+        source === "benchmark_consensus" || source.startsWith("benchmark_consensus:");
+      let isRated: boolean;
+      if (isModelsDevTier) {
+        isRated = overrides.allowModelsDevTier === true;
+      } else if (isBenchmarkConsensus) {
+        isRated = overrides.allowBenchmarkConsensus === true;
+      } else {
+        isRated = ratedSources.some(
+          (ratedSource) => source === ratedSource || source.startsWith(`${ratedSource}:`)
+        );
+      }
       if (!isRated) return band === "low";
       return score >= min && score <= max;
     } catch {
