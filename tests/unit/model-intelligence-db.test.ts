@@ -110,8 +110,9 @@ describe("getModelIntelligence", () => {
     resetStorage();
   });
 
-  it("returns user_override when all three sources exist (highest priority)", () => {
+  it("returns user_override when all four sources exist (highest priority)", () => {
     insertEntry("claude-sonnet", "models_dev_tier", "coding", 0.75);
+    insertEntry("claude-sonnet", "benchmark_fitness", "coding", 0.8);
     insertEntry("claude-sonnet", "arena_elo", "coding", 0.88);
     insertEntry("claude-sonnet", "user_override", "coding", 0.99);
 
@@ -122,6 +123,7 @@ describe("getModelIntelligence", () => {
   });
 
   it("returns arena_elo when no user_override exists", () => {
+    insertEntry("gpt-4o", "benchmark_fitness", "coding", 0.9);
     insertEntry("gpt-4o", "arena_elo", "coding", 0.87);
     insertEntry("gpt-4o", "models_dev_tier", "coding", 0.7);
 
@@ -129,6 +131,16 @@ describe("getModelIntelligence", () => {
     assert.ok(entry);
     assert.strictEqual(entry.source, "arena_elo");
     assert.strictEqual(entry.score, 0.87);
+  });
+
+  it("returns benchmark_fitness before models.dev when manual sources are absent", () => {
+    insertEntry("deepseek-r1", "models_dev_tier", "coding", 0.65);
+    insertEntry("deepseek-r1", "benchmark_fitness", "coding", 0.83);
+
+    const entry = mi.getModelIntelligence("deepseek-r1", "coding");
+    assert.ok(entry);
+    assert.strictEqual(entry.source, "benchmark_fitness");
+    assert.strictEqual(entry.score, 0.83);
   });
 
   it("returns models_dev_tier when only that source exists", () => {
@@ -406,11 +418,19 @@ describe("getResolvedTaskFitness", () => {
   });
 
   it("returns arena_elo score when no user_override exists", () => {
+    insertEntry("gpt-4o", "benchmark_fitness", "coding", 0.9);
     insertEntry("gpt-4o", "arena_elo", "coding", 0.87);
     insertEntry("gpt-4o", "models_dev_tier", "coding", 0.7);
 
     const score = mi.getResolvedTaskFitness("gpt-4o", "coding");
     assert.strictEqual(score, 0.87);
+  });
+
+  it("returns benchmark_fitness score before models.dev tier", () => {
+    insertEntry("deepseek-r1", "models_dev_tier", "coding", 0.65);
+    insertEntry("deepseek-r1", "benchmark_fitness", "coding", 0.83);
+
+    assert.strictEqual(mi.getResolvedTaskFitness("deepseek-r1", "coding"), 0.83);
   });
 
   it("returns models_dev_tier score when only that source exists", () => {

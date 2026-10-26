@@ -17,6 +17,7 @@ export interface QualityBandFilterDependencies {
     profile: "low" | "medium" | "high"
   ): { score: number; source: string };
   allowModelsDevTier?: boolean;
+  allowBenchmarkFitness?: boolean;
   allowBenchmarkConsensus?: boolean;
 }
 
@@ -26,8 +27,8 @@ function getConfiguredRatedSources(): readonly string[] {
   return getBandConfig().ratedSources;
 }
 
-// AICODE-NOTE: models.dev scores count for all free quality bands; static-table
-// and wildcard scores remain unmeasured and stay available in low.
+// AICODE-NOTE: benchmark and models.dev scores count for free bands; static-table
+// and wildcard scores stay unrated and available in low.
 export function createQualityBandCheck(
   task: BandTask,
   band: QualityBand,
@@ -44,13 +45,16 @@ export function createQualityBandCheck(
   return (candidate) => {
     try {
       const { score, source } = resolveFitness(candidate.model, taskType, profile);
-      const isModelsDevTier =
-        source === "models_dev_tier" || source.startsWith("models_dev_tier:");
+      const isModelsDevTier = source === "models_dev_tier" || source.startsWith("models_dev_tier:");
       const isBenchmarkConsensus =
         source === "benchmark_consensus" || source.startsWith("benchmark_consensus:");
+      const isBenchmarkFitness =
+        source === "benchmark_fitness" || source.startsWith("benchmark_fitness:");
       let isRated: boolean;
       if (isModelsDevTier) {
         isRated = overrides.allowModelsDevTier === true;
+      } else if (isBenchmarkFitness) {
+        isRated = overrides.allowBenchmarkFitness === true;
       } else if (isBenchmarkConsensus) {
         isRated = overrides.allowBenchmarkConsensus === true;
       } else {

@@ -80,14 +80,112 @@ export function getModelCapabilityIdentitySnapshot(): ModelCapabilityIdentitySna
 export function enqueueModelBenchmarkSearches(identities: ModelBenchmarkSearchIdentity[]): void {
   if (identities.length === 0) return;
   const db = getDbInstance();
-  const insert = db.prepare(`
+  const upsert = db.prepare(`
+    INSERT INTO model_benchmark_search_models (model_id, model_name)
+    VALUES (?, ?)
+    ON CONFLICT(model_id) DO UPDATE SET model_name = excluded.model_name
+  `);
+  const tx = db.transaction(() => {
+    for (const identity of identities) upsert.run(identity.id, identity.name);
+  });
+  tx();
+}
+
+export function enqueueModelsDevCatalogIdentities(
+  identities: ModelBenchmarkSearchIdentity[],
+  previous: ModelCapabilityIdentitySnapshot
+): { fullBackfill: boolean; queued: number } {
+  if (identities.length === 0) return { fullBackfill: false, queued: 0 };
+
+  const db = getDbInstance();
+  const insertModel = db.prepare(`
     INSERT OR IGNORE INTO model_benchmark_search_models (model_id, model_name)
     VALUES (?, ?)
   `);
+  const updateModelName = db.prepare(
+    "UPDATE model_benchmark_search_models SET model_name = ? WHERE model_id = ?"
+  );
   const tx = db.transaction(() => {
-    for (const identity of identities) insert.run(identity.id, identity.name);
+    const marker = db
+      .prepare("SELECT state_value FROM model_benchmark_search_state WHERE state_key = ?")
+      .get("models_dev_full_catalog_backfill");
+    const fullBackfill = !marker || !previous.hasRows;
+    let queued = 0;
+
+    for (const identity of identities) {
+      const shouldQueue = fullBackfill || !previous.ids.has(identity.id);
+      if (!shouldQueue) {
+        updateModelName.run(identity.name, identity.id);
+        continue;
+      }
+
+      const inserted = insertModel.run(identity.id, identity.name).changes;
+      queued += inserted;
+      if (inserted === 0) updateModelName.run(identity.name, identity.id);
+    }
+
+    if (!marker) {
+      db.prepare(
+        `INSERT INTO model_benchmark_search_state (state_key, state_value)
+         VALUES (?, ?)`
+      ).run("models_dev_full_catalog_backfill", "queued");
+    }
+
+    return { fullBackfill, queued };
   });
-  tx();
+
+  return tx();
+}
+
+export function listModelBenchmarkSearchCatalogModels(): ModelBenchmarkSearchIdentity[] {
+  return getDbInstance()
+    .prepare("SELECT model_id, model_name FROM model_benchmark_search_models ORDER BY model_id")
+    .all()
+    .map((row) => {
+      const record = asRecord(row);
+      return { id: String(record.model_id), name: String(record.model_name) };
+    });
+}
+
+export function isModelBenchmarkSearchNameUnique(name: string): boolean {
+  if (!name.trim()) return false;
+  const row = getDbInstance()
+    .prepare(
+      `SELECT COUNT(*) AS count FROM model_benchmark_search_models
+       WHERE lower(trim(model_name)) = lower(trim(?))`
+    )
+    .get(name);
+  return Number(asRecord(row).count) === 1;
+}
+
+export function updateModelBenchmarkSearchSourceStatus(
+  modelId: string,
+  sourceStatus: Record<string, unknown>
+): void {
+  getDbInstance()
+    .prepare(
+      `UPDATE model_benchmark_search_models
+       SET source_status_json = ?
+       WHERE model_id = ?`
+    )
+    .run(JSON.stringify(sourceStatus), modelId);
+}
+
+export function hasEligibleModelBenchmarkSearch(): boolean {
+  const now = Date.now();
+  const retryBefore = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const staleBefore = new Date(now - 15 * 60 * 1000).toISOString();
+  const row = getDbInstance()
+    .prepare(
+      `SELECT 1 FROM model_benchmark_search_models
+       WHERE attempts < ? AND (
+         (status IN ('pending', 'source_error', 'pending_unrated')
+          AND (last_run_at IS NULL OR last_run_at <= ?)) OR
+         (status = 'running' AND last_run_at <= ?)
+       ) LIMIT 1`
+    )
+    .get(MAX_SEARCH_ATTEMPTS, retryBefore, staleBefore);
+  return row !== undefined;
 }
 
 export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
@@ -239,32 +337,42 @@ export function listModelBenchmarkSearchEvidence(
     `
     )
     .all(modelId, boundedLimit)
-    .map((row) => {
-      const record = asRecord(row);
-      return {
-        evidenceHash: String(record.evidence_hash),
-        modelId: String(record.model_id),
-        source: String(record.source),
-        sourceVersion: typeof record.source_version === "string" ? record.source_version : null,
-        matchedModelId:
-          typeof record.matched_model_id === "string" ? record.matched_model_id : null,
-        matchedModelName:
-          typeof record.matched_model_name === "string" ? record.matched_model_name : null,
-        benchmark: typeof record.benchmark === "string" ? record.benchmark : null,
-        benchmarkVersion:
-          typeof record.benchmark_version === "string" ? record.benchmark_version : null,
-        reasoningEffort:
-          typeof record.reasoning_effort === "string" ? record.reasoning_effort : null,
-        reasoningConfig: parseJson(record.reasoning_config_json),
-        metric: typeof record.metric === "string" ? record.metric : null,
-        value: typeof record.value === "number" ? record.value : null,
-        sourceUrl: String(record.source_url),
-        sourceDate: typeof record.source_date === "string" ? record.source_date : null,
-        verificationStatus: String(record.verification_status),
-        capturedAt: String(record.captured_at),
-        raw: parseJson(record.raw_json),
-      };
-    });
+    .map(mapEvidenceRow);
+}
+
+export function listAllModelBenchmarkSearchEvidence(): ModelBenchmarkSearchEvidence[] {
+  return getDbInstance()
+    .prepare(
+      `SELECT * FROM model_benchmark_search_evidence
+       ORDER BY model_id, captured_at DESC, evidence_hash`
+    )
+    .all()
+    .map(mapEvidenceRow);
+}
+
+function mapEvidenceRow(value: unknown): ModelBenchmarkSearchEvidence {
+  const record = asRecord(value);
+  return {
+    evidenceHash: String(record.evidence_hash),
+    modelId: String(record.model_id),
+    source: String(record.source),
+    sourceVersion: typeof record.source_version === "string" ? record.source_version : null,
+    matchedModelId: typeof record.matched_model_id === "string" ? record.matched_model_id : null,
+    matchedModelName:
+      typeof record.matched_model_name === "string" ? record.matched_model_name : null,
+    benchmark: typeof record.benchmark === "string" ? record.benchmark : null,
+    benchmarkVersion:
+      typeof record.benchmark_version === "string" ? record.benchmark_version : null,
+    reasoningEffort: typeof record.reasoning_effort === "string" ? record.reasoning_effort : null,
+    reasoningConfig: parseJson(record.reasoning_config_json),
+    metric: typeof record.metric === "string" ? record.metric : null,
+    value: typeof record.value === "number" ? record.value : null,
+    sourceUrl: String(record.source_url),
+    sourceDate: typeof record.source_date === "string" ? record.source_date : null,
+    verificationStatus: String(record.verification_status),
+    capturedAt: String(record.captured_at),
+    raw: parseJson(record.raw_json),
+  };
 }
 
 function mapSearchRun(value: unknown): ModelBenchmarkSearchRun {
