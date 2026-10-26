@@ -4,23 +4,25 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## Full-catalog benchmark scoring
 
-- [x] Local implementation on `codex/modeldev-full-catalog-scoring`: one-time
-      backfill for each unique current models.dev ID, enqueue later exact IDs,
-      process the durable queue in resumable batches, and publish only
-      evidence-supported scores in `benchmark_fitness`. Models without enough
-      comparable verified measurements remain unrated. Focused tests pass
-      67/67 Node tests and 21/21 routing tests; `check:docs-counts` passes. The
-      full core typecheck still reports repository-wide diagnostics, while the
-      touched-file filter reports none; OpenSSE typecheck errors are in two
-      untouched files. Independent review closed both the display-name/ID and
-      catalog-rename findings; live release remains pending. See
-      `completion.review` and `openspec/changes/score-full-model-catalog/`.
-- [ ] After main deploy, verify the actual full-catalog queue, scored/unrated
-      totals, future-model enqueue, exact free connection and zero-price
-      Structured Output search path, and one controlled end-to-end score.
-      Record source/image fingerprints and provider-attempt/cost receipts.
-      Do not run inference unless the strict free-only route is verified; paid
-      or out-of-band fallback is prohibited.
+- [x] Full-catalog scoring merged through PR #28 at main merge
+      `81289e18e3efa8273f044621224481080e6d2598`: one-time backfill for each
+      unique current models.dev ID, enqueue later exact IDs, resumable queue
+      batches, and evidence-supported scores in `benchmark_fitness`. Models
+      without enough comparable verified measurements remain unrated. See the
+      OpenSpec package and `completion.review`.
+- [x] Live DB review found OpenRouter stores `auth_type='apikey'`; the merged
+      processor searched for `api_key`, blocking strict-SO normalization before
+      model selection. A regression reproduced the mismatch; the follow-up
+      changes the filter to `apikey` and proves exact free connection selection
+      without inference. Node 68/68, routing Vitest 21/21, scoped ESLint and
+      Prettier pass. Independent review found no blocker; release remains
+      pending.
+- [ ] Merge and deploy the auth-filter follow-up, then verify full-catalog
+      queue/scored/unrated totals, future-model enqueue, the exact active free
+      connection and zero-price Structured Output path, and one controlled
+      end-to-end score. Record source/image fingerprints and provider-attempt/
+      cost receipts. Do not run inference unless strict free-only routing is
+      verified; paid or out-of-band fallback is prohibited.
 
 ## Missing-model benchmark search
 

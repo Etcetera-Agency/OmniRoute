@@ -332,7 +332,7 @@ export async function processModelBenchmarkSearchResults(
   const connections = await getProviderConnections({
     provider: "openrouter",
     isActive: true,
-    authType: "api_key",
+    authType: "apikey",
   });
   const connectionCandidates = await Promise.all(
     connections.map(async (connection) => {

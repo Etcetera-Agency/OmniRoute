@@ -882,3 +882,30 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   artifact-tracking, and attribution checks.
 - Push/PR merge, main-image build, production deploy, live queue/backfill, and
   strict-free search receipts remain pending.
+
+## OpenRouter auth-filter follow-up — 2026-10-26
+
+- PR #28 merged into main at `81289e18e3efa8273f044621224481080e6d2598`. The
+  post-merge image workflow `40305312202` ended cancelled during candidate
+  build; verification, publish, and deploy steps were skipped. Production
+  remains on the previous image.
+- Read-only live DB query showed the active OpenRouter connection uses
+  `auth_type='apikey'`. The merged processor queried `api_key`, so its exact
+  free Structured Output gate returned no connection before model selection.
+- Added a DB-backed regression with an active `apikey` connection and the exact
+  synced `:free` model. It failed first with `blocked_no_exact_free_connection`;
+  after changing the filter to `apikey`, it passes with the exact connection
+  selected and `blocked_no_internal_api_key`, `attemptCount=0`. No inference
+  occurred in either test.
+- Focused validation passes: Node 68/68, routing Vitest 21/21, scoped ESLint,
+  Prettier, and `check:docs-counts`. Docs checker reports the same three soft
+  drift warnings. `git diff --check` passes. The changed code remains limited
+  to the auth enum plus its regression.
+- Independent Luna-xhigh review found no blocker. Read-only live checks confirm
+  active OpenRouter connection `d8e49530-439c-41e9-95cb-559938e5577b` has the
+  exact synced normalization model with `isFree=true`; current public endpoint
+  metadata has one Phala endpoint, zero prompt/completion prices, and both
+  strict-SO parameters. No inference was sent.
+- The live fix is uncommitted and not yet merged or deployed. Corrected image
+  rollout, full-catalog queue totals, and one strict zero-cost end-to-end score
+  remain open.

@@ -199,6 +199,51 @@ test("normalization connection choice requires exact free model and is determini
   );
 });
 
+test("normalization selects active OpenRouter connection stored with apikey auth type", async () => {
+  const connectionId = "openrouter-free-test";
+  const db = core.getDbInstance();
+  db.prepare(
+    `INSERT INTO provider_connections
+     (id, provider, auth_type, name, is_active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    connectionId,
+    "openrouter",
+    "apikey",
+    "OpenRouter test connection",
+    1,
+    "2026-10-26T00:00:00Z",
+    "2026-10-26T00:00:00Z"
+  );
+  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+    "syncedAvailableModels",
+    `openrouter:${connectionId}`,
+    JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
+  );
+
+  const requests: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    requests.push(url);
+    assert.equal(
+      url,
+      "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints"
+    );
+    return jsonResponse(openRouterEndpointMetadata());
+  };
+
+  const result = await processor.processModelBenchmarkSearchResults(
+    { id: "new-model", name: "New Model" },
+    [{ url: "https://example.org/benchmark" }]
+  );
+
+  assert.equal(result.status, "blocked_no_internal_api_key");
+  assert.equal(result.connectionId, connectionId);
+  assert.equal(result.endpointMetadataVerified, true);
+  assert.equal(result.attemptCount, 0);
+  assert.equal(requests.length, 1);
+});
+
 test("normalization requires one current zero-cost Phala strict-SO endpoint", () => {
   const metadata = openRouterEndpointMetadata();
   assert.equal(processor.isNormalizationEndpointVerified(metadata), true);
