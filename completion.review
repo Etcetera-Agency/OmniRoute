@@ -1,5 +1,29 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## Strict zero-cost models.dev evidence (2026-10-26)
+
+- Added a separate snapshot from raw models.dev data: exact provider/model IDs,
+  numeric zero for input/output and all other reported prices, successful-fetch
+  timestamp, 36-hour maximum age, and fail-closed handling for missing,
+  malformed, future, stale, or disabled evidence. The dynamic `openrouter/free`
+  alias is excluded.
+- Existing `FREE_MODEL_BUDGETS`, keyless routing, hard-stop rules, and quota
+  checks keep precedence. Models.dev evidence does not invent quota or
+  hard-stop state, remap IDs, widen a connection allowlist, or add fallback.
+- Code Simplifier reviewed the modified slice; only Prettier formatting was
+  needed. Independent Luna-xhigh review found no blockers.
+- Verification: models.dev focused tests 45/45; strict zero-cost Vitest tests
+  24/24; strict OpenSpec validation passed; `git diff --check` passed. Full
+  project typechecks still report existing errors in unrelated files, including
+  `open-sse/services/systemOne/schema.ts` and
+  `src/lib/proxySubscription/parse.ts`; no typecheck diagnostic pointed to the
+  changed evidence transform or strict filter. These runs are not evidence of
+  deployment or live acceptance.
+- Live release and exact `auto/coding_high_tools:free` tool-call acceptance
+  remain pending. Do not claim the band is fixed until current image/source,
+  eligible model/connection, forced tool result, zero cost, and no-fallback
+  evidence are recorded.
+
 ## Kev request concurrency checkpoint (2026-10-12)
 
 - Current self-hosted Kev profile selected with `model: laya/kev` handles
