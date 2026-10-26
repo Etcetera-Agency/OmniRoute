@@ -26,6 +26,9 @@ restart.
   run state, source status, errors, source URLs/versions/dates, exact matching
   records, reasoning effort/configuration when the source reports them, and
   raw search results.
+- Keep drains live under slow or interrupted work: claim one row at a time,
+  persist its outcome before claiming another, bound strict-SO inference, and
+  schedule stale-running recovery independently of the daily models.dev sync.
 - Refresh the bounded source set: AA Free language-model pages; the existing
   official SWE-bench, Terminal-Bench 2.0, Terminal-Bench 2.1, and DeepSWE
   endpoints; Hugging Face Hub model eval metadata; and `/v1/search` with the
@@ -80,6 +83,10 @@ or paid/out-of-band route as fallback.
 
 - A later successful models.dev sync detects a newly persisted raw model ID,
   writes exactly one durable search row, and starts the bounded source refresh.
+- A slow model run cannot mark untouched rows `running`; each completed or
+  timed-out row has a durable outcome before the next row is claimed. A fresh
+  `running` row left by restart is retried once it reaches the stale threshold,
+  without waiting for the next daily sync.
 - Repeated syncs and retries do not duplicate model events or evidence.
 - AA and each official source have an independent status. A failed, truncated,
   or malformed source is an error/incomplete result and never proves absence.

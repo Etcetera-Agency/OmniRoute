@@ -1,6 +1,7 @@
 import { getDbInstance } from "./core";
 
 const MAX_SEARCH_ATTEMPTS = 5;
+const STALE_SEARCH_RUN_MS = 15 * 60 * 1000;
 const MISSING_AA_API_KEY_ERROR = "AA Free API key is not configured";
 
 function canRetryMissingAaApiKey(): boolean {
@@ -179,7 +180,7 @@ export function updateModelBenchmarkSearchSourceStatus(
 export function hasEligibleModelBenchmarkSearch(): boolean {
   const now = Date.now();
   const retryBefore = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-  const staleBefore = new Date(now - 15 * 60 * 1000).toISOString();
+  const staleBefore = new Date(now - STALE_SEARCH_RUN_MS).toISOString();
   const row = getDbInstance()
     .prepare(
       `SELECT 1 FROM model_benchmark_search_models
@@ -204,11 +205,72 @@ export function hasEligibleModelBenchmarkSearch(): boolean {
   return row !== undefined;
 }
 
+export function expireExhaustedModelBenchmarkSearchRuns(): void {
+  // AICODE-NOTE: Terminalize exhausted rows before eligibility checks so
+  // cleanup-only drains do not fetch source snapshots.
+  const staleBefore = new Date(Date.now() - STALE_SEARCH_RUN_MS).toISOString();
+  getDbInstance()
+    .prepare(
+      `UPDATE model_benchmark_search_models
+       SET status = 'retry_exhausted_unrated'
+       WHERE attempts >= ? AND (
+         status IN ('pending', 'source_error', 'pending_unrated') OR
+         (status = 'running' AND last_run_at <= ?)
+       )`
+    )
+    .run(MAX_SEARCH_ATTEMPTS, staleBefore);
+}
+
+export function listEligibleModelBenchmarkSearchRuns(limit: number): ModelBenchmarkSearchRun[] {
+  const now = Date.now();
+  const retryBefore = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const staleBefore = new Date(now - STALE_SEARCH_RUN_MS).toISOString();
+  return getDbInstance()
+    .prepare(
+      `SELECT * FROM model_benchmark_search_models
+       WHERE (
+         (attempts < ? AND (
+           (status IN ('pending', 'source_error', 'pending_unrated')
+            AND (last_run_at IS NULL OR last_run_at <= ?)) OR
+           (status = 'running' AND last_run_at <= ?)
+         )) OR (
+           ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
+           AND last_error = ?
+         )
+       )
+       ORDER BY first_seen_at, model_id
+       LIMIT ?`
+    )
+    .all(
+      MAX_SEARCH_ATTEMPTS,
+      retryBefore,
+      staleBefore,
+      Number(canRetryMissingAaApiKey()),
+      MISSING_AA_API_KEY_ERROR,
+      Math.max(1, Math.min(100, Math.floor(limit)))
+    )
+    .map(mapSearchRun);
+}
+
+export function getModelBenchmarkSearchStaleRetryDelay(): number | null {
+  const row = getDbInstance()
+    .prepare(
+      `SELECT MIN(last_run_at) AS last_run_at
+       FROM model_benchmark_search_models
+       WHERE status = 'running'`
+    )
+    .get();
+  const lastRunAt = asRecord(row).last_run_at;
+  if (typeof lastRunAt !== "string") return null;
+  const staleAt = Date.parse(lastRunAt) + STALE_SEARCH_RUN_MS;
+  return Number.isFinite(staleAt) ? Math.max(0, staleAt - Date.now()) : 0;
+}
+
 export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
   const db = getDbInstance();
   const now = new Date();
   const retryBefore = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-  const staleBefore = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
+  const staleBefore = new Date(now.getTime() - STALE_SEARCH_RUN_MS).toISOString();
   const nowIso = now.toISOString();
   const retryMissingAaApiKey = Number(canRetryMissingAaApiKey());
   let claimed: unknown = null;

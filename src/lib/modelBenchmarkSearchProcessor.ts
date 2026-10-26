@@ -6,6 +6,7 @@ import { createInjectionGuard } from "@/middleware/promptInjectionGuard";
 
 export const NORMALIZATION_MODEL = "xingchen-agi/xing4.0-29b-a4b:free";
 export const NORMALIZATION_ROUTED_MODEL = `openrouter/${NORMALIZATION_MODEL}`;
+export const NORMALIZATION_TIMEOUT_MS = 5 * 60 * 1000;
 export const NORMALIZATION_BLOCK_REASON = "blocked_unproven_free_native_so_route" as const;
 const ENDPOINT_METADATA_URL =
   "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints";
@@ -365,6 +366,8 @@ export async function processModelBenchmarkSearchResults(
     });
   }
 
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   try {
     const body = buildNormalizationRequest(model.id, model.name, results);
     if (injectionGuard(body).blocked) {
@@ -381,11 +384,23 @@ export async function processModelBenchmarkSearchResults(
         "x-omniroute-connection": connectionId,
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
-    const response = await handleOneShotBenchmarkChat(request, body, {
-      model: NORMALIZATION_ROUTED_MODEL,
-      connectionId,
+    const timeoutResult = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        const error = new Error("Strict-SO normalization timed out");
+        controller.abort(error);
+        reject(error);
+      }, NORMALIZATION_TIMEOUT_MS);
+      timeout.unref?.();
     });
+    const response = await Promise.race([
+      handleOneShotBenchmarkChat(request, body, {
+        model: NORMALIZATION_ROUTED_MODEL,
+        connectionId,
+      }),
+      timeoutResult,
+    ]);
     if (!response.ok) {
       return processorResult("normalization_request_failed_unrated", results.length, {
         connectionId,
@@ -394,7 +409,11 @@ export async function processModelBenchmarkSearchResults(
         error: `HTTP ${response.status}`,
       });
     }
-    const parsed = parseNormalizationResponse(await response.json(), model, results);
+    const parsed = parseNormalizationResponse(
+      await Promise.race([response.json(), timeoutResult]),
+      model,
+      results
+    );
     if (!parsed) {
       return processorResult("normalization_response_invalid_unrated", results.length, {
         connectionId,
@@ -410,12 +429,21 @@ export async function processModelBenchmarkSearchResults(
       evidence: parsed,
     });
   } catch (error) {
-    const message = (error instanceof Error ? error.message : String(error)).slice(0, 300);
-    return processorResult("normalization_request_failed_unrated", results.length, {
-      connectionId,
-      ...endpointProof,
-      attemptCount: 1,
-      error: message,
-    });
+    const timedOut = controller.signal.aborted;
+    const message = timedOut
+      ? `Strict-SO normalization timed out after ${NORMALIZATION_TIMEOUT_MS}ms`
+      : (error instanceof Error ? error.message : String(error)).slice(0, 300);
+    return processorResult(
+      timedOut ? "normalization_timeout_unrated" : "normalization_request_failed_unrated",
+      results.length,
+      {
+        connectionId,
+        ...endpointProof,
+        attemptCount: 1,
+        error: message,
+      }
+    );
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
