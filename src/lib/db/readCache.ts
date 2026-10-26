@@ -249,6 +249,13 @@ export function getCombosCacheVersion(): number {
   return combosCacheVersion;
 }
 
+let modelCapabilitiesCacheVersion = 0;
+
+/** Current generation for cached model-capability-derived lookups. */
+export function getModelCapabilitiesCacheVersion(): number {
+  return modelCapabilitiesCacheVersion;
+}
+
 // ──────────────── Model Catalog Cache Invalidation Signal ────────────────
 //
 // #6408 added a request-shape-keyed (prefix/isCodex/apiKey/configuredOnly) TTL
@@ -360,6 +367,7 @@ export function invalidateDbCache(
   id?: string,
   opts?: { skipModelCatalog?: boolean }
 ): void {
+  if (!scope || scope === "model-capabilities") modelCapabilitiesCacheVersion++;
   if (!scope || scope === "settings") settingsCache.invalidate();
   if (!scope || scope === "pricing") pricingCache.invalidate();
   if (!scope || scope === "connections") {

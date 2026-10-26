@@ -86,6 +86,26 @@ describe("models_dev_tier lifecycle veto (#11508)", () => {
 });
 
 describe("models_dev_tier cross-provider aggregation (#11508)", () => {
+  it("uses the raw global model id for capability-derived tiers without writing overrides", () => {
+    seed("models.dev", "big-pickle", {
+      reasoning: 0,
+      tool_call: 1,
+      limit_context: 64000,
+    });
+    invalidateCapabilitiesCache();
+
+    assert.deepEqual(getModelsDevTierFitnessWithSource("big-pickle", "coding"), {
+      score: 0.78,
+      source: "models_dev_tier",
+    });
+    assert.equal(
+      getDbInstance()
+        .prepare("SELECT 1 FROM model_intelligence WHERE model = ? AND source = 'user_override'")
+        .get("big-pickle"),
+      undefined
+    );
+  });
+
   it("any-true booleans and max context win regardless of insertion order", () => {
     // Order A: disagreeing false-row arrives last (old code → budget/fast).
     seed("provider-a", "deepseek-v4-flash", {

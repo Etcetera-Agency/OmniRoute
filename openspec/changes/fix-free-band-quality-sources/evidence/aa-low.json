@@ -1,0 +1,5207 @@
+{
+  "aa_captured_at": "2026-10-25T18:46:50.567192+00:00",
+  "candidates_captured_at": "2026-10-25T18:47:57.198Z",
+  "candidate_source": "etc2nd-shlink /api/v1/auto-combo/best-free/candidates",
+  "public_metadata_captured_at": "2026-10-25T18:53:19.133796+00:00",
+  "reasoning_profile": "reasoning-low",
+  "profile_is_live_configuration": false,
+  "reference_policy": {
+    "coding": "one active numeric Coding Index per exact model identity; prefer the profile effort, then same-model proxy",
+    "general": "one active non-estimated Intelligence Index per exact model identity; prefer the profile effort, then same-model proxy"
+  },
+  "intelligence_index_version": 4.3,
+  "aa_snapshot_sha256": "404c43377e8e5584a7702294d17fb4bd164a5d3763db101cf6521896e4cf1cc5",
+  "reference_counts": {
+    "coding": 92,
+    "general": 89
+  },
+  "reference_profile_counts": {
+    "coding": {
+      "exact_effort": 7,
+      "same_model_proxy": 85
+    },
+    "general": {
+      "exact_effort": 12,
+      "same_model_proxy": 77
+    }
+  },
+  "candidate_count": 78,
+  "identity_matches": 44,
+  "configuration_matches": 32,
+  "scored_counts": {
+    "coding": 33,
+    "general": 44
+  },
+  "measured_counts": {
+    "coding": 19,
+    "general": 16
+  },
+  "estimated_counts": {
+    "coding": 14,
+    "general": 28
+  },
+  "band_counts": {
+    "coding": {
+      "low": 65,
+      "mid": 15,
+      "high": 6
+    },
+    "general": {
+      "low": 65,
+      "mid": 14,
+      "high": 7
+    }
+  },
+  "bands": {
+    "coding": {
+      "low": [
+        "api-airforce/google/gemma3-270m:free",
+        "gemini/lyria-3-clip-preview",
+        "gemini/lyria-3-pro-preview",
+        "groq/allam-2-7b",
+        "groq/canopylabs/orpheus-arabic-saudi",
+        "groq/canopylabs/orpheus-v1-english",
+        "groq/groq/compound",
+        "groq/groq/compound-mini",
+        "groq/llama-3.1-8b-instant",
+        "groq/llama-3.3-70b-versatile",
+        "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+        "groq/meta-llama/llama-prompt-guard-2-22m",
+        "groq/meta-llama/llama-prompt-guard-2-86m",
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-20b",
+        "groq/openai/gpt-oss-safeguard-20b",
+        "groq/qwen/qwen3-32b",
+        "groq/whisper-large-v3",
+        "groq/whisper-large-v3-turbo",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/dots-studio/dots-3-note-preview:free",
+        "kilocode/kilo-auto/free",
+        "kilocode/liquid/lfm-2.5-2.6b:free",
+        "kilocode/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3.5-content-safety:free",
+        "kilocode/nvidia/nemotron-3.5-lightning:free",
+        "kilocode/nvidia/nemotron-3.5-super-vl:free",
+        "kilocode/poolside/laguna-s-2.1:free",
+        "kilocode/poolside/laguna-xs-2.1:free",
+        "kilocode/reflection/beam-free",
+        "kilocode/stealth/glyph-cluster",
+        "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/google/diffusiongemma-26b-a4b-it",
+        "nvidia/meta/llama-3.2-11b-vision-instruct",
+        "nvidia/meta/llama-3.2-90b-vision-instruct",
+        "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+        "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
+        "nvidia/poolside/laguna-xs-2.1",
+        "nvidia/stepfun-ai/step-5-preview",
+        "opencode-zen/beam-free",
+        "opencode-zen/big-pickle",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/longcat-2.5-preview-free",
+        "opencode-zen/mimo-v2.6-flash-free",
+        "opencode-zen/nemotron-3.5-lightning-free",
+        "opencode-zen/nemotron-3.5-super-vl-free",
+        "opencode-zen/space-bunny-free",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/dots-studio/dots-3-note-preview:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/google/lyria-3-clip-preview",
+        "openrouter/google/lyria-3-pro-preview",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+        "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3.5-content-safety:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/nvidia/nemotron-3.5-super-vl:free",
+        "openrouter/openrouter/free",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/recursive/flint-v1.0:free",
+        "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
+      ],
+      "mid": [
+        "groq/qwen/qwen3.6-27b",
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "mistral/mistral-medium-3-5",
+        "nvidia/google/gemma-4-31b-it",
+        "nvidia/meta/muse-glimmer-30b",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free"
+      ],
+      "high": [
+        "groq/qwen/qwen3.6-27b",
+        "groq/qwen/qwen3.8-27b",
+        "nvidia/z-ai/glm-5.3",
+        "nvidia/z-ai/glm-5.3-flash",
+        "opencode-zen/glm-5.3-flash-free",
+        "openrouter/thinkingmachines/inkling-small:free"
+      ]
+    },
+    "general": {
+      "low": [
+        "api-airforce/google/gemma3-270m:free",
+        "gemini/lyria-3-clip-preview",
+        "gemini/lyria-3-pro-preview",
+        "groq/allam-2-7b",
+        "groq/canopylabs/orpheus-arabic-saudi",
+        "groq/canopylabs/orpheus-v1-english",
+        "groq/groq/compound",
+        "groq/groq/compound-mini",
+        "groq/llama-3.1-8b-instant",
+        "groq/llama-3.3-70b-versatile",
+        "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+        "groq/meta-llama/llama-prompt-guard-2-22m",
+        "groq/meta-llama/llama-prompt-guard-2-86m",
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-20b",
+        "groq/openai/gpt-oss-safeguard-20b",
+        "groq/qwen/qwen3-32b",
+        "groq/qwen/qwen3.6-27b",
+        "groq/whisper-large-v3",
+        "groq/whisper-large-v3-turbo",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/dots-studio/dots-3-note-preview:free",
+        "kilocode/kilo-auto/free",
+        "kilocode/liquid/lfm-2.5-2.6b:free",
+        "kilocode/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "kilocode/nvidia/nemotron-3.5-content-safety:free",
+        "kilocode/nvidia/nemotron-3.5-lightning:free",
+        "kilocode/poolside/laguna-s-2.1:free",
+        "kilocode/poolside/laguna-xs-2.1:free",
+        "kilocode/reflection/beam-free",
+        "kilocode/stealth/glyph-cluster",
+        "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+        "mistral/mistral-medium-3-5",
+        "nvidia/google/diffusiongemma-26b-a4b-it",
+        "nvidia/google/gemma-4-31b-it",
+        "nvidia/meta/llama-3.2-11b-vision-instruct",
+        "nvidia/meta/llama-3.2-90b-vision-instruct",
+        "nvidia/meta/muse-glimmer-30b",
+        "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+        "nvidia/poolside/laguna-xs-2.1",
+        "opencode-zen/big-pickle",
+        "opencode-zen/longcat-2.5-preview-free",
+        "opencode-zen/nemotron-3.5-lightning-free",
+        "opencode-zen/space-bunny-free",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/dots-studio/dots-3-note-preview:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/google/lyria-3-clip-preview",
+        "openrouter/google/lyria-3-pro-preview",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+        "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/nvidia/nemotron-3.5-content-safety:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/openrouter/free",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/recursive/flint-v1.0:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free",
+        "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
+      ],
+      "mid": [
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "kilocode/nvidia/nemotron-3.5-super-vl:free",
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
+        "nvidia/z-ai/glm-5.3",
+        "opencode-zen/beam-free",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/mimo-v2.6-flash-free",
+        "opencode-zen/nemotron-3.5-super-vl-free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/nvidia/nemotron-3.5-super-vl:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free"
+      ],
+      "high": [
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/stepfun-ai/step-5-preview",
+        "nvidia/z-ai/glm-5.3",
+        "nvidia/z-ai/glm-5.3-flash",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/glm-5.3-flash-free",
+        "opencode-zen/mimo-v2.6-flash-free"
+      ]
+    }
+  },
+  "models": [
+    {
+      "provider": "api-airforce",
+      "model": "google/gemma3-270m:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [
+        {
+          "aa_id": "04781a0e-40f0-4e2a-a4e5-18e389364a79",
+          "name": "Gemma 3 270M",
+          "slug": "gemma-3-270m"
+        }
+      ],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "gemini",
+      "model": "lyria-3-clip-preview",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "gemini",
+      "model": "lyria-3-pro-preview",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "allam-2-7b",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "canopylabs/orpheus-arabic-saudi",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "canopylabs/orpheus-v1-english",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "groq/compound",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "groq/compound-mini",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "llama-3.1-8b-instant",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "non-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "739684ba-0f63-4e2a-b4ee-30741c9e9320"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "739684ba-0f63-4e2a-b4ee-30741c9e9320",
+          "name": "Llama 3.1 Instruct 8B",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 6.9,
+            "artificial_analysis_coding_index": 5.4,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 5.4,
+          "fitness": 0.06521739130434782,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "739684ba-0f63-4e2a-b4ee-30741c9e9320",
+              "score": 5.4
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 6.9,
+          "fitness": 0.07865168539325842,
+          "estimate_reasons": [
+            "historical_aa_result",
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "739684ba-0f63-4e2a-b4ee-30741c9e9320",
+              "score": 6.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "non-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "976cc8ad-7904-4056-83c5-960181f47d5f"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "976cc8ad-7904-4056-83c5-960181f47d5f",
+          "name": "Llama 3.3 Instruct 70B",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 7.7,
+            "artificial_analysis_coding_index": 11.9,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 11.9,
+          "fitness": 0.14673913043478262,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "976cc8ad-7904-4056-83c5-960181f47d5f",
+              "score": 11.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 7.7,
+          "fitness": 0.07865168539325842,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "976cc8ad-7904-4056-83c5-960181f47d5f",
+              "score": 7.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "non-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "adf9a85e-abc3-4f28-937b-db6655cc5238"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "adf9a85e-abc3-4f28-937b-db6655cc5238",
+          "name": "Llama 4 Scout",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 6.5,
+            "artificial_analysis_coding_index": 8.2,
+            "artificial_analysis_agentic_index": 0.5,
+            "artificial_analysis_finance_and_accounting_index": 6.6,
+            "artificial_analysis_strategy_and_ops_index": 4.9,
+            "artificial_analysis_legal_index": 8.1,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 9.5,
+            "artificial_analysis_economics_index": 10.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 8.2,
+          "fitness": 0.10326086956521739,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "adf9a85e-abc3-4f28-937b-db6655cc5238",
+              "score": 8.2
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 6.5,
+          "fitness": 0.07303370786516854,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "adf9a85e-abc3-4f28-937b-db6655cc5238",
+              "score": 6.5
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "meta-llama/llama-prompt-guard-2-22m",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "meta-llama/llama-prompt-guard-2-86m",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-120b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "low",
+      "selection_basis": "exact_effort",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Groq API reference",
+        "controls": "reasoning_effort",
+        "default_mode": "medium",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/openai/gpt-oss-120b",
+          "https://models.dev/catalog.json",
+          "https://console.groq.com/docs/api-reference"
+        ],
+        "notes": [
+          "Groq default is medium; AA snapshot only has Low and High. Median is an estimate for missing Medium."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "c99f3bde-7c08-4de8-bd5c-8ee9123ebffa"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "c99f3bde-7c08-4de8-bd5c-8ee9123ebffa",
+          "name": "gpt-oss-120b (Low)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 10.2,
+            "artificial_analysis_coding_index": 21.2,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        },
+        {
+          "id": "f0083258-8646-45b8-8082-7aaf6c2ea82a",
+          "name": "gpt-oss-120b (High)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 11.6,
+            "artificial_analysis_coding_index": 30.4,
+            "artificial_analysis_agentic_index": 3.7,
+            "artificial_analysis_finance_and_accounting_index": 12.2,
+            "artificial_analysis_strategy_and_ops_index": 7.9,
+            "artificial_analysis_legal_index": 11.3,
+            "artificial_analysis_healthcare_and_medical_index": 10.8,
+            "artificial_analysis_engineering_index": 15.1,
+            "artificial_analysis_economics_index": 18.3
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 21.2,
+          "fitness": 0.28804347826086957,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "c99f3bde-7c08-4de8-bd5c-8ee9123ebffa",
+              "score": 21.2
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 10.2,
+          "fitness": 0.15730337078651685,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "c99f3bde-7c08-4de8-bd5c-8ee9123ebffa",
+              "score": 10.2
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-20b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "low",
+      "selection_basis": "exact_effort",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Groq API reference",
+        "controls": "reasoning_effort",
+        "default_mode": "medium",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/openai/gpt-oss-20b",
+          "https://models.dev/catalog.json",
+          "https://console.groq.com/docs/api-reference"
+        ],
+        "notes": [
+          "Groq default is medium; AA snapshot only has Low and High. Median is an estimate for missing Medium."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "16149b9c-a1e9-4669-a5cb-ff3c00d78f89"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "16149b9c-a1e9-4669-a5cb-ff3c00d78f89",
+          "name": "gpt-oss-20b (Low)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 10,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        },
+        {
+          "id": "36f73aaf-d38a-4b56-a2b3-d04d17186910",
+          "name": "gpt-oss-20b (High)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 9,
+            "artificial_analysis_coding_index": 20.7,
+            "artificial_analysis_agentic_index": 1.2,
+            "artificial_analysis_finance_and_accounting_index": 7.3,
+            "artificial_analysis_strategy_and_ops_index": 4.8,
+            "artificial_analysis_legal_index": 7.3,
+            "artificial_analysis_healthcare_and_medical_index": 6.7,
+            "artificial_analysis_engineering_index": 11.7,
+            "artificial_analysis_economics_index": 11.3
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 20.7,
+          "fitness": 0.266304347826087,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "36f73aaf-d38a-4b56-a2b3-d04d17186910",
+              "score": 20.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 10,
+          "fitness": 0.15730337078651685,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "16149b9c-a1e9-4669-a5cb-ff3c00d78f89",
+              "score": 10
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-safeguard-20b",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3-32b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Groq API reference",
+        "controls": "reasoning_effort",
+        "default_mode": "reasoning",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/Qwen/Qwen3-32B",
+          "https://models.dev/catalog.json",
+          "https://console.groq.com/docs/api-reference"
+        ],
+        "notes": [
+          "Groq Qwen3/Qwen3.6 expose none/default, not graded high. Enabled mode maps to AA Reasoning; no invented low/medium/high distinction."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "b00ecd62-a53f-4aed-b833-3e9d6b0170ba"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "bf60740e-6aa5-422f-ba49-ef6e9d171205",
+          "name": "Qwen3 32B (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 7.3,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": true
+        },
+        {
+          "id": "b00ecd62-a53f-4aed-b833-3e9d6b0170ba",
+          "name": "Qwen3 32B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 7.2,
+            "artificial_analysis_coding_index": 15.3,
+            "artificial_analysis_agentic_index": 0.9,
+            "artificial_analysis_finance_and_accounting_index": 7,
+            "artificial_analysis_strategy_and_ops_index": 4.4,
+            "artificial_analysis_legal_index": 7.1,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 12.2,
+            "artificial_analysis_economics_index": 11.6
+          },
+          "general_estimated": false,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 15.3,
+          "fitness": 0.21739130434782608,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "b00ecd62-a53f-4aed-b833-3e9d6b0170ba",
+              "score": 15.3
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 7.2,
+          "fitness": 0.07865168539325842,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "b00ecd62-a53f-4aed-b833-3e9d6b0170ba",
+              "score": 7.2
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3.6-27b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Groq API reference",
+        "controls": "reasoning_effort",
+        "default_mode": "reasoning",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/Qwen/Qwen3.6-27B",
+          "https://models.dev/catalog.json",
+          "https://console.groq.com/docs/api-reference"
+        ],
+        "notes": [
+          "Groq Qwen3/Qwen3.6 expose none/default, not graded high. Enabled mode maps to AA Reasoning; no invented low/medium/high distinction."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "8c29d66d-bf98-4ea3-8572-5409353ecc66"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "3b156101-b0d7-4438-b350-2d1f1168f40a",
+          "name": "Qwen3.6 27B (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 19.8,
+            "artificial_analysis_coding_index": 46.6,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": true
+        },
+        {
+          "id": "8c29d66d-bf98-4ea3-8572-5409353ecc66",
+          "name": "Qwen3.6 27B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 21.4,
+            "artificial_analysis_coding_index": 53.7,
+            "artificial_analysis_agentic_index": 18.5,
+            "artificial_analysis_finance_and_accounting_index": 21.3,
+            "artificial_analysis_strategy_and_ops_index": 16.9,
+            "artificial_analysis_legal_index": 23.3,
+            "artificial_analysis_healthcare_and_medical_index": 19.3,
+            "artificial_analysis_engineering_index": 23.3,
+            "artificial_analysis_economics_index": 31.4
+          },
+          "general_estimated": false,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 53.7,
+          "fitness": 0.717391304347826,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "8c29d66d-bf98-4ea3-8572-5409353ecc66",
+              "score": 53.7
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 21.4,
+          "fitness": 0.398876404494382,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "8c29d66d-bf98-4ea3-8572-5409353ecc66",
+              "score": 21.4
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "groq",
+      "model": "qwen/qwen3.8-27b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "low",
+      "selection_basis": "exact_effort",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Groq API reference",
+        "controls": "reasoning_effort",
+        "default_mode": "none",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "xhigh"
+        },
+        "sources": [
+          "https://huggingface.co/Qwen/Qwen3.8-27B",
+          "https://models.dev/catalog.json",
+          "https://console.groq.com/docs/api-reference"
+        ],
+        "notes": [
+          "Groq high selects native Qwen xhigh; default is none. Source: current Groq API reference, not native Qwen defaults."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "7e30585f-fad7-40df-a8cb-03c1d96df38a"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "353c92f3-2148-4c2d-9231-aa7e1322a1fd",
+          "name": "Qwen3.8 27B (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 20.2,
+            "artificial_analysis_coding_index": 44.6,
+            "artificial_analysis_agentic_index": 22.4,
+            "artificial_analysis_finance_and_accounting_index": 18.7,
+            "artificial_analysis_strategy_and_ops_index": 16,
+            "artificial_analysis_legal_index": 22.2,
+            "artificial_analysis_healthcare_and_medical_index": 20.8,
+            "artificial_analysis_engineering_index": 22.1,
+            "artificial_analysis_economics_index": 29.7
+          },
+          "general_estimated": false,
+          "deprecated": false
+        },
+        {
+          "id": "7e30585f-fad7-40df-a8cb-03c1d96df38a",
+          "name": "Qwen3.8 27B (Low)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 26.2,
+            "artificial_analysis_coding_index": 58.2,
+            "artificial_analysis_agentic_index": 38.9,
+            "artificial_analysis_finance_and_accounting_index": 26.7,
+            "artificial_analysis_strategy_and_ops_index": 29.3,
+            "artificial_analysis_legal_index": 27.6,
+            "artificial_analysis_healthcare_and_medical_index": 23.9,
+            "artificial_analysis_engineering_index": 23.9,
+            "artificial_analysis_economics_index": 31.6
+          },
+          "general_estimated": false,
+          "deprecated": false
+        },
+        {
+          "id": "6657d7de-a2a9-40bc-a32f-86e80ad63698",
+          "name": "Qwen3.8 27B (Medium)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 27.6,
+            "artificial_analysis_coding_index": 56.1,
+            "artificial_analysis_agentic_index": 44.4,
+            "artificial_analysis_finance_and_accounting_index": 28.4,
+            "artificial_analysis_strategy_and_ops_index": 34.3,
+            "artificial_analysis_legal_index": 27.4,
+            "artificial_analysis_healthcare_and_medical_index": 25.1,
+            "artificial_analysis_engineering_index": 24.6,
+            "artificial_analysis_economics_index": 31.1
+          },
+          "general_estimated": false,
+          "deprecated": false
+        },
+        {
+          "id": "b01dee41-c62b-48ed-8d16-984adc405e5c",
+          "name": "Qwen3.8 27B (Xhigh)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 33.7,
+            "artificial_analysis_coding_index": 68.1,
+            "artificial_analysis_agentic_index": 45.8,
+            "artificial_analysis_finance_and_accounting_index": 34.3,
+            "artificial_analysis_strategy_and_ops_index": 37.1,
+            "artificial_analysis_legal_index": 34.6,
+            "artificial_analysis_healthcare_and_medical_index": 34.6,
+            "artificial_analysis_engineering_index": 33.3,
+            "artificial_analysis_economics_index": 42.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 58.2,
+          "fitness": 0.7663043478260869,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "7e30585f-fad7-40df-a8cb-03c1d96df38a",
+              "score": 58.2
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.2,
+          "fitness": 0.5674157303370787,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "7e30585f-fad7-40df-a8cb-03c1d96df38a",
+              "score": 26.2
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "groq",
+      "model": "whisper-large-v3",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "groq",
+      "model": "whisper-large-v3-turbo",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "kilocode",
+      "model": "cohere/north-mini-code:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/CohereLabs/North-Mini-Code-1.0",
+          "https://models.dev/catalog.json",
+          "https://api.kilo.ai/api/openrouter/models",
+          "https://kilo.ai/docs/gateway/models-and-providers"
+        ],
+        "notes": [
+          "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "1e9907e0-ffac-4595-b006-962e4f1da7cf"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+          "name": "North Mini Code",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 9.9,
+            "artificial_analysis_coding_index": 36.5,
+            "artificial_analysis_agentic_index": 1.1,
+            "artificial_analysis_finance_and_accounting_index": 9.1,
+            "artificial_analysis_strategy_and_ops_index": 5.9,
+            "artificial_analysis_legal_index": 9.9,
+            "artificial_analysis_healthcare_and_medical_index": 7.9,
+            "artificial_analysis_engineering_index": 13.9,
+            "artificial_analysis_economics_index": 14.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 36.5,
+          "fitness": 0.5054347826086957,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+              "score": 36.5
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 9.9,
+          "fitness": 0.15168539325842698,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+              "score": 9.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "kilo-auto/free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "liquid/lfm-2.5-2.6b:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "fixed-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+          "name": "LFM2.5-2.6B",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 8.4,
+            "artificial_analysis_coding_index": 7.7,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 7.7,
+          "fitness": 0.08152173913043478,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+              "score": 7.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 8.4,
+          "fitness": 0.07865168539325842,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+              "score": 8.4
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+          "https://models.dev/catalog.json",
+          "https://api.kilo.ai/api/openrouter/models",
+          "https://kilo.ai/docs/gateway/models-and-providers"
+        ],
+        "notes": [
+          "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "8c748e53-61ae-48b8-af8d-eb8298b1e9db"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+          "name": "Nemotron 3 Nano Omni 30B A3B Reasoning",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 10.3,
+            "artificial_analysis_coding_index": 13.8,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 13.8,
+          "fitness": 0.15760869565217392,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+              "score": 13.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 10.3,
+          "fitness": 0.15730337078651685,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+              "score": 10.3
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.effort",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+          "https://models.dev/catalog.json",
+          "https://api.kilo.ai/api/openrouter/models",
+          "https://kilo.ai/docs/gateway/models-and-providers"
+        ],
+        "notes": [
+          "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo.",
+          "AA only labels Reasoning, so scores do not distinguish its low-effort switch from normal thinking."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "63872e9c-3377-4a6b-b477-7bba244c38e9"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+          "name": "Nemotron 3 Super 120B A12B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 12.8,
+            "artificial_analysis_coding_index": 37.7,
+            "artificial_analysis_agentic_index": 1.7,
+            "artificial_analysis_finance_and_accounting_index": 13.2,
+            "artificial_analysis_strategy_and_ops_index": 9.1,
+            "artificial_analysis_legal_index": 12.8,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 17,
+            "artificial_analysis_economics_index": 20.6
+          },
+          "general_estimated": false,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 37.7,
+          "fitness": 0.5108695652173914,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+              "score": 37.7
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 12.8,
+          "fitness": 0.25842696629213485,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+              "score": 12.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.effort",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
+          "https://models.dev/catalog.json",
+          "https://api.kilo.ai/api/openrouter/models",
+          "https://kilo.ai/docs/gateway/models-and-providers"
+        ],
+        "notes": [
+          "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo.",
+          "AA only labels Reasoning; no separate published per-effort scores in this snapshot."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "5b52def2-ac9b-4465-ad80-91ea8079e253"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+          "name": "Nemotron 3 Ultra 550B A55B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 22.9,
+            "artificial_analysis_coding_index": 49.3,
+            "artificial_analysis_agentic_index": 20.1,
+            "artificial_analysis_finance_and_accounting_index": 23.9,
+            "artificial_analysis_strategy_and_ops_index": 16.4,
+            "artificial_analysis_legal_index": 26.4,
+            "artificial_analysis_healthcare_and_medical_index": 22.2,
+            "artificial_analysis_engineering_index": 27.2,
+            "artificial_analysis_economics_index": 36.6
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 49.3,
+          "fitness": 0.6739130434782609,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+              "score": 49.3
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 22.9,
+          "fitness": 0.4550561797752809,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+              "score": 22.9
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3.5-content-safety:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+          "https://models.dev/catalog.json",
+          "https://api.kilo.ai/api/openrouter/models",
+          "https://kilo.ai/docs/gateway/models-and-providers"
+        ],
+        "notes": [
+          "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "29976311-665a-4b2f-ac72-557c33e0758e"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+          "name": "Nemotron 3.5 Lightning",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 12.9,
+            "artificial_analysis_coding_index": 26.8,
+            "artificial_analysis_agentic_index": 3.5,
+            "artificial_analysis_finance_and_accounting_index": 12.2,
+            "artificial_analysis_strategy_and_ops_index": 6.9,
+            "artificial_analysis_legal_index": 15.5,
+            "artificial_analysis_healthcare_and_medical_index": 11.7,
+            "artificial_analysis_engineering_index": 18.1,
+            "artificial_analysis_economics_index": 22.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.8,
+          "fitness": 0.42934782608695654,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 26.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 12.9,
+          "fitness": 0.2640449438202247,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 12.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+          "https://models.dev/catalog.json",
+          "https://api.kilo.ai/api/openrouter/models",
+          "https://kilo.ai/docs/gateway/models-and-providers"
+        ],
+        "notes": [
+          "Kilo catalog does not expose default effort values; OpenRouter defaults are not copied to Kilo."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "e2c0623e-c855-4a61-bb66-be1f1ed43234"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+          "name": "Nemotron 3.5 Super VL",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 26.5,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 27.2,
+            "artificial_analysis_strategy_and_ops_index": 22.6,
+            "artificial_analysis_legal_index": 28.1,
+            "artificial_analysis_healthcare_and_medical_index": 25.5,
+            "artificial_analysis_engineering_index": 30.1,
+            "artificial_analysis_economics_index": 38.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.5,
+          "fitness": 0.5898876404494382,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+              "score": 26.5
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "poolside/laguna-s-2.1:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "poolside/laguna-xs-2.1:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "reflection/beam-free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "stealth/glyph-cluster",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "kilocode",
+      "model": "xingchen-agi/xing4.0-29b-a4b:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "mistral",
+      "model": "mistral-medium-3-5",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "reasoning_effort",
+        "default_mode": "none",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/mistralai/Mistral-Medium-3.5-128B",
+          "https://models.dev/catalog.json",
+          "https://docs.mistral.ai/studio/conversations/reasoning"
+        ],
+        "notes": [
+          "Mistral supports none/high; requested positive reasoning uses high. AA has one reasoning result, not three measured levels."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "dd059b25-d82a-4ead-82a4-4adceaaec48b"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "dd059b25-d82a-4ead-82a4-4adceaaec48b",
+          "name": "Mistral Medium 3.5",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 14.2,
+            "artificial_analysis_coding_index": 46.9,
+            "artificial_analysis_agentic_index": 7,
+            "artificial_analysis_finance_and_accounting_index": 14,
+            "artificial_analysis_strategy_and_ops_index": 11.9,
+            "artificial_analysis_legal_index": 16.1,
+            "artificial_analysis_healthcare_and_medical_index": 14.8,
+            "artificial_analysis_engineering_index": 17.3,
+            "artificial_analysis_economics_index": 20.4
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 46.9,
+          "fitness": 0.6358695652173914,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "dd059b25-d82a-4ead-82a4-4adceaaec48b",
+              "score": 46.9
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 14.2,
+          "fitness": 0.28651685393258425,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "dd059b25-d82a-4ead-82a4-4adceaaec48b",
+              "score": 14.2
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "reasoning_effort",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+          "https://models.dev/catalog.json",
+          "https://docs.api.nvidia.com/nim/reference/nvidia-deepseek-v4_1-flash"
+        ],
+        "notes": [
+          "Model card documents numeric effort 1..100. This prototype does not claim that OmniRoute string effort is translated to that numeric API. AA Max is only a model proxy for requested high."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "dbe7c625-3100-4463-b479-a228c41f75dd"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "73c96f99-0de3-4668-a4bd-b106a0fe18f2",
+          "name": "DeepSeek V4.1 Flash (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 24.7,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 29.6,
+            "artificial_analysis_strategy_and_ops_index": 35.6,
+            "artificial_analysis_legal_index": 29.7,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 24.7,
+            "artificial_analysis_economics_index": 32
+          },
+          "general_estimated": false,
+          "deprecated": true
+        },
+        {
+          "id": "dbe7c625-3100-4463-b479-a228c41f75dd",
+          "name": "DeepSeek V4.1 Flash (Max)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 39.5,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 45,
+            "artificial_analysis_strategy_and_ops_index": 51.7,
+            "artificial_analysis_legal_index": 41.3,
+            "artificial_analysis_healthcare_and_medical_index": 40.8,
+            "artificial_analysis_engineering_index": 39.3,
+            "artificial_analysis_economics_index": 44.4
+          },
+          "general_estimated": false,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 39.5,
+          "fitness": 0.7865168539325843,
+          "estimate_reasons": [
+            "aa_effort_proxy",
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "dbe7c625-3100-4463-b479-a228c41f75dd",
+              "score": 39.5
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "google/diffusiongemma-26b-a4b-it",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "chat_template_kwargs.enable_thinking",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/google/diffusiongemma-26B-A4B-it",
+          "https://models.dev/catalog.json"
+        ],
+        "notes": [
+          "Catalog declares reasoning controls; precise hosted default is not documented in captured sources. AA estimate is not a transport verification."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "c3f12f61-9d57-4e2c-9106-5a82bb1cfee2"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "c3f12f61-9d57-4e2c-9106-5a82bb1cfee2",
+          "name": "DiffusionGemma 26B A4B",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 9.5,
+            "artificial_analysis_coding_index": 19.7,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 19.7,
+          "fitness": 0.2554347826086957,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "c3f12f61-9d57-4e2c-9106-5a82bb1cfee2",
+              "score": 19.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 9.5,
+          "fitness": 0.14606741573033707,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "c3f12f61-9d57-4e2c-9106-5a82bb1cfee2",
+              "score": 9.5
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "google/gemma-4-31b-it",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "chat_template_kwargs.enable_thinking",
+        "default_mode": "none",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/google/gemma-4-31B-it",
+          "https://models.dev/catalog.json",
+          "https://docs.api.nvidia.com/nim/reference/google-gemma-4-31b-it-infer"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "cd26a386-4873-46ff-b853-d239050025a2"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "d0aa27aa-4705-4184-9a1d-483b78c9331c",
+          "name": "Gemma 4 31B (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 13.9,
+            "artificial_analysis_coding_index": 33.2,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        },
+        {
+          "id": "cd26a386-4873-46ff-b853-d239050025a2",
+          "name": "Gemma 4 31B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 14.7,
+            "artificial_analysis_coding_index": 43.4,
+            "artificial_analysis_agentic_index": 4.2,
+            "artificial_analysis_finance_and_accounting_index": 13.6,
+            "artificial_analysis_strategy_and_ops_index": 9.3,
+            "artificial_analysis_legal_index": 13.9,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 16.7,
+            "artificial_analysis_economics_index": 20.6
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 43.4,
+          "fitness": 0.592391304347826,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "cd26a386-4873-46ff-b853-d239050025a2",
+              "score": 43.4
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 14.7,
+          "fitness": 0.29775280898876405,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "cd26a386-4873-46ff-b853-d239050025a2",
+              "score": 14.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "meta/llama-3.2-11b-vision-instruct",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "non-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "5fb47ff6-a30e-4c2c-96f2-55e95a13390f"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "5fb47ff6-a30e-4c2c-96f2-55e95a13390f",
+          "name": "Llama 3.2 Instruct 11B (Vision)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 5.4,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 5.4,
+          "fitness": 0.033707865168539325,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "5fb47ff6-a30e-4c2c-96f2-55e95a13390f",
+              "score": 5.4
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "nvidia",
+      "model": "meta/llama-3.2-90b-vision-instruct",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "non-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "9ca71ac4-41c8-42c0-87dd-5704a9e5b94d"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "9ca71ac4-41c8-42c0-87dd-5704a9e5b94d",
+          "name": "Llama 3.2 Instruct 90B (Vision)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 6.4,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 6.4,
+          "fitness": 0.06741573033707865,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "9ca71ac4-41c8-42c0-87dd-5704a9e5b94d",
+              "score": 6.4
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "nvidia",
+      "model": "meta/muse-glimmer-30b",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "reasoning_effort",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+          "https://models.dev/catalog.json"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "583f98fb-c4b8-4df3-8d40-60ac0ed69882"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "583f98fb-c4b8-4df3-8d40-60ac0ed69882",
+          "name": "Muse Glimmer (High)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 17.5,
+            "artificial_analysis_coding_index": 49,
+            "artificial_analysis_agentic_index": 8.5,
+            "artificial_analysis_finance_and_accounting_index": 17.5,
+            "artificial_analysis_strategy_and_ops_index": 14.5,
+            "artificial_analysis_legal_index": 18.3,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 19.9,
+            "artificial_analysis_economics_index": 25
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 49,
+          "fitness": 0.657608695652174,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "583f98fb-c4b8-4df3-8d40-60ac0ed69882",
+              "score": 49
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 17.5,
+          "fitness": 0.34269662921348315,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "583f98fb-c4b8-4df3-8d40-60ac0ed69882",
+              "score": 17.5
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "chat_template_kwargs.enable_thinking",
+        "default_mode": "reasoning",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+          "https://models.dev/catalog.json",
+          "https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-5-lightning-30b-a3b-infer"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "29976311-665a-4b2f-ac72-557c33e0758e"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+          "name": "Nemotron 3.5 Lightning",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 12.9,
+            "artificial_analysis_coding_index": 26.8,
+            "artificial_analysis_agentic_index": 3.5,
+            "artificial_analysis_finance_and_accounting_index": 12.2,
+            "artificial_analysis_strategy_and_ops_index": 6.9,
+            "artificial_analysis_legal_index": 15.5,
+            "artificial_analysis_healthcare_and_medical_index": 11.7,
+            "artificial_analysis_engineering_index": 18.1,
+            "artificial_analysis_economics_index": 22.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.8,
+          "fitness": 0.42934782608695654,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 26.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 12.9,
+          "fitness": 0.2640449438202247,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 12.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "chat_template_kwargs.enable_thinking",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+          "https://models.dev/catalog.json",
+          "https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3_5-super-vl-120b-a12b"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "e2c0623e-c855-4a61-bb66-be1f1ed43234"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+          "name": "Nemotron 3.5 Super VL",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 26.5,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 27.2,
+            "artificial_analysis_strategy_and_ops_index": 22.6,
+            "artificial_analysis_legal_index": 28.1,
+            "artificial_analysis_healthcare_and_medical_index": 25.5,
+            "artificial_analysis_engineering_index": 30.1,
+            "artificial_analysis_economics_index": 38.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.5,
+          "fitness": 0.5898876404494382,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+              "score": 26.5
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "poolside/laguna-xs-2.1",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "stepfun-ai/step-5-preview",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "chat_template_kwargs.enable_thinking",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/stepfun-ai/Step-5-Preview",
+          "https://models.dev/catalog.json"
+        ],
+        "notes": [
+          "Catalog declares reasoning controls; precise hosted default is not documented in captured sources. AA estimate is not a transport verification."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "094ea3e3-ce41-419e-8bd1-723389663158"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "094ea3e3-ce41-419e-8bd1-723389663158",
+          "name": "Step 5 Preview",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 43.7,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 45.4,
+            "artificial_analysis_strategy_and_ops_index": 47.1,
+            "artificial_analysis_legal_index": 46.2,
+            "artificial_analysis_healthcare_and_medical_index": 41.1,
+            "artificial_analysis_engineering_index": 45,
+            "artificial_analysis_economics_index": 52.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 43.7,
+          "fitness": 0.8820224719101124,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "094ea3e3-ce41-419e-8bd1-723389663158",
+              "score": 43.7
+            }
+          ],
+          "bands": [
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "z-ai/glm-5.3",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "low",
+      "selection_basis": "exact_effort",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "reasoning_effort",
+        "default_mode": "max",
+        "aa_modes": {
+          "low": "low",
+          "medium": "high",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/zai-org/GLM-5.3",
+          "https://models.dev/catalog.json",
+          "https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3"
+        ],
+        "notes": [
+          "Shared sanitizer maps medium to high; high stays high. The low-default injection is restricted to zai/glm-coding-apikey, not NVIDIA."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "cc1e488b-8ba4-464d-875d-690166b15ad3"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "cc1e488b-8ba4-464d-875d-690166b15ad3",
+          "name": "GLM-5.3 (Low)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 34.3,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 35.5,
+            "artificial_analysis_strategy_and_ops_index": 39,
+            "artificial_analysis_legal_index": 33.1,
+            "artificial_analysis_healthcare_and_medical_index": 32.8,
+            "artificial_analysis_engineering_index": 38,
+            "artificial_analysis_economics_index": 40.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        },
+        {
+          "id": "cd684ea4-b475-4269-b001-d469d06d8a7a",
+          "name": "GLM-5.3 (Max)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 44.8,
+            "artificial_analysis_coding_index": 74.8,
+            "artificial_analysis_agentic_index": 53.1,
+            "artificial_analysis_finance_and_accounting_index": 44.7,
+            "artificial_analysis_strategy_and_ops_index": 47.6,
+            "artificial_analysis_legal_index": 42,
+            "artificial_analysis_healthcare_and_medical_index": 42,
+            "artificial_analysis_engineering_index": 47.1,
+            "artificial_analysis_economics_index": 51.2
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 74.8,
+          "fitness": 0.9619565217391305,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "cd684ea4-b475-4269-b001-d469d06d8a7a",
+              "score": 74.8
+            }
+          ],
+          "bands": [
+            "high"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 34.3,
+          "fitness": 0.7134831460674157,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "cc1e488b-8ba4-464d-875d-690166b15ad3",
+              "score": 34.3
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "nvidia",
+      "model": "z-ai/glm-5.3-flash",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "reasoning_effort",
+        "default_mode": "max",
+        "aa_modes": {
+          "low": "low",
+          "medium": "high",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/zai-org/GLM-5.3-Flash",
+          "https://models.dev/catalog.json",
+          "https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3"
+        ],
+        "notes": [
+          "Shared sanitizer maps medium to high; high stays high. The low-default injection is restricted to zai/glm-coding-apikey, not NVIDIA."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "19496b81-9f41-4214-a77a-1df803b3c5ae"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+          "name": "GLM-5.3-Flash",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 41.8,
+            "artificial_analysis_coding_index": 71.5,
+            "artificial_analysis_agentic_index": 50.9,
+            "artificial_analysis_finance_and_accounting_index": 42,
+            "artificial_analysis_strategy_and_ops_index": 45.1,
+            "artificial_analysis_legal_index": 39.9,
+            "artificial_analysis_healthcare_and_medical_index": 38.9,
+            "artificial_analysis_engineering_index": 43.8,
+            "artificial_analysis_economics_index": 48.9
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 71.5,
+          "fitness": 0.9184782608695652,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+              "score": 71.5
+            }
+          ],
+          "bands": [
+            "high"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 41.8,
+          "fitness": 0.8258426966292135,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+              "score": 41.8
+            }
+          ],
+          "bands": [
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "beam-free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "provider-specific effort carrier",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/reflection/Beam-1.0-501B-A23B",
+          "https://models.dev/catalog.json",
+          "https://opencode.ai/v2/docs/console/models/"
+        ],
+        "notes": [
+          "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "69468cce-7b5c-414a-b498-41df4c34df85"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "69468cce-7b5c-414a-b498-41df4c34df85",
+          "name": "Beam 1.0",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 30.3,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 32.7,
+            "artificial_analysis_strategy_and_ops_index": 34.9,
+            "artificial_analysis_legal_index": 34.7,
+            "artificial_analysis_healthcare_and_medical_index": 32.2,
+            "artificial_analysis_engineering_index": 31,
+            "artificial_analysis_economics_index": 40
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 30.3,
+          "fitness": 0.6685393258426966,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "69468cce-7b5c-414a-b498-41df4c34df85",
+              "score": 30.3
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "big-pickle",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "deepseek-v4.1-flash-free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "provider-specific effort carrier",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash",
+          "https://models.dev/catalog.json",
+          "https://opencode.ai/v2/docs/console/models/"
+        ],
+        "notes": [
+          "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "dbe7c625-3100-4463-b479-a228c41f75dd"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "73c96f99-0de3-4668-a4bd-b106a0fe18f2",
+          "name": "DeepSeek V4.1 Flash (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 24.7,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 29.6,
+            "artificial_analysis_strategy_and_ops_index": 35.6,
+            "artificial_analysis_legal_index": 29.7,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 24.7,
+            "artificial_analysis_economics_index": 32
+          },
+          "general_estimated": false,
+          "deprecated": true
+        },
+        {
+          "id": "dbe7c625-3100-4463-b479-a228c41f75dd",
+          "name": "DeepSeek V4.1 Flash (Max)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 39.5,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 45,
+            "artificial_analysis_strategy_and_ops_index": 51.7,
+            "artificial_analysis_legal_index": 41.3,
+            "artificial_analysis_healthcare_and_medical_index": 40.8,
+            "artificial_analysis_engineering_index": 39.3,
+            "artificial_analysis_economics_index": 44.4
+          },
+          "general_estimated": false,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 39.5,
+          "fitness": 0.7865168539325843,
+          "estimate_reasons": [
+            "aa_effort_proxy",
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "dbe7c625-3100-4463-b479-a228c41f75dd",
+              "score": 39.5
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "glm-5.3-flash-free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "provider-specific effort carrier",
+        "default_mode": "max",
+        "aa_modes": {
+          "low": "low",
+          "medium": "high",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/zai-org/GLM-5.3-Flash",
+          "https://models.dev/catalog.json",
+          "https://opencode.ai/v2/docs/console/models/"
+        ],
+        "notes": [
+          "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate.",
+          "Native GLM default max is an assumption for this gateway, not a documented gateway override."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "19496b81-9f41-4214-a77a-1df803b3c5ae"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+          "name": "GLM-5.3-Flash",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 41.8,
+            "artificial_analysis_coding_index": 71.5,
+            "artificial_analysis_agentic_index": 50.9,
+            "artificial_analysis_finance_and_accounting_index": 42,
+            "artificial_analysis_strategy_and_ops_index": 45.1,
+            "artificial_analysis_legal_index": 39.9,
+            "artificial_analysis_healthcare_and_medical_index": 38.9,
+            "artificial_analysis_engineering_index": 43.8,
+            "artificial_analysis_economics_index": 48.9
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 71.5,
+          "fitness": 0.9184782608695652,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+              "score": 71.5
+            }
+          ],
+          "bands": [
+            "high"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 41.8,
+          "fitness": 0.8258426966292135,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "19496b81-9f41-4214-a77a-1df803b3c5ae",
+              "score": 41.8
+            }
+          ],
+          "bands": [
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "longcat-2.5-preview-free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "mimo-v2.6-flash-free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "provider-specific effort carrier",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL",
+          "https://models.dev/catalog.json",
+          "https://opencode.ai/v2/docs/console/models/"
+        ],
+        "notes": [
+          "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "127de816-57d3-4037-8484-480a613cd413"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "127de816-57d3-4037-8484-480a613cd413",
+          "name": "MiMo-V2.6-Flash",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 37.9,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 40.3,
+            "artificial_analysis_strategy_and_ops_index": 46.1,
+            "artificial_analysis_legal_index": 37.2,
+            "artificial_analysis_healthcare_and_medical_index": 35.6,
+            "artificial_analysis_engineering_index": 37.3,
+            "artificial_analysis_economics_index": 43.6
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 37.9,
+          "fitness": 0.7584269662921348,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "127de816-57d3-4037-8484-480a613cd413",
+              "score": 37.9
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "nemotron-3.5-lightning-free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "provider-specific effort carrier",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+          "https://models.dev/catalog.json",
+          "https://opencode.ai/v2/docs/console/models/"
+        ],
+        "notes": [
+          "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "29976311-665a-4b2f-ac72-557c33e0758e"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+          "name": "Nemotron 3.5 Lightning",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 12.9,
+            "artificial_analysis_coding_index": 26.8,
+            "artificial_analysis_agentic_index": 3.5,
+            "artificial_analysis_finance_and_accounting_index": 12.2,
+            "artificial_analysis_strategy_and_ops_index": 6.9,
+            "artificial_analysis_legal_index": 15.5,
+            "artificial_analysis_healthcare_and_medical_index": 11.7,
+            "artificial_analysis_engineering_index": 18.1,
+            "artificial_analysis_economics_index": 22.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 26.8,
+          "fitness": 0.42934782608695654,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 26.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 12.9,
+          "fitness": 0.2640449438202247,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 12.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "nemotron-3.5-super-vl-free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "models.dev catalog plus model card",
+        "controls": "provider-specific effort carrier",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+          "https://models.dev/catalog.json",
+          "https://opencode.ai/v2/docs/console/models/"
+        ],
+        "notes": [
+          "Model listing confirms identity, not effort semantics. Local executor preserves explicit fields, but gateway support is not verified by inference. Use AA model-level estimate."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "e2c0623e-c855-4a61-bb66-be1f1ed43234"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+          "name": "Nemotron 3.5 Super VL",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 26.5,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 27.2,
+            "artificial_analysis_strategy_and_ops_index": 22.6,
+            "artificial_analysis_legal_index": 28.1,
+            "artificial_analysis_healthcare_and_medical_index": 25.5,
+            "artificial_analysis_engineering_index": 30.1,
+            "artificial_analysis_economics_index": 38.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 26.5,
+          "fitness": 0.5898876404494382,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+              "score": 26.5
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "opencode-zen",
+      "model": "space-bunny-free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "cohere/north-mini-code:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/CohereLabs/North-Mini-Code-1.0",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "1e9907e0-ffac-4595-b006-962e4f1da7cf"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+          "name": "North Mini Code",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 9.9,
+            "artificial_analysis_coding_index": 36.5,
+            "artificial_analysis_agentic_index": 1.1,
+            "artificial_analysis_finance_and_accounting_index": 9.1,
+            "artificial_analysis_strategy_and_ops_index": 5.9,
+            "artificial_analysis_legal_index": 9.9,
+            "artificial_analysis_healthcare_and_medical_index": 7.9,
+            "artificial_analysis_engineering_index": 13.9,
+            "artificial_analysis_economics_index": 14.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 36.5,
+          "fitness": 0.5054347826086957,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+              "score": 36.5
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 9.9,
+          "fitness": 0.15168539325842698,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "1e9907e0-ffac-4595-b006-962e4f1da7cf",
+              "score": 9.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/gemma-4-26b-a4b-it:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "none",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/google/gemma-4-26B-A4B-it",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "6e1b44ff-c227-496b-aef4-19b70cd18c76"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "70882ec6-914c-41f0-9754-5e8f75005f77",
+          "name": "Gemma 4 26B A4B (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 13.1,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        },
+        {
+          "id": "6e1b44ff-c227-496b-aef4-19b70cd18c76",
+          "name": "Gemma 4 26B A4B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 16.7,
+            "artificial_analysis_coding_index": 39.3,
+            "artificial_analysis_agentic_index": 2.9,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": 18.9
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 39.3,
+          "fitness": 0.5380434782608695,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "6e1b44ff-c227-496b-aef4-19b70cd18c76",
+              "score": 39.3
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 16.7,
+          "fitness": 0.33707865168539325,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "6e1b44ff-c227-496b-aef4-19b70cd18c76",
+              "score": 16.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/gemma-4-31b-it:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "none",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/google/gemma-4-31B-it",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "cd26a386-4873-46ff-b853-d239050025a2"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "d0aa27aa-4705-4184-9a1d-483b78c9331c",
+          "name": "Gemma 4 31B (Non-reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 13.9,
+            "artificial_analysis_coding_index": 33.2,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        },
+        {
+          "id": "cd26a386-4873-46ff-b853-d239050025a2",
+          "name": "Gemma 4 31B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 14.7,
+            "artificial_analysis_coding_index": 43.4,
+            "artificial_analysis_agentic_index": 4.2,
+            "artificial_analysis_finance_and_accounting_index": 13.6,
+            "artificial_analysis_strategy_and_ops_index": 9.3,
+            "artificial_analysis_legal_index": 13.9,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 16.7,
+            "artificial_analysis_economics_index": 20.6
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 43.4,
+          "fitness": 0.592391304347826,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "cd26a386-4873-46ff-b853-d239050025a2",
+              "score": 43.4
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 14.7,
+          "fitness": 0.29775280898876405,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "cd26a386-4873-46ff-b853-d239050025a2",
+              "score": 14.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/lyria-3-clip-preview",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/lyria-3-pro-preview",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": false
+    },
+    {
+      "provider": "openrouter",
+      "model": "liquid/lfm-2.5-2.6b:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "fixed-reasoning",
+      "selection_basis": "fixed_mode",
+      "reasoning_audit": null,
+      "selected_aa_ids": [
+        "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+          "name": "LFM2.5-2.6B",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 8.4,
+            "artificial_analysis_coding_index": 7.7,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 7.7,
+          "fitness": 0.08152173913043478,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+              "score": 7.7
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 8.4,
+          "fitness": 0.07865168539325842,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "e1bfc488-5f48-4d42-abf6-7f3c53d79f9c",
+              "score": 8.4
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "reasoning",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "8c748e53-61ae-48b8-af8d-eb8298b1e9db"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+          "name": "Nemotron 3 Nano Omni 30B A3B Reasoning",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 10.3,
+            "artificial_analysis_coding_index": 13.8,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": null,
+            "artificial_analysis_strategy_and_ops_index": null,
+            "artificial_analysis_legal_index": null,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": null,
+            "artificial_analysis_economics_index": null
+          },
+          "general_estimated": true,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 13.8,
+          "fitness": 0.15760869565217392,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+              "score": 13.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 10.3,
+          "fitness": 0.15730337078651685,
+          "estimate_reasons": [
+            "aa_general_estimate"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "8c748e53-61ae-48b8-af8d-eb8298b1e9db",
+              "score": 10.3
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.effort",
+        "default_mode": "medium",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [
+          "AA only labels Reasoning, so scores do not distinguish its low-effort switch from normal thinking."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "63872e9c-3377-4a6b-b477-7bba244c38e9"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+          "name": "Nemotron 3 Super 120B A12B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 12.8,
+            "artificial_analysis_coding_index": 37.7,
+            "artificial_analysis_agentic_index": 1.7,
+            "artificial_analysis_finance_and_accounting_index": 13.2,
+            "artificial_analysis_strategy_and_ops_index": 9.1,
+            "artificial_analysis_legal_index": 12.8,
+            "artificial_analysis_healthcare_and_medical_index": null,
+            "artificial_analysis_engineering_index": 17,
+            "artificial_analysis_economics_index": 20.6
+          },
+          "general_estimated": false,
+          "deprecated": true
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 37.7,
+          "fitness": 0.5108695652173914,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+              "score": 37.7
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 12.8,
+          "fitness": 0.25842696629213485,
+          "estimate_reasons": [
+            "historical_aa_result"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "63872e9c-3377-4a6b-b477-7bba244c38e9",
+              "score": 12.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.effort",
+        "default_mode": "high",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [
+          "AA only labels Reasoning; no separate published per-effort scores in this snapshot."
+        ],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "5b52def2-ac9b-4465-ad80-91ea8079e253"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+          "name": "Nemotron 3 Ultra 550B A55B (Reasoning)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 22.9,
+            "artificial_analysis_coding_index": 49.3,
+            "artificial_analysis_agentic_index": 20.1,
+            "artificial_analysis_finance_and_accounting_index": 23.9,
+            "artificial_analysis_strategy_and_ops_index": 16.4,
+            "artificial_analysis_legal_index": 26.4,
+            "artificial_analysis_healthcare_and_medical_index": 22.2,
+            "artificial_analysis_engineering_index": 27.2,
+            "artificial_analysis_economics_index": 36.6
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 49.3,
+          "fitness": 0.6739130434782609,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+              "score": 49.3
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 22.9,
+          "fitness": 0.4550561797752809,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "5b52def2-ac9b-4465-ad80-91ea8079e253",
+              "score": 22.9
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-content-safety:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "29976311-665a-4b2f-ac72-557c33e0758e"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "29976311-665a-4b2f-ac72-557c33e0758e",
+          "name": "Nemotron 3.5 Lightning",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 12.9,
+            "artificial_analysis_coding_index": 26.8,
+            "artificial_analysis_agentic_index": 3.5,
+            "artificial_analysis_finance_and_accounting_index": 12.2,
+            "artificial_analysis_strategy_and_ops_index": 6.9,
+            "artificial_analysis_legal_index": 15.5,
+            "artificial_analysis_healthcare_and_medical_index": 11.7,
+            "artificial_analysis_engineering_index": 18.1,
+            "artificial_analysis_economics_index": 22.8
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.8,
+          "fitness": 0.42934782608695654,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 26.8
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 12.9,
+          "fitness": 0.2640449438202247,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "29976311-665a-4b2f-ac72-557c33e0758e",
+              "score": 12.9
+            }
+          ],
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-super-vl:free",
+      "identity_matched": true,
+      "configuration_matched": true,
+      "mode": "reasoning",
+      "selection_basis": "reasoning_mode",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.enabled",
+        "default_mode": "unknown",
+        "aa_modes": {
+          "low": "reasoning",
+          "medium": "reasoning",
+          "high": "reasoning"
+        },
+        "sources": [
+          "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "e2c0623e-c855-4a61-bb66-be1f1ed43234"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+          "name": "Nemotron 3.5 Super VL",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 26.5,
+            "artificial_analysis_coding_index": null,
+            "artificial_analysis_agentic_index": null,
+            "artificial_analysis_finance_and_accounting_index": 27.2,
+            "artificial_analysis_strategy_and_ops_index": 22.6,
+            "artificial_analysis_legal_index": 28.1,
+            "artificial_analysis_healthcare_and_medical_index": 25.5,
+            "artificial_analysis_engineering_index": 30.1,
+            "artificial_analysis_economics_index": 38.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "metric_unmeasured",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "rated",
+          "aa_score_or_estimate": 26.5,
+          "fitness": 0.5898876404494382,
+          "estimate_reasons": [],
+          "source_scores": [
+            {
+              "aa_id": "e2c0623e-c855-4a61-bb66-be1f1ed43234",
+              "score": 26.5
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "openrouter/free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "poolside/laguna-s-2.1:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "poolside/laguna-xs-2.1:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "recursive/flint-v1.0:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "thinkingmachines/inkling-small:free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.effort",
+        "default_mode": "high",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/thinkingmachines/Inkling-Small",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "7261504e-503c-4a66-a9d3-a3272cdf9ad6"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "7261504e-503c-4a66-a9d3-a3272cdf9ad6",
+          "name": "Inkling Small",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 25.7,
+            "artificial_analysis_coding_index": 52.9,
+            "artificial_analysis_agentic_index": 23.5,
+            "artificial_analysis_finance_and_accounting_index": 27.7,
+            "artificial_analysis_strategy_and_ops_index": 21.3,
+            "artificial_analysis_legal_index": 28.2,
+            "artificial_analysis_healthcare_and_medical_index": 23.7,
+            "artificial_analysis_engineering_index": 28.9,
+            "artificial_analysis_economics_index": 37.7
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 52.9,
+          "fitness": 0.7119565217391305,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "7261504e-503c-4a66-a9d3-a3272cdf9ad6",
+              "score": 52.9
+            }
+          ],
+          "bands": [
+            "mid",
+            "high"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 25.7,
+          "fitness": 0.5337078651685393,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "7261504e-503c-4a66-a9d3-a3272cdf9ad6",
+              "score": 25.7
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "thinkingmachines/inkling:free",
+      "identity_matched": true,
+      "configuration_matched": false,
+      "mode": "low",
+      "selection_basis": "available_variants_median",
+      "reasoning_audit": {
+        "reasoning_supported": true,
+        "support_basis": "Exact provider model catalog includes reasoning parameter",
+        "controls": "reasoning.effort",
+        "default_mode": "high",
+        "aa_modes": {
+          "low": "low",
+          "medium": "medium",
+          "high": "high"
+        },
+        "sources": [
+          "https://huggingface.co/thinkingmachines/Inkling",
+          "https://models.dev/catalog.json",
+          "https://openrouter.ai/api/v1/models",
+          "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens"
+        ],
+        "notes": [],
+        "claim_scope": "Offline AA score selection. No live request parameter is sent or changed."
+      },
+      "selected_aa_ids": [
+        "0de09623-2b1a-4c8d-86ef-7f5245d4e24b"
+      ],
+      "identity_aa_models": [
+        {
+          "id": "0de09623-2b1a-4c8d-86ef-7f5245d4e24b",
+          "name": "Inkling (Xhigh)",
+          "evaluations": {
+            "artificial_analysis_intelligence_index": 25,
+            "artificial_analysis_coding_index": 52.1,
+            "artificial_analysis_agentic_index": 22.5,
+            "artificial_analysis_finance_and_accounting_index": 29.5,
+            "artificial_analysis_strategy_and_ops_index": 23.2,
+            "artificial_analysis_legal_index": 31.4,
+            "artificial_analysis_healthcare_and_medical_index": 24.5,
+            "artificial_analysis_engineering_index": 27.7,
+            "artificial_analysis_economics_index": 38.5
+          },
+          "general_estimated": false,
+          "deprecated": false
+        }
+      ],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "estimated",
+          "aa_score_or_estimate": 52.1,
+          "fitness": 0.6902173913043478,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "0de09623-2b1a-4c8d-86ef-7f5245d4e24b",
+              "score": 52.1
+            }
+          ],
+          "bands": [
+            "mid"
+          ]
+        },
+        "general": {
+          "status": "estimated",
+          "aa_score_or_estimate": 25,
+          "fitness": 0.4887640449438202,
+          "estimate_reasons": [
+            "aa_effort_proxy"
+          ],
+          "source_scores": [
+            {
+              "aa_id": "0de09623-2b1a-4c8d-86ef-7f5245d4e24b",
+              "score": 25
+            }
+          ],
+          "bands": [
+            "low",
+            "mid"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    },
+    {
+      "provider": "openrouter",
+      "model": "xingchen-agi/xing4.0-29b-a4b:free",
+      "identity_matched": false,
+      "configuration_matched": false,
+      "mode": null,
+      "selection_basis": null,
+      "reasoning_audit": null,
+      "selected_aa_ids": [],
+      "identity_aa_models": [],
+      "suggestions": [],
+      "tasks": {
+        "coding": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        },
+        "general": {
+          "status": "unrated",
+          "reason": "no_confirmed_mapping",
+          "bands": [
+            "low"
+          ]
+        }
+      },
+      "fork_reasoning_capable": true
+    }
+  ],
+  "scope": "offline quality-band simulation of the captured pool; no inference, quota, reserve, or modality checks",
+  "source_attribution": "Artificial Analysis — https://artificialanalysis.ai/",
+  "fork_reasoning_filter_source": "existing fork read-only candidate inspector; actual _reasoning filter",
+  "reasoning_capable_count": 60,
+  "reasoning_bands": {
+    "coding": {
+      "low": [
+        "api-airforce/google/gemma3-270m:free",
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-20b",
+        "groq/openai/gpt-oss-safeguard-20b",
+        "groq/qwen/qwen3-32b",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/dots-studio/dots-3-note-preview:free",
+        "kilocode/kilo-auto/free",
+        "kilocode/liquid/lfm-2.5-2.6b:free",
+        "kilocode/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3.5-content-safety:free",
+        "kilocode/nvidia/nemotron-3.5-lightning:free",
+        "kilocode/nvidia/nemotron-3.5-super-vl:free",
+        "kilocode/poolside/laguna-s-2.1:free",
+        "kilocode/poolside/laguna-xs-2.1:free",
+        "kilocode/reflection/beam-free",
+        "kilocode/stealth/glyph-cluster",
+        "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/google/diffusiongemma-26b-a4b-it",
+        "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+        "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
+        "nvidia/poolside/laguna-xs-2.1",
+        "nvidia/stepfun-ai/step-5-preview",
+        "opencode-zen/beam-free",
+        "opencode-zen/big-pickle",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/longcat-2.5-preview-free",
+        "opencode-zen/mimo-v2.6-flash-free",
+        "opencode-zen/nemotron-3.5-lightning-free",
+        "opencode-zen/nemotron-3.5-super-vl-free",
+        "opencode-zen/space-bunny-free",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/dots-studio/dots-3-note-preview:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+        "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3.5-content-safety:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/nvidia/nemotron-3.5-super-vl:free",
+        "openrouter/openrouter/free",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/recursive/flint-v1.0:free",
+        "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
+      ],
+      "mid": [
+        "groq/qwen/qwen3.6-27b",
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "mistral/mistral-medium-3-5",
+        "nvidia/google/gemma-4-31b-it",
+        "nvidia/meta/muse-glimmer-30b",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free"
+      ],
+      "high": [
+        "groq/qwen/qwen3.6-27b",
+        "groq/qwen/qwen3.8-27b",
+        "nvidia/z-ai/glm-5.3",
+        "nvidia/z-ai/glm-5.3-flash",
+        "opencode-zen/glm-5.3-flash-free",
+        "openrouter/thinkingmachines/inkling-small:free"
+      ]
+    },
+    "general": {
+      "low": [
+        "api-airforce/google/gemma3-270m:free",
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-20b",
+        "groq/openai/gpt-oss-safeguard-20b",
+        "groq/qwen/qwen3-32b",
+        "groq/qwen/qwen3.6-27b",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/dots-studio/dots-3-note-preview:free",
+        "kilocode/kilo-auto/free",
+        "kilocode/liquid/lfm-2.5-2.6b:free",
+        "kilocode/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "kilocode/nvidia/nemotron-3.5-content-safety:free",
+        "kilocode/nvidia/nemotron-3.5-lightning:free",
+        "kilocode/poolside/laguna-s-2.1:free",
+        "kilocode/poolside/laguna-xs-2.1:free",
+        "kilocode/reflection/beam-free",
+        "kilocode/stealth/glyph-cluster",
+        "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+        "mistral/mistral-medium-3-5",
+        "nvidia/google/diffusiongemma-26b-a4b-it",
+        "nvidia/google/gemma-4-31b-it",
+        "nvidia/meta/muse-glimmer-30b",
+        "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+        "nvidia/poolside/laguna-xs-2.1",
+        "opencode-zen/big-pickle",
+        "opencode-zen/longcat-2.5-preview-free",
+        "opencode-zen/nemotron-3.5-lightning-free",
+        "opencode-zen/space-bunny-free",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/dots-studio/dots-3-note-preview:free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+        "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/nvidia/nemotron-3.5-content-safety:free",
+        "openrouter/nvidia/nemotron-3.5-lightning:free",
+        "openrouter/openrouter/free",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/recursive/flint-v1.0:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free",
+        "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
+      ],
+      "mid": [
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "kilocode/nvidia/nemotron-3.5-super-vl:free",
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
+        "nvidia/z-ai/glm-5.3",
+        "opencode-zen/beam-free",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/mimo-v2.6-flash-free",
+        "opencode-zen/nemotron-3.5-super-vl-free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/nvidia/nemotron-3.5-super-vl:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free"
+      ],
+      "high": [
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/stepfun-ai/step-5-preview",
+        "nvidia/z-ai/glm-5.3",
+        "nvidia/z-ai/glm-5.3-flash",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/glm-5.3-flash-free",
+        "opencode-zen/mimo-v2.6-flash-free"
+      ]
+    }
+  },
+  "reasoning_band_counts": {
+    "coding": {
+      "low": 47,
+      "mid": 15,
+      "high": 6
+    },
+    "general": {
+      "low": 47,
+      "mid": 14,
+      "high": 7
+    }
+  },
+  "input_sha256": {
+    "aa-current.json": "c8397aa92b7e9804dbc6d18bc1f9fbac6adf45b3832f8f1b3ec9042a495e8b00",
+    "current-candidates.json": "21d98c8e5d4b74217466e7ac7a6967d355a89bc2f372729f78794b2218500fbc",
+    "aa-mappings.json": "3684870267f4a2f0a1bf7f80aa15a2e16939dfa38b75fd4b280bbab26e88688e",
+    "aa-public-metadata.json": "d03cd04179be7d87a2b8ca4870513258078b52d8637a7d54d9b23e1c2667f5b1",
+    "fork-reasoning-filter.json": "c184930cde0eed12a87a60be64a2bb7d8b2a8724fa362711252dc8c2e051f595"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "model_id": "opencode-zen/space-bunny-free",
+  "benchmarks": {
+    "SWE-bench Verified": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "SWE-bench official leaderboard",
+          "url": "https://www.swebench.com/",
+          "queries": [
+            "\"opencode-zen/space-bunny-free\" \"SWE-bench Verified\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Multilingual": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "SWE-bench Multilingual official page",
+          "url": "https://www.swebench.com/multilingual",
+          "queries": [
+            "\"opencode-zen/space-bunny-free\" \"SWE-bench Multilingual\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Pro": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Scale AI SWE-Bench Pro V2 public leaderboard",
+          "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2",
+          "queries": [
+            "\"opencode-zen/space-bunny-free\" \"SWE-bench Pro\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "Terminal-Bench": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Terminal-Bench 4.0 official leaderboard",
+          "url": "https://www.tbench.ai/",
+          "queries": [
+            "\"opencode-zen/space-bunny-free\" \"Terminal-Bench\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "DeepSWE": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Datacurve DeepSWE official leaderboard",
+          "url": "https://deepswe.datacurve.ai/",
+          "queries": [
+            "\"opencode-zen/space-bunny-free\" \"DeepSWE\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "MiniMax official M3.1 Flash announcement",
+          "url": "https://www.minimax.io/blog/minimax-m31f",
+          "queries": [
+            "site:minimax.io/blog/minimax-m31f \"opencode-zen/space-bunny-free\" \"DeepSWE\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    }
+  }
+}

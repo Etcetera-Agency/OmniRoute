@@ -500,3 +500,54 @@ Deferred cross-repository and operations work:
 - [ ] A2 source is locally verified (56focused, strict11/11, ESLint, independent review/Simplifier); obtain exact CI image tuple and run authorized A5/A6 before claiming live Laya budget delivery or semantic discrimination.
 
 - [ ] A4 source ready after26focused/strict11/11/independent review/Simplifier; obtain owner-authorized push/main integration for existing GitHub image workflow. Verify actual fullSHA/BUILD_SHA/compiledrouteSHA/image digest, then follow A5backup/deploy/smokes and A6matrix. Existing unrelated test repairs remain outside minimal release.
+# Free auto-band score-source correction — 2026-10-25
+
+- [x] Implement and review `fix-free-band-quality-sources` locally: treat
+      `models_dev_tier` as rated in all explicit free task/band predicates
+      and refresh AutoCombo's cached capabilities after successful models.dev
+      synchronization. Keep task fitness global by raw model ID; do not add a
+      provider-specific lookup or copy capability estimates into `user_override`.
+      Focused band-filter tests pass 14/14; the broader changed AutoCombo tests
+      pass 19/19; the sync/cache regression and core typecheck passed in an
+      isolated Linux-compatible environment. The quality-source follow-up now
+      also passes 26 AA configuration tests, 24 estimator tests, 26 AutoCombo
+      Vitest tests, and strict OpenSpec validation via isolated `npm exec`.
+- [x] Owner decision 2026-10-25: use the global `models_dev_tier` capability
+      estimate as a marked fallback for `low`, `mid`, and `high` on explicit
+      free requests. Keep it separate from benchmark fitness; it is not a
+      benchmark result. Implemented in the local `fix-free-band-quality-sources`
+      change, not yet merged or deployed.
+- [x] Evaluate task-specific evidence and exact model/config mapping. The AA
+      API has separate configuration rows and scores; `name` can show an effort
+      suffix (official example: `gpt-oss-20B (high)`), while the schema has no
+      normalized `reasoning_effort` field. Pro's `reasoning_model` is boolean,
+      not an effort level. Candidate mapping selects the actual AA effort row;
+      a missing mapped high/xhigh row uses a marked sibling estimate, never a
+      zero. Exact source mappings and calculation are recorded in
+      `openspec/changes/fix-free-band-quality-sources/`. Unreviewed fuzzy name
+      merging was removed; only exact reviewed aliases are applied. Local only;
+      integration/deployment remain pending.
+- [ ] Design and implement a reviewed refresh flow for newly added models and
+      AA reasoning configurations. Use the closed benchmark list and verified
+      structured-output contract; keep automatic writes separate from the
+      current frozen snapshot until that flow is independently reviewed.
+- [ ] Reassess individual band assignments after collecting broader independent
+      benchmark evidence. Current leave-one-family-out checks change membership
+      for 7–12 model IDs, and these relative scores are not task-success
+      probabilities. Keep the current thresholds unchanged until then.
+- [ ] Audit the exactly identified assistant-generated synthetic
+      `user_override` rows stored as provider/model IDs. Back up and remove only
+      those generated rows after verifying the exact source/model/category
+      keys and confirming no operator-owned overrides were introduced.
+- [x] Independent app-server thread `01a17450-0959-74c2-88b7-47dc50e226bf`
+      completed a static assessment: the capability-derived fitness heuristic
+      over-admits coding-high; the absolute quality error per model is unknown.
+      Do not treat capabilities as benchmark results or calibrate from this
+      heuristic alone.
+- [ ] Before live acceptance, confirm exact free-tier, in-band, capability-
+      matching candidate rows and complete the controlled forced-tool-call
+      smoke with separate client request/provider-attempt counts, actual
+      model/connection, tool result, route, and zero-cost/no-fallback receipts.
+- [ ] Do not deploy or run model inference until the live strict zero-cost
+      route is verified against the changed source. No paid or out-of-band
+      fallback is permitted.

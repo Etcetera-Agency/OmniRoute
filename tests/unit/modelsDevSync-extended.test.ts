@@ -10,6 +10,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
+const taskFitness = await import("../../open-sse/services/autoCombo/taskFitness.ts");
 
 const modulePath = path.join(process.cwd(), "src/lib/modelsDevSync.ts");
 const originalFetch = globalThis.fetch;
@@ -170,6 +171,37 @@ test.describe("modelsDevSync-extended", { concurrency: 1 }, async () => {
     const nonOk = await importFresh("fetch-non-ok");
     mockFetchWith({ error: "boom" }, 503, "Service Unavailable");
     await assert.rejects(() => nonOk.fetchModelsDev(), /models\.dev fetch failed \[503\]/);
+  });
+
+  test("publishes capability lookup cache only after successful non-dry-run sync", async () => {
+    const modelId = "gpt-4o";
+
+    assert.equal(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), null);
+
+    mockFetchWith(MOCK_MODELS_DEV_DATA);
+    const dryRun = await (await importFresh("capability-cache-dry-run")).syncModelsDev({
+      dryRun: true,
+      maxRetries: 0,
+    });
+    assert.equal(dryRun.success, true);
+    assert.equal(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), null);
+
+    mockFetchWith({ error: "unavailable" }, 503, "Service Unavailable");
+    const failed = await (await importFresh("capability-cache-failed")).syncModelsDev({
+      maxRetries: 0,
+    });
+    assert.equal(failed.success, false);
+    assert.equal(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), null);
+
+    mockFetchWith(MOCK_MODELS_DEV_DATA);
+    const synced = await (await importFresh("capability-cache-success")).syncModelsDev({
+      maxRetries: 0,
+    });
+    assert.equal(synced.success, true);
+    assert.deepEqual(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), {
+      score: 0.85,
+      source: "models_dev_tier",
+    });
   });
 
   test("modelsDev interval falls back to the default when env values are invalid or non-positive", async () => {

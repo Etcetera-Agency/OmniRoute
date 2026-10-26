@@ -1,0 +1,108 @@
+{
+  "model_id": "kilocode/stealth/glyph-cluster",
+  "benchmarks": {
+    "SWE-bench Verified": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench leaderboard",
+          "url": "https://www.swebench.com/",
+          "queries": [
+            "\"kilocode/stealth/glyph-cluster\" SWE-bench Verified",
+            "site:swebench.com \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Multilingual": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench Multilingual leaderboard",
+          "url": "https://www.swebench.com/multilingual",
+          "queries": [
+            "\"kilocode/stealth/glyph-cluster\" \"SWE-bench Multilingual\"",
+            "site:swebench.com/multilingual \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Pro": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Scale AI SWE-Bench Pro public leaderboard",
+          "url": "https://labs.scale.com/leaderboard/swe_bench_pro",
+          "queries": [
+            "\"kilocode/stealth/glyph-cluster\" \"SWE-bench Pro\"",
+            "site:labs.scale.com/leaderboard/swe_bench_pro \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "Terminal-Bench": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official Terminal-Bench leaderboard",
+          "url": "https://www.tbench.ai/?version=2.1",
+          "queries": [
+            "\"kilocode/stealth/glyph-cluster\" \"Terminal-Bench\"",
+            "site:tbench.ai \"glyph-cluster\" OR \"stealth/glyph-cluster\" Terminal-Bench"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "DeepSWE": {
+      "status": "found",
+      "results": [
+        {
+          "model": "stealth/glyph-cluster",
+          "model_version": null,
+          "score": 2.7,
+          "unit": "percent pass@1",
+          "benchmark_version": "DeepSWE v1.1",
+          "effort": "xhigh",
+          "agent": "mini-swe-agent 2.4.6",
+          "source_url": "https://huggingface.co/datasets/ProCreations/glyph-cluster-deepswe-traces",
+          "source_date": "2026-10-08",
+          "evidence_quote": "“pass@1 | 2.7% ± 0.7%”; model `stealth/glyph-cluster`, effort `xhigh`; “self-run evaluation and does not appear on the official leaderboard.”"
+        }
+      ],
+      "search_log": [
+        {
+          "source": "Official Datacurve DeepSWE leaderboard v1.1",
+          "url": "https://deepswe.datacurve.ai/",
+          "queries": [
+            "\"kilocode/stealth/glyph-cluster\" DeepSWE",
+            "site:deepswe.datacurve.ai \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        },
+        {
+          "source": "ProCreations dataset card with self-run DeepSWE traces",
+          "url": "https://huggingface.co/datasets/ProCreations/glyph-cluster-deepswe-traces",
+          "queries": [
+            "\"glyph-cluster\" \"DeepSWE v1.1\" \"2.7%\"",
+            "\"stealth/glyph-cluster\" pass@1 xhigh concurrency"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    }
+  }
+}
