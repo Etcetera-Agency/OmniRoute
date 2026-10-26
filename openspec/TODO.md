@@ -2,6 +2,22 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+## Strict zero-cost models.dev evidence
+
+- [x] The strict filter currently relied on `FREE_MODEL_BUDGETS` and rejected
+      live candidates outside that table, even when the raw models.dev catalog
+      has an explicit zero input and zero output price. The normalized pricing
+      cache is not safe as proof because it defaults a missing output price to
+      zero and remaps some source providers. Implement and review the focused
+      `add-modeldev-zero-price-strict-gate` package using exact raw identities,
+      durable freshness, and fail-closed matching. Do not weaken existing
+      static quota/hard-stop rules or route outside `:free`.
+- [ ] After deployment, verify the exact in-band free/tools pool and one
+      controlled forced tool call with separate client/provider counts,
+      actual model/connection, zero-cost evidence, and no paid/out-of-band
+      fallback. If no eligible fresh model remains or a provider rate-limits,
+      stop inference and record the blocked acceptance without retrying paid.
+
 ## Full-catalog benchmark scoring
 
 - [x] Full-catalog scoring merged through PR #28 at main merge

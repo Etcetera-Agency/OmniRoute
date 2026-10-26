@@ -121,7 +121,44 @@ export interface StrictZeroCostOptions {
    * ignored — fixed alongside the connection-safety review).
    */
   catalog?: readonly FreeModelBudget[];
+  /** Direct raw models.dev prices; aliases and model-name fallbacks are not accepted. */
+  modelsDevZeroPriceEvidence?: {
+    fetchedAt: string;
+    modelsByProvider: Record<string, string[]>;
+  } | null;
 }
+
+const MAX_MODELS_DEV_ZERO_PRICE_AGE_MS = 36 * 60 * 60 * 1000;
+
+// AICODE-NOTE: Strict routing trusts only fresh raw provider/model prices, never normalized aliases.
+function hasFreshExactZeroPriceEvidence(
+  candidate: StrictZeroCostCandidate,
+  evidence: StrictZeroCostOptions["modelsDevZeroPriceEvidence"],
+  now: number
+): boolean {
+  if (
+    !evidence ||
+    (candidate.provider === "openrouter" &&
+      (candidate.model === "free" || candidate.model === "openrouter/free"))
+  ) {
+    return false;
+  }
+  const fetchedAtMs = Date.parse(evidence.fetchedAt);
+  if (
+    !Number.isFinite(fetchedAtMs) ||
+    fetchedAtMs > now ||
+    now - fetchedAtMs > MAX_MODELS_DEV_ZERO_PRICE_AGE_MS
+  ) {
+    return false;
+  }
+  const models = evidence.modelsByProvider?.[candidate.provider];
+  return Array.isArray(models) && models.includes(candidate.model);
+}
+
+type StrictZeroCostEvaluationOptions = Pick<
+  StrictZeroCostOptions,
+  "minRemainingAllowance" | "maxStateAgeMs" | "now" | "modelsDevZeroPriceEvidence"
+>;
 
 export function findBudgetEntry(
   candidate: Pick<StrictZeroCostCandidate, "provider" | "model">,
@@ -194,7 +231,7 @@ export function evaluateCandidateConnections(
   candidate: StrictZeroCostCandidate,
   budgetEntry: FreeModelBudget | undefined,
   resolveFreeAccessState: StrictZeroCostOptions["resolveFreeAccessState"],
-  options: Pick<StrictZeroCostOptions, "minRemainingAllowance" | "maxStateAgeMs" | "now">
+  options: StrictZeroCostEvaluationOptions
 ): string[] {
   const verdict = classifyStrictZeroCostCandidate(
     candidate,
@@ -215,9 +252,19 @@ export function classifyStrictZeroCostCandidate(
   candidate: StrictZeroCostCandidate,
   budgetEntry: FreeModelBudget | undefined,
   resolveFreeAccessState: StrictZeroCostOptions["resolveFreeAccessState"],
-  options: Pick<StrictZeroCostOptions, "minRemainingAllowance" | "maxStateAgeMs" | "now">
+  options: StrictZeroCostEvaluationOptions
 ): StrictZeroCostVerdict {
-  if (!budgetEntry) return { outcome: "not-in-catalog" }; // paid, or genuinely unknown
+  if (!budgetEntry) {
+    const now = (options.now ?? Date.now)();
+    if (hasFreshExactZeroPriceEvidence(candidate, options.modelsDevZeroPriceEvidence, now)) {
+      const safeConnectionIds = candidate.connectionId
+        ? [candidate.connectionId]
+        : (candidate.allowedConnectionIds ?? []);
+      if (safeConnectionIds.length > 0) return { outcome: "safe", safeConnectionIds };
+      return { outcome: "no-connection" };
+    }
+    return { outcome: "not-in-catalog" }; // paid, or genuinely unknown
+  }
 
   const isGenuineNoAuthCandidate = candidate.connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID;
   if (allowsNoAuthShortcut(budgetEntry.freeType)) {
