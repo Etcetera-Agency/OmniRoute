@@ -888,7 +888,7 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - PR #28 merged into main at `81289e18e3efa8273f044621224481080e6d2598`. The
   post-merge image workflow `40305312202` ended cancelled during candidate
   build; verification, publish, and deploy steps were skipped. Production
-  remains on the previous image.
+  remained on the previous image until the auth-filter follow-up.
 - Read-only live DB query showed the active OpenRouter connection uses
   `auth_type='apikey'`. The merged processor queried `api_key`, so its exact
   free Structured Output gate returned no connection before model selection.
@@ -906,6 +906,40 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   exact synced normalization model with `isFree=true`; current public endpoint
   metadata has one Phala endpoint, zero prompt/completion prices, and both
   strict-SO parameters. No inference was sent.
-- The live fix is uncommitted and not yet merged or deployed. Corrected image
-  rollout, full-catalog queue totals, and one strict zero-cost end-to-end score
-  remain open.
+- PR #29 merged at `d2244e12145b554922899cd2b00f84f9d724ff9e`; workflow
+  `40306771589` and deployment job `121523483419` succeeded. The auth fix is
+  live. Full-catalog migration, queue totals, and end-to-end score remain open.
+
+## Full-catalog migration packaging fix — 2026-10-26
+
+- Production deployment of PR #29 uses source
+  `d2244e12145b554922899cd2b00f84f9d724ff9e` and image
+  `sha256:5e33c45ecf616c2b5e3a6374bca1b0a9abd43cfcdda0801474c017ed96cd3709`.
+  Container is healthy and models.dev initial sync completed with 10,398
+  capability rows; benchmark scoring did not start.
+- Read-only DB inventory found migration journal max version 196 and no
+  `model_benchmark_search_models`, `model_benchmark_search_evidence`, or
+  `model_benchmark_search_state` tables. The built image lacks migrations 197
+  and 198. `migrationRunner.resolveMigrationsDir()` checks `/app/migrations`
+  before bundled source paths, and `docker/official-backend-overlay.Dockerfile`
+  copied no fork migration files into the final runtime stage. The official
+  base directory therefore shadowed the new source migrations.
+- Added final-image copy of `src/lib/db/migrations/` to `/app/migrations/` and
+  a candidate-image gate that hashes every numeric SQL migration from source
+  and requires exact inventory/content matches before publication. The image
+  first replaces the official base migration directory, preventing extra base
+  migrations from running. The gate reports migration count and manifest
+  SHA-256, and rejects missing, extra, or changed files.
+- TDD regression failed before implementation because the migration verifier
+  did not exist; after implementation, the focused overlay verifier suite
+  passes 14/14 and `git diff --check` passes. Code Simplifier reviewed the
+  changed slice; no further safe simplification was identified.
+- Independent Luna-xhigh review found no findings: Docker context and selected
+  runtime stage are correct; the verifier rejects empty, missing, changed, and
+  extra numeric migration inventories.
+- Fix is local on `codex/overlay-migration-copy`; not committed, pushed,
+  merged, or deployed at this checkpoint. No production DB writes or inference
+  occurred. Remaining release gates: independent review, PR/main image build,
+  production migration journal 198 and three-table verification, full-catalog
+  queue/scored/unrated receipts, future-ID enqueue, and a controlled exact
+  free-only search smoke with current zero-cost/no-fallback proof.
