@@ -32,8 +32,10 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 - [ ] Live acceptance remains open: verify the runtime has an eligible
       connection and compatible internal API key, then run one controlled
       request and retain the provider-attempt and response-validation receipt.
-      No live inference was run for this implementation. Any request error,
-      schema failure, invalid output, or missing evidence stays unrated.
+      PR #26 is merged into `main`; image workflow `40290772900` was canceled
+      before completion, and no live inference was run for this implementation.
+      Any request error, schema failure, invalid output, or missing evidence
+      stays unrated.
 - [ ] Keep production ratings blocked until a reviewer confirms exact model
       identity, reasoning effort/config, benchmark/version, metric/value, source
       URL/date, and source verification status. Independently calibrate/review
