@@ -22,6 +22,13 @@ models.dev fetch succeeds
        -> validate exact identity, returned URL, and literal source quote
        -> persist accepted output as candidate-review-required evidence
        -> finish this row before claiming another
+  -> space explicit ollama-search calls at least 15 seconds apart
+  -> space actual free-SO requests at least five seconds apart
+  -> on search/normalizer HTTP 429, persist reset time and pause the queue
+  -> defer exact ollama-search no-credentials errors as cooldowns too
+  -> persist the selected normalization connection in the retry receipt
+  -> resume the same model through the same provider/model route after reset
+  -> if that exact free connection is no longer eligible, block instead of rotating
   -> process at most 20 rows per drain, then continue after 60 seconds
   -> if only fresh `running` rows remain, schedule a retry at their stale boundary
   -> never write ratings or touch the frozen score map
@@ -100,7 +107,9 @@ Migration `197_model_benchmark_search.sql` creates:
 
 - `model_benchmark_search_models`, one row per exact raw model ID. It stores
   first/last-seen time, status, attempt count, last attempt time, source status
-  JSON, last error, and normalization block reason.
+  JSON, last error, normalization block reason, and nullable rate-limit retry
+  time. Migration `199_model_benchmark_search_retry_after.sql` adds the
+  `retry_after_at` column to existing queue rows.
 - `model_benchmark_search_evidence`, one row per deterministic evidence hash.
   It stores source, source version, exact matched identity, benchmark/version,
   nullable effort/config/metric/value, source URL/date, verification status,
@@ -108,9 +117,10 @@ Migration `197_model_benchmark_search.sql` creates:
 
 Evidence uses `INSERT OR IGNORE` by a stable content hash so retries do not
 duplicate identical source rows. No evidence table has a score-map write path.
-Rollback for an unshipped migration is `DROP TABLE model_benchmark_search_evidence`
-then `DROP TABLE model_benchmark_search_models`; normal forward migrations
-remain append-only.
+Migration 199 is additive and needs no data rewrite. Rollback for an unshipped
+initial schema is `DROP TABLE model_benchmark_search_evidence` then
+`DROP TABLE model_benchmark_search_models`; normal forward migrations remain
+append-only.
 
 ## Structured-output gate
 
@@ -129,10 +139,21 @@ Build one `json_schema` request with `strict: true`, `provider.only: ["phala"]`,
 `provider.require_parameters: true`, and `provider.allow_fallbacks: false`.
 Dispatch through an internal one-shot marker that cannot be supplied by a
 client. It bypasses combo selection, account retry/rotation, emergency model
-fallback, and global error fallback. Do not retry. Any missing gate, non-2xx
-response, non-`stop` finish, malformed output, unexpected model identity,
-unreturned source URL, or quote not literally contained in the corresponding
-returned title/snippet leaves the row unrated and records an error/block reason.
+fallback, and global error fallback. Space actual normalization requests at
+least five seconds apart. Space explicit `ollama-search` queries at least 15
+seconds apart. On HTTP 429 from either provider, persist `Retry-After` or
+`X-RateLimit-Reset`; if unavailable, defer 15 minutes. Also defer the exact
+`No credentials configured for search provider: ollama-search` error for 15
+minutes, because live connections may be temporarily rate-limited. Pause the
+whole benchmark queue until the retry instant. Retry the same model with
+explicit `ollama-search`, then the same exact pinned free connection and
+Phala endpoint for normalization. Waiting consumes no attempt. Each real HTTP
+429 consumes the existing bounded attempt count; the exact no-credentials
+error consumes none because no upstream request occurred. Other non-2xx
+responses and invalid output do not retry. Any missing gate, non-`stop` finish,
+malformed output, unexpected model identity, unreturned source URL, or quote not
+literally contained in the corresponding returned title/snippet leaves the row
+unrated and records an error/block reason.
 
 Successful extracted rows retain their raw response and exact quoted evidence
 as `candidate_review_required`. They are not a fitness score and have no path
@@ -166,6 +187,9 @@ drainQueue():
   scores = recomputeCohortFitness()
   completed = 0
   while completed < 20:
+    if a persisted normalization cooldown is active:
+      scheduleDrainAt(cooldownEnd)
+      return
     model = claimOneEligibleRow()
     if no model: break
     if model.id not in direct:
@@ -180,14 +204,29 @@ drainQueue():
       completed += 1
       continue
     hf = findExactHFModelEvalResults(model, limit=10)
+    waitUntilFifteenSecondsSincePreviousOllamaSearch()
     web = explicitSearch(provider="ollama-search", alternateProvider=null, limit=10)
+    if web.status == HTTP_429 or web.error == EXACT_NO_CREDENTIALS:
+      persistRawSearchResultOrError(web)
+      persistRetryAfterAt(parseRetryAfterOrRateLimitReset(web) ?? now + 15m)
+      if web.error == EXACT_NO_CREDENTIALS:
+        releaseClaimWithoutConsumingAttempt()
+      // HTTP 429 is a real upstream attempt and remains bounded by MAX_SEARCH_ATTEMPTS.
+      pauseWholeQueueUntilRetryAfterAt()
+      continue  // do not dispatch strict-SO for this row
     require(web.provider == "ollama-search" and web.search_cost_usd == 0)
     persistRawEvidence(hf, web)  // before strict-SO
+    waitUntilFiveSecondsSincePreviousNormalizationRequest()
     output = oneShotPinnedNoFallbackStrictSO(web.results, timeout=5m)
+    if output.httpStatus == 429:
+      persistRetryAfterAt(parseRetryAfterOrRateLimitReset(output) ?? now + 15m)
+      // The pinned strict-SO request is a real provider attempt and remains bounded.
+      pauseWholeQueueUntilRetryAfterAt()
+      continue
     persistCandidateReviewRequiredOrUnrated(output)
     finish(model)
     completed += 1
-  scheduleContinuationOrStaleRetry()
+  scheduleContinuationOrEarliestCooldownOrStaleRetry()
 ```
 
 ## Operational boundaries

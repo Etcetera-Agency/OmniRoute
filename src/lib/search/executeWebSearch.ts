@@ -55,10 +55,22 @@ export interface ExecuteWebSearchResult {
 
 export class WebSearchExecutionError extends Error {
   statusCode: number;
+  rawError?: string;
+  retryAfter?: string;
+  rateLimitReset?: string;
 
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    rawError?: string,
+    retryAfter?: string,
+    rateLimitReset?: string
+  ) {
     super(message);
     this.statusCode = statusCode;
+    this.rawError = rawError;
+    this.retryAfter = retryAfter;
+    this.rateLimitReset = rateLimitReset;
   }
 }
 
@@ -292,7 +304,13 @@ export async function executeWebSearch(
     });
 
     if (!result.success || !result.data) {
-      throw new WebSearchExecutionError(result.error || "Search failed", result.status || 502);
+      throw new WebSearchExecutionError(
+        result.error || "Search failed",
+        result.status || 502,
+        result.rawError,
+        result.retryAfter,
+        result.rateLimitReset
+      );
     }
 
     return result.data;

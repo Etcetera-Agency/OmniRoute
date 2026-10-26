@@ -18,6 +18,7 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 const core = await import("../../src/lib/db/core.ts");
 const proxyLogger = await import("../../src/lib/proxyLogger.ts");
 const searchProxy = await import("../../open-sse/handlers/search/searchProxy.ts");
+const { handleSearch } = await import("../../open-sse/handlers/search.ts");
 const { SEARCH_PROVIDERS } = await import("../../open-sse/config/searchRegistry.ts");
 const { closeCallLogSaves } = await import("../../src/lib/usage/callLogs.ts");
 
@@ -29,9 +30,15 @@ test.before(async () => {
     const url = new URL(req.url ?? "/", "http://local");
     const code = Number(url.searchParams.get("code") ?? 200);
     if (url.searchParams.get("hang") === "1") return; // never respond -> caller aborts
-    res.writeHead(code, { "Content-Type": "application/json", Connection: "close" });
+    res.writeHead(code, {
+      "Content-Type": "application/json",
+      Connection: "close",
+      ...(code === 429 ? { "Retry-After": "120", "X-RateLimit-Reset": "1792974000" } : {}),
+    });
     if (code >= 200 && code < 300) {
       res.end(JSON.stringify({ results: [], total: 0 }));
+    } else if (url.searchParams.has("long")) {
+      res.end("x".repeat(800));
     } else {
       res.end(JSON.stringify({ error: `provider error ${code}` }));
     }
@@ -92,6 +99,103 @@ test("a real 429 from the wire lands on the journal line", async () => {
     assert.equal(await latestUpstreamStatus(), 429);
   } finally {
     clearTimeout(p.timer);
+  }
+});
+
+test("429 retry headers survive provider fetch result", async () => {
+  const p = { ...fetchParams("/search?code=429"), config: SEARCH_PROVIDERS["ollama-search"] };
+  try {
+    const result = await searchProxy.executeProviderFetch(p);
+    assert.equal(result.status, 429);
+    assert.equal(result.rawError, JSON.stringify({ error: "provider error 429" }));
+    assert.equal(result.retryAfter, "120");
+    assert.equal(result.rateLimitReset, "1792974000");
+  } finally {
+    clearTimeout(p.timer);
+  }
+});
+
+test("raw provider errors are limited to 500 characters", async () => {
+  const p = fetchParams("/search?code=429&long=1");
+  try {
+    const result = await searchProxy.executeProviderFetch(p);
+    assert.equal(result.rawError?.length, 500);
+  } finally {
+    clearTimeout(p.timer);
+  }
+});
+
+test("Ollama Search concurrent requests reserve slots 15 seconds apart", async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const waits: number[] = [];
+  try {
+    globalThis.setTimeout = ((
+      callback: (...args: unknown[]) => void,
+      delay?: number,
+      ...args: unknown[]
+    ) => {
+      waits.push(delay ?? 0);
+      return originalSetTimeout(callback, 10, ...args);
+    }) as typeof globalThis.setTimeout;
+    await Promise.all([
+      searchProxy.waitForOllamaSearchSlot("ollama-search"),
+      searchProxy.waitForOllamaSearchSlot("ollama-search"),
+      searchProxy.waitForOllamaSearchSlot("ollama-search"),
+    ]);
+    assert.equal(waits.length, 2);
+    assert.ok(waits[0] >= 14_000);
+    assert.ok(waits[1] >= 14_000 && waits[1] <= 15_000);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("Ollama Search pacing runs before its provider timeout starts", async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  const timers: number[] = [];
+  let simulatedElapsedMs = 0;
+  Date.now = () => originalNow() + simulatedElapsedMs;
+  globalThis.setTimeout = ((callback: (...args: unknown[]) => void, delay?: number) => {
+    timers.push(delay ?? 0);
+    if ((delay ?? 0) >= 14_000) {
+      queueMicrotask(() => {
+        simulatedElapsedMs += delay ?? 0;
+        callback();
+      });
+    }
+    return { unref() {} } as ReturnType<typeof setTimeout>;
+  }) as typeof globalThis.setTimeout;
+  globalThis.clearTimeout = (() => {}) as typeof globalThis.clearTimeout;
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ results: [], total: 0 }), {
+      headers: { "content-type": "application/json" },
+    });
+  try {
+    const search = () =>
+      handleSearch({
+        query: "rate limit pacing test",
+        provider: "ollama-search",
+        maxResults: 1,
+        searchType: "web",
+        credentials: { apiKey: "test-only-key" },
+      });
+    assert.equal((await search()).success, true);
+    const results = await Promise.all([search(), search()]);
+    assert.ok(results.every((result) => result.success));
+    const timeoutIndices = timers.flatMap((delay, index) => (delay === 10_000 ? [index] : []));
+    const waits = timers.flatMap((delay, index) => (delay >= 14_000 ? [{ delay, index }] : []));
+    assert.equal(timeoutIndices.length, 3);
+    assert.ok(waits.length >= 2);
+    assert.ok(waits[waits.length - 1].index < timeoutIndices[timeoutIndices.length - 1]);
+    assert.ok(waits.every((wait) => wait.delay >= 14_000));
+  } finally {
+    Date.now = originalNow;
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+    globalThis.fetch = originalFetch;
   }
 });
 

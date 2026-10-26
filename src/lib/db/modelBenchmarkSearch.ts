@@ -26,6 +26,7 @@ export interface ModelBenchmarkSearchRun {
   attempts: number;
   firstSeenAt: string;
   lastRunAt: string | null;
+  retryAfterAt: string | null;
   sourceStatus: Record<string, unknown>;
   lastError: string | null;
 }
@@ -179,6 +180,7 @@ export function updateModelBenchmarkSearchSourceStatus(
 
 export function hasEligibleModelBenchmarkSearch(): boolean {
   const now = Date.now();
+  if (getModelBenchmarkSearchRetryDelay() !== null) return false;
   const retryBefore = new Date(now - 24 * 60 * 60 * 1000).toISOString();
   const staleBefore = new Date(now - STALE_SEARCH_RUN_MS).toISOString();
   const row = getDbInstance()
@@ -186,9 +188,14 @@ export function hasEligibleModelBenchmarkSearch(): boolean {
       `SELECT 1 FROM model_benchmark_search_models
        WHERE (
          (attempts < ? AND (
-           (status IN ('pending', 'source_error', 'pending_unrated')
-            AND (last_run_at IS NULL OR last_run_at <= ?)) OR
-           (status = 'running' AND last_run_at <= ?)
+           (
+             (status IN ('pending', 'source_error', 'pending_unrated') OR
+              (status = 'review_required' AND retry_after_at IS NOT NULL))
+             AND (
+               (retry_after_at IS NOT NULL AND retry_after_at <= ?) OR
+               (retry_after_at IS NULL AND (last_run_at IS NULL OR last_run_at <= ?))
+             )
+           ) OR (status = 'running' AND last_run_at <= ?)
          )) OR (
            ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
            AND last_error = ?
@@ -197,6 +204,7 @@ export function hasEligibleModelBenchmarkSearch(): boolean {
     )
     .get(
       MAX_SEARCH_ATTEMPTS,
+      new Date(now).toISOString(),
       retryBefore,
       staleBefore,
       Number(canRetryMissingAaApiKey()),
@@ -223,6 +231,7 @@ export function expireExhaustedModelBenchmarkSearchRuns(): void {
 
 export function listEligibleModelBenchmarkSearchRuns(limit: number): ModelBenchmarkSearchRun[] {
   const now = Date.now();
+  if (getModelBenchmarkSearchRetryDelay() !== null) return [];
   const retryBefore = new Date(now - 24 * 60 * 60 * 1000).toISOString();
   const staleBefore = new Date(now - STALE_SEARCH_RUN_MS).toISOString();
   return getDbInstance()
@@ -230,19 +239,26 @@ export function listEligibleModelBenchmarkSearchRuns(limit: number): ModelBenchm
       `SELECT * FROM model_benchmark_search_models
        WHERE (
          (attempts < ? AND (
-           (status IN ('pending', 'source_error', 'pending_unrated')
-            AND (last_run_at IS NULL OR last_run_at <= ?)) OR
-           (status = 'running' AND last_run_at <= ?)
+           (
+             (status IN ('pending', 'source_error', 'pending_unrated') OR
+              (status = 'review_required' AND retry_after_at IS NOT NULL))
+             AND (
+               (retry_after_at IS NOT NULL AND retry_after_at <= ?) OR
+               (retry_after_at IS NULL AND (last_run_at IS NULL OR last_run_at <= ?))
+             )
+           ) OR (status = 'running' AND last_run_at <= ?)
          )) OR (
            ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
            AND last_error = ?
          )
        )
-       ORDER BY first_seen_at, model_id
+       ORDER BY CASE WHEN retry_after_at IS NOT NULL THEN 0 ELSE 1 END,
+                first_seen_at, model_id
        LIMIT ?`
     )
     .all(
       MAX_SEARCH_ATTEMPTS,
+      new Date(now).toISOString(),
       retryBefore,
       staleBefore,
       Number(canRetryMissingAaApiKey()),
@@ -250,6 +266,21 @@ export function listEligibleModelBenchmarkSearchRuns(limit: number): ModelBenchm
       Math.max(1, Math.min(100, Math.floor(limit)))
     )
     .map(mapSearchRun);
+}
+
+export function getModelBenchmarkSearchRetryDelay(): number | null {
+  // AICODE-NOTE: Any stored free-provider cooldown pauses the queue after restart too.
+  const row = getDbInstance()
+    .prepare(
+      `SELECT MIN(retry_after_at) AS retry_after_at
+       FROM model_benchmark_search_models
+       WHERE retry_after_at > ?`
+    )
+    .get(new Date().toISOString());
+  const retryAfterAt = asRecord(row).retry_after_at;
+  if (typeof retryAfterAt !== "string") return null;
+  const retryAt = Date.parse(retryAfterAt);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : null;
 }
 
 export function getModelBenchmarkSearchStaleRetryDelay(): number | null {
@@ -276,6 +307,10 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
   let claimed: unknown = null;
 
   db.immediate(() => {
+    const pendingRetry = db
+      .prepare("SELECT 1 FROM model_benchmark_search_models WHERE retry_after_at > ? LIMIT 1")
+      .get(nowIso);
+    if (pendingRetry) return;
     db.prepare(
       `
       UPDATE model_benchmark_search_models
@@ -292,20 +327,27 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
         SELECT * FROM model_benchmark_search_models
         WHERE (
           (attempts < ? AND (
-            (status IN ('pending', 'source_error', 'pending_unrated')
-             AND (last_run_at IS NULL OR last_run_at <= ?)) OR
-            (status = 'running' AND last_run_at <= ?)
+            (
+              (status IN ('pending', 'source_error', 'pending_unrated') OR
+               (status = 'review_required' AND retry_after_at IS NOT NULL))
+             AND (
+               (retry_after_at IS NOT NULL AND retry_after_at <= ?) OR
+               (retry_after_at IS NULL AND (last_run_at IS NULL OR last_run_at <= ?))
+             )
+            ) OR (status = 'running' AND last_run_at <= ?)
           )) OR (
             ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
             AND last_error = ?
           )
         )
-        ORDER BY first_seen_at, model_id
+        ORDER BY CASE WHEN retry_after_at IS NOT NULL THEN 0 ELSE 1 END,
+                 first_seen_at, model_id
         LIMIT 1
       `
       )
       .get(
         MAX_SEARCH_ATTEMPTS,
+        nowIso,
         retryBefore,
         staleBefore,
         retryMissingAaApiKey,
@@ -318,11 +360,18 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
       .prepare(
         `
         UPDATE model_benchmark_search_models
-        SET status = 'running', attempts = attempts + 1, last_run_at = ?, last_error = NULL
+        SET status = 'running', attempts = attempts + 1, last_run_at = ?, last_error = NULL,
+            retry_after_at = NULL
         WHERE model_id = ? AND (
           (attempts < ? AND (
-            status IN ('pending', 'source_error', 'pending_unrated') OR
-            (status = 'running' AND last_run_at <= ?)
+            (
+              (status IN ('pending', 'source_error', 'pending_unrated') OR
+               (status = 'review_required' AND retry_after_at IS NOT NULL))
+              AND (
+                (retry_after_at IS NOT NULL AND retry_after_at <= ?) OR
+                (retry_after_at IS NULL AND (last_run_at IS NULL OR last_run_at <= ?))
+              )
+            ) OR (status = 'running' AND last_run_at <= ?)
           )) OR (
             ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
             AND last_error = ?
@@ -334,11 +383,15 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
         nowIso,
         modelId,
         MAX_SEARCH_ATTEMPTS,
+        nowIso,
+        retryBefore,
         staleBefore,
         retryMissingAaApiKey,
         MISSING_AA_API_KEY_ERROR
       );
-    if (result.changes > 0) claimed = { ...asRecord(row), last_run_at: nowIso };
+    if (result.changes > 0) {
+      claimed = { ...asRecord(row), last_run_at: nowIso, retry_after_at: null };
+    }
   });
 
   return claimed ? mapSearchRun(claimed) : null;
@@ -350,12 +403,15 @@ export function finishModelBenchmarkSearch(input: {
   normalizationStatus: string;
   sourceStatus: Record<string, unknown>;
   lastError?: string | null;
+  retryAfterAt?: string | null;
+  consumeAttempt?: boolean;
 }): void {
   getDbInstance()
     .prepare(
       `
       UPDATE model_benchmark_search_models
-      SET status = ?, normalization_status = ?, source_status_json = ?, last_error = ?
+      SET status = ?, normalization_status = ?, source_status_json = ?, last_error = ?,
+          retry_after_at = ?, attempts = MAX(0, attempts - ?)
       WHERE model_id = ?
     `
     )
@@ -364,6 +420,8 @@ export function finishModelBenchmarkSearch(input: {
       input.normalizationStatus,
       JSON.stringify(input.sourceStatus),
       input.lastError ?? null,
+      input.retryAfterAt ?? null,
+      input.consumeAttempt === false ? 1 : 0,
       input.modelId
     );
 }
@@ -486,6 +544,7 @@ function mapSearchRun(value: unknown): ModelBenchmarkSearchRun {
     attempts: Number(record.attempts),
     firstSeenAt: String(record.first_seen_at),
     lastRunAt: typeof record.last_run_at === "string" ? record.last_run_at : null,
+    retryAfterAt: typeof record.retry_after_at === "string" ? record.retry_after_at : null,
     sourceStatus: asRecord(parseJson(record.source_status_json, {})),
     lastError: typeof record.last_error === "string" ? record.last_error : null,
   };

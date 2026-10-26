@@ -23,6 +23,11 @@ import {
   type SearchUsage,
 } from "./reportedCost.ts";
 
+const OLLAMA_SEARCH_MIN_INTERVAL_MS = 15_000;
+// AICODE-NOTE: FIFO reservation advances from actual wake time so late timers cannot bunch requests.
+let nextOllamaSearchRequestAt = 0;
+let ollamaSearchSlotQueue = Promise.resolve();
+
 export const SEARCH_COOLDOWN_STATUSES = new Set([
   HTTP_STATUS.PAYMENT_REQUIRED,
   HTTP_STATUS.REQUEST_TIMEOUT,
@@ -43,6 +48,21 @@ export function shouldCoolDownSearchConnection(status: number, errorText: string
   const lower = errorText.toLowerCase();
   if (SEARCH_CREDIT_EXHAUSTION_PHRASES.some((phrase) => lower.includes(phrase))) return true;
   return isSubscriptionQuotaText(lower);
+}
+
+export async function waitForOllamaSearchSlot(providerId: string): Promise<void> {
+  if (providerId !== "ollama-search") return;
+  const previous = ollamaSearchSlotQueue;
+  let release!: () => void;
+  ollamaSearchSlotQueue = new Promise((resolve) => (release = resolve));
+  await previous;
+  try {
+    const spacingMs = nextOllamaSearchRequestAt - Date.now();
+    if (spacingMs > 0) await new Promise((resolve) => setTimeout(resolve, spacingMs));
+    nextOllamaSearchRequestAt = Date.now() + OLLAMA_SEARCH_MIN_INTERVAL_MS;
+  } finally {
+    release();
+  }
 }
 
 /** Resolved proxy binding for a single provider attempt. */
@@ -153,6 +173,9 @@ export interface ProviderFetchResult {
   success: boolean;
   status?: number;
   error?: string;
+  rawError?: string;
+  retryAfter?: string;
+  rateLimitReset?: string;
   data?: {
     provider: string;
     query: string;
@@ -268,10 +291,15 @@ export async function executeProviderFetch(
         error: errorText.slice(0, 500),
       });
       await emitEvent("error", response.status);
+      const retryAfter = response.headers.get("retry-after");
+      const rateLimitReset = response.headers.get("x-ratelimit-reset");
       return {
         success: false,
         status: response.status,
         error: `Search provider ${config.id} returned ${response.status}`,
+        rawError: errorText.slice(0, 500),
+        ...(retryAfter ? { retryAfter } : {}),
+        ...(rateLimitReset ? { rateLimitReset } : {}),
       };
     }
 

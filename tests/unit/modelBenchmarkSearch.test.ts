@@ -311,6 +311,292 @@ test("queued search failure records an error without storing results or calling 
   );
 });
 
+test("Ollama Search 429 defers whole queue before strict-SO dispatch", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-rate-limit-test",
+    apiKey: "ollama-search-rate-limit-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const urls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url === "https://ollama.com/api/web_search") {
+      return new Response("{}", {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": "120",
+        },
+      });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "a-search-rate-limited", name: "Search Rate Limited" },
+    { id: "z-search-peer", name: "Search Peer" },
+  ]);
+  await search.drainModelBenchmarkSearchQueue();
+  const completedAt = Date.now();
+
+  const runs = searchDb.listModelBenchmarkSearchRuns();
+  const limited = runs.find((run) => run.modelId === "a-search-rate-limited");
+  assert.equal(limited?.status, "source_error");
+  assert.equal((limited?.sourceStatus.ollamaSearch as { statusCode?: number }).statusCode, 429);
+  assert.equal((limited?.sourceStatus.ollamaSearch as { rawError?: string }).rawError, "{}");
+  assert.equal((limited?.sourceStatus.ollamaSearch as { retryAfter?: string }).retryAfter, "120");
+  assert.equal(limited?.attempts, 1);
+  assert.ok(limited?.retryAfterAt);
+  assert.ok(Date.parse(limited.retryAfterAt) >= completedAt + 119_000);
+  assert.ok(Date.parse(limited.retryAfterAt) <= completedAt + 121_000);
+  assert.equal(runs.find((run) => run.modelId === "z-search-peer")?.status, "pending");
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
+  assert.equal(
+    urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+    false
+  );
+});
+
+test("exact Ollama Search no-credentials error defers without trying another route", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  const urls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "search-no-credentials", name: "Search No Credentials" },
+  ]);
+  await search.drainModelBenchmarkSearchQueue();
+
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.match(
+    String(run.sourceStatus.ollamaSearch.error),
+    /^No credentials configured for search provider: ollama-search\./
+  );
+  assert.equal(run.attempts, 0);
+  assert.ok(run.retryAfterAt && Date.parse(run.retryAfterAt) > Date.now());
+  assert.ok(Date.parse(run.retryAfterAt) < Date.now() + 15 * 60_000 + 1_000);
+  assert.equal(
+    urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+    false
+  );
+});
+
+test("repeated Ollama Search 429s stop at the attempt limit and keep candidates unrated", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-repeated-rate-limit-test",
+    apiKey: "ollama-search-repeated-rate-limit-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  let searchCalls = 0;
+  globalThis.setTimeout = ((callback: (...args: unknown[]) => void, delay?: number) => {
+    if ((delay ?? 0) >= 14_000 && (delay ?? 0) < 60_000) queueMicrotask(callback);
+    return { unref() {} } as ReturnType<typeof setTimeout>;
+  }) as typeof globalThis.setTimeout;
+  globalThis.clearTimeout = (() => {}) as typeof globalThis.clearTimeout;
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?"))
+      return jsonResponse([{ id: "repeated-429-model" }]);
+    if (url.startsWith("https://huggingface.co/api/models/repeated-429-model?")) {
+      return jsonResponse({ id: "repeated-429-model", evalResults: [{ dataset_id: "SWE-bench" }] });
+    }
+    if (url === "https://ollama.com/api/web_search") {
+      searchCalls += 1;
+      return new Response("{}", { status: 429, headers: { "retry-after": "0" } });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    searchDb.enqueueModelBenchmarkSearches([
+      { id: "repeated-429-model", name: "Repeated 429 Model" },
+    ]);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await search.drainModelBenchmarkSearchQueue();
+      if (attempt < 4) {
+        core
+          .getDbInstance()
+          .prepare(
+            "UPDATE provider_connections SET rate_limited_until = NULL, test_status = 'active' WHERE provider = 'ollama-cloud'"
+          )
+          .run();
+        core
+          .getDbInstance()
+          .prepare("UPDATE model_benchmark_search_models SET retry_after_at = ? WHERE model_id = ?")
+          .run(new Date(Date.now() - 1_000).toISOString(), "repeated-429-model");
+      }
+    }
+    await search.drainModelBenchmarkSearchQueue();
+
+    const [run] = searchDb.listModelBenchmarkSearchRuns();
+    assert.equal(searchCalls, 5);
+    assert.equal(run.attempts, 5);
+    assert.equal(run.status, "review_required");
+    assert.ok(searchDb.listModelBenchmarkSearchEvidence("repeated-429-model").length > 0);
+    assert.equal(run.sourceStatus.ollamaSearch.statusCode, 429);
+    assert.equal(run.sourceStatus.fitness.codingFitness, null);
+    assert.equal(run.sourceStatus.fitness.generalFitness, null);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
+test("fitness refresh failure preserves a deferred retry and its source receipt", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-fitness-failure-test",
+    apiKey: "ollama-search-fitness-failure-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "fitness-seed-model", name: "Fitness Seed Model" },
+    { id: "fitness-failure-model", name: "Fitness Failure Model" },
+  ]);
+  searchDb.saveModelBenchmarkSearchEvidence([
+    {
+      evidenceHash: "fitness-seed-evidence",
+      modelId: "fitness-seed-model",
+      source: "artificial-analysis-free",
+      sourceVersion: "test",
+      matchedModelId: "fitness-seed-model",
+      matchedModelName: "Fitness Seed Model",
+      benchmark: "Artificial Analysis Coding Index",
+      benchmarkVersion: null,
+      reasoningEffort: null,
+      reasoningConfig: null,
+      metric: "artificial_analysis_coding_index",
+      value: 40,
+      sourceUrl: "https://artificialanalysis.ai/test",
+      sourceDate: null,
+      verificationStatus: "verified",
+      capturedAt: new Date().toISOString(),
+      raw: {},
+    },
+  ]);
+  const urls: string[] = [];
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = ((callback: (...args: unknown[]) => void, delay?: number) => {
+    if ((delay ?? 0) >= 14_000 && (delay ?? 0) < 60_000) queueMicrotask(callback);
+    return { unref() {} } as ReturnType<typeof setTimeout>;
+  }) as typeof globalThis.setTimeout;
+  globalThis.clearTimeout = (() => {}) as typeof globalThis.clearTimeout;
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?"))
+      return jsonResponse([{ id: "fitness-failure-model" }]);
+    if (url.startsWith("https://huggingface.co/api/models/fitness-failure-model?")) {
+      return jsonResponse({
+        id: "fitness-failure-model",
+        evalResults: [{ dataset_id: "SWE-bench" }],
+      });
+    }
+    if (url === "https://ollama.com/api/web_search") {
+      core.getDbInstance().exec(`CREATE TRIGGER fail_benchmark_fitness_after_evidence
+          BEFORE INSERT ON model_intelligence
+          WHEN NEW.source = 'benchmark_fitness'
+          BEGIN SELECT RAISE(ABORT, 'test fitness refresh failure'); END`);
+      return new Response("{}", { status: 429, headers: { "retry-after": "120" } });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    await search.drainModelBenchmarkSearchQueue();
+
+    const [run] = searchDb.listModelBenchmarkSearchRuns();
+    assert.equal(run.status, "review_required");
+    assert.equal(run.attempts, 1);
+    assert.ok(run.retryAfterAt && Date.parse(run.retryAfterAt) > Date.now());
+    assert.equal(run.sourceStatus.ollamaSearch.statusCode, 429);
+    assert.ok(searchDb.listModelBenchmarkSearchEvidence("fitness-failure-model").length > 0);
+    assert.equal(
+      urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+      false
+    );
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
 test("normalization connection choice requires exact free model and is deterministic", () => {
   const result = processor.selectFreeNormalizationConnection(
     [
@@ -326,6 +612,147 @@ test("normalization connection choice requires exact free model and is determini
     processor.selectFreeNormalizationConnection([], processor.NORMALIZATION_MODEL),
     null
   );
+
+  assert.equal(
+    processor.selectFreeNormalizationConnection(
+      [
+        { id: "a-new-connection", models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }] },
+        {
+          id: "z-original-connection",
+          models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }],
+        },
+      ],
+      processor.NORMALIZATION_MODEL,
+      "z-original-connection"
+    ),
+    "z-original-connection"
+  );
+  assert.equal(
+    processor.selectFreeNormalizationConnection(
+      [{ id: "a-new-connection", models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }] }],
+      processor.NORMALIZATION_MODEL,
+      "z-original-connection"
+    ),
+    null
+  );
+});
+
+test("strict-SO 429 retry never switches to a different free connection", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-pinned-retry-test",
+    apiKey: "ollama-search-pinned-retry-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const pinned = (await providersDb.createProviderConnection({
+    provider: "openrouter",
+    authType: "apikey",
+    name: "openrouter-original-free-pin",
+    apiKey: "openrouter-original-free-pin-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  })) as { id: string };
+  const db = core.getDbInstance();
+  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+    "syncedAvailableModels",
+    `openrouter:${pinned.id}`,
+    JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
+  );
+  process.env.API_KEY_SECRET = "test-only-api-key-secret";
+  await apiKeysDb.createApiKey("benchmark-pinned-retry-test", "test-machine", ["manage"]);
+
+  let chatRequests = 0;
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url === "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints") {
+      return jsonResponse(openRouterEndpointMetadata());
+    }
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url === "https://ollama.com/api/web_search") {
+      return jsonResponse({
+        results: [{ title: "Pinned model benchmark report", url: "https://example.org/pinned" }],
+      });
+    }
+    if (url.includes("openrouter.ai/api/v1/chat/completions")) {
+      chatRequests += 1;
+      return new Response("{}", { status: 429, headers: { "retry-after": "0" } });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    searchDb.enqueueModelBenchmarkSearches([
+      { id: "pinned-retry-model", name: "Pinned Retry Model" },
+    ]);
+    await search.drainModelBenchmarkSearchQueue();
+
+    const [first] = searchDb.listModelBenchmarkSearchRuns();
+    assert.equal(first.status, "review_required");
+    assert.equal(first.attempts, 1);
+    const firstNormalization = first.sourceStatus.normalizationProcessor as {
+      connectionId?: string;
+      retryAfterAt?: string;
+    };
+    assert.equal(firstNormalization.connectionId, pinned.id);
+    assert.ok(first.retryAfterAt);
+    assert.equal(first.retryAfterAt, firstNormalization.retryAfterAt);
+
+    const replacement = (await providersDb.createProviderConnection({
+      provider: "openrouter",
+      authType: "apikey",
+      name: "openrouter-replacement-free-pin",
+      apiKey: "openrouter-replacement-free-pin-key",
+      isActive: true,
+      testStatus: "active",
+      providerSpecificData: {},
+    })) as { id: string };
+    db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+      "syncedAvailableModels",
+      `openrouter:${replacement.id}`,
+      JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
+    );
+    await providersDb.updateProviderConnection(pinned.id, {
+      isActive: false,
+      testStatus: "active",
+      rateLimitedUntil: null,
+    });
+    db.prepare(
+      "UPDATE model_benchmark_search_models SET retry_after_at = ? WHERE model_id = ?"
+    ).run(new Date(Date.now() - 1_000).toISOString(), "pinned-retry-model");
+
+    await search.drainModelBenchmarkSearchQueue();
+
+    const [retry] = searchDb.listModelBenchmarkSearchRuns();
+    assert.equal(chatRequests, 1);
+    assert.equal(retry.attempts, 1);
+    assert.equal(retry.status, "review_required");
+    assert.equal(retry.normalizationStatus, "blocked_no_exact_free_connection");
+    assert.equal(
+      (retry.sourceStatus.normalizationProcessor as { status?: string }).status,
+      "blocked_no_exact_free_connection"
+    );
+    assert.ok(searchDb.listModelBenchmarkSearchEvidence("pinned-retry-model").length > 0);
+  } finally {
+    search.resetModelBenchmarkSearchStateForTests();
+  }
 });
 
 test("normalization selects active OpenRouter connection stored with apikey auth type", async () => {
@@ -426,6 +853,139 @@ test("normalization request pins Phala with strict schema and forbids upstream f
     },
   });
   assert.equal(body.stream, false);
+});
+
+test("429 retry delay prefers Retry-After then reset header and falls back conservatively", () => {
+  const now = Date.parse("2026-10-26T00:00:00.000Z");
+  assert.equal(
+    processor.parseNormalizationRetryAfter(
+      new Headers({ "retry-after": "120", "x-ratelimit-reset": "1792974000" }),
+      now
+    ),
+    new Date(now + 120_000).toISOString()
+  );
+  assert.equal(
+    processor.parseNormalizationRetryAfter(new Headers({ "x-ratelimit-reset": "1792974000" }), now),
+    new Date(1_792_974_000_000).toISOString()
+  );
+  assert.equal(
+    processor.parseNormalizationRetryAfter(new Headers({ "retry-after": "not-a-date" }), now),
+    new Date(now + 15 * 60_000).toISOString()
+  );
+  assert.equal(
+    processor.parseNormalizationRetryAfter(
+      new Headers({ "retry-after": "Mon, 26 Oct 2026 00:02:00 GMT" }),
+      now
+    ),
+    "2026-10-26T00:02:00.000Z"
+  );
+  assert.equal(
+    processor.parseNormalizationRetryAfter(
+      new Headers({ "x-ratelimit-reset": "2026-10-26T00:03:00.000Z" }),
+      now
+    ),
+    "2026-10-26T00:03:00.000Z"
+  );
+  assert.equal(
+    processor.parseNormalizationRetryAfter(new Headers({ "retry-after": "1e100" }), now),
+    new Date(now + 15 * 60_000).toISOString()
+  );
+  assert.equal(
+    processor.parseNormalizationRetryAfter(new Headers({ "x-ratelimit-reset": "1" }), now),
+    new Date(now + 15 * 60_000).toISOString()
+  );
+});
+
+test("no-credentials deferral persists, pauses all claims, and consumes no attempt", () => {
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "a-rate-limited-model", name: "Rate Limited Model" },
+    { id: "z-queued-peer", name: "Queued Peer" },
+  ]);
+  const claimed = searchDb.claimModelBenchmarkSearch();
+  assert.equal(claimed?.modelId, "a-rate-limited-model");
+  const retryAfterAt = new Date(Date.now() + 15 * 60_000).toISOString();
+  searchDb.finishModelBenchmarkSearch({
+    modelId: "a-rate-limited-model",
+    status: "review_required",
+    normalizationStatus: "normalization_request_failed_unrated",
+    sourceStatus: {
+      ollamaSearch: { error: "No credentials configured for search provider: ollama-search" },
+    },
+    lastError: "No credentials configured for search provider: ollama-search",
+    retryAfterAt,
+    consumeAttempt: false,
+  });
+
+  const runs = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(runs.find((run) => run.modelId === "a-rate-limited-model")?.attempts, 0);
+  assert.equal(
+    runs.find((run) => run.modelId === "a-rate-limited-model")?.retryAfterAt,
+    retryAfterAt
+  );
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
+  assert.equal(searchDb.claimModelBenchmarkSearch(), null);
+  assert.ok((searchDb.getModelBenchmarkSearchRetryDelay() ?? 0) > 0);
+  core
+    .getDbInstance()
+    .prepare("UPDATE model_benchmark_search_models SET retry_after_at = ? WHERE model_id = ?")
+    .run(new Date(Date.now() - 1_000).toISOString(), "a-rate-limited-model");
+  assert.equal(searchDb.claimModelBenchmarkSearch()?.modelId, "a-rate-limited-model");
+  assert.equal(searchDb.listModelBenchmarkSearchRuns()[0].attempts, 1);
+});
+
+test("a strict-SO HTTP 429 keeps its provider attempt counted during cooldown", () => {
+  searchDb.enqueueModelBenchmarkSearches([{ id: "strict-so-429", name: "Strict SO 429" }]);
+  searchDb.claimModelBenchmarkSearch();
+  const retryAfterAt = new Date(Date.now() + 15 * 60_000).toISOString();
+  searchDb.finishModelBenchmarkSearch({
+    modelId: "strict-so-429",
+    status: "review_required",
+    normalizationStatus: "normalization_request_failed_unrated",
+    sourceStatus: { normalizationProcessor: { error: "HTTP 429" } },
+    lastError: "HTTP 429",
+    retryAfterAt,
+  });
+
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(run.attempts, 1);
+  assert.equal(run.retryAfterAt, retryAfterAt);
+  assert.equal(searchDb.claimModelBenchmarkSearch(), null);
+});
+
+test("long retry timers clamp each leg and recalculate the remaining cooldown", async () => {
+  searchDb.enqueueModelBenchmarkSearches([{ id: "long-cooldown-model", name: "Long Cooldown" }]);
+  searchDb.claimModelBenchmarkSearch();
+  const retryAfterAt = new Date(Date.now() + 3_000_000_000_000).toISOString();
+  searchDb.finishModelBenchmarkSearch({
+    modelId: "long-cooldown-model",
+    status: "review_required",
+    normalizationStatus: "normalization_request_failed_unrated",
+    sourceStatus: { normalizationProcessor: { error: "HTTP 429" } },
+    retryAfterAt,
+  });
+
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const scheduled: Array<{ callback: (...args: unknown[]) => void; delay: number }> = [];
+  globalThis.setTimeout = ((callback: (...args: unknown[]) => void, delay?: number) => {
+    scheduled.push({ callback, delay: delay ?? 0 });
+    return { unref() {} } as ReturnType<typeof setTimeout>;
+  }) as typeof globalThis.setTimeout;
+  globalThis.clearTimeout = (() => {}) as typeof globalThis.clearTimeout;
+  try {
+    await search.drainModelBenchmarkSearchQueue();
+    assert.equal(scheduled[0]?.delay, 2_147_483_647);
+    core
+      .getDbInstance()
+      .prepare("UPDATE model_benchmark_search_models SET retry_after_at = ? WHERE model_id = ?")
+      .run(new Date(Date.now() + 5_000).toISOString(), "long-cooldown-model");
+    scheduled[0].callback();
+    await waitFor(() => scheduled.length > 1);
+    assert.ok(scheduled[1].delay >= 4_000 && scheduled[1].delay <= 5_000);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
 });
 
 test("normalization resolves to OpenRouter and preserves strict schema controls", async () => {
