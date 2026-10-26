@@ -102,9 +102,46 @@ function requireRuntimeConfigVerifier() {
   return verifier.verifyCandidateRuntimeConfiguration;
 }
 
+function requireMigrationVerifier() {
+  assert.ok(verifier, "official overlay image verifier must exist");
+  assert.equal(typeof verifier.verifyCandidateMigrations, "function");
+  return verifier.verifyCandidateMigrations;
+}
+
 test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
+});
+
+test("candidate image must contain every source migration with matching contents", () => {
+  const verifyCandidateMigrations = requireMigrationVerifier();
+  const source = [
+    { name: "197_model_benchmark_search.sql", sha256: "sha256:197" },
+    { name: "198_model_benchmark_catalog_backfill.sql", sha256: "sha256:198" },
+  ];
+
+  assert.throws(() => verifyCandidateMigrations([], []), /source migration inventory is empty/i);
+  assert.doesNotThrow(() => verifyCandidateMigrations(source, source));
+  assert.throws(
+    () => verifyCandidateMigrations(source.slice(0, 1), source),
+    /candidate image migration missing or mismatched: 198_model_benchmark_catalog_backfill\.sql/i
+  );
+
+  const changed = structuredClone(source);
+  changed[1].sha256 = "sha256:wrong";
+  assert.throws(
+    () => verifyCandidateMigrations(changed, source),
+    /candidate image migration missing or mismatched: 198_model_benchmark_catalog_backfill\.sql/i
+  );
+
+  assert.throws(
+    () =>
+      verifyCandidateMigrations(
+        [...source, { name: "199_unexpected.sql", sha256: "sha256:199" }],
+        source
+      ),
+    /candidate image has unexpected migration: 199_unexpected\.sql/i
+  );
 });
 
 test("verifier rejects a missing or mismatched overlay BUILD_SHA", () => {

@@ -17,12 +17,22 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       without inference. Node 68/68, routing Vitest 21/21, scoped ESLint and
       Prettier pass. Independent review found no blocker; release remains
       pending.
-- [ ] Merge and deploy the auth-filter follow-up, then verify full-catalog
-      queue/scored/unrated totals, future-model enqueue, the exact active free
-      connection and zero-price Structured Output path, and one controlled
-      end-to-end score. Record source/image fingerprints and provider-attempt/
-      cost receipts. Do not run inference unless strict free-only routing is
-      verified; paid or out-of-band fallback is prohibited.
+- [x] PR #29 merged at main source
+      `d2244e12145b554922899cd2b00f84f9d724ff9e` and deployed with image
+      `sha256:5e33c45ecf616c2b5e3a6374bca1b0a9abd43cfcdda0801474c017ed96cd3709`.
+      Models.dev sync ran and reached 10,398 capability rows. This did not run
+      the new benchmark queue: deployed DB journal remains at 196 and the new
+      search tables are absent.
+- [ ] Fix image packaging for migrations 197–198 and require candidate-image
+      migration filename/content hashes to match the complete source migration
+      set before publishing. Production diagnosis: `migrationRunner` selects
+      `/app/migrations` before bundled source paths, while the runtime image
+      omitted `src/lib/db/migrations`; the official base therefore shadowed the
+      new SQL. Deploy the fix, confirm journal version 198 and all three search
+      tables, then verify full-catalog queued/scored/unrated totals and future
+      model enqueue. Strict-free inference remains prohibited until the exact
+      active free route and zero-cost behavior are reverified; paid or out-of-
+      band fallback is prohibited.
 
 ## Missing-model benchmark search
 

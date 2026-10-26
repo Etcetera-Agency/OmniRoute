@@ -10,6 +10,10 @@ const OFFICIAL_UI_ROOT = "/app/.build/next";
 const DIRECT_UI_API_PATH = "/api/v1/models";
 const DIRECT_UI_PORT = 20128;
 const BROWSER_SMOKE_TIMEOUT_MS = 45_000;
+const SOURCE_MIGRATIONS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../src/lib/db/migrations"
+);
 const EXPECTED_RUNTIME_CONFIGURATION = {
   User: "node",
   Entrypoint: [
@@ -205,6 +209,21 @@ export function verifyCandidateEvidence(evidence, expected) {
   );
 }
 
+export function verifyCandidateMigrations(candidateFiles, sourceFiles) {
+  requireEvidence(sourceFiles.length > 0, "source migration inventory is empty");
+  const sourceByName = new Map(sourceFiles.map(({ name, sha256 }) => [name, sha256]));
+  const candidateByName = new Map(candidateFiles.map(({ name, sha256 }) => [name, sha256]));
+  for (const { name, sha256 } of sourceFiles) {
+    requireEvidence(
+      candidateByName.get(name) === sha256,
+      `candidate image migration missing or mismatched: ${name}`
+    );
+  }
+  for (const { name } of candidateFiles) {
+    requireEvidence(sourceByName.has(name), `candidate image has unexpected migration: ${name}`);
+  }
+}
+
 function docker(args, options = {}) {
   const result = spawnSync("docker", args, {
     encoding: "utf8",
@@ -326,6 +345,45 @@ function runNativeSqliteCheck(candidate) {
   ]);
   const result = JSON.parse(output);
   return { ...result, ok: result.queryResult === 1 };
+}
+
+async function readMigrationFiles(directory) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^\d+_.+\.sql$/.test(entry.name)) continue;
+    const contents = await fs.readFile(path.join(directory, entry.name));
+    files.push({
+      name: entry.name,
+      sha256: `sha256:${createHash("sha256").update(contents).digest("hex")}`,
+    });
+  }
+  return files.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function readCandidateMigrationFiles(candidate) {
+  const script = [
+    "const crypto=require('node:crypto');",
+    "const fs=require('node:fs');",
+    "const dir='/app/migrations';",
+    "const files=fs.readdirSync(dir,{withFileTypes:true})",
+    ".filter((entry)=>entry.isFile()&&/^\\d+_.+\\.sql$/.test(entry.name))",
+    ".map((entry)=>({name:entry.name,sha256:'sha256:'+crypto.createHash('sha256').update(fs.readFileSync(dir+'/'+entry.name)).digest('hex')}))",
+    ".sort((left,right)=>left.name.localeCompare(right.name));",
+    "process.stdout.write(JSON.stringify(files));",
+  ].join("");
+  const output = docker([
+    "run",
+    "--rm",
+    "--platform",
+    "linux/arm64",
+    "--entrypoint",
+    "node",
+    candidate,
+    "-e",
+    script,
+  ]);
+  return JSON.parse(output);
 }
 
 async function waitForHealth(baseUrl, container) {
@@ -591,6 +649,9 @@ export async function verifyImages(options) {
     candidateLabels["org.opencontainers.image.revision"] === expected.revision,
     "candidate OCI revision label does not match the expected source revision"
   );
+  const sourceMigrations = await readMigrationFiles(SOURCE_MIGRATIONS_DIR);
+  const candidateMigrations = readCandidateMigrationFiles(options.candidate);
+  verifyCandidateMigrations(candidateMigrations, sourceMigrations);
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "omni-overlay-ui-"));
   return withCleanup(async () => {
     const sqlite = runNativeSqliteCheck(options.candidate);
@@ -621,6 +682,10 @@ export async function verifyImages(options) {
       apiPort: runtime.apiResponse.port,
       apiStatus: runtime.apiResponse.status,
       apiErrorCode: runtime.apiResponse.body.error.code,
+      migrationFileCount: sourceMigrations.length,
+      migrationManifestSha256: `sha256:${createHash("sha256")
+        .update(sourceMigrations.map(({ name, sha256 }) => `${name}\0${sha256}`).join("\n"))
+        .digest("hex")}`,
       buildId: candidateUi.buildId,
       staticFileCount: candidateUi.staticFiles.length,
       nonApiRouteCount: Object.keys(candidateUi.nonApiAppPaths).length,

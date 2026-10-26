@@ -103,9 +103,12 @@ RUN node /app/.merge-official-backend-overlay.mjs \
     /tmp/omni-overlay-app-path-routes-manifest.json \
     /app/.merge-official-backend-overlay.mjs
 
-# The published filesystem starts from the verified official image. Copy only
-# the isolated backend subtree and the four merged routing manifests.
+# The published filesystem starts from the verified official image. Replace
+# its migrations with the fork set, then copy the backend subtree/manifests.
 FROM ${OFFICIAL_IMAGE} AS runtime
+# AICODE-NOTE: migrationRunner resolves /app/migrations before bundled source paths.
+RUN rm -rf /app/migrations
+COPY src/lib/db/migrations/ /app/migrations/
 COPY --from=merged-backend \
   /app/.build/next/omni-overlay/server \
   /app/.build/next/omni-overlay/server
