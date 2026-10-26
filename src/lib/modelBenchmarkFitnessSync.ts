@@ -1,4 +1,7 @@
-import { bulkUpsertModelIntelligence } from "./db/modelIntelligence";
+import {
+  bulkUpsertModelIntelligence,
+  replaceModelIntelligenceSources,
+} from "./db/modelIntelligence";
 import {
   listAllModelBenchmarkSearchEvidence,
   listModelBenchmarkSearchCatalogModels,
@@ -8,10 +11,62 @@ import {
   computeModelBenchmarkFitness,
   type ModelBenchmarkFamily,
   type ModelBenchmarkFitness,
+  type ModelBenchmarkFitnessProfile,
   type ModelBenchmarkFitnessObservation,
 } from "./modelBenchmarkFitness";
 
 export const MODEL_BENCHMARK_FITNESS_SOURCE = "benchmark_fitness";
+const MODEL_BENCHMARK_FITNESS_PROFILES: readonly ModelBenchmarkFitnessProfile[] = [
+  "low",
+  "medium",
+  "high",
+];
+
+function toModelIntelligenceEntries(
+  scores: ModelBenchmarkFitness[],
+  source: string
+): Array<{
+  model: string;
+  source: string;
+  category: string;
+  score: number;
+  eloRaw: null;
+  confidence: string;
+  expiresAt: null;
+}> {
+  return scores.flatMap((score) => {
+    const confidence = (fallback: boolean) =>
+      `${score.confidence}${score.effortProxy ? ":effort_proxy" : ""}${fallback ? ":reciprocal_task_fallback" : ""}`;
+    const common = { model: score.modelId.toLowerCase(), source };
+    return [
+      ...(score.codingFitness === null
+        ? []
+        : [
+            {
+              ...common,
+              category: "coding",
+              score: score.codingFitness,
+              eloRaw: null,
+              confidence: confidence(score.codingFallback),
+              expiresAt: null,
+            },
+          ]),
+      ...(score.generalFitness === null
+        ? []
+        : [
+            {
+              ...common,
+              // AICODE-NOTE: taskFitness stores general-task scores under `default`.
+              category: "default",
+              score: score.generalFitness,
+              eloRaw: null,
+              confidence: confidence(score.generalFallback),
+              expiresAt: null,
+            },
+          ]),
+    ];
+  });
+}
 
 function asBenchmarkFamily(row: ModelBenchmarkSearchEvidence): ModelBenchmarkFamily | null {
   if (row.source === "artificial-analysis-free") {
@@ -132,40 +187,25 @@ export async function recomputeModelBenchmarkFitness(): Promise<{
     observations,
     models.map((model) => model.id.toLowerCase())
   );
-  const entries = scores.flatMap((score) => {
-    const confidence = (fallback: boolean) =>
-      `${score.confidence}${fallback ? ":reciprocal_task_fallback" : ""}`;
-    const common = { model: score.modelId.toLowerCase(), source: MODEL_BENCHMARK_FITNESS_SOURCE };
-    return [
-      ...(score.codingFitness === null
-        ? []
-        : [
-            {
-              ...common,
-              category: "coding",
-              score: score.codingFitness,
-              eloRaw: null,
-              confidence: confidence(score.codingFallback),
-              expiresAt: null,
-            },
-          ]),
-      ...(score.generalFitness === null
-        ? []
-        : [
-            {
-              ...common,
-              // AICODE-NOTE: taskFitness stores general-task scores under `default`.
-              category: "default",
-              score: score.generalFitness,
-              eloRaw: null,
-              confidence: confidence(score.generalFallback),
-              expiresAt: null,
-            },
-          ]),
-    ];
-  });
-  const publishedCount = bulkUpsertModelIntelligence(entries);
-  if (publishedCount > 0) {
+  const profileEntries = MODEL_BENCHMARK_FITNESS_PROFILES.flatMap((profile) =>
+    toModelIntelligenceEntries(
+      computeModelBenchmarkFitness(
+        observations,
+        models.map((model) => model.id.toLowerCase()),
+        profile
+      ),
+      `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
+    )
+  );
+  const profileSources = MODEL_BENCHMARK_FITNESS_PROFILES.map(
+    (profile) => `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
+  );
+  const profileReplacement = replaceModelIntelligenceSources(profileSources, profileEntries);
+  const publishedCount =
+    bulkUpsertModelIntelligence(
+      toModelIntelligenceEntries(scores, MODEL_BENCHMARK_FITNESS_SOURCE)
+    ) + profileReplacement.publishedCount;
+  if (publishedCount > 0 || profileReplacement.deletedCount > 0) {
     const { invalidateFitnessCache } =
       await import("@omniroute/open-sse/services/autoCombo/taskFitness");
     invalidateFitnessCache();

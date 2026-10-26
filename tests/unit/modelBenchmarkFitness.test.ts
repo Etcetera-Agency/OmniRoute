@@ -98,7 +98,7 @@ test("ranks one median value per exact model within each cohort", () => {
   );
 });
 
-test("aggregates family cohorts by median and coding requires AA or two benchmark families", () => {
+test("aggregates family cohorts by median and marks single-family coding provisional", () => {
   const rows = [
     observation("a", "swe-bench", 1, { benchmarkVersion: "old" }),
     observation("b", "swe-bench", 2, { benchmarkVersion: "old" }),
@@ -116,12 +116,15 @@ test("aggregates family cohorts by median and coding requires AA or two benchmar
   assert.equal(b.codingFitness, 0.625);
   assert.equal(a.confidence, "low");
 
-  const [singleFamily] = computeModelBenchmarkFitness([
+  const singleFamilyScores = computeModelBenchmarkFitness([
     observation("single", "swe-bench", 1),
     observation("peer", "swe-bench", 2),
   ]);
-  assert.equal(singleFamily.codingFitness, null);
-  assert.equal(singleFamily.generalFitness, null);
+  const singleFamily = singleFamilyScores.find(({ modelId }) => modelId === "single")!;
+  assert.equal(singleFamily.codingFitness, 0.25);
+  assert.equal(singleFamily.generalFitness, 0.25);
+  assert.equal(singleFamily.generalFallback, true);
+  assert.equal(singleFamily.confidence, "low");
 });
 
 test("AA task scores win direct and reciprocal fallback copies only one measured task", () => {
@@ -144,6 +147,76 @@ test("AA task scores win direct and reciprocal fallback copies only one measured
   assert.equal(fallback.codingFitness, 0.25);
   assert.equal(fallback.generalFitness, 0.25);
   assert.equal(fallback.generalFallback, true);
+});
+
+test("high profile prefers xhigh per model and accepts high as its alternative", () => {
+  const result = computeModelBenchmarkFitness(
+    [
+      observation("a", "aa-coding", 100, { reasoningEffort: "xhigh" }),
+      observation("a", "aa-coding", 1, { reasoningEffort: "high" }),
+      observation("b", "aa-coding", 50, { reasoningEffort: "high" }),
+      observation("c", "aa-coding", 75, { reasoningEffort: "high" }),
+    ],
+    [],
+    "high"
+  );
+
+  assert.equal(result.find(({ modelId }) => modelId === "a")?.codingFitness, 5 / 6);
+  assert.equal(result.find(({ modelId }) => modelId === "b")?.codingFitness, 1 / 6);
+  assert.equal(result.find(({ modelId }) => modelId === "c")?.codingFitness, 0.5);
+});
+
+test("missing profile effort prefers unknown effort, then uses a low-confidence same-model proxy", () => {
+  const unknownProxy = computeModelBenchmarkFitness(
+    [
+      observation("a", "aa-coding", 100, { reasoningEffort: null }),
+      observation("a", "aa-coding", 1, { reasoningEffort: "high" }),
+      observation("b", "aa-coding", 50, { reasoningEffort: "medium" }),
+      observation("c", "aa-coding", 10, { reasoningEffort: "medium" }),
+    ],
+    [],
+    "medium"
+  );
+  const aUnknown = unknownProxy.find(({ modelId }) => modelId === "a")!;
+  assert.equal(aUnknown.codingFitness, 5 / 6);
+  assert.equal(aUnknown.effortProxy, true);
+  assert.equal(aUnknown.confidence, "low");
+
+  const siblingProxy = computeModelBenchmarkFitness(
+    [
+      observation("a", "aa-coding", 100, { reasoningEffort: "high" }),
+      observation("a", "aa-coding", 0, { reasoningEffort: "low" }),
+      observation("b", "aa-coding", 40, { reasoningEffort: "medium" }),
+      observation("c", "aa-coding", 60, { reasoningEffort: "medium" }),
+    ],
+    [],
+    "medium"
+  );
+  const aSibling = siblingProxy.find(({ modelId }) => modelId === "a")!;
+  assert.equal(aSibling.codingFitness, 0.5);
+  assert.equal(aSibling.effortProxy, true);
+  assert.equal(aSibling.confidence, "low");
+});
+
+test("low and medium profiles use their exact efforts and leave singleton cohorts unrated", () => {
+  const rows = [
+    observation("a", "aa-coding", 10, { reasoningEffort: "low" }),
+    observation("b", "aa-coding", 20, { reasoningEffort: "low" }),
+    observation("a", "aa-coding", 20, { reasoningEffort: "medium" }),
+    observation("b", "aa-coding", 10, { reasoningEffort: "medium" }),
+  ];
+  const low = computeModelBenchmarkFitness(rows, [], "low");
+  const medium = computeModelBenchmarkFitness(rows, [], "medium");
+  assert.equal(low.find(({ modelId }) => modelId === "a")?.codingFitness, 0.25);
+  assert.equal(medium.find(({ modelId }) => modelId === "a")?.codingFitness, 0.75);
+
+  const singleton = computeModelBenchmarkFitness(
+    [observation("only", "aa-coding", 99, { reasoningEffort: "medium" })],
+    [],
+    "medium"
+  )[0];
+  assert.equal(singleton.codingFitness, null);
+  assert.equal(singleton.generalFitness, null);
 });
 
 test("rejects unverified, malformed, nonfinite, and missing IDs without fabricated scores", () => {

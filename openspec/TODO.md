@@ -23,16 +23,41 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       Models.dev sync ran and reached 10,398 capability rows. This did not run
       the new benchmark queue: deployed DB journal remains at 196 and the new
       search tables are absent.
-- [ ] Fix image packaging for migrations 197–198 and require candidate-image
-      migration filename/content hashes to match the complete source migration
-      set before publishing. Production diagnosis: `migrationRunner` selects
-      `/app/migrations` before bundled source paths, while the runtime image
-      omitted `src/lib/db/migrations`; the official base therefore shadowed the
-      new SQL. Deploy the fix, confirm journal version 198 and all three search
-      tables, then verify full-catalog queued/scored/unrated totals and future
-      model enqueue. Strict-free inference remains prohibited until the exact
-      active free route and zero-cost behavior are reverified; paid or out-of-
-      band fallback is prohibited.
+- [x] Image packaging for migrations 197–198 and the candidate-image migration
+      manifest gate are deployed. Live image `sha256:7acec5fe8e3b60bd4d71e1ab75c1343ebd2afb0004a64212ac57cc9558637024`
+      reports source revision `c8841217893abbc152f11c9a102fa805b0b9bf46` and
+      healthy status. The live database has benchmark-search evidence and queue
+      tables, confirming the migrations ran.
+- [ ] Resume and verify the full-catalog queue. At the latest live receipt,
+      4,095 models were queued: 975 pending, 3,115 `source_error`, and 5
+      scored. There are 162 evidence rows and 10 global `benchmark_fitness`
+      rows; 4,090 queue rows remain `normalization_status=not_started`. All
+      3,115 source errors are the exact missing `AA_API_KEY` failure. Live
+      image remains healthy at revision `c8841217893abbc152f11c9a102fa805b0b9bf46`
+      and the running container has no `AA_API_KEY`. Local recovery retries
+      only these key-blocked rows once a key is configured; this fix is not yet
+      deployed. Do not turn a failed AA request into an exact miss or start
+      search before all direct-source scans complete.
+- [x] Implement the owner-directed effort profiles locally. Keep
+      global `benchmark_fitness` for generic Auto scoring; band profiles are
+      low→low, medium→medium, high→xhigh (per model when present), then high.
+      If the target effort is absent, use unknown-effort evidence, then a
+      same-model other-effort proxy marked low confidence. Never zero or gate
+      on reasoning capability. Persist profile rows separately, resolve the
+      matching profile ahead of global benchmark rows, preserve manual/Arena
+      priority, and remove stale profile rows. AA-anchor calibration remains
+      experimental pending per-profile holdout evidence. Focused tests passed
+      and independent review found no concrete defect. The source change is
+      local only, not committed, deployed, or live-verified.
+- [ ] Reassess the low/mid/high cutoffs after full-catalog profile scores exist.
+      In the saved 78-row offline snapshot, raw high-profile coding counts were
+      12 at `>=.70`, 13 at `>=.65`, and 17 at `>=.60`; AA calibration changed
+      the high-band count to 15. Those old counts do not set live thresholds.
+- [ ] After profile deployment and AA-key recovery, verify full-catalog
+      scored/unrated totals,
+      automatic future-model enqueue, exact search receipts, and the selected
+      free-only search model's zero-cost route. Paid or out-of-band fallback is
+      prohibited.
 
 ## Missing-model benchmark search
 

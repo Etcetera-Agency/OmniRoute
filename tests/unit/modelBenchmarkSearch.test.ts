@@ -636,6 +636,63 @@ test("catalog sync refreshes a renamed model without resetting its queue state",
   assert.equal(run.lastRunAt, lastRunAt);
 });
 
+test("AA-key-blocked rows retry immediately after the key is configured", () => {
+  searchDb.enqueueModelBenchmarkSearches([{ id: "aa-key-model", name: "AA Key Model" }]);
+  core
+    .getDbInstance()
+    .prepare(
+      `UPDATE model_benchmark_search_models
+       SET status = 'source_error', attempts = 1, last_run_at = ?, last_error = ?
+       WHERE model_id = ?`
+    )
+    .run(new Date().toISOString(), "AA Free API key is not configured", "aa-key-model");
+
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
+  assert.equal(searchDb.claimModelBenchmarkSearch(), null);
+
+  process.env.AA_API_KEY = "test-only-key";
+
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), true);
+  assert.equal(searchDb.claimModelBenchmarkSearch()?.modelId, "aa-key-model");
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(run.status, "running");
+  assert.equal(run.attempts, 2);
+});
+
+test("AA-key recovery may retry exhausted rows without bypassing other source backoff", () => {
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "aa-exhausted-model", name: "AA Exhausted Model" },
+    { id: "other-error-model", name: "Other Error Model" },
+  ]);
+  const update = core.getDbInstance().prepare(
+    `UPDATE model_benchmark_search_models
+     SET status = ?, attempts = ?, last_run_at = ?, last_error = ?
+     WHERE model_id = ?`
+  );
+  const lastRunAt = new Date().toISOString();
+  update.run(
+    "retry_exhausted_unrated",
+    5,
+    lastRunAt,
+    "AA Free API key is not configured",
+    "aa-exhausted-model"
+  );
+  update.run(
+    "source_error",
+    1,
+    lastRunAt,
+    "Terminal-Bench source returned 503",
+    "other-error-model"
+  );
+  process.env.AA_API_KEY = "test-only-key";
+
+  assert.equal(searchDb.claimModelBenchmarkSearch()?.modelId, "aa-exhausted-model");
+  const runs = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(runs.find((run) => run.modelId === "aa-exhausted-model")?.attempts, 6);
+  assert.equal(runs.find((run) => run.modelId === "other-error-model")?.status, "source_error");
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
+});
+
 test("search retries stop after five attempts", () => {
   searchDb.enqueueModelBenchmarkSearches([{ id: "retry-model", name: "Retry Model" }]);
   core

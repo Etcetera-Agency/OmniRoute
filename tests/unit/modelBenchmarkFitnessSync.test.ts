@@ -50,6 +50,14 @@ function evidence(
   };
 }
 
+function effortEvidence(modelId: string, value: number, effort: string) {
+  return {
+    ...evidence(modelId, "artificial_analysis_coding_index", value),
+    evidenceHash: `${modelId}:coding:${effort}`,
+    reasoningEffort: effort,
+  };
+}
+
 test.beforeEach(() => resetStorage());
 test.afterEach(() => core.resetDbInstance());
 test.after(() => {
@@ -93,7 +101,12 @@ test("publishes measured tasks without replacing manual or Arena ratings", async
   const result = await fitnessSync.recomputeModelBenchmarkFitness();
 
   assert.equal(result.observationCount, 6);
-  assert.equal(result.publishedCount, 6);
+  assert.equal(result.publishedCount, 24);
+  assert.match(
+    intelligence.getModelIntelligenceBySource("model-c", "benchmark_fitness:low", "coding")
+      ?.confidence ?? "",
+    /effort_proxy/
+  );
   assert.equal(
     result.scores.find(({ modelId }) => modelId === "unrated-model")?.codingFitness,
     null
@@ -184,4 +197,177 @@ test("search evidence scores only after its verification status passes the fitne
   ]);
   assert.equal(scores.find(({ modelId }) => modelId === "search-verified")?.codingFitness, 0.25);
   assert.equal(scores.find(({ modelId }) => modelId === "search-review")?.codingFitness, null);
+});
+
+test("publishes a single verified benchmark family as low-confidence provisional fitness", async () => {
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "single-family", name: "Single Family" },
+    { id: "peer", name: "Peer" },
+  ]);
+  searchDb.saveModelBenchmarkSearchEvidence([
+    evidence("single-family", "pass@1", 0.5, "deepswe", "verified", "DeepSWE"),
+    evidence("peer", "pass@1", 0.9, "deepswe", "verified", "DeepSWE"),
+  ]);
+
+  const result = await fitnessSync.recomputeModelBenchmarkFitness();
+  const score = result.scores.find(({ modelId }) => modelId === "single-family")!;
+  const published = intelligence.getModelIntelligenceBySource(
+    "single-family",
+    "benchmark_fitness",
+    "coding"
+  );
+
+  assert.equal(score.codingFitness, 0.25);
+  assert.equal(score.generalFitness, 0.25);
+  assert.equal(score.confidence, "low");
+  assert.equal(published?.score, 0.25);
+  assert.equal(published?.confidence, "low");
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("single-family", "benchmark_fitness", "default")
+      ?.confidence,
+    "low:reciprocal_task_fallback"
+  );
+});
+
+test("publishes profile scores separately, preserves global score, and removes stale profiles", async () => {
+  searchDb.enqueueModelBenchmarkSearches(
+    ["model-a", "model-b", "model-c"].map((id) => ({
+      id,
+      name: id,
+    }))
+  );
+  searchDb.saveModelBenchmarkSearchEvidence([
+    effortEvidence("model-a", 10, "low"),
+    effortEvidence("model-b", 20, "low"),
+    effortEvidence("model-c", 30, "low"),
+    effortEvidence("model-a", 30, "medium"),
+    effortEvidence("model-b", 20, "medium"),
+    effortEvidence("model-c", 10, "medium"),
+    effortEvidence("model-a", 1, "high"),
+    effortEvidence("model-a", 50, "xhigh"),
+    effortEvidence("model-b", 30, "high"),
+    effortEvidence("model-c", 20, "high"),
+  ]);
+
+  const result = await fitnessSync.recomputeModelBenchmarkFitness();
+  assert.equal(result.scores.find(({ modelId }) => modelId === "model-a")?.codingFitness, 1 / 6);
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("model-a", "benchmark_fitness:low", "coding")?.score,
+    1 / 6
+  );
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("model-a", "benchmark_fitness:medium", "coding")
+      ?.score,
+    5 / 6
+  );
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("model-a", "benchmark_fitness:high", "coding")?.score,
+    5 / 6
+  );
+  assert.notEqual(
+    intelligence.getModelIntelligenceBySource("model-a", "benchmark_fitness", "coding")?.score,
+    intelligence.getModelIntelligenceBySource("model-a", "benchmark_fitness:high", "coding")?.score
+  );
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("model-a", "coding"), {
+    score: 1 / 6,
+    source: "benchmark_fitness",
+  });
+
+  core.getDbInstance().prepare("DELETE FROM model_benchmark_search_evidence").run();
+  await fitnessSync.recomputeModelBenchmarkFitness();
+  for (const profile of ["low", "medium", "high"]) {
+    assert.equal(
+      intelligence.getModelIntelligenceBySource(
+        "model-a",
+        `benchmark_fitness:${profile}`,
+        "coding"
+      ),
+      null
+    );
+  }
+});
+
+test("profile scores precede global scores while manual and Arena scores retain priority", () => {
+  intelligence.upsertModelIntelligence({
+    model: "gpt-5.6-sol",
+    source: "benchmark_fitness",
+    category: "coding",
+    score: 0.2,
+    eloRaw: null,
+    confidence: "medium",
+    expiresAt: null,
+  });
+  intelligence.upsertModelIntelligence({
+    model: "gpt-5.6-sol",
+    source: "benchmark_fitness:high",
+    category: "coding",
+    score: 0.8,
+    eloRaw: null,
+    confidence: "high",
+    expiresAt: null,
+  });
+  taskFitness.invalidateFitnessCache();
+
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("gpt-5.6-sol", "coding", "high"), {
+    score: 0.8,
+    source: "benchmark_fitness:high",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("gpt-5.6-sol-xhigh", "coding", "high"), {
+    score: 0.8,
+    source: "benchmark_fitness:high:inherited",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("gpt-5.6-sol", "coding", "medium"), {
+    score: 0.2,
+    source: "benchmark_fitness",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("gpt-5.6-sol", "coding"), {
+    score: 0.2,
+    source: "benchmark_fitness",
+  });
+
+  intelligence.upsertModelIntelligence({
+    model: "gpt-5.6-sol",
+    source: "user_override",
+    category: "coding",
+    score: 0.99,
+    eloRaw: null,
+    confidence: "manual",
+    expiresAt: null,
+  });
+  intelligence.upsertModelIntelligence({
+    model: "mimo-v2.5",
+    source: "benchmark_fitness:high",
+    category: "coding",
+    score: 0.8,
+    eloRaw: null,
+    confidence: "high",
+    expiresAt: null,
+  });
+  intelligence.upsertModelIntelligence({
+    model: "mimo-v2.5",
+    source: "arena_elo",
+    category: "coding",
+    score: 0.95,
+    eloRaw: 1500,
+    confidence: "high",
+    expiresAt: null,
+  });
+  taskFitness.invalidateFitnessCache();
+
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("gpt-5.6-sol", "coding", "high"), {
+    score: 0.99,
+    source: "user_override",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("gpt-5.6-sol-xhigh", "coding", "high"), {
+    score: 0.99,
+    source: "user_override:inherited",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("mimo-v2.5", "coding", "high"), {
+    score: 0.95,
+    source: "arena_elo",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("mimo-v2.5-free", "coding", "high"), {
+    score: 0.95,
+    source: "arena_elo:inherited",
+  });
 });

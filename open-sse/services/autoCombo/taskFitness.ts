@@ -13,16 +13,18 @@
  * 2c. If the request id or its scoresAs base is vendor-retired (#11625), the
  *     evidence-backed sources are skipped so stale quality cannot outlive the
  *     model lifecycle.
- * 3. Profile-specific benchmark consensus — used only for band fitness when a
+ * 3. Profile-specific benchmark fitness — used only for band fitness when a
  *     low/medium/high calculation profile is supplied.
- * 4. Models.dev tier — derived from `model_capabilities` table capability data,
+ * 4. Global benchmark fitness — model/task score used by generic Auto scoring.
+ * 5. Static profile benchmark consensus — used only when no stored profile score exists.
+ * 6. Models.dev tier — derived from `model_capabilities` table capability data,
  *     with a vendor-lifecycle veto (#11508: a retired id never earns a tier
  *     score) and the same base-model inheritance as layers 1–2
  *     (`models_dev_tier:inherited`)
- * 5. Static FITNESS_TABLE — small hand-maintained table of VERSIONED model ids
- * 6. Wildcard boosts — pattern matching boosts over a neutral 0.5 baseline
+ * 7. Static FITNESS_TABLE — small hand-maintained table of VERSIONED model ids
+ * 8. Wildcard boosts — pattern matching boosts over a neutral 0.5 baseline
  *
- * Layer 4 is deliberately small and versioned (#11503). It used to carry
+ * Layer 7 is deliberately small and versioned (#11503). It used to carry
  * version-less family patterns (`claude-sonnet`, `qwen`, `llama`, `codex`, …) that
  * matched by substring, so it kept scoring model families whose members the vendors
  * had already retired — and it scored them ABOVE live flagships it had never heard
@@ -509,9 +511,32 @@ export function getTaskFitnessWithSource(
     // The score is inherited VERBATIM: the 12-factor scoring already prices cost
     // and latency per variant, so there is no basis for inventing an effort
     // delta. `:inherited` keeps the indirection visible to callers.
-    const inherited = lookupInheritedFitness(normalizedModel, normalizedTask);
-    if (inherited !== null) {
-      return inherited;
+    const inheritedOverride = lookupInheritedFitness(normalizedModel, normalizedTask, [
+      "user_override",
+      "arena_elo",
+    ]);
+    if (inheritedOverride !== null) {
+      return inheritedOverride;
+    }
+
+    if (profile) {
+      const source = `benchmark_fitness:${profile}`;
+      const profileFitness = queryModelIntelligence(normalizedModel, normalizedTask, source);
+      if (profileFitness !== null) {
+        return { score: profileFitness, source };
+      }
+
+      const inheritedProfile = lookupInheritedFitness(normalizedModel, normalizedTask, [source]);
+      if (inheritedProfile !== null) {
+        return inheritedProfile;
+      }
+    }
+
+    const inheritedBenchmark = lookupInheritedFitness(normalizedModel, normalizedTask, [
+      "benchmark_fitness",
+    ]);
+    if (inheritedBenchmark !== null) {
+      return inheritedBenchmark;
     }
 
     const benchmarkFitness = queryModelIntelligence(
@@ -551,25 +576,26 @@ export function getTaskFitnessWithSource(
 }
 
 /**
- * Re-run the two DB-backed layers against the base model `normalizedModel`
- * inherits quality scores from (#11489). Returns `null` when the id resolves to
- * itself (nothing to inherit) or when the base has no row either.
+ * Re-run selected DB-backed fitness sources against the base model
+ * `normalizedModel` inherits quality scores from (#11489). Returns `null` when
+ * the id resolves to itself or when the base has no row for those sources.
  *
  * This subsumes the former `-free` arena_elo special case (#4517) and extends
- * it: the `-free` base is now consulted for `user_override` too, and the same
- * indirection now covers effort suffixes and vendor aliases. `resolveScoresAs`
+ * it: the `-free` base is now consulted for user overrides, profile scores, and
+ * benchmark scores. `resolveScoresAs`
  * is catalog-anchored, so a base that is not a routable id is never queried.
  */
 function lookupInheritedFitness(
   normalizedModel: string,
-  normalizedTask: string
+  normalizedTask: string,
+  sources: readonly string[]
 ): { score: number; source: string } | null {
   const { base, via } = resolveScoresAs(normalizedModel);
   if (via === null || base === normalizedModel) return null;
   const normalizedBase = base.toLowerCase();
   if (isVendorRetiredId(normalizedBase)) return null;
 
-  for (const source of ["user_override", "arena_elo", "benchmark_fitness"] as const) {
+  for (const source of sources) {
     const score = queryModelIntelligence(normalizedBase, normalizedTask, source);
     if (score !== null) return { score, source: `${source}:inherited` };
   }
