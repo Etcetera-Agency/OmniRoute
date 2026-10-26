@@ -825,3 +825,19 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - After owner approval, updated the migration count in `AGENTS.md`. Documented
   `AA_API_KEY` and excluded three runner-provided GitHub variables from product
   env checks. `npm run check:docs-all` passes; soft drift warnings remain.
+
+## Final test run — 2026-10-26
+
+- `npm run test:vitest`: 619/620 tests passed (69/70 files). The remaining
+  failure is the unchanged `tests/unit/autoCombo/bands-config.test.ts` mtime
+  retry case: expected one warning, received none. Running that file alone
+  reproduces it (12/13 pass).
+- `npm run test:unit` did not complete; it was interrupted after more than 35
+  minutes (exit 130). Before interruption, the unchanged
+  `tests/unit/workflows-no-foreign-fork-publishers.test.ts` failed because
+  `omni-overlay-image.yml` contains the fork repository publisher gate twice.
+  The test and workflow match `origin/main`; neither is changed by this branch.
+- The focused search suite remains 17/17 passing and
+  `npm run check:docs-all` passes. These results do not establish a green full suite.
+  The branch has no configured PR checks. Live inference and deployed
+  acceptance remain unverified.
