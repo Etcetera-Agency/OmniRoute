@@ -38,6 +38,13 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       identity, reasoning effort/config, benchmark/version, metric/value, source
       URL/date, and source verification status. Independently calibrate/review
       any score-map update before production publication.
+- [ ] Re-establish a green full-suite baseline before claiming full verification.
+      `npm run test:vitest` passed 619/620; the unchanged
+      `tests/unit/autoCombo/bands-config.test.ts` mtime-retry case fails both in
+      the full run and alone (12/13 pass). `npm run test:unit` was interrupted
+      after over 35 minutes and reported a failure in the unchanged
+      `tests/unit/workflows-no-foreign-fork-publishers.test.ts`. Both failures
+      are outside this branch's diff; rerun and diagnose in a suitable runtime.
 
 ## GitHub overlay-image build
 
