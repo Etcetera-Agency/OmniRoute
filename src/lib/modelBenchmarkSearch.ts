@@ -5,12 +5,15 @@ import type { ModelBenchmarkFitness } from "./modelBenchmarkFitness";
 import {
   NORMALIZATION_BLOCK_REASON,
   NORMALIZATION_MODEL,
+  RATE_LIMIT_RETRY_FALLBACK_MS,
+  parseNormalizationRetryAfter,
   processModelBenchmarkSearchResults,
 } from "./modelBenchmarkSearchProcessor";
 import {
   claimModelBenchmarkSearch,
   expireExhaustedModelBenchmarkSearchRuns,
   finishModelBenchmarkSearch,
+  getModelBenchmarkSearchRetryDelay,
   getModelBenchmarkSearchStaleRetryDelay,
   hasEligibleModelBenchmarkSearch,
   isModelBenchmarkSearchNameUnique,
@@ -33,6 +36,8 @@ const MAX_HF_RESULTS = 10;
 const SHARED_SOURCE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_MODELS_PER_DRAIN = 20;
 const CONTINUE_DRAIN_DELAY_MS = 60_000;
+const OLLAMA_SEARCH_NO_CREDENTIALS_ERROR =
+  'No credentials configured for search provider: ollama-search. Add an API key for "ollama-search" in the dashboard.';
 export const OLLAMA_SEARCH = {
   provider: "ollama-search",
   maxResults: 10,
@@ -85,6 +90,8 @@ interface SearchRunOutcome {
   sourceStatus: Record<string, unknown>;
   discoveredEvidence: boolean;
   lastError: string | null;
+  retryAfterAt?: string;
+  consumeAttempt?: boolean;
 }
 
 interface SourceSnapshot extends Omit<SourceCheck, "matches"> {
@@ -722,13 +729,37 @@ async function searchOllama(model: ModelIdentity): Promise<{
       ),
     };
   } catch (error) {
+    const message = errorMessage(error);
+    const errorStatus = asRecord(error).statusCode;
+    const isRateLimited = errorStatus === 429 || message === OLLAMA_SEARCH_NO_CREDENTIALS_ERROR;
+    const rawError = asString(asRecord(error).rawError);
+    const retryAfter = asString(asRecord(error).retryAfter);
+    const rateLimitReset = asString(asRecord(error).rateLimitReset);
+    let retryAfterAt: string | null = null;
+    if (isRateLimited) {
+      if (retryAfter || rateLimitReset) {
+        retryAfterAt = parseNormalizationRetryAfter(
+          new Headers({
+            ...(retryAfter ? { "retry-after": retryAfter } : {}),
+            ...(rateLimitReset ? { "x-ratelimit-reset": rateLimitReset } : {}),
+          })
+        );
+      } else {
+        retryAfterAt = new Date(Date.now() + RATE_LIMIT_RETRY_FALLBACK_MS).toISOString();
+      }
+    }
     return {
       receipt: {
         status: "error",
         sourceUrl,
         sourceVersion: "OmniRoute search ollama-search",
         query,
-        error: errorMessage(error),
+        error: message,
+        ...(rawError ? { rawError } : {}),
+        ...(typeof errorStatus === "number" ? { statusCode: errorStatus } : {}),
+        ...(retryAfter ? { retryAfter } : {}),
+        ...(rateLimitReset ? { rateLimitReset } : {}),
+        ...(retryAfterAt ? { retryAfterAt } : {}),
       },
       evidence: [],
     };
@@ -806,6 +837,12 @@ async function refreshSearchRun(
 ): Promise<SearchRunOutcome> {
   const model = { id: run.modelId, name: run.modelName };
   const sourceStatus = { ...direct.sourceStatus };
+  const previousNormalization = asRecord(run.sourceStatus.normalizationProcessor);
+  const pinnedConnectionId =
+    asString(previousNormalization.error) === "HTTP 429"
+      ? asString(previousNormalization.connectionId)
+      : null;
+  if (pinnedConnectionId) sourceStatus.normalizationProcessor = previousNormalization;
   sourceStatus.fitness = directScore ?? null;
 
   if (
@@ -859,6 +896,18 @@ async function refreshSearchRun(
   if (sourceEvidence.length) {
     saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, sourceEvidence));
   }
+  const searchRetryAfterAt = asString(web.receipt.retryAfterAt);
+  if (searchRetryAfterAt) {
+    return {
+      modelId: model.id,
+      normalizationStatus: "search_retry_deferred",
+      sourceStatus,
+      discoveredEvidence: sourceEvidence.length > 0,
+      lastError: asString(web.receipt.error) ?? "Ollama Search temporarily unavailable",
+      retryAfterAt: searchRetryAfterAt,
+      consumeAttempt: asString(web.receipt.error) !== OLLAMA_SEARCH_NO_CREDENTIALS_ERROR,
+    };
+  }
   const searchResults = web.evidence.map((item) => {
     const raw = asRecord(item.raw);
     return {
@@ -867,7 +916,11 @@ async function refreshSearchRun(
       snippet: asString(raw.snippet) ?? undefined,
     };
   });
-  const processor = await processModelBenchmarkSearchResults(model, searchResults);
+  const processor = await processModelBenchmarkSearchResults(
+    model,
+    searchResults,
+    pinnedConnectionId ?? undefined
+  );
   const { evidence: normalizedCandidates, ...processorReceipt } = processor;
   const normalized = normalizedCandidates.map((item) =>
     evidence({
@@ -899,32 +952,58 @@ async function refreshSearchRun(
       ? (asString(processorReceipt.error) ?? "Strict-SO normalization timed out")
       : null,
   ].filter((error): error is string => error !== null);
+  let lastError: string | null = null;
+  if (searchErrors.length) {
+    lastError = searchErrors.join("; ");
+  } else if (
+    processor.status === "normalization_request_failed_unrated" &&
+    asString(processorReceipt.error) === "HTTP 429"
+  ) {
+    lastError = "HTTP 429";
+  }
   return {
     modelId: model.id,
     normalizationStatus: processor.status,
     sourceStatus,
     discoveredEvidence: discovered.length > 0,
-    lastError: searchErrors.length ? searchErrors.join("; ") : null,
+    lastError,
+    ...(processor.retryAfterAt ? { retryAfterAt: processor.retryAfterAt } : {}),
+    ...(pinnedConnectionId && processor.status === "blocked_no_exact_free_connection"
+      ? { consumeAttempt: false }
+      : {}),
   };
 }
 
 let drainPromise: Promise<void> | null = null;
 let continuationTimer: ReturnType<typeof setTimeout> | null = null;
+const MAX_NODE_TIMEOUT_MS = 2_147_483_647;
 
 function toScoreMap(scores: ModelBenchmarkFitness[]): Map<string, ModelBenchmarkFitness> {
   return new Map(scores.map((score) => [score.modelId, score]));
 }
 
 function scheduleBenchmarkSearchDrain(delayMs: number): void {
+  // AICODE-NOTE: Node clamps longer timers; re-read persisted cooldown after each bounded leg.
   if (continuationTimer) clearTimeout(continuationTimer);
+  const timerDelay = Math.min(Math.max(1, delayMs), MAX_NODE_TIMEOUT_MS);
   continuationTimer = setTimeout(() => {
     continuationTimer = null;
+    const retryDelay = getModelBenchmarkSearchRetryDelay();
+    if (retryDelay !== null) {
+      scheduleBenchmarkSearchDrain(retryDelay);
+      return;
+    }
     void drainModelBenchmarkSearchQueue();
-  }, delayMs);
+  }, timerDelay);
   continuationTimer.unref?.();
 }
 
 function scheduleBenchmarkSearchContinuation(): void {
+  const retryDelay = getModelBenchmarkSearchRetryDelay();
+  if (retryDelay !== null) {
+    scheduleBenchmarkSearchDrain(retryDelay);
+    return;
+  }
   if (hasEligibleModelBenchmarkSearch()) {
     scheduleBenchmarkSearchDrain(CONTINUE_DRAIN_DELAY_MS);
     return;
@@ -962,7 +1041,7 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
         const run = claimModelBenchmarkSearch();
         if (!run) break;
         let direct = prepared.get(run.modelId) ?? null;
-        let outcome: SearchRunOutcome;
+        let outcome: SearchRunOutcome | null = null;
         try {
           if (!direct) {
             direct = materializeModelEvidence({ id: run.modelId, name: run.modelName }, snapshot);
@@ -978,15 +1057,22 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
             scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
           }
         } catch (error) {
-          outcome = {
-            modelId: run.modelId,
-            normalizationStatus: NORMALIZATION_BLOCK_REASON,
-            sourceStatus: { ...direct?.sourceStatus, error: errorMessage(error) },
-            discoveredEvidence: false,
-            lastError: errorMessage(error),
-          };
+          outcome = outcome
+            ? {
+                ...outcome,
+                sourceStatus: { ...outcome.sourceStatus, error: errorMessage(error) },
+                lastError: outcome.lastError ?? errorMessage(error),
+              }
+            : {
+                modelId: run.modelId,
+                normalizationStatus: NORMALIZATION_BLOCK_REASON,
+                sourceStatus: { ...direct?.sourceStatus, error: errorMessage(error) },
+                discoveredEvidence: false,
+                lastError: errorMessage(error),
+              };
         }
 
+        if (!outcome) throw new Error("Benchmark search outcome was not produced");
         const score = scores.get(outcome.modelId.toLowerCase());
         let status: string;
         if (typeof score?.codingFitness === "number" || typeof score?.generalFitness === "number") {
@@ -1004,8 +1090,11 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
           normalizationStatus: outcome.normalizationStatus,
           sourceStatus: { ...outcome.sourceStatus, fitness: score ?? null },
           lastError: outcome.lastError,
+          retryAfterAt: outcome.retryAfterAt,
+          consumeAttempt: outcome.consumeAttempt,
         });
         completed += 1;
+        if (outcome.retryAfterAt) break;
       }
       scheduleBenchmarkSearchContinuation();
     } catch (error) {

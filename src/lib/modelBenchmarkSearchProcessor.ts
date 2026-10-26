@@ -8,6 +8,8 @@ export const NORMALIZATION_MODEL = "xingchen-agi/xing4.0-29b-a4b:free";
 export const NORMALIZATION_ROUTED_MODEL = `openrouter/${NORMALIZATION_MODEL}`;
 export const NORMALIZATION_TIMEOUT_MS = 5 * 60 * 1000;
 export const NORMALIZATION_BLOCK_REASON = "blocked_unproven_free_native_so_route" as const;
+const NORMALIZATION_MIN_INTERVAL_MS = 5_000;
+export const RATE_LIMIT_RETRY_FALLBACK_MS = 15 * 60 * 1000;
 const ENDPOINT_METADATA_URL =
   "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints";
 const injectionGuard = createInjectionGuard({ logger: null });
@@ -82,22 +84,62 @@ interface ProcessorResult {
   endpointMetadataVerified: boolean;
   endpointMetadataCheckedAt: string | null;
   attemptCount: number;
+  retryAfterAt?: string;
   evidence: NormalizedBenchmarkCandidate[];
   error?: string;
 }
 
+// AICODE-NOTE: The serial search worker owns normalization pacing across rows.
+let lastNormalizationRequestAt = 0;
+
+export function parseNormalizationRetryAfter(headers: Headers, now = Date.now()): string {
+  const toIso = (retryAt: number): string | null => {
+    const date = new Date(retryAt);
+    return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+  };
+  const retryAfter = headers.get("retry-after")?.trim();
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    let retryAt = Number.NaN;
+    if (Number.isFinite(seconds)) {
+      if (seconds >= 0) retryAt = now + seconds * 1000;
+    } else {
+      retryAt = Date.parse(retryAfter);
+    }
+    const retryAfterAt = toIso(retryAt);
+    if (retryAfterAt) return retryAfterAt;
+  }
+
+  const reset = headers.get("x-ratelimit-reset")?.trim();
+  if (reset) {
+    const epochSeconds = Number(reset);
+    let retryAt = Number.NaN;
+    if (Number.isFinite(epochSeconds)) {
+      if (epochSeconds >= 1_000_000_000) retryAt = epochSeconds * 1000;
+    } else {
+      retryAt = Date.parse(reset);
+    }
+    const retryAfterAt = toIso(retryAt);
+    if (retryAfterAt) return retryAfterAt;
+  }
+
+  return new Date(now + RATE_LIMIT_RETRY_FALLBACK_MS).toISOString();
+}
+
 export function selectFreeNormalizationConnection(
   connections: NormalizationConnectionCandidate[],
-  modelId: string
+  modelId: string,
+  pinnedConnectionId?: string
 ): string | null {
-  return (
-    connections
-      .filter((connection) =>
-        connection.models.some((model) => model.id === modelId && model.isFree === true)
-      )
-      .map((connection) => connection.id)
-      .sort()[0] ?? null
+  const eligible = connections.filter((connection) =>
+    connection.models.some((model) => model.id === modelId && model.isFree === true)
   );
+  if (pinnedConnectionId) {
+    return eligible.some((connection) => connection.id === pinnedConnectionId)
+      ? pinnedConnectionId
+      : null;
+  }
+  return eligible.map((connection) => connection.id).sort()[0] ?? null;
 }
 
 export function isNormalizationEndpointVerified(response: unknown): boolean {
@@ -132,6 +174,7 @@ function processorResult(
       | "endpointMetadataVerified"
       | "endpointMetadataCheckedAt"
       | "attemptCount"
+      | "retryAfterAt"
       | "evidence"
       | "error"
     >
@@ -147,6 +190,7 @@ function processorResult(
     endpointMetadataVerified: options.endpointMetadataVerified ?? false,
     endpointMetadataCheckedAt: options.endpointMetadataCheckedAt ?? null,
     attemptCount: options.attemptCount ?? 0,
+    ...(options.retryAfterAt ? { retryAfterAt: options.retryAfterAt } : {}),
     evidence: options.evidence ?? [],
     ...(options.error ? { error: options.error } : {}),
   };
@@ -303,7 +347,8 @@ export function parseNormalizationResponse(
 
 export async function processModelBenchmarkSearchResults(
   model: { id: string; name: string },
-  results: Array<{ url: string; title?: string; snippet?: string }>
+  results: Array<{ url: string; title?: string; snippet?: string }>,
+  pinnedConnectionId?: string
 ): Promise<ProcessorResult> {
   if (results.length === 0) {
     return processorResult("no_search_candidates_unrated", 0);
@@ -350,11 +395,15 @@ export async function processModelBenchmarkSearchResults(
     connectionCandidates.filter(
       (candidate): candidate is NormalizationConnectionCandidate => !!candidate
     ),
-    NORMALIZATION_MODEL
+    NORMALIZATION_MODEL,
+    pinnedConnectionId
   );
   if (!connectionId) {
     return processorResult("blocked_no_exact_free_connection", results.length, {
       ...endpointProof,
+      ...(pinnedConnectionId
+        ? { error: "Previously pinned free connection is no longer eligible" }
+        : {}),
     });
   }
 
@@ -386,6 +435,9 @@ export async function processModelBenchmarkSearchResults(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
+    const spacingMs = lastNormalizationRequestAt + NORMALIZATION_MIN_INTERVAL_MS - Date.now();
+    if (spacingMs > 0) await new Promise((resolve) => setTimeout(resolve, spacingMs));
+    lastNormalizationRequestAt = Date.now();
     const timeoutResult = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
         const error = new Error("Strict-SO normalization timed out");
@@ -407,6 +459,9 @@ export async function processModelBenchmarkSearchResults(
         ...endpointProof,
         attemptCount: 1,
         error: `HTTP ${response.status}`,
+        ...(response.status === 429
+          ? { retryAfterAt: parseNormalizationRetryAfter(response.headers) }
+          : {}),
       });
     }
     const parsed = parseNormalizationResponse(

@@ -60,14 +60,22 @@ synced catalog marks that exact model free. Pin that connection and send a
 strict JSON Schema request with OpenRouter provider restricted to `phala`,
 `require_parameters: true`, and `allow_fallbacks: false`.
 
-The one-shot dispatch bypasses combo routing, retry, account rotation, and
-global/emergency fallback. If any live metadata, local connection, internal
-key, request, or response validation gate fails, record the blocked/error
-state and leave the model unrated. Accept output only when its model identity,
-source URL, quoted source text, benchmark fields, and values match the returned
-search material. Accepted output remains candidate-review-required; it never
-updates the frozen score map. Do not use another model, provider, JSON mode,
-or paid/out-of-band route as fallback.
+The one-shot dispatch bypasses combo routing, account rotation, and
+global/emergency fallback. It does not retry an individual model request.
+HTTP 429 is durably deferred by the queue: honor `Retry-After` or
+`X-RateLimit-Reset`, otherwise wait 15 minutes; pause all free-SO calls until
+then and retry only the same model through the same pinned free connection.
+The wait itself consumes no attempt. A real HTTP 429 consumes the existing
+bounded attempt count, so repeated provider failures stop after the normal
+maximum. The exact no-credentials failure occurs before an upstream request
+and consumes no attempt. If any other live metadata, local connection,
+internal key, request, or response validation gate fails, record the
+blocked/error state and leave the model unrated. Accept output only when its
+model identity, source URL, quoted source text, benchmark fields, and values
+match the returned search material.
+Accepted output remains candidate-review-required; it never updates the frozen
+score map. Do not use another model, provider, JSON mode, or paid/out-of-band
+route as fallback.
 
 ## Non-goals
 

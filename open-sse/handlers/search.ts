@@ -44,7 +44,11 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { isValidContext7LibraryId } from "../executors/context7-fetch.ts";
-import { resolveSearchProxy, executeProviderFetch } from "./search/searchProxy.ts";
+import {
+  resolveSearchProxy,
+  executeProviderFetch,
+  waitForOllamaSearchSlot,
+} from "./search/searchProxy.ts";
 import { formatSearchProviderFailure } from "./search/providerFailure.ts";
 
 export interface SearchResult {
@@ -90,6 +94,9 @@ interface SearchHandlerResult {
   success: boolean;
   status?: number;
   error?: string;
+  rawError?: string;
+  retryAfter?: string;
+  rateLimitReset?: string;
   data?: SearchResponse;
 }
 
@@ -1740,9 +1747,13 @@ async function tryProvider(
   // resolveProxyForConnection precedence chain: per-key, account, provider, combo, global).
   const { proxy, proxyLevel } = await resolveSearchProxy(connectionId, apiKeyId, config.id);
 
-  // Timeout: min of provider timeout and remaining global timeout
+  // Start the Ollama Search provider timeout only after its spacing wait.
+  await waitForOllamaSearchSlot(config.id);
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
-  const timeout = Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
+  const timeout =
+    config.id === "ollama-search"
+      ? config.timeoutMs
+      : Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 

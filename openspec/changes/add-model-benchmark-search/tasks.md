@@ -56,6 +56,23 @@
 - [x] 2.11 Finish exact-match/no-score rows as review-required without HF or web
       search, preserving the complete-miss search boundary.
 
+## 2. Rate-limited free-SO recovery
+
+- [x] 2.12 Add failing regressions for 429 retry headers, persisted queue pause,
+      explicit Ollama Search and exact-free retry, no strict-SO after search
+      failure, exact no-credentials without attempt consumption, and repeated
+      HTTP 429 stopping at the existing attempt maximum.
+- [x] 2.13 Add 15-second spacing for explicit Ollama Search and five-second
+      spacing for actual strict-SO calls; durably defer search/normalizer HTTP
+      429 and the exact search no-credentials error.
+- [x] 2.14 Preserve collected search evidence and review-required gating during
+      deferral; never write search-extracted fitness or select a fallback.
+- [x] 2.15 Apply Code Simplifier, update completion review and repo TODO,
+      then run focused tests and migration checks.
+- [x] 2.16 Preserve the strict-SO connection selected before a 429 across all
+      deferred retries; if it is no longer active and exact-free, stop without
+      dispatching on another connection.
+
 ## 3. Verification and acceptance
 
 - [x] 3.1 Run focused RED/GREEN tests (34/34 pass) and `typecheck:core`; the
@@ -80,3 +97,6 @@
       before allowing the full-catalog worker to consume its allowance.
 - [ ] 3.8 Verify the stuck-row recovery cases, focused suite, independent review,
       and controlled live search/SO receipt after deployment.
+- [ ] 3.9 Verify live rate-limit reset handling and one successful strict-SO
+      response through the same free model/connection, with zero paid or
+      out-of-band attempts.

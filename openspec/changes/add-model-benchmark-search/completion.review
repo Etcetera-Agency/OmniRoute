@@ -1,8 +1,8 @@
 # Completion review — add-model-benchmark-search
 
-**Status:** local search-route and queue-liveness fixes are implemented and
-focused verification passes; PR, deployment, and controlled live acceptance
-are pending.
+**Status:** the search-route, queue-liveness, and durable rate-limit recovery
+fixes are implemented. Focused verification and independent review pass. PR,
+deployment, and controlled live acceptance remain pending.
 
 ## Root cause
 
@@ -82,3 +82,51 @@ awaited operation for the live stall is not proven from available logs.
   one controlled post-deploy search and
   strict-SO receipt, and quota verification before resuming the full-catalog
   queue.
+
+## Durable rate-limit recovery follow-up (2026-10-26 21:47 UTC)
+
+- Source now serializes Ollama Search calls by 15 seconds and strict-SO calls
+  by 5 seconds. It captures `Retry-After`, `X-RateLimit-Reset`, and bounded
+  provider error text; persists the resulting cooldown; pauses the shared
+  worker across restarts; and caps long Node timers before re-reading persisted
+  cooldown state. Exact no-credentials errors defer for 15 minutes without
+  consuming an attempt. Existing five-attempt limit remains for real provider
+  failures.
+- Search failures stop before strict-SO. Collected source evidence remains
+  review-required and unrated, including when score recomputation fails. A
+  strict-SO retry stays on the original exact-free connection; if it is no
+  longer active and eligible, retry blocks without dispatching on another
+  connection and refunds the queue attempt.
+- Code Simplifier reviewed the final source/test diff. No further source
+  simplification preserved the explicit retry-state and fail-closed branches
+  more clearly. Prettier formatted the two modified test files and TODO.
+- Verification after the pinning change: targeted benchmark-search tests pass
+  9/9, including 429 deferral, repeated 429 limit, no-credentials deferral,
+  durable pause, retry parser, bounded timer, and pinned-connection retry;
+  search-proxy tests pass 10/10, including header propagation and pacing before
+  provider timeout. Migration numbering passes with 196 files, three known
+  gaps, and no duplicates; `git diff --check` passes. The full benchmark-search
+  file was interrupted after 41 passing cases because one long-running test
+  remained in flight; it produced no assertion failures before interruption,
+  so full-file completion is unverified.
+- `npm run check:docs-all` passes with the Linux esbuild binary selected. The
+  new migration count is synchronized as 196 across README, AGENTS, root
+  `llm.txt`, and all 66 exact `llm.txt` mirrors; the gate reports 98 existing
+  soft drift warnings. `npm run typecheck:core` still exits 2 with 757 existing
+  errors elsewhere in the repository and no diagnostics for changed TypeScript
+  files.
+- Independent Luna-xhigh follow-up found no remaining issues in connection
+  pinning, retry persistence, timer bounds, or the related regression. No live
+  inference was run for this follow-up.
+- Latest read-only live snapshot, 21:40 UTC: service healthy on revision
+  `3529ee2e5d7d76c269d6064d0287c732f47aef65`, image
+  `sha256:02051b23b703729ac1e030f99acf5e195d0c99f7eb9ceff2699f874355802034`;
+  migration 199 is absent. Queue has 708 source-error and 30 review-required
+  HTTP 429 rows, plus 941 source-error and 25 review-required no-credentials
+  rows. Other error categories remain in the queue. Exact search quota
+  remaining is unknown; the last controlled strict-SO request returned 429.
+- This branch is still uncommitted and has no PR. Next: finish docs validation,
+  commit with `openspec/TODO.md`, push/create PR, merge through main, verify
+  automatic image deployment and migration 199, then do quota preflight and one
+  controlled successful strict-SO acceptance with exact free Phala routing and
+  no paid or alternate attempts.
