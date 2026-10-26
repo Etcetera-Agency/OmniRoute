@@ -43,28 +43,56 @@ progress, and continue processing while eligible work remains.
 - **AND** source failure or incomplete pagination MUST remain distinguishable
   from an exact miss
 
-### Requirement: Evidence-based model-level scores
+### Requirement: Evidence-based global and effort-profile scores
 
-The system MUST calculate `coding` and `general` fitness only from supported,
-exactly matched, numeric evidence and MUST leave a model unrated when neither
-task can be supported.
+The system MUST calculate global `coding` and `general` fitness for generic
+Auto routing and separate low, medium, and high profile fitness for band
+selection, using only supported, exactly matched, numeric evidence. It MUST
+leave a score unrated when neither task has usable evidence or an allowed
+fallback.
 
 #### Scenario: Observations span multiple efforts and versions
 
 - **WHEN** exact observations exist for more than one reasoning effort,
   benchmark version, or configuration
 - **THEN** the system MUST normalize them within their comparable cohort and
-  combine available observations by median
+  combine available observations by median for global fitness
 - **AND** a missing effort/configuration MUST contribute no value and MUST NOT
   become zero
+
+#### Scenario: Band profile selects effort without capability gating
+
+- **WHEN** a band requests `low`, `medium`, or `high` profile fitness
+- **THEN** the system MUST calculate it from low, medium, or high effort
+  observations respectively
+- **AND** high profile MUST prefer `xhigh` observations per model and use
+  `high` when that model has no `xhigh` observations
+- **AND** it MUST NOT exclude or zero a model because reasoning capability or
+  effort metadata is absent
+- **AND** profile scores MUST be stored separately as
+  `benchmark_fitness:<profile>`
+
+#### Scenario: Requested profile effort is missing
+
+- **WHEN** a model has no observation for the requested profile in a
+  comparable cohort
+- **THEN** it MUST use that model's unknown-effort observations when available
+- **AND** otherwise it MAY use that model's available observations from other
+  efforts as a same-model proxy, marked low confidence
+- **AND** it MUST never turn missing effort into zero
+- **AND** if no observation can support the profile score, it MUST omit that
+  profile row so existing score sources can resolve the model
 
 #### Scenario: Benchmark-family aggregation
 
 - **WHEN** eligible observations include multiple benchmark versions or
   reasoning efforts in the same family
-- **THEN** the system MUST count at most one median vote per family
-- **AND** benchmark-only coding fitness MUST require at least two independent
-  benchmark families unless AA Coding is available
+- **THEN** coding fitness MUST use the median of AA Coding plus at most one
+  vote from each of SWE-bench, Terminal-Bench, and DeepSWE
+- **AND** one verified benchmark-family vote without AA Coding MAY produce a
+  provisional low-confidence coding score when its peer cohort has at least
+  two exact models
+- **AND** a singleton peer cohort MUST produce no percentile
 
 #### Scenario: Reciprocal task fallback
 
@@ -98,20 +126,27 @@ and literal evidence quote validation succeed.
   validation or is absent
 - **THEN** the row MUST remain non-scoring candidate evidence
 
-### Requirement: Independent benchmark fitness source
+### Requirement: Independent benchmark fitness sources
 
-The system MUST persist automatic scores as `benchmark_fitness` and MUST
-preserve higher-priority manual and Arena values.
+The system MUST persist global automatic scores as `benchmark_fitness`, band
+scores as `benchmark_fitness:<profile>`, and MUST preserve higher-priority
+manual and Arena values.
 
 #### Scenario: Score resolution with existing sources
 
 - **WHEN** multiple applicable intelligence sources exist for one exact model
   and task
 - **THEN** `user_override` MUST win over `arena_elo`, which MUST win over
-  `benchmark_fitness`
-- **AND** `benchmark_fitness` MUST win over capability/static fallback sources
+  benchmark fitness
+- **AND** matching profile fitness MUST win over global `benchmark_fitness`
+  for a band request
+- **AND** benchmark fitness MUST win over capability/static fallback sources
 - **AND** score updates MUST NOT replace or delete `user_override` or
   `arena_elo`
+- **AND** missing profile rows MUST fall through to global benchmark or
+  existing capability/static scores without writing zero
+- **AND** recomputation MUST remove obsolete profile rows when evidence no
+  longer produces a score
 
 #### Scenario: Fitness cache after score refresh
 

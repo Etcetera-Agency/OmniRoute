@@ -1,5 +1,6 @@
 export type ModelBenchmarkFamily =
   "aa-coding" | "aa-intelligence" | "swe-bench" | "terminal-bench" | "deepswe";
+export type ModelBenchmarkFitnessProfile = "low" | "medium" | "high";
 
 export interface ModelBenchmarkFitnessObservation {
   modelId: string;
@@ -23,6 +24,7 @@ export interface ModelBenchmarkFitness {
   codingFallback: boolean;
   generalFallback: boolean;
   confidence: "high" | "medium" | "low" | "unrated";
+  effortProxy?: boolean;
 }
 
 const FAMILIES: ModelBenchmarkFamily[] = [
@@ -88,9 +90,61 @@ function isObservation(value: unknown): value is ModelBenchmarkFitnessObservatio
   );
 }
 
+function normalizedEffort(observation: ModelBenchmarkFitnessObservation): string {
+  const effort = observation.reasoningEffort?.trim().toLowerCase();
+  return !effort || effort === "none" || effort === "unknown" ? "unknown" : effort;
+}
+
+function selectProfileObservations(
+  observations: readonly ModelBenchmarkFitnessObservation[],
+  profile: ModelBenchmarkFitnessProfile
+): { observations: ModelBenchmarkFitnessObservation[]; proxyModels: Set<string> } {
+  const groups = new Map<string, ModelBenchmarkFitnessObservation[]>();
+  for (const observation of observations) {
+    const key = JSON.stringify([
+      observation.modelId,
+      observation.family,
+      observation.benchmark,
+      observation.benchmarkVersion,
+      stableJson(observation.reasoningConfig ?? null),
+      observation.metric,
+    ]);
+    const group = groups.get(key) ?? [];
+    group.push(observation);
+    groups.set(key, group);
+  }
+
+  const selected: ModelBenchmarkFitnessObservation[] = [];
+  const proxyModels = new Set<string>();
+  for (const group of groups.values()) {
+    const preferredEfforts = profile === "high" ? ["xhigh", "high"] : [profile];
+    let matches: ModelBenchmarkFitnessObservation[] = [];
+    for (const effort of preferredEfforts) {
+      matches = group.filter((observation) => normalizedEffort(observation) === effort);
+      if (matches.length) break;
+    }
+    let effortProxy = false;
+
+    if (matches.length === 0) {
+      matches = group.filter((observation) => normalizedEffort(observation) === "unknown");
+      effortProxy = matches.length > 0;
+    }
+    if (matches.length === 0) {
+      matches = group;
+      effortProxy = true;
+    }
+
+    if (effortProxy) proxyModels.add(group[0].modelId);
+    selected.push(...matches.map((observation) => ({ ...observation, reasoningEffort: profile })));
+  }
+
+  return { observations: selected, proxyModels };
+}
+
 export function computeModelBenchmarkFitness(
   observations: readonly ModelBenchmarkFitnessObservation[],
-  modelIds: readonly string[] = []
+  modelIds: readonly string[] = [],
+  profile?: ModelBenchmarkFitnessProfile
 ): ModelBenchmarkFitness[] {
   // AICODE-NOTE: relative scores rank only comparable cohorts; missing effort/config data never becomes a zero.
   const models = new Set(modelIds.filter((modelId) => modelId.trim().length > 0));
@@ -118,9 +172,14 @@ export function computeModelBenchmarkFitness(
     unique.set(key, item);
   }
 
+  const profileSelection = profile
+    ? selectProfileObservations([...unique.values()], profile)
+    : null;
+  const scoringObservations = profileSelection?.observations ?? [...unique.values()];
+
   const cohorts = new Map<string, ModelBenchmarkFitnessObservation[]>();
   const sourceCountsByModel = new Map<string, Record<ModelBenchmarkFamily, number>>();
-  for (const item of unique.values()) {
+  for (const item of scoringObservations) {
     const key = JSON.stringify([
       item.family,
       item.benchmark,
@@ -188,7 +247,7 @@ export function computeModelBenchmarkFitness(
     const codingVotes = [familyScores["aa-coding"], ...benchmarkScores].filter(
       (score): score is number => score !== undefined
     );
-    const directCoding = familyScores["aa-coding"] !== undefined || benchmarkScores.length >= 2;
+    const directCoding = familyScores["aa-coding"] !== undefined || benchmarkScores.length > 0;
     let codingFitness = directCoding ? median(codingVotes) : null;
     let generalFitness = familyScores["aa-intelligence"] ?? null;
     let codingFallback = false;
@@ -213,10 +272,17 @@ export function computeModelBenchmarkFitness(
     };
     const hasCoding = familyScores["aa-coding"] !== undefined;
     const hasGeneral = familyScores["aa-intelligence"] !== undefined;
+    const effortProxy = profileSelection?.proxyModels.has(modelId) ?? false;
     let confidence: ModelBenchmarkFitness["confidence"] = "medium";
     if (codingFitness === null && generalFitness === null) confidence = "unrated";
-    else if (codingFallback || generalFallback) confidence = "low";
-    else if (hasCoding && hasGeneral) confidence = "high";
+    else if (
+      codingFallback ||
+      generalFallback ||
+      effortProxy ||
+      (!hasCoding && benchmarkScores.length === 1)
+    ) {
+      confidence = "low";
+    } else if (hasCoding && hasGeneral) confidence = "high";
 
     result.push({
       modelId,
@@ -236,6 +302,7 @@ export function computeModelBenchmarkFitness(
       codingFallback,
       generalFallback,
       confidence,
+      ...(profileSelection ? { effortProxy } : {}),
     });
   }
 
