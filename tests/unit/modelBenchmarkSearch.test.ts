@@ -12,9 +12,11 @@ const chatHelpers = await import("../../src/sse/handlers/chatHelpers.ts");
 const originalFetch = globalThis.fetch;
 const originalEnv = { ...process.env };
 const core = await import("../../src/lib/db/core.ts");
+const providersDb = await import("../../src/lib/db/providers.ts");
 const searchDb = await import("../../src/lib/db/modelBenchmarkSearch.ts");
 const processor = await import("../../src/lib/modelBenchmarkSearchProcessor.ts");
 const search = await import("../../src/lib/modelBenchmarkSearch.ts");
+const searchRegistry = await import("../../open-sse/config/searchRegistry.ts");
 
 function restoreEnv() {
   for (const key of Object.keys(process.env)) {
@@ -174,12 +176,138 @@ test("Terminal-Bench evidence preserves declared effort and metric only", () => 
   assert.equal(rows[0].reasoningConfig, null);
 });
 
-test("web search uses the explicit zero-cost provider without an alternate", () => {
-  assert.deepEqual(search.DUCKDUCKGO_FREE_SEARCH, {
-    provider: "duckduckgo-free",
+test("web search selects configured zero-cost Ollama Search", () => {
+  assert.deepEqual(search.OLLAMA_SEARCH, {
+    provider: "ollama-search",
     maxResults: 10,
-    alternateProvider: undefined,
   });
+  assert.equal(searchRegistry.getSearchProvider("ollama-search")?.costPerQuery, 0);
+});
+
+test("web search rejects a substituted provider or nonzero response cost", () => {
+  const response = {
+    provider: "ollama-search",
+    results: [{ url: "https://example.org/eval" }],
+    usage: { search_cost_usd: 0 },
+  };
+
+  assert.throws(
+    () => search.validateOllamaSearchResponse({ ...response, provider: "tavily" }),
+    /Unexpected search provider/
+  );
+  assert.throws(
+    () => search.validateOllamaSearchResponse({ ...response, usage: { search_cost_usd: 0.01 } }),
+    /Unexpected search cost/
+  );
+});
+
+test("web search stops before calling Ollama when registry cost is nonzero", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-test",
+    apiKey: "ollama-search-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const provider = searchRegistry.getSearchProvider("ollama-search");
+  assert.ok(provider);
+  const originalCost = provider.costPerQuery;
+  const urls: string[] = [];
+  provider.costPerQuery = 0.001;
+  globalThis.fetch = async (input, init) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url === "https://ollama.com/api/web_search") {
+      return jsonResponse({ results: [] });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  try {
+    searchDb.enqueueModelBenchmarkSearches([
+      { id: "cost-change-model", name: "Cost Change Model" },
+    ]);
+    await search.drainModelBenchmarkSearchQueue();
+
+    const [run] = searchDb.listModelBenchmarkSearchRuns();
+    assert.equal(run.sourceStatus.ollamaSearch.status, "error");
+    assert.match(run.sourceStatus.ollamaSearch.error, /zero.cost/i);
+    assert.equal(urls.includes("https://ollama.com/api/web_search"), false);
+    assert.equal(
+      urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+      false
+    );
+  } finally {
+    provider.costPerQuery = originalCost;
+  }
+});
+
+test("queued search failure records an error without storing results or calling strict-SO", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-test",
+    apiKey: "ollama-search-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const urls: string[] = [];
+  const unexpectedUrls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url === "https://ollama.com/api/web_search") return jsonResponse({}, 503);
+    unexpectedUrls.push(url);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "search-error-model", name: "Search Error Model" },
+  ]);
+  await search.drainModelBenchmarkSearchQueue();
+
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(run.status, "source_error");
+  assert.equal(run.sourceStatus.ollamaSearch.status, "error");
+  assert.equal(searchDb.listModelBenchmarkSearchEvidence("search-error-model").length, 0);
+  assert.deepEqual(unexpectedUrls, []);
+  assert.equal(
+    urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+    false
+  );
 });
 
 test("normalization connection choice requires exact free model and is deterministic", () => {
@@ -786,6 +914,15 @@ test("full-catalog batch materializes sources only for models it claims", async 
 
 test("display names cannot masquerade as exact model IDs during source matching", async () => {
   process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-test",
+    apiKey: "ollama-search-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
@@ -822,8 +959,8 @@ test("display names cannot masquerade as exact model IDs during source matching"
     }
     if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
     if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
-    if (url.startsWith("https://lite.duckduckgo.com/lite/")) {
-      return new Response("<html></html>", { status: 200 });
+    if (url === "https://ollama.com/api/web_search") {
+      return jsonResponse({ results: [] });
     }
     throw new Error(`Unexpected ambiguity request: ${url}`);
   };
@@ -842,6 +979,15 @@ test("display names cannot masquerade as exact model IDs during source matching"
 
 test("complete AA and official miss runs HF and explicit free search, then stays unrated", async () => {
   process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-test",
+    apiKey: "ollama-search-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
   const urls: string[] = [];
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
@@ -882,11 +1028,22 @@ test("complete AA and official miss runs HF and explicit free search, then stays
         evalResults: [{ dataset_id: "SWE-bench Verified", value: 0, verified: true }],
       });
     }
-    if (url.startsWith("https://lite.duckduckgo.com/lite/")) {
-      return new Response(
-        "<a class='result-link' href='https://example.org/eval'>Benchmark report</a><td class='result-snippet'>Model evaluation</td>",
-        { status: 200, headers: { "content-type": "text/html" } }
-      );
+    if (url === "https://ollama.com/api/web_search") {
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get("authorization"), "Bearer ollama-search-test-key");
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        query: '"new-model" benchmark evaluation reasoning effort',
+        max_results: 10,
+      });
+      return jsonResponse({
+        results: [
+          {
+            title: "Benchmark report",
+            url: "https://example.org/eval",
+            content: "Model evaluation",
+          },
+        ],
+      });
     }
     throw new Error(`Unexpected request: ${url}`);
   };
@@ -903,15 +1060,15 @@ test("complete AA and official miss runs HF and explicit free search, then stays
   assert.equal(run.sourceStatus.terminalBench20.status, "missing");
   assert.equal(run.sourceStatus.terminalBench21.status, "missing");
   assert.equal(run.sourceStatus.deepSwe.status, "missing");
-  assert.equal(run.sourceStatus.duckduckgoFree.provider, "duckduckgo-free");
-  assert.equal(run.sourceStatus.duckduckgoFree.searchCostUsd, 0);
+  assert.equal(run.sourceStatus.ollamaSearch.provider, "ollama-search");
+  assert.equal(run.sourceStatus.ollamaSearch.searchCostUsd, 0);
   assert.equal(run.sourceStatus.normalizationProcessor.status, "blocked_no_exact_free_connection");
   assert.equal(run.sourceStatus.normalizationProcessor.candidateCount, 1);
   assert.equal(run.sourceStatus.normalizationProcessor.endpointMetadataVerified, true);
   assert.equal(typeof run.sourceStatus.normalizationProcessor.endpointMetadataCheckedAt, "string");
   assert.equal(run.sourceStatus.normalizationProcessor.attemptCount, 0);
   assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 1);
-  assert.ok(urls.some((url) => url.startsWith("https://lite.duckduckgo.com/lite/")));
+  assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 1);
   assert.equal(
     urls.some((url) => /searchapi|perplexity|tavily|exa\.ai/i.test(url)),
     false
@@ -919,7 +1076,7 @@ test("complete AA and official miss runs HF and explicit free search, then stays
 
   const rows = searchDb.listModelBenchmarkSearchEvidence("new-model");
   const hfEvidence = rows.find((row) => row.source === "huggingface-eval-results");
-  const webEvidence = rows.find((row) => row.source === "duckduckgo-free-search");
+  const webEvidence = rows.find((row) => row.source === "ollama-search");
   assert.ok(hfEvidence);
   assert.ok(webEvidence);
   assert.equal(hfEvidence.value, 0);
@@ -947,7 +1104,7 @@ test("complete AA and official miss runs HF and explicit free search, then stays
 test("an incomplete official source blocks HF and web search", async () => {
   process.env.AA_API_KEY = "test-only-key";
   let hfCalls = 0;
-  let ddgCalls = 0;
+  let searchCalls = 0;
   let terminal21Calls = 0;
   let aaCalls = 0;
   globalThis.fetch = async (input, init) => {
@@ -975,9 +1132,9 @@ test("an incomplete official source blocks HF and web search", async () => {
       hfCalls += 1;
       return jsonResponse([]);
     }
-    if (url.includes("lite.duckduckgo.com")) {
-      ddgCalls += 1;
-      return new Response("", { status: 200 });
+    if (url === "https://ollama.com/api/web_search") {
+      searchCalls += 1;
+      return jsonResponse({ results: [] });
     }
     throw new Error(`Unexpected request: ${url}`);
   };
@@ -992,7 +1149,7 @@ test("an incomplete official source blocks HF and web search", async () => {
   assert.equal(aaCalls, 5);
   assert.equal(terminal21Calls, 2);
   assert.equal(hfCalls, 0);
-  assert.equal(ddgCalls, 0);
+  assert.equal(searchCalls, 0);
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("incomplete-model").length, 0);
 });
 
@@ -1065,7 +1222,7 @@ test("direct AA scores avoid search while retaining an exact official SWE row", 
     false
   );
   assert.equal(
-    urls.some((url) => url.includes("lite.duckduckgo.com")),
+    urls.some((url) => url === "https://ollama.com/api/web_search"),
     false
   );
 });

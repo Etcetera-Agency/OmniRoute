@@ -61,18 +61,35 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## Missing-model benchmark search
 
+- [ ] Finish live acceptance for scheduled search. The deployed
+      implementation invokes `duckduckgo-free` directly with empty credentials;
+      the current live queue shows `duckduckgoFree:error` on 45 of the latest
+      100 runs. Direct DDG requests time out from this host. Live provider
+      catalog reports `ollama-search` configured at zero cost with a 1,000
+      requests/month quota; it is the only configured zero-cost web provider.
+      Local source now uses the credential-resolving search service, pins
+      `ollama-search`, rejects nonzero cost/provider changes, and has no
+      alternate. Deploy, prove one controlled live search and strict-SO result,
+      and establish the remaining quota before the full-catalog drain. The live
+      queue has 3,999 rows (3,770 prior missing-AA-key errors); enabled
+      models.dev sync triggers an initial drain and chains batches of 100. The
+      registry allows 1,000 searches/month, but current usage is unknown. The
+      service container has `AA_API_KEY` set. No paid provider is authorized
+      as fallback.
+
 - [x] Local `add-model-benchmark-search` source-lookup slice: successful
       non-dry-run models.dev capability syncs detect exact new model IDs after
       the initial baseline, persist an idempotent queue row before replacing
       the previous capability snapshot, and drain one row in the background.
       AA Free plus SWE-bench, Terminal-Bench 2.0/2.1, and DeepSWE must all be
       complete exact misses before Hugging Face eval metadata and explicit
-      `duckduckgo-free` discovery run. Raw source/version/model/benchmark/
+      `ollama-search` discovery run. Raw source/version/model/benchmark/
       effort/config/value/URL/date/status evidence stays in separate tables;
       source failures, partial scans, and missing effort/value stay unverified
       and unrated. No frozen score-map write path exists. Focused RED/GREEN
       tests and core typecheck are recorded in `completion.review`.
-- [x] Add a separate strict-SO processor for explicit `duckduckgo-free`
+- [x] Add a separate strict-SO processor for candidates from explicit free
+      web search
       candidates. It uses `xingchen-agi/xing4.0-29b-a4b:free`, requests only
       OpenRouter endpoint `phala`, requires endpoint parameter support, disables
       OpenRouter fallbacks, and sends strict JSON Schema. It proceeds only when
