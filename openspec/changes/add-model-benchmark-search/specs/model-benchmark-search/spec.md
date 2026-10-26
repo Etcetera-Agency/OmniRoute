@@ -116,10 +116,12 @@ connection whose synced catalog marks the exact model free. It SHALL pin that
 connection and send `json_schema` with `strict: true`, `provider.only: ["phala"]`,
 `provider.require_parameters: true`, and `provider.allow_fallbacks: false`.
 It SHALL clear session affinity for the one-shot request so a prior session pin
-cannot replace the verified connection. It SHALL not retry, rotate accounts,
-select another model/provider, or enter global/emergency fallback. Extracted
-records SHALL remain candidate-review-required and SHALL NOT update production
-scores.
+cannot replace the verified connection. It SHALL NOT retry within one
+dispatch, rotate accounts, select another model/provider, or enter
+global/emergency fallback. Queue-level rate-limit recovery is defined by the
+source-work requirement below.
+Extracted records SHALL remain candidate-review-required and SHALL NOT update
+production scores.
 
 #### Scenario: Missing free endpoint or connection blocks inference
 
@@ -146,7 +148,7 @@ scores.
 - **THEN** the extracted fields are stored as candidate-review-required
 - **AND** no rating or score-map write occurs
 
-#### Scenario: Invalid strict output does not trigger fallback
+#### Scenario: Invalid strict output does not trigger retry or fallback
 
 - **GIVEN** one pinned model request returns malformed, non-stop, or mismatched
   output
@@ -160,6 +162,74 @@ Each source request SHALL have a timeout and bounded retry behavior. AA
 pagination, HF results, web results, queue attempts, and evidence retention
 queries SHALL use explicit limits. Identical evidence SHALL be idempotent, and
 source errors SHALL record status and a bounded error string.
+Explicit `ollama-search` calls SHALL be spaced at least 15 seconds apart;
+actual free-SO calls SHALL be spaced at least five seconds apart. On HTTP 429
+from either provider, the queue SHALL persist `Retry-After` or
+`X-RateLimit-Reset`; if no header is available, it SHALL defer for 15 minutes.
+The exact `No credentials configured for search provider: ollama-search` error
+SHALL also defer for 15 minutes because provider connections may be cooling
+down. The queue SHALL pause all benchmark work until the retry time, then
+retry the same model with explicit `ollama-search` and the same pinned free
+SO connection. Waiting for a retry time SHALL NOT consume an attempt. Each
+actual HTTP 429 request SHALL consume the existing bounded attempt budget; the
+exact no-credentials error happens before an upstream request and SHALL NOT
+consume an attempt.
+
+#### Scenario: Rate-limited Ollama search is durably deferred
+
+- **GIVEN** explicit `ollama-search` returns HTTP 429
+- **AND** it provides `Retry-After` or `X-RateLimit-Reset`
+- **WHEN** the queue stores the failed result
+- **THEN** it persists the parsed retry instant and raw search failure
+- **AND** it does not call strict-SO for that row
+- **AND** it pauses all benchmark work until that instant
+- **AND** it retries the same model through explicit `ollama-search`
+- **AND** the HTTP 429 request counts toward the existing maximum attempts
+- **AND** no paid or alternate route is attempted
+
+#### Scenario: Rate-limited normalization is durably deferred
+
+- **GIVEN** the pinned exact-free request returns HTTP 429
+- **AND** it provides `Retry-After` or `X-RateLimit-Reset`
+- **WHEN** the queue stores the failed result
+- **THEN** it persists the parsed retry instant and preserves collected search evidence
+- **AND** it pauses all benchmark work until that instant
+- **AND** it retries the same model through the same pinned free connection
+- **AND** the HTTP 429 request counts toward the existing maximum attempts
+- **AND** no paid or alternate route is attempted
+
+#### Scenario: Strict-SO retry keeps its originally pinned connection
+
+- **GIVEN** a pinned exact-free connection returns HTTP 429
+- **AND** another eligible free connection appears before the cooldown expires
+- **WHEN** the same model is retried
+- **THEN** the queue uses the original connection if it remains eligible
+- **AND** it blocks normalization without dispatch if the original connection is no longer eligible
+- **AND** it never switches the retry to the newly available connection
+
+#### Scenario: Cooling search connections report no credentials
+
+- **GIVEN** explicit `ollama-search` fails with
+  `No credentials configured for search provider: ollama-search`
+- **WHEN** the queue stores the failed result
+- **THEN** it defers the same model for 15 minutes without calling strict-SO
+- **AND** it pauses all benchmark work until the retry instant
+- **AND** it does not consume an attempt because no upstream request occurred
+
+#### Scenario: Repeated 429 responses stop at the existing retry maximum
+
+- **GIVEN** the same model has reached `MAX_SEARCH_ATTEMPTS` through real
+  provider requests that returned HTTP 429
+- **WHEN** another queue drain runs after the cooldown
+- **THEN** no additional search or strict-SO request is made for that model
+- **AND** any collected candidate evidence remains review-required and unrated
+
+#### Scenario: Rate-limit response without reset headers uses bounded fallback delay
+
+- **GIVEN** explicit search or pinned strict-SO returns HTTP 429 without reset headers
+- **WHEN** the queue stores the failed result
+- **THEN** it persists a retry instant 15 minutes later
+- **AND** it keeps the same global pause, provider, model, and exact-free routing guarantees
 
 #### Scenario: Repeated source result does not duplicate evidence
 

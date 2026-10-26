@@ -74,21 +74,34 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       score. Focused regression tests pass 34/34. Independent review found and
       prompted a fix for exhausted rows being treated as eligible before
       terminal cleanup; follow-up reviews confirmed both fixes with no
-      remaining findings. PR, deployment, and live acceptance remain pending.
+      remaining findings. PR #33 merged at source
+      `3529ee2e5d7d76c269d6064d0287c732f47aef65`; image
+      `sha256:05a0c6c3ee78b9975c44996a12e3374d9c32fde77675c0d18b6eeb6a0c5d1860`
+      is deployed and healthy.
 
-- [ ] Finish live acceptance for scheduled search. At 2026-10-26 18:55 UTC,
-      production was healthy on revision `dbb02d7d40c9dd8aa4c7328fabc9342e3ebca90d`,
-      image `ghcr.io/etcetera-agency/omniroute@sha256:e1ef8194e2f889bb7f1b59124cd2bf61cc48fe96404fafc3a8f8ea7868b24ba2`.
-      The current read-only queue has 4,095 rows (38 review-required, 20
-      running, 9 scored, 3,978 source-error, 50 unrated/no-evidence); 20 stale
-      running rows remain unchanged from 17:02:47Z. `AA_API_KEY` is set. The
-      `ollama-search` registry lists zero cost and 1,000 requests/month, but
-      exact account usage/remain is unknown. The local fix pins
-      credential-resolved `ollama-search`, rejects nonzero cost/provider
-      changes, keeps no alternate, and bounds exact free strict-SO. After
-      deploy, prove one controlled search and strict-SO request, then establish
-      remaining quota before resuming the full-catalog drain. Paid fallback is
-      prohibited.
+- [ ] Finish live acceptance for scheduled search. The deployed revision is
+      still `3529ee2e5d7d76c269d6064d0287c732f47aef65`, image
+      `sha256:02051b23b703729ac1e030f99acf5e195d0c99f7eb9ceff2699f874355802034`,
+      healthy; migration 199 is not applied. Read-only SQLite inspection at
+      21:40 UTC showed 708 source-error rows and 30 review-required rows with
+      Ollama Search HTTP 429, plus 941 source-error and 25 review-required rows
+      with no search credentials. Latest matching errors were at 21:40 UTC.
+      A further 2,058 source-error rows have other recorded errors, latest
+      16:58 UTC. Queue status counts: 2,020 source-error/no-search-candidates,
+      1,690 source-error/not-started, 91 review-required/no-search-candidates,
+      94 review-required/normalization-failed, 5 review-required/invalid
+      normalization response, 60 review-required/not-needed, 85 scored, and 50
+      unrated/no-evidence. The local fix adds serialized zero-cost search and
+      strict-SO pacing, durable Retry-After/reset cooldowns, bounded retry
+      attempts, preservation of review evidence, and the same exact-free
+      connection across strict-SO retries. Focused tests and independent review
+      pass, but this change is not committed, merged, or deployed. After PR/main
+      deployment, verify migration 199, queue recovery, current search quota,
+      and one controlled successful strict-SO response through the exact free
+      Phala model/connection with no paid or alternate route. Exact provider
+      quota remaining is still unknown; keep the full-catalog worker within the
+      registered zero-cost search path and do not claim successful live
+      acceptance until the controlled request succeeds.
 
 - [x] Local `add-model-benchmark-search` source-lookup slice: successful
       non-dry-run models.dev capability syncs detect exact new model IDs after
@@ -116,13 +129,12 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       selecting a connection, each run verifies the official OpenRouter
       endpoint API returns exactly one matching Phala endpoint, zero prompt and
       completion prices, and both `response_format` and `structured_outputs`.
-- [ ] Live acceptance remains open: verify the runtime has an eligible
-      connection and compatible internal API key, then run one controlled
-      request and retain the provider-attempt and response-validation receipt.
-      PR #26 is merged into `main`; image workflow `40290772900` was canceled
-      before completion, and no live inference was run for this implementation.
-      Any request error, schema failure, invalid output, or missing evidence
-      stays unrated.
+- [x] Read-only live gates and zero-cost Ollama search are verified. A
+      controlled search returned and persisted candidates. The pinned strict-SO
+      request returned HTTP 429, so successful output validation is still open.
+      It stayed on the exact free Phala route with no paid/alternate fallback
+      or cost. Complete the controlled successful SO receipt after the durable
+      429 cooldown fix; keep failed requests and invalid evidence unrated.
 - [ ] Keep production ratings blocked until a reviewer confirms exact model
       identity, reasoning effort/config, benchmark/version, metric/value, source
       URL/date, and source verification status. Independently calibrate/review
