@@ -46,14 +46,25 @@ scan SHALL remain a source error and SHALL NOT trigger discovery search.
 - **THEN** the matching evidence is persisted
 - **AND** Hugging Face and web discovery are not called
 
-#### Scenario: Complete miss searches HF and the free web provider
+#### Scenario: Complete miss searches HF and the configured free provider
 
 - **GIVEN** AA Free and all four official leaderboard datasets completed
 - **AND** none contains the exact model identity
 - **WHEN** the lookup continues
 - **THEN** Hugging Face model eval metadata is queried
-- **AND** web discovery uses only `duckduckgo-free` without an alternate
+- **AND** web discovery resolves configured credentials for `ollama-search`
+- **AND** web discovery uses only `ollama-search` without an alternate
+- **AND** the provider registry and returned usage both report zero cost
 - **AND** returned records are stored as review-required evidence
+
+#### Scenario: Paid or substituted search is rejected
+
+- **GIVEN** the configured search provider is missing, has nonzero registry
+  cost, returns another provider ID, or reports nonzero search cost
+- **WHEN** web discovery runs
+- **THEN** the result is rejected and no strict-SO model request is sent
+- **AND** no alternate or paid search provider is tried
+- **AND** the model remains unrated with a source error receipt
 
 #### Scenario: Incomplete source scan prevents a false negative
 

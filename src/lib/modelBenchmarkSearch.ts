@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { handleSearch } from "@omniroute/open-sse/handlers/search";
+import { getSearchProvider } from "@omniroute/open-sse/config/searchRegistry.ts";
+import { executeWebSearch } from "./search/executeWebSearch";
 import type { ModelBenchmarkFitness } from "./modelBenchmarkFitness";
 import {
   NORMALIZATION_BLOCK_REASON,
@@ -26,14 +27,12 @@ const HF_MODELS_URL = "https://huggingface.co/api/models";
 const REQUEST_TIMEOUT_MS = 6_000;
 const MAX_AA_PAGES = 5;
 const MAX_HF_RESULTS = 10;
-const MAX_SEARCH_RESULTS = 10;
 const SHARED_SOURCE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_MODELS_PER_DRAIN = 20;
 const CONTINUE_DRAIN_DELAY_MS = 60_000;
-export const DUCKDUCKGO_FREE_SEARCH = {
-  provider: "duckduckgo-free",
-  maxResults: MAX_SEARCH_RESULTS,
-  alternateProvider: undefined,
+export const OLLAMA_SEARCH = {
+  provider: "ollama-search",
+  maxResults: 10,
 } as const;
 
 type JsonRecord = Record<string, unknown>;
@@ -665,39 +664,55 @@ async function findHuggingFaceEvidence(
   }
 }
 
-async function searchDuckDuckGo(model: ModelIdentity): Promise<{
+export function validateOllamaSearchResponse(data: unknown): {
+  results: ReturnType<typeof asRows>;
+  searchCostUsd: 0;
+} {
+  const response = asRecord(data);
+  if (response.provider !== OLLAMA_SEARCH.provider) {
+    throw new Error(`Unexpected search provider: ${String(response.provider)}`);
+  }
+  const searchCostUsd = asRecord(response.usage).search_cost_usd;
+  if (searchCostUsd !== 0) {
+    throw new Error(`Unexpected search cost: ${String(searchCostUsd)}`);
+  }
+  return {
+    results: asRows(response.results).slice(0, OLLAMA_SEARCH.maxResults),
+    searchCostUsd: 0,
+  };
+}
+
+async function searchOllama(model: ModelIdentity): Promise<{
   receipt: Record<string, unknown>;
   evidence: ParsedEvidence[];
 }> {
   const query = `"${model.id}" benchmark evaluation reasoning effort`;
-  const sourceUrl = "https://lite.duckduckgo.com/lite/";
+  const sourceUrl = "https://ollama.com/api/web_search";
   try {
-    // Same handler as /v1/search. Explicit provider and absent alternate prevent paid search fallback.
-    const result = await handleSearch({
+    if (getSearchProvider(OLLAMA_SEARCH.provider)?.costPerQuery !== 0) {
+      throw new Error("ollama-search is not configured as zero-cost");
+    }
+    const { data } = await executeWebSearch({
       query,
-      provider: DUCKDUCKGO_FREE_SEARCH.provider,
-      maxResults: DUCKDUCKGO_FREE_SEARCH.maxResults,
-      searchType: "web",
-      credentials: {},
-      alternateProvider: DUCKDUCKGO_FREE_SEARCH.alternateProvider,
+      provider: OLLAMA_SEARCH.provider,
+      max_results: OLLAMA_SEARCH.maxResults,
+      search_type: "web",
     });
-    if (!result.success) throw new Error(result.error || "DuckDuckGo search failed");
-    const data = asRecord(result.data);
-    const results = asRows(data.results).slice(0, MAX_SEARCH_RESULTS);
+    const { results, searchCostUsd } = validateOllamaSearchResponse(data);
     return {
       receipt: {
         status: results.length ? "found" : "missing",
         sourceUrl,
-        sourceVersion: "OmniRoute /v1/search duckduckgo-free",
-        searchCostUsd: asFiniteNumber(asRecord(data.usage).search_cost_usd),
-        provider: asString(data.provider),
+        sourceVersion: "OmniRoute search ollama-search",
+        searchCostUsd,
+        provider: OLLAMA_SEARCH.provider,
         query,
       },
       evidence: results.map((row) =>
         evidence({
-          source: "duckduckgo-free-search",
+          source: "ollama-search",
           sourceUrl: asString(row.url) ?? sourceUrl,
-          sourceVersion: "OmniRoute /v1/search duckduckgo-free",
+          sourceVersion: "OmniRoute search ollama-search",
           verificationStatus: "candidate_review_required",
           raw: row,
         })
@@ -708,7 +723,7 @@ async function searchDuckDuckGo(model: ModelIdentity): Promise<{
       receipt: {
         status: "error",
         sourceUrl,
-        sourceVersion: "OmniRoute /v1/search duckduckgo-free",
+        sourceVersion: "OmniRoute search ollama-search",
         query,
         error: errorMessage(error),
       },
@@ -823,7 +838,7 @@ async function refreshSearchRun(
 
   const [hf, web] = await Promise.all([
     findHuggingFaceEvidence(model, fetchImpl),
-    searchDuckDuckGo(model),
+    searchOllama(model),
   ]);
   const searchResults = web.evidence.map((item) => {
     const raw = asRecord(item.raw);
@@ -837,7 +852,7 @@ async function refreshSearchRun(
   const { evidence: normalizedCandidates, ...processorReceipt } = processor;
   const normalized = normalizedCandidates.map((item) =>
     evidence({
-      source: "duckduckgo-free-structured-output",
+      source: "ollama-search-structured-output",
       sourceVersion: NORMALIZATION_MODEL,
       matchedModelId: item.matchedModelId,
       matchedModelName: item.matchedModelName,
@@ -854,7 +869,7 @@ async function refreshSearchRun(
     })
   );
   sourceStatus.huggingFace = hf.receipt;
-  sourceStatus.duckduckgoFree = web.receipt;
+  sourceStatus.ollamaSearch = web.receipt;
   sourceStatus.normalizationProcessor = processorReceipt;
   const discovered = [...hf.evidence, ...web.evidence, ...normalized];
   if (discovered.length) saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, discovered));

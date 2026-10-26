@@ -29,11 +29,17 @@ restart.
 - Refresh the bounded source set: AA Free language-model pages; the existing
   official SWE-bench, Terminal-Bench 2.0, Terminal-Bench 2.1, and DeepSWE
   endpoints; Hugging Face Hub model eval metadata; and `/v1/search` with the
-  explicitly selected zero-cost `duckduckgo-free` provider and no alternate.
-- Search HF and DuckDuckGo only after a complete exact-match miss in both AA
+  explicitly selected, configured zero-cost `ollama-search` provider and no
+  alternate. Resolve its Ollama Cloud credential through the existing search
+  execution service; never pass empty credentials to the provider handler.
+- Search HF and Ollama Web Search only after a complete exact-match miss in both AA
   and all configured official leaderboards. Preserve candidates for review;
   do not publish any score into the frozen map, benchmark consensus, or model
   capability fitness.
+- Fail closed unless the provider registry reports zero query cost and the
+  result reports provider `ollama-search` with `search_cost_usd=0`. Its current
+  catalog quota is 1,000 requests/month; no paid provider may be selected as
+  fallback.
 - Keep missing or unverified evidence pending/unrated. Missing effort stays
   null. Store source-reported numbers only as raw evidence, never as calibrated
   scores.
@@ -69,7 +75,6 @@ or paid/out-of-band route as fallback.
 - No paid inference, provider auto-selection, fallback bands, zero-fill, fuzzy
   identity aliases, or score inference from search snippets. Free strict-SO
   extraction only creates review-required evidence and cannot publish ratings.
-- No push, merge, or deploy.
 
 ## Acceptance
 
@@ -78,7 +83,9 @@ or paid/out-of-band route as fallback.
 - Repeated syncs and retries do not duplicate model events or evidence.
 - AA and each official source have an independent status. A failed, truncated,
   or malformed source is an error/incomplete result and never proves absence.
-- HF and explicit free DuckDuckGo run only for exact missing-in-both identities.
+- HF and explicit zero-cost Ollama Search run only for exact missing-in-both
+  identities; a configured credential is required and no alternate provider
+  may run.
 - Evidence includes exact model identity and source provenance; reasoning
   effort/config is null when the source does not provide it.
 - Pending, errored, and review-required records cannot alter production score

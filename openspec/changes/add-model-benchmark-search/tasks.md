@@ -9,17 +9,21 @@
       six-second abort timeout; the suite does not simulate that timer.
 - [x] 1.3 Add failing orchestration tests proving exact missing from both AA and
       every official source is required before HF and explicit
-      `duckduckgo-free` search; assert no alternate provider.
+      `ollama-search`; assert no alternate provider.
 - [x] 1.4 Add failing persistence tests for raw evidence provenance, nullable
       effort/value, and duplicate suppression. Source review verifies that the
       authenticated read route uses `isAuthenticated` and the search module has
       no score-map write path.
+- [x] 1.5 Add a failing regression proving scheduled discovery resolves the
+      configured Ollama credential, selects only `ollama-search`, requires
+      zero cost, and never falls back to another search provider. RED reproduced
+      the missing Ollama search configuration; GREEN passes in the focused suite.
 
 ## 2. Implementation
 
 - [x] 2.1 Add the idempotent queue/evidence migration and DB-domain operations.
 - [x] 2.2 Implement bounded AA, SWE-bench, Terminal-Bench 2.0/2.1, DeepSWE,
-      HF eval metadata, and explicit free DuckDuckGo source clients.
+      HF eval metadata, and explicit zero-cost Ollama Search source client.
 - [x] 2.3 Trigger durable queueing from successful models.dev identity deltas
       before replacing the prior model capability snapshot; drain all eligible
       models sequentially and preserve retry/error receipts.
@@ -30,19 +34,29 @@
       connection; pin one connection, disable retries/fallback, and keep all
       extracted evidence review-required and unrated.
 - [x] 2.6 Apply Code Simplifier and update this change's completion.review.
+- [x] 2.7 Replace keyless DuckDuckGo handler invocation with the shared
+      explicit `ollama-search` execution path; stop before search if its
+      registry price is nonzero and reject results with another provider or
+      nonzero reported cost. Preserve strict-SO and unrated-evidence gates.
 
 ## 3. Verification and acceptance
 
-- [x] 3.1 Run the focused RED/GREEN unit tests and owned-slice type check.
+- [x] 3.1 Run focused RED/GREEN tests (30/30 pass) and `typecheck:core`; the
+      repository-wide check reports 757 errors in other files, with none in
+      this diff.
 - [x] 3.2 Check OpenSpec validation availability; the CLI is unavailable in this
       worktree, so strict package validation remains unverified.
 - [x] 3.3 Verify migration rollback description, `git diff --check`, and that
       frozen score map files are unchanged.
-- [ ] 3.4 Finish independent review of the exact pinned provider/model path and
-      verify live endpoint metadata, zero pricing, exact free connection, and
-      internal-key availability through read-only checks before inference.
+- [x] 3.4 Independently review configured Ollama credentials, explicit
+      zero-cost provider selection/no alternate, and the exact pinned strict-SO
+      provider/model path; follow-up review found no remaining findings.
+- [ ] 3.4a Verify live endpoint metadata, exact free connection, internal-key
+      availability, and search quota through read-only checks before inference.
 - [ ] 3.5 Commit after Code Simplifier; then use the owner-authorized PR/main
       deployment path. Do not build a separate local image.
 - [ ] 3.6 After deployment, run one controlled search-plus-strict-SO request.
       Record client requests and provider attempts separately, exact model and
       connection, output validation, route, zero cost, and absence of fallback.
+- [ ] 3.7 Record the provider's live monthly quota and remaining search capacity
+      before allowing the full-catalog worker to consume its allowance.
