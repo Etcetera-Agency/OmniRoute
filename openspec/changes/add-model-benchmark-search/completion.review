@@ -1,15 +1,29 @@
 # Completion review — add-model-benchmark-search
 
-**Status:** local source fix and focused verification complete; PR, deployment,
-and controlled live acceptance are pending.
+**Status:** local search-route and queue-liveness fixes are implemented and
+focused verification passes; PR, deployment, and controlled live acceptance
+are pending.
 
 ## Root cause
 
-The scheduled queue called the low-level search handler as
-`duckduckgo-free` with empty credentials. On the live service, the latest 100
-stored runs contained 45 `duckduckgoFree:error` receipts. The direct
-DuckDuckGo endpoint had also timed out from the host. The running OmniRoute
-container is still on the pre-fix image.
+The original scheduled queue called the low-level search handler as
+`duckduckgo-free` with empty credentials. A live inspection then found 45
+`duckduckgoFree:error` receipts in the latest 100 stored runs, and direct
+DuckDuckGo requests timed out from the host. The shared credential-resolving
+`ollama-search` route fix is now on the deployed `dbb02d7` image; the queue
+liveness and complete-miss gating fixes in this branch are not deployed.
+Source review also found that a complete exact AA/official match with no usable
+fitness could still reach HF/web discovery; the current branch blocks that
+search and finishes the row review-required.
+
+## Live queue incident (2026-10-26)
+
+Live inspection found 20 runs all `running`, each claimed at 17:02:47Z with
+attempt 2; queue counts and timestamps had not moved, and there were no
+matching search or benchmark logs. Source confirms the old drain claimed 20
+rows before processing and saved their outcomes only after the whole batch.
+This explains why one slow row could leave the whole batch stuck. The exact
+awaited operation for the live stall is not proven from available logs.
 
 ## Fix
 
@@ -20,12 +34,22 @@ container is still on the pre-fix image.
   whose provider ID changes or whose reported search cost is nonzero.
 - Leave search alternates unset. Search results remain review-required, and
   strict-SO extraction remains pinned to the existing exact free connection.
+- Materialize exact AA/leaderboard evidence for up to 20 eligible rows without
+  claiming them, recompute cohort scores once, then claim and finish one row at
+  a time. Save HF/search evidence before strict-SO, abort strict-SO after five
+  minutes, and schedule fresh `running` recovery at its 15-minute stale edge.
+- Require an exact miss across AA and every official source before HF or web
+  search. Exact known-source matches without usable fitness finish
+  review-required without consuming discovery-search quota.
 
 ## Verification
 
-- RED reproduced the missing `validateOllamaSearchResponse` guard. Queue-level
-  failure coverage verifies an Ollama HTTP error records `source_error`, saves
-  no evidence, and sends no strict-SO request. The focused suite passes 30/30.
+- RED reproduced the missing `validateOllamaSearchResponse` guard and the
+  exact-match search-boundary violation. Queue-level failure coverage verifies
+  an Ollama HTTP error records `source_error`, saves no evidence, and sends no
+  strict-SO request. The focused suite passes 34/34,
+  including one-row claims, timeout evidence preservation, stale recovery, and
+  max-attempt cleanup before source loading.
 - `npm run check:docs-all` exits 0; it reports 98 existing potential-drift
   warnings. Prettier and `git diff --check` pass for all changed files.
 - `npm run typecheck:core` exits 2 with 757 TypeScript errors in unrelated
@@ -33,22 +57,28 @@ container is still on the pre-fix image.
 - Code Simplifier applied to the owned source and test changes.
 - Independent Luna-xhigh review confirmed the credential mapping, exact
   zero-cost provider pin, no-alternate behavior, and unchanged strict-SO path.
-  Follow-up review confirmed the queue-coverage test rejects any unrecognized
-  fetch URL and found no remaining findings.
+  The liveness review found one mismatch for max-attempt cleanup; the new
+  regression reproduced it, and the fix now runs terminal cleanup before
+  eligibility checks. Follow-up review confirmed that correction and found no
+  remaining findings. A second focused follow-up verified exact-match, incomplete
+  scan, and complete-miss gates; no findings remain.
 
 ## Live state and remaining work
 
-- At 2026-10-26 16:22 UTC, the healthy production container still used image
-  `sha256:f4decfc1a233e00b5b404f3dfa25bf020aebc12a4d79b1510d736a038ca0ab5f`.
-- Read-only checks found `AA_API_KEY` set in the running container, three
-  active `ollama-cloud` API-key connections, and 3,999 queue rows: 3,770
-  retain the prior missing-AA-key error, 37 are review-required, 9 scored, and
-  50 have no evidence. Models.dev sync is enabled. A successful startup sync
-  launches the queue drain, which chains through eligible batches of 100.
-- The catalog lists 1,000 Ollama Search requests/month, but its exact live
-  remaining allowance has not been established. No paid search fallback is
-  configured by this fix; the queue's monthly-quota guard remains open work.
-- Still required: pre-inference live checks, PR merge and main-image deploy,
-  exact deployed source/image receipt, one controlled post-deploy search and
-  strict-SO acceptance, and a verified quota-usage receipt before judging the
-  full-catalog run complete.
+- At 2026-10-26 18:55 UTC, production was healthy on revision
+  `dbb02d7d40c9dd8aa4c7328fabc9342e3ebca90d`, image
+  `ghcr.io/etcetera-agency/omniroute@sha256:e1ef8194e2f889bb7f1b59124cd2bf61cc48fe96404fafc3a8f8ea7868b24ba2`.
+  `AA_API_KEY` is set in the container. This liveness fix is not deployed.
+- Read-only DB status showed 4,095 rows: 38 `review_required`, 20 `running`,
+  9 `scored`, 3,978 `source_error`, and 50 `unrated_no_evidence`. The 20
+  running rows still have attempt 2 and timestamps between 17:02:47.381Z and
+  17:02:47.473Z. The exact awaited operation behind those stalls remains
+  unknown.
+- The `ollama-search` catalog allowance is 1,000 requests/month; exact current
+  account usage/remain is unknown. No live search or model inference was run
+  during this liveness repair. The branch keeps explicit zero-cost search and
+  exact pinned free strict-SO with no fallback.
+- Still required: PR/main integration, exact deployed source/image receipt,
+  one controlled post-deploy search and
+  strict-SO receipt, and quota verification before resuming the full-catalog
+  queue.

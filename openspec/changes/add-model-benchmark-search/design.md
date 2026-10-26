@@ -10,15 +10,20 @@ models.dev fetch succeeds
   -> save current models.dev capabilities
   -> start one bounded queue drain (concurrency 1)
        -> load AA Free pages and all configured official leaderboards
-       -> persist source receipt + exact raw matches
-       -> if any required source failed or was truncated: pending_unrated
-       -> else if AA or official exact match exists: existing_benchmark_record
+       -> claim one row only after an eligible row exists
+       -> persist its source receipt + exact raw matches
+       -> if any required source failed or was truncated: finish pending_unrated
+       -> else if AA or official exact match exists: finish scored/review state
+          without HF/web search, even if the direct match has no usable score
        -> else query HF eval metadata and explicit ollama-search
-       -> persist raw HF and search results
+       -> persist raw HF and search results before strict-SO processing
        -> if search results and live free/strict-SO gates pass: one pinned model call
+       -> bound that call to five minutes and abort its request on timeout
        -> validate exact identity, returned URL, and literal source quote
        -> persist accepted output as candidate-review-required evidence
-       -> otherwise leave pending/blocked/unrated
+       -> finish this row before claiming another
+  -> process at most 20 rows per drain, then continue after 60 seconds
+  -> if only fresh `running` rows remain, schedule a retry at their stale boundary
   -> never write ratings or touch the frozen score map
 ```
 
@@ -67,10 +72,17 @@ models.
 Direct JSON source requests have a 6-second timeout, one retry for transient
 network, 429, or 5xx responses, and a 300 ms retry delay. `ollama-search` has a
 10-second timeout, zero configured query cost, a current catalog allowance of
-1,000 requests/month, and no alternate/retry. A durable model row is attempted at most five times, no more
-often than once per 24 hours after an error or no-result run. Each drain handles
-all currently eligible rows sequentially and is guarded against concurrent
-drains. AA page traversal is capped at five; if the endpoint says more pages
+1,000 requests/month, and no alternate/retry. A durable model row is attempted
+at most five times, no more often than once per 24 hours after an error or
+no-result run. Each drain materializes exact AA/leaderboard evidence for at
+most 20 eligible rows without claiming them, then recomputes cohort scores. It
+claims and finishes rows sequentially, at most 20 per invocation, and is
+guarded against concurrent drains. A strict-SO request has a five-minute
+deadline; timeout aborts the pinned request and leaves the search evidence
+review-required and unrated. When a process starts with only fresh `running`
+rows, it schedules one retry for the earliest row's 15-minute stale boundary
+instead of depending on the next daily models.dev sync. AA page
+traversal is capped at five; if the endpoint says more pages
 remain, the receipt is `incomplete`, not `missing`. HF
 discovery is capped at ten rows per query and ten exact model details. Search
 results are capped at ten. Any hard JSON/shape error records the source error
@@ -143,31 +155,39 @@ sync(raw):
     scheduleDrainIfIdle()
 
 drainQueue():
-  while model = claimOldestEligiblePending():
-    aa = fetchAllBoundedAAFreePages()
-    official = fetchSWEAndTerminalAndDeepSWE()
-    persistSourceStatuses(aa, official)
-    if any source failed or incomplete:
-      markPendingUnrated("source_refresh_incomplete")
+  terminalizeMaxAttemptRows()
+  if noEligibleRows():
+    scheduleRetryAtEarliestRunningRowStaleBoundary()
+    return
+  snapshot = fetchAllBoundedAAFreeAndOfficialSources()
+  candidates = listEligibleRows(limit=20)
+  for candidate in candidates:
+    direct[candidate.id] = persistExactMatches(candidate, snapshot)
+  scores = recomputeCohortFitness()
+  completed = 0
+  while completed < 20:
+    model = claimOneEligibleRow()
+    if no model: break
+    if model.id not in direct:
+      direct[model.id] = persistExactMatches(model, snapshot)
+      scores = recomputeCohortFitness()
+    if scores contain coding or general fitness for model:
+      finish(model, status="scored")
+      completed += 1
       continue
-    exact = exactMatches(model, aa, official)
-    persistRawMatches(exact)
-    if exact is nonempty:
-      markExistingRecord()
+    if any exact AA or official source match exists:
+      finish(model, status="review_required", normalizationStatus="not_needed")
+      completed += 1
       continue
     hf = findExactHFModelEvalResults(model, limit=10)
-    requireSearchRegistryCost("ollama-search") == 0
     web = explicitSearch(provider="ollama-search", alternateProvider=null, limit=10)
     require(web.provider == "ollama-search" and web.search_cost_usd == 0)
-    persistRawEvidence(hf, web)
-    if web.results exist and verifyFreePhalaStrictSO():
-      output = oneShotPinnedNoFallbackStrictSO(web.results)
-      if exactIdentityAndLiteralQuoteMatch(output, web.results):
-        persistCandidateReviewRequired(output)
-      else:
-        persistInvalidOutputUnrated()
-    else:
-      persistBlockedUnrated()
+    persistRawEvidence(hf, web)  // before strict-SO
+    output = oneShotPinnedNoFallbackStrictSO(web.results, timeout=5m)
+    persistCandidateReviewRequiredOrUnrated(output)
+    finish(model)
+    completed += 1
+  scheduleContinuationOrStaleRetry()
 ```
 
 ## Operational boundaries

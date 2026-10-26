@@ -74,6 +74,14 @@ scan SHALL remain a source error and SHALL NOT trigger discovery search.
 - **AND** HF and web discovery are not called
 - **AND** the model remains unrated with its source error receipt
 
+#### Scenario: Exact known-source match without a usable fitness score
+
+- **GIVEN** AA or any official source has an exact model match
+- **AND** the direct evidence does not produce coding or general fitness
+- **WHEN** the complete source scan finishes
+- **THEN** the run is marked review-required
+- **AND** HF and Ollama Web Search are not requested
+
 ### Requirement: Preserve evidence without publishing benchmark scores
 
 Search evidence SHALL retain source/version, exact matched model identity,
@@ -165,3 +173,50 @@ source errors SHALL record status and a bounded error string.
 - **WHEN** another queue drain runs
 - **THEN** the model is marked `retry_exhausted_unrated`
 - **AND** no score is assigned
+
+### Requirement: Keep benchmark search drains live and recover stale claims
+
+The queue SHALL claim no more than one model row before it starts processing
+that row. It SHALL persist the row's final status and source receipt before
+claiming the next row, while retaining the maximum of 20 rows per drain and
+sequential provider execution. Each strict-SO request SHALL have a five-minute
+deadline that aborts the pinned request; a timeout SHALL preserve collected
+search evidence as review-required and leave the model unrated. If a drain finds
+no eligible row but finds a fresh `running` row, it SHALL schedule a retry at
+the earliest row's 15-minute stale boundary, independently of the models.dev
+sync cadence.
+Before loading source snapshots, the drain SHALL terminalize exhausted pending,
+error, and stale-running rows. Claimable-row listing and queue eligibility SHALL
+use the same predicate, except that configured-AA-key recovery may reclaim a
+row whose recorded error is the missing-AA-key condition.
+
+#### Scenario: Slow row does not preclaim the rest of the batch
+
+- **GIVEN** two eligible models are queued
+- **AND** the first model's strict-SO request does not return before its
+  deadline
+- **WHEN** the drain runs
+- **THEN** only the first model is `running` while it is being processed
+- **AND** its collected HF and web-search evidence is persisted before the
+  strict-SO request
+- **AND** when its request times out, the row finishes with a bounded error
+  receipt and remains unrated
+- **AND** the second model is then claimed and processed in the same drain
+
+#### Scenario: Restarted fresh running row gets a stale-boundary retry
+
+- **GIVEN** a model row is `running` with a `last_run_at` younger than 15
+  minutes
+- **WHEN** a new drain starts and no other row is eligible
+- **THEN** no new provider request is sent
+- **AND** one retry is scheduled for the remaining stale interval
+- **WHEN** that row reaches the stale boundary
+- **THEN** a later drain may claim it under the normal attempt limit
+
+#### Scenario: Exhausted rows do not trigger a source refresh
+
+- **GIVEN** a pending row has reached the maximum attempt count
+- **WHEN** the drain begins
+- **THEN** the row is marked `retry_exhausted_unrated`
+- **AND** the row is excluded from claimable-work checks
+- **AND** no source snapshot is loaded unless another eligible row exists

@@ -9,9 +9,12 @@ import {
 } from "./modelBenchmarkSearchProcessor";
 import {
   claimModelBenchmarkSearch,
+  expireExhaustedModelBenchmarkSearchRuns,
   finishModelBenchmarkSearch,
+  getModelBenchmarkSearchStaleRetryDelay,
   hasEligibleModelBenchmarkSearch,
   isModelBenchmarkSearchNameUnique,
+  listEligibleModelBenchmarkSearchRuns,
   saveModelBenchmarkSearchEvidence,
   type ModelBenchmarkSearchEvidenceInput,
   type ModelBenchmarkSearchRun,
@@ -835,11 +838,27 @@ async function refreshSearchRun(
         : null,
     };
   }
+  // AICODE-NOTE: Spend discovery-search quota only after a complete exact miss.
+  if (direct.checks.some((source) => source.status === "found")) {
+    return {
+      modelId: model.id,
+      normalizationStatus: "not_needed",
+      sourceStatus,
+      discoveredEvidence: true,
+      lastError: null,
+    };
+  }
 
   const [hf, web] = await Promise.all([
     findHuggingFaceEvidence(model, fetchImpl),
     searchOllama(model),
   ]);
+  sourceStatus.huggingFace = hf.receipt;
+  sourceStatus.ollamaSearch = web.receipt;
+  const sourceEvidence = [...hf.evidence, ...web.evidence];
+  if (sourceEvidence.length) {
+    saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, sourceEvidence));
+  }
   const searchResults = web.evidence.map((item) => {
     const raw = asRecord(item.raw);
     return {
@@ -868,14 +887,17 @@ async function refreshSearchRun(
       raw: item.raw,
     })
   );
-  sourceStatus.huggingFace = hf.receipt;
-  sourceStatus.ollamaSearch = web.receipt;
   sourceStatus.normalizationProcessor = processorReceipt;
-  const discovered = [...hf.evidence, ...web.evidence, ...normalized];
-  if (discovered.length) saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, discovered));
+  if (normalized.length) {
+    saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, normalized));
+  }
+  const discovered = [...sourceEvidence, ...normalized];
   const searchErrors = [
     hf.status === "error" ? asString(hf.receipt.error) : null,
     asString(web.receipt.status) === "error" ? asString(web.receipt.error) : null,
+    processor.status === "normalization_timeout_unrated"
+      ? (asString(processorReceipt.error) ?? "Strict-SO normalization timed out")
+      : null,
   ].filter((error): error is string => error !== null);
   return {
     modelId: model.id,
@@ -893,93 +915,102 @@ function toScoreMap(scores: ModelBenchmarkFitness[]): Map<string, ModelBenchmark
   return new Map(scores.map((score) => [score.modelId, score]));
 }
 
+function scheduleBenchmarkSearchDrain(delayMs: number): void {
+  if (continuationTimer) clearTimeout(continuationTimer);
+  continuationTimer = setTimeout(() => {
+    continuationTimer = null;
+    void drainModelBenchmarkSearchQueue();
+  }, delayMs);
+  continuationTimer.unref?.();
+}
+
+function scheduleBenchmarkSearchContinuation(): void {
+  if (hasEligibleModelBenchmarkSearch()) {
+    scheduleBenchmarkSearchDrain(CONTINUE_DRAIN_DELAY_MS);
+    return;
+  }
+  const staleRetryDelay = getModelBenchmarkSearchStaleRetryDelay();
+  if (staleRetryDelay !== null) scheduleBenchmarkSearchDrain(staleRetryDelay);
+}
+
 export function drainModelBenchmarkSearchQueue(): Promise<void> {
-  // AICODE-NOTE: Materialize and score only claimed rows per batch; relative cohort ranking still covers all stored evidence.
+  // AICODE-NOTE: Claim and finish each row before the next claim so one slow run cannot strand a whole batch as running.
   if (drainPromise) return drainPromise;
+  if (continuationTimer) {
+    clearTimeout(continuationTimer);
+    continuationTimer = null;
+  }
   drainPromise = (async () => {
-    const snapshot = await getBenchmarkSourceSnapshot(fetch);
-    const runs: ModelBenchmarkSearchRun[] = [];
-    while (runs.length < MAX_MODELS_PER_DRAIN) {
-      const run = claimModelBenchmarkSearch();
-      if (!run) break;
-      runs.push(run);
-    }
-    if (runs.length === 0) return;
+    try {
+      expireExhaustedModelBenchmarkSearchRuns();
+      if (!hasEligibleModelBenchmarkSearch()) {
+        scheduleBenchmarkSearchContinuation();
+        return;
+      }
 
-    const directEvidence = new Map<string, ModelSourceEvidence>();
-    const outcomes: SearchRunOutcome[] = [];
-    for (const run of runs) {
-      try {
-        directEvidence.set(
-          run.modelId,
-          materializeModelEvidence({ id: run.modelId, name: run.modelName }, snapshot)
+      const snapshot = await getBenchmarkSourceSnapshot(fetch);
+      const prepared = new Map<string, ModelSourceEvidence>();
+      for (const candidate of listEligibleModelBenchmarkSearchRuns(MAX_MODELS_PER_DRAIN)) {
+        prepared.set(
+          candidate.modelId,
+          materializeModelEvidence({ id: candidate.modelId, name: candidate.modelName }, snapshot)
         );
-      } catch (error) {
-        outcomes.push({
-          modelId: run.modelId,
-          normalizationStatus: NORMALIZATION_BLOCK_REASON,
-          sourceStatus: { error: errorMessage(error) },
-          discoveredEvidence: false,
-          lastError: errorMessage(error),
+      }
+      let scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
+      let completed = 0;
+      while (completed < MAX_MODELS_PER_DRAIN) {
+        const run = claimModelBenchmarkSearch();
+        if (!run) break;
+        let direct = prepared.get(run.modelId) ?? null;
+        let outcome: SearchRunOutcome;
+        try {
+          if (!direct) {
+            direct = materializeModelEvidence({ id: run.modelId, name: run.modelName }, snapshot);
+            scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
+          }
+          outcome = await refreshSearchRun(
+            run,
+            fetch,
+            direct,
+            scores.get(run.modelId.toLowerCase())
+          );
+          if (outcome.discoveredEvidence) {
+            scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
+          }
+        } catch (error) {
+          outcome = {
+            modelId: run.modelId,
+            normalizationStatus: NORMALIZATION_BLOCK_REASON,
+            sourceStatus: { ...direct?.sourceStatus, error: errorMessage(error) },
+            discoveredEvidence: false,
+            lastError: errorMessage(error),
+          };
+        }
+
+        const score = scores.get(outcome.modelId.toLowerCase());
+        let status: string;
+        if (typeof score?.codingFitness === "number" || typeof score?.generalFitness === "number") {
+          status = "scored";
+        } else if (outcome.discoveredEvidence) {
+          status = "review_required";
+        } else if (outcome.lastError) {
+          status = "source_error";
+        } else {
+          status = "unrated_no_evidence";
+        }
+        finishModelBenchmarkSearch({
+          modelId: outcome.modelId,
+          status,
+          normalizationStatus: outcome.normalizationStatus,
+          sourceStatus: { ...outcome.sourceStatus, fitness: score ?? null },
+          lastError: outcome.lastError,
         });
+        completed += 1;
       }
-    }
-
-    const directScores = await recomputeModelBenchmarkFitness();
-    const scores = toScoreMap(directScores.scores);
-    for (const run of runs) {
-      const direct = directEvidence.get(run.modelId);
-      if (!direct) continue;
-      try {
-        const outcome = await refreshSearchRun(
-          run,
-          fetch,
-          direct,
-          scores.get(run.modelId.toLowerCase())
-        );
-        outcomes.push(outcome);
-      } catch (error) {
-        outcomes.push({
-          modelId: run.modelId,
-          normalizationStatus: NORMALIZATION_BLOCK_REASON,
-          sourceStatus: { ...direct.sourceStatus, error: errorMessage(error) },
-          discoveredEvidence: false,
-          lastError: errorMessage(error),
-        });
-      }
-    }
-
-    const finalFitness = outcomes.some((outcome) => outcome.discoveredEvidence)
-      ? await recomputeModelBenchmarkFitness()
-      : directScores;
-    const finalScores = toScoreMap(finalFitness.scores);
-    for (const outcome of outcomes) {
-      const score = finalScores.get(outcome.modelId.toLowerCase());
-      let status: string;
-      if (typeof score?.codingFitness === "number" || typeof score?.generalFitness === "number") {
-        status = "scored";
-      } else if (outcome.discoveredEvidence) {
-        status = "review_required";
-      } else if (outcome.lastError) {
-        status = "source_error";
-      } else {
-        status = "unrated_no_evidence";
-      }
-      finishModelBenchmarkSearch({
-        modelId: outcome.modelId,
-        status,
-        normalizationStatus: outcome.normalizationStatus,
-        sourceStatus: { ...outcome.sourceStatus, fitness: score ?? null },
-        lastError: outcome.lastError,
-      });
-    }
-
-    if (hasEligibleModelBenchmarkSearch()) {
-      continuationTimer = setTimeout(() => {
-        continuationTimer = null;
-        void drainModelBenchmarkSearchQueue();
-      }, CONTINUE_DRAIN_DELAY_MS);
-      continuationTimer.unref?.();
+      scheduleBenchmarkSearchContinuation();
+    } catch (error) {
+      console.error("[MODEL_BENCHMARK_SEARCH] Drain failed:", errorMessage(error).slice(0, 300));
+      scheduleBenchmarkSearchContinuation();
     }
   })().finally(() => {
     drainPromise = null;
