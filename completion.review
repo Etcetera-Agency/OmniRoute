@@ -758,12 +758,14 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   `freeAccessPolicy` is off, so the implementation bypasses auto-combo and
   directly pins the exact zero-price model/connection. The separate full-pool
   auto-combo switch is not in this dispatch path. Strict provider controls,
-  request pinning, and fallback exits have local tests and await independent
-  review plus post-deployment receipt.
+  request pinning, and fallback exits have local tests and passed independent
+  static review; the post-deployment receipt remains open.
 - Source API tests use deterministic fixtures; no benchmark-source refresh or
   model inference was performed for this branch. The existing models.dev sync
-  was enabled separately under the owner's earlier instruction; this branch
-  has not been pushed, merged, or deployed.
+  was enabled separately under the owner's earlier instruction. PR #26 merged
+  these changes into `main` at `5d5b7617940e742c6d541f72b69890182ae71b3f`.
+  Image workflow `40290772900` was canceled before completion; no live
+  inference or deployed acceptance was verified.
 - OpenRouter follow-up: official model metadata reports the `:free` model has
   one Phala endpoint at $0/M input/output and supports JSON Schema structured
   output. OpenRouter docs require endpoint support plus `provider.only`,
