@@ -13,7 +13,7 @@ models.dev fetch succeeds
        -> persist source receipt + exact raw matches
        -> if any required source failed or was truncated: pending_unrated
        -> else if AA or official exact match exists: existing_benchmark_record
-       -> else query HF eval metadata and explicit duckduckgo-free search
+       -> else query HF eval metadata and explicit ollama-search
        -> persist raw HF and search results
        -> if search results and live free/strict-SO gates pass: one pinned model call
        -> validate exact identity, returned URL, and literal source quote
@@ -52,18 +52,22 @@ models.
    results), retain only an exact model-ID match, then request that model's
    `evalResults`. The Hub API's `verified`, dataset, value, and source fields
    remain source metadata; they still require review before any rating.
-6. Search: after the complete AA+official exact miss only, call the same
-   in-process search handler used by `POST /v1/search` with
-   `provider: "duckduckgo-free"`, a bounded result count, and no
-   `alternateProvider`. Pass its returned URLs/titles/snippets to the strict-SO
-   model processor. The model does not run its own search. Persist each returned
-   URL/title/snippet as an unverified candidate. Search snippets are discovery
-   leads, not scores.
+6. Search: after the complete AA+official exact miss only, call the shared
+   search execution service with explicit `provider: "ollama-search"` and a
+   bounded result count. This resolves the configured Ollama Cloud credential
+   and reaches the same `handleSearch` provider executor used by `POST
+/v1/search`; the scheduled worker must not pass empty credentials. Do not
+   set an alternate provider. Before calling, require registry cost `0`; after
+   calling, require response provider `ollama-search` and
+   `usage.search_cost_usd === 0`. Pass only its returned
+   URLs/titles/snippets to the strict-SO model processor. The model does not run
+   its own search. Persist each returned URL/title/snippet as an unverified
+   candidate. Search snippets are discovery leads, not scores.
 
 Direct JSON source requests have a 6-second timeout, one retry for transient
-network, 429, or 5xx responses, and a 300 ms retry delay. The existing
-`duckduckgo-free` `/v1/search` provider has its fixed 10-second timeout and no
-alternate/retry. A durable model row is attempted at most five times, no more
+network, 429, or 5xx responses, and a 300 ms retry delay. `ollama-search` has a
+10-second timeout, zero configured query cost, a current catalog allowance of
+1,000 requests/month, and no alternate/retry. A durable model row is attempted at most five times, no more
 often than once per 24 hours after an error or no-result run. Each drain handles
 all currently eligible rows sequentially and is guarded against concurrent
 drains. AA page traversal is capped at five; if the endpoint says more pages
@@ -121,9 +125,9 @@ returned title/snippet leaves the row unrated and records an error/block reason.
 Successful extracted rows retain their raw response and exact quoted evidence
 as `candidate_review_required`. They are not a fitness score and have no path
 to the frozen benchmark map. The extractor runs only after a complete miss from
-AA Free and every required official leaderboard, and only when the existing
-`/v1/search` handler returns at least one result. Search remains explicit
-`duckduckgo-free` with no alternate provider.
+AA Free and every required official leaderboard, and only when the shared
+search execution returns at least one result from explicit `ollama-search` at
+zero cost. Search has no alternate provider.
 
 ## Pseudocode
 
@@ -152,7 +156,9 @@ drainQueue():
       markExistingRecord()
       continue
     hf = findExactHFModelEvalResults(model, limit=10)
-    web = explicitSearch(provider="duckduckgo-free", alternateProvider=null, limit=10)
+    requireSearchRegistryCost("ollama-search") == 0
+    web = explicitSearch(provider="ollama-search", alternateProvider=null, limit=10)
+    require(web.provider == "ollama-search" and web.search_cost_usd == 0)
     persistRawEvidence(hf, web)
     if web.results exist and verifyFreePhalaStrictSO():
       output = oneShotPinnedNoFallbackStrictSO(web.results)

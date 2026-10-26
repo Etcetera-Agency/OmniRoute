@@ -1,0 +1,54 @@
+# Completion review — add-model-benchmark-search
+
+**Status:** local source fix and focused verification complete; PR, deployment,
+and controlled live acceptance are pending.
+
+## Root cause
+
+The scheduled queue called the low-level search handler as
+`duckduckgo-free` with empty credentials. On the live service, the latest 100
+stored runs contained 45 `duckduckgoFree:error` receipts. The direct
+DuckDuckGo endpoint had also timed out from the host. The running OmniRoute
+container is still on the pre-fix image.
+
+## Fix
+
+- Route scheduled discovery through the shared credential-resolving search
+  executor and explicitly select `ollama-search`, which resolves its key from
+  the active `ollama-cloud` connection.
+- Stop before the request unless its registry cost is zero. Reject any result
+  whose provider ID changes or whose reported search cost is nonzero.
+- Leave search alternates unset. Search results remain review-required, and
+  strict-SO extraction remains pinned to the existing exact free connection.
+
+## Verification
+
+- RED reproduced the missing `validateOllamaSearchResponse` guard. Queue-level
+  failure coverage verifies an Ollama HTTP error records `source_error`, saves
+  no evidence, and sends no strict-SO request. The focused suite passes 30/30.
+- `npm run check:docs-all` exits 0; it reports 98 existing potential-drift
+  warnings. Prettier and `git diff --check` pass for all changed files.
+- `npm run typecheck:core` exits 2 with 757 TypeScript errors in unrelated
+  project files. It reports no diagnostics for either changed TypeScript file.
+- Code Simplifier applied to the owned source and test changes.
+- Independent Luna-xhigh review confirmed the credential mapping, exact
+  zero-cost provider pin, no-alternate behavior, and unchanged strict-SO path.
+  Follow-up review confirmed the queue-coverage test rejects any unrecognized
+  fetch URL and found no remaining findings.
+
+## Live state and remaining work
+
+- At 2026-10-26 16:22 UTC, the healthy production container still used image
+  `sha256:f4decfc1a233e00b5b404f3dfa25bf020aebc12a4d79b1510d736a038ca0ab5f`.
+- Read-only checks found `AA_API_KEY` set in the running container, three
+  active `ollama-cloud` API-key connections, and 3,999 queue rows: 3,770
+  retain the prior missing-AA-key error, 37 are review-required, 9 scored, and
+  50 have no evidence. Models.dev sync is enabled. A successful startup sync
+  launches the queue drain, which chains through eligible batches of 100.
+- The catalog lists 1,000 Ollama Search requests/month, but its exact live
+  remaining allowance has not been established. No paid search fallback is
+  configured by this fix; the queue's monthly-quota guard remains open work.
+- Still required: pre-inference live checks, PR merge and main-image deploy,
+  exact deployed source/image receipt, one controlled post-deploy search and
+  strict-SO acceptance, and a verified quota-usage receipt before judging the
+  full-catalog run complete.
