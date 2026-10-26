@@ -200,7 +200,9 @@ function asRecord(value: unknown): JsonRecord {
 }
 
 function nullableString(value: unknown): string | null | undefined {
-  return value === null || (typeof value === "string" && value.trim()) ? value : undefined;
+  if (value === null) return null;
+  if (typeof value === "string" && value.trim()) return value;
+  return undefined;
 }
 
 function contains(text: string, value: string | null): boolean {

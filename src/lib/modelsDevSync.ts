@@ -26,7 +26,7 @@ import { invalidateDbCache, getModelCatalogCacheVersion } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
 import { preserveStoredModalitySets } from "./db/models/capabilityModalities";
 import {
-  enqueueModelBenchmarkSearches,
+  enqueueModelsDevCatalogIdentities,
   getModelCapabilityIdentitySnapshot,
 } from "./db/modelBenchmarkSearch";
 
@@ -711,6 +711,7 @@ export async function syncModelsDev(opts?: {
       const raw = await fetchModelsDev(signal);
       const pricing = transformModelsDevToPricing(raw);
       const capabilities = syncCapabilities ? transformModelsDevToCapabilities(raw) : {};
+      const catalogIdentities = syncCapabilities ? extractModelsDevModelIdentities(raw) : [];
       const previousIdentities =
         !dryRun && syncCapabilities ? getModelCapabilityIdentitySnapshot() : null;
 
@@ -728,13 +729,10 @@ export async function syncModelsDev(opts?: {
       }
 
       if (!dryRun) {
-        if (previousIdentities?.hasRows) {
-          // AICODE-NOTE: enqueue exact model IDs before replacing this snapshot so a failed
-          // queue write cannot make the new catalog identity disappear from the next diff.
-          const newIdentities = extractModelsDevModelIdentities(raw).filter(
-            (identity) => !previousIdentities.ids.has(identity.id)
-          );
-          enqueueModelBenchmarkSearches(newIdentities);
+        if (previousIdentities) {
+          // AICODE-NOTE: the DB helper atomically writes the first full-catalog queue and
+          // marker, then queues exact new IDs before this capability snapshot is replaced.
+          enqueueModelsDevCatalogIdentities(catalogIdentities, previousIdentities);
         }
         saveModelsDevPricing(pricing);
         if (syncCapabilities) {

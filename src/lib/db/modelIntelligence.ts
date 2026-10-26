@@ -1,8 +1,8 @@
 /**
  * modelIntelligence.ts — DB domain module for model task-fitness scores.
  *
- * Persists per-model intelligence from arena ELO, models.dev tier rankings,
- * and user overrides. Resolution chain: user_override → arena_elo → models_dev_tier.
+ * Persists per-model intelligence from user overrides, Arena ELO, benchmark
+ * fitness, and models.dev tier rankings.
  *
  * @see Migration 097_model_intelligence.sql
  */
@@ -52,12 +52,13 @@ export function getModelIntelligence(
     .prepare(
       `SELECT * FROM model_intelligence
        WHERE model = ? AND category = ?
-         AND source IN ('user_override', 'arena_elo', 'models_dev_tier')
+         AND source IN ('user_override', 'arena_elo', 'benchmark_fitness', 'models_dev_tier')
          AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
        ORDER BY CASE source
          WHEN 'user_override' THEN 1
          WHEN 'arena_elo' THEN 2
-         WHEN 'models_dev_tier' THEN 3
+         WHEN 'benchmark_fitness' THEN 3
+         WHEN 'models_dev_tier' THEN 4
        END
        LIMIT 1`
     )

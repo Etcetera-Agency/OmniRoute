@@ -508,6 +508,15 @@ export function getTaskFitnessWithSource(
       return inherited;
     }
 
+    const benchmarkFitness = queryModelIntelligence(
+      normalizedModel,
+      normalizedTask,
+      "benchmark_fitness"
+    );
+    if (benchmarkFitness !== null) {
+      return { score: benchmarkFitness, source: "benchmark_fitness" };
+    }
+
     if (profile) {
       const benchmarkScore = getBenchmarkConsensusFitness(normalizedModel, normalizedTask, profile);
       if (benchmarkScore !== null) {
@@ -554,7 +563,7 @@ function lookupInheritedFitness(
   const normalizedBase = base.toLowerCase();
   if (isVendorRetiredId(normalizedBase)) return null;
 
-  for (const source of ["user_override", "arena_elo"] as const) {
+  for (const source of ["user_override", "arena_elo", "benchmark_fitness"] as const) {
     const score = queryModelIntelligence(normalizedBase, normalizedTask, source);
     if (score !== null) return { score, source: `${source}:inherited` };
   }

@@ -39,7 +39,11 @@ describe("quality band filter", () => {
     createQualityBandCheck("general", "mid", generalDeps)(candidate);
     createQualityBandCheck("coding", "mid", codingDeps)(candidate);
 
-    expect(generalDeps.getTaskFitnessWithSource).toHaveBeenCalledWith("model-a", "default", "medium");
+    expect(generalDeps.getTaskFitnessWithSource).toHaveBeenCalledWith(
+      "model-a",
+      "default",
+      "medium"
+    );
     expect(codingDeps.getTaskFitnessWithSource).toHaveBeenCalledWith("model-a", "coding", "medium");
   });
 
@@ -48,12 +52,19 @@ describe("quality band filter", () => {
     ["mid", "medium"],
     ["high", "high"],
   ] as const)("passes the %s calculation profile for its band", (band, profile) => {
-    const dependencies = makeDependencies(() => ({ score: 0.75, source: "benchmark_consensus:high" }));
+    const dependencies = makeDependencies(() => ({
+      score: 0.75,
+      source: "benchmark_consensus:high",
+    }));
     createQualityBandCheck("coding", band, {
       ...dependencies,
       allowBenchmarkConsensus: true,
     })(candidate);
-    expect(dependencies.getTaskFitnessWithSource).toHaveBeenCalledWith("model-a", "coding", profile);
+    expect(dependencies.getTaskFitnessWithSource).toHaveBeenCalledWith(
+      "model-a",
+      "coding",
+      profile
+    );
   });
 
   it("admits unrated models only to low without applying their score", () => {
@@ -130,22 +141,59 @@ describe("quality band filter", () => {
     );
 
     expect(createQualityBandCheck("coding", "high", dependencies)(candidate)).toBe(false);
-    expect(createQualityBandCheck("coding", "high", {
-      ...dependencies,
-      allowModelsDevTier: true,
-    })(candidate)).toBe(true);
+    expect(
+      createQualityBandCheck("coding", "high", {
+        ...dependencies,
+        allowModelsDevTier: true,
+      })(candidate)
+    ).toBe(true);
   });
 
   it("rates benchmark consensus only for an explicit free-band request", () => {
+    const dependencies = makeDependencies(
+      () => ({
+        score: 0.75,
+        source: "benchmark_consensus:high",
+      }),
+      ["benchmark_consensus"]
+    );
+    expect(createQualityBandCheck("coding", "high", dependencies)(candidate)).toBe(false);
+    expect(
+      createQualityBandCheck("coding", "high", {
+        ...dependencies,
+        allowBenchmarkConsensus: true,
+      })(candidate)
+    ).toBe(true);
+  });
+
+  it("rates benchmark fitness only for an explicit free-band request", () => {
     const dependencies = makeDependencies(() => ({
       score: 0.75,
-      source: "benchmark_consensus:high",
-    }), ["benchmark_consensus"]);
+      source: "benchmark_fitness",
+    }));
+
     expect(createQualityBandCheck("coding", "high", dependencies)(candidate)).toBe(false);
-    expect(createQualityBandCheck("coding", "high", {
-      ...dependencies,
-      allowBenchmarkConsensus: true,
-    })(candidate)).toBe(true);
+    expect(
+      createQualityBandCheck("coding", "high", {
+        ...dependencies,
+        allowBenchmarkFitness: true,
+      })(candidate)
+    ).toBe(true);
+    expect(createQualityBandCheck("coding", "low", dependencies)(candidate)).toBe(true);
+  });
+
+  it("does not admit lookalike benchmark fitness sources", () => {
+    const dependencies = makeDependencies(
+      () => ({ score: 0.75, source: "benchmark_fitness_extra" }),
+      ["benchmark_fitness"]
+    );
+
+    expect(
+      createQualityBandCheck("coding", "high", {
+        ...dependencies,
+        allowBenchmarkFitness: true,
+      })(candidate)
+    ).toBe(false);
   });
 
   it("rejects a candidate when fitness resolution throws", () => {

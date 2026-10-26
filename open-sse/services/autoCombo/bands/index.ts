@@ -166,6 +166,7 @@ export function buildBandCheck(category?: string, tier?: string): BandCandidateF
 
   const qualityCheck = createQualityBandCheck(parsed.task, parsed.band, {
     allowModelsDevTier: tier === "free",
+    allowBenchmarkFitness: tier === "free",
     allowBenchmarkConsensus: tier === "free",
   });
   const capabilityCheck = buildCapabilityCheck(
