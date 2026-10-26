@@ -27,20 +27,58 @@ own null cohort; it contributes no zero.
 4. A model's family vote is the median of its available cohort percentiles in
    that family. Coding fitness is the median of the AA Coding vote plus at most
    one vote for each of SWE-bench, Terminal-Bench, and DeepSWE. Without AA
-   Coding, at least two independent benchmark families are required for coding
-   fitness.
+   Coding, one verified benchmark-family vote is enough for a provisional
+   coding fitness when its cohort has at least two exact models. Mark that
+   model's confidence low; singleton cohorts still produce no percentile.
 5. General fitness is the AA Intelligence vote when available. If one task has
    no score but the other does, copy the measured score to the missing task and
    record the fallback in confidence metadata. Missing values are never zero.
 6. Preserve score provenance and coverage counts in the durable run/evidence
    records. Save numeric ratings in `model_intelligence` with source
    `benchmark_fitness`; resolution order is `user_override`, `arena_elo`,
-   `benchmark_fitness`, then existing capability/static fallbacks.
+   `benchmark_fitness`, then existing capability/static fallbacks. A single
+   benchmark-family vote without AA Coding remains numeric but is published
+   with low confidence.
 
 This is a relative score over current comparable catalog observations. As new
 exact evidence arrives, scores are recomputed from the stored cohort and may
 move. Search-based observations remain identifiable in provenance and are
 never treated as official-leaderboard records.
+
+## Band effort profiles
+
+Keep the current global score as the unprofiled fallback used by generic Auto
+task scoring. Also compute three independent scores for band filtering:
+
+- `low` uses a model's `low` observations.
+- `medium` uses a model's `medium` observations.
+- `high` prefers a model's `xhigh` observations, then its `high` observations.
+
+For each profile, form comparable populations by family, benchmark, version,
+configuration, and metric. For each model in a population, first select the
+profile's effort. When that effort is missing, use the model's unknown-effort
+observations; if those are absent, use the median of that model's available
+effort observations in the same population as a proxy. Rank one selected
+model value per population using the same midrank rule. Any unknown or
+cross-profile proxy marks the affected profile result low confidence. This
+allows a model without reasoning metadata to retain evidence without treating
+missing effort as zero or filtering by reasoning capability.
+
+Combine profile percentiles with the same one-vote-per-family median and
+reciprocal coding/general fallback as global scores. One verified benchmark
+family can provisionally support coding when its peer population contains at
+least two exact models; mark it low confidence. A population with only one
+exact model supplies no percentile. If a profile has no usable score, persist
+no row and allow existing score sources to resolve it.
+
+Persist profile scores as `benchmark_fitness:low`, `benchmark_fitness:medium`,
+and `benchmark_fitness:high`; preserve the global `benchmark_fitness` rows for
+unprofiled Auto scoring. For a band request, resolve direct and inherited
+`user_override` and `arena_elo` first, then the matching profile score, then
+the existing global and static fallbacks. Profile scores must not be masked by
+an inherited global row. Recompute profile rows as a replacement set so stale
+scores disappear when evidence no longer supports them. Keep all profile
+benchmark rows subject to the existing free-band source gate.
 
 ## Catalog ingestion and durable continuation
 
@@ -127,16 +165,42 @@ scoreCatalog(evidence):
   for each group with >=2 exact models: map values to midrank percentiles
   familyVote(model, family) = median(available observation percentiles)
   coding = median(AA Coding + one vote per SWE/Terminal/DeepSWE family)
-  require AA Coding or at least two benchmark families for coding
+  if coding has one benchmark family and no AA Coding: confidence = low
+  require at least two peer models in each cohort; never invent singleton .5
   general = AA Intelligence
   if one task is missing and the other is present: copy the present task
   if both are missing: leave the model unrated
+
+scoreBandProfiles(evidence):
+  for profile in [low, medium, high]:
+    group by family/benchmark/version/config/metric, without effort in key
+    per model and group:
+      low: select low; medium: select medium
+      high: select xhigh if present, else high
+      if desired effort missing: select unknown effort if present
+      else select that model's median across available efforts; mark proxy
+      if fewer than two distinct exact models: emit no percentile
+      else rank one selected model value by midrank
+      if unknown or other-effort proxy was selected: profile confidence = low
+    reduce profile percentiles to one median vote per family
+    coding = median(AA Coding + at most one vote per benchmark family)
+    if no AA Coding and one benchmark family: allow provisional low confidence
+    general = AA Intelligence
+    if exactly one task is missing: copy the other with low confidence
+    persist only non-null task scores under benchmark_fitness:<profile>
+  atomically replace profile-source rows so obsolete scores are removed
+  for generic Auto scoring, keep scoreCatalog's existing global rows
 ```
 
 ## Failure and recovery
 
 Source errors stay attached to the model row and are retryable under the
-existing attempt policy. A failed source is not proof of absence. Queue
-insertion, marker update, and snapshot replacement are ordered so a failed
-backfill cannot lose unseen IDs. A process restart resumes from durable queue
-state. Incomplete or unverified evidence cannot create a numeric score.
+existing attempt policy. If the only recorded blocker is that `AA_API_KEY` was
+not configured, a later drain with the key configured may retry that row
+immediately, including rows whose ordinary retry count was exhausted. This
+retry is still bounded by one claim at a time and must re-run the complete
+source snapshot; a failed or incomplete AA scan never becomes an exact miss.
+Other source errors keep their normal retry delay. Queue insertion, marker
+update, and snapshot replacement are ordered so a failed backfill cannot lose
+unseen IDs. A process restart resumes from durable queue state. Incomplete or
+unverified evidence cannot create a numeric score.

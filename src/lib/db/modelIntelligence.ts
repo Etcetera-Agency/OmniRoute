@@ -170,30 +170,55 @@ export function bulkUpsertModelIntelligence(
   if (entries.length === 0) return 0;
 
   const db = getDbInstance();
+  const upsertAll = db.transaction(() => writeModelIntelligenceEntries(db, entries));
+  return upsertAll();
+}
+
+function writeModelIntelligenceEntries(
+  db: ReturnType<typeof getDbInstance>,
+  entries: Array<Omit<ModelIntelligenceEntry, "syncedAt">>
+): number {
   const stmt = db.prepare(
     `INSERT OR REPLACE INTO model_intelligence
        (model, source, category, score, elo_raw, confidence, synced_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)`
   );
+  let count = 0;
+  for (const entry of entries) {
+    stmt.run(
+      entry.model,
+      entry.source,
+      entry.category,
+      entry.score,
+      entry.eloRaw ?? null,
+      entry.confidence ?? null,
+      entry.expiresAt ?? null
+    );
+    count++;
+  }
+  return count;
+}
 
-  const upsertAll = db.transaction(() => {
-    let count = 0;
-    for (const entry of entries) {
-      stmt.run(
-        entry.model,
-        entry.source,
-        entry.category,
-        entry.score,
-        entry.eloRaw ?? null,
-        entry.confidence ?? null,
-        entry.expiresAt ?? null
-      );
-      count++;
-    }
-    return count;
+export function replaceModelIntelligenceSources(
+  sources: readonly string[],
+  entries: Array<Omit<ModelIntelligenceEntry, "syncedAt">>
+): { deletedCount: number; publishedCount: number } {
+  if (sources.length === 0) return { deletedCount: 0, publishedCount: 0 };
+
+  const db = getDbInstance();
+  const placeholders = sources.map(() => "?").join(", ");
+  // AICODE-NOTE: Profile scores are derived snapshots; remove stale rows and write replacements atomically.
+  const replaceAll = db.transaction(() => {
+    const result = db
+      .prepare(`DELETE FROM model_intelligence WHERE source IN (${placeholders})`)
+      .run(...sources);
+    return {
+      deletedCount: result.changes ?? 0,
+      publishedCount: writeModelIntelligenceEntries(db, entries),
+    };
   });
 
-  return upsertAll();
+  return replaceAll();
 }
 
 export function getResolvedTaskFitness(model: string, category: string): number | null {

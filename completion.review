@@ -943,3 +943,107 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   production migration journal 198 and three-table verification, full-catalog
   queue/scored/unrated receipts, future-ID enqueue, and a controlled exact
   free-only search smoke with current zero-cost/no-fallback proof.
+
+## Full-catalog queue recovery and provisional scoring — 2026-10-26
+
+- Current live receipt supersedes the earlier migration checkpoint: image
+  `sha256:7acec5fe8e3b60bd4d71e1ab75c1343ebd2afb0004a64212ac57cc9558637024`
+  is healthy at source revision
+  `c8841217893abbc152f11c9a102fa805b0b9bf46`; benchmark evidence/queue tables
+  exist. The 4,095-model queue had 3,375 pending and 720 source errors, all
+  normalization states `not_started`; 17 evidence rows and zero
+  `benchmark_fitness` rows. Exact source error: AA Free API key is not
+  configured. Search processing and model inference did not run.
+- Added recovery for rows whose exact last error is the missing AA key. Once a
+  process has a non-empty key, those rows can retry immediately, including
+  exhausted rows; unrelated source errors retain their ordinary backoff. The
+  focused search queue suite passes 27/27.
+- Owner selected a provisional low-confidence coding score when exactly one
+  verified benchmark family has a peer comparison and AA Coding is absent.
+  Singleton cohorts still contribute no percentile. TDD changed the test first
+  and reproduced `null` instead of the expected `.25`; implementation now
+  publishes the provisional value with low confidence and preserves the
+  reciprocal-task-fallback marker. Fitness tests pass 6/6 pure and 3/3 sync.
+- Offline profile reports from the saved snapshot differ for only 3 coding and
+  4 general models across low/medium/high; one band's membership changes. Each
+  report contains 125 effort-proxy benchmark votes, so these reports do not
+  establish reliable effort-specific rankings. Existing AA-anchor holdout has
+  16 canonical models across 29 folds; 18 folds use AA effort proxies. Keep
+  calibration experimental until a profile-specific holdout is reviewed.
+- Code Simplifier review found the provisional rule is a direct one-condition
+  change; no adjacent refactor was needed. Prettier was applied to changed
+  TypeScript files. No production write, live inference, commit, or deployment
+  was made for these local changes.
+- Independent Luna-xhigh review found no remaining issue after checking the
+  evidence gate. Its initial concern was retracted: `review_required` is not an
+  eligible fitness status, while `source_verified_review_required` is
+  intentionally eligible after the exact URL/quote checks.
+- Remaining: owner review of effort-profile scoring and AA calibration;
+  deploy only after formula alignment and AA key recovery; then reprocess the
+  durable queue and retain scored/unrated/search/cost receipts.
+- Current runtime gap confirmed from the code graph: auto-combo's task-fit
+  callback receives only model and task, while `getTaskFitnessWithSource` has
+  an optional profile argument and checks global `benchmark_fitness` before
+  profile consensus. Profile-specific stored scores therefore need an explicit
+  design and resolver path; this is not covered by the provisional-score fix.
+- In the saved offline profile snapshot, raw high-profile coding scores put
+  12/57 above `.70`, 13/57 above `.65`, and 17/57 above `.60`. The AA-calibrated
+  high report put 15 in high. This sensitivity is recorded for later threshold
+  review; no live cutoff was changed.
+
+## Effort-profile scoring design — 2026-10-26
+
+- Owner clarified that effort is a scoring input for band fitness, not a
+  capability gate. Keep global `benchmark_fitness` for generic Auto routing;
+  add separate low/medium/high rows for band selection.
+- Profile mapping: low selects low; medium selects medium; high prefers xhigh
+  per model, then high. If exact effort evidence is absent, use unknown-effort
+  observations, then that model's median across other efforts as a low-
+  confidence proxy. Missing effort is never zero, and reasoning capability
+  does not exclude models.
+- Keep one median vote per benchmark family, reciprocal coding/general
+  fallback, and owner-approved single-family provisional coding scores. Omit
+  profile rows with no usable evidence; preserve fallback to existing scores.
+- Updated the OpenSpec design, spec delta, tasks, and repo-level TODO with this
+  single selected rule. Runtime implementation and tests are still pending;
+  do not report profile scores or bands as corrected yet.
+
+## Live queue refresh — 2026-10-26 14:00 UTC
+
+- Read-only check on `etc2nd-shlink`: healthy container `omniroute`, image
+  `sha256:7acec5fe8e3b60bd4d71e1ab75c1343ebd2afb0004a64212ac57cc9558637024`,
+  config digest `sha256:f74d04c41b67f00195548a0f2a3a8c6e1c8ce92fc185fe967b4cf87ccad4f239`,
+  source revision `c8841217893abbc152f11c9a102fa805b0b9bf46`.
+- The running container still lacks `AA_API_KEY`. Queue: 975 pending, 3,115
+  source errors (all exact missing-key errors), 5 scored; normalization is
+  `not_needed` for 5 and `not_started` for 4,090. Evidence rows: 162; global
+  `benchmark_fitness` rows: 10.
+- No inference or DB write was performed. Local retry and profile changes have
+  not been deployed; queue still cannot complete its direct source scan until
+  the key is present.
+
+## Profile scoring implementation — 2026-10-26 14:17 UTC
+
+- Implemented global-preserving low/medium/high fitness profiles. High selects
+  xhigh per model, then high. Missing effort selects unknown-effort evidence,
+  then the same model's other-effort evidence as a low-confidence proxy. No
+  reasoning capability gate or zero score was added.
+- Profile rows use `benchmark_fitness:<profile>` and are atomically replaced on
+  recompute, including removal for models with no remaining score. Generic Auto
+  retains global `benchmark_fitness`; band lookup prefers direct/inherited
+  override and Arena, then matching profile, then global/static fallbacks.
+- Focused RED/GREEN command
+  `env -u NODE_OPTIONS node --import tsx/esm --test tests/unit/modelBenchmarkFitness.test.ts tests/unit/modelBenchmarkFitnessSync.test.ts`
+  passes 14/14. Independent Luna-xhigh review found no concrete defect. Code
+  Simplifier review found no further safe simplification. Prettier and
+  `git diff --check` pass after formatting `tasks.md`.
+- `npm run check:open-sse-typecheck` reports TS2353 at
+  `open-sse/services/systemOne/schema.ts:15` and three TS2345 diagnostics at
+  `src/lib/proxySubscription/parse.ts:228,233,266`. The same command fails with
+  the same counts on a detached `origin/main` worktree using the same
+  `node_modules`; neither source file nor package/tsconfig files differ from
+  `origin/main`. These are baseline issues, not introduced by this branch.
+- `openspec validate --all --strict` could not run because the `openspec` CLI is
+  not installed in this Linux environment. No baseline was changed. Source
+  changes remain local: not committed, pushed, merged, or deployed. Live queue
+  remains blocked by absent `AA_API_KEY` as recorded above.

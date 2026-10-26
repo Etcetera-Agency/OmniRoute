@@ -1,6 +1,11 @@
 import { getDbInstance } from "./core";
 
 const MAX_SEARCH_ATTEMPTS = 5;
+const MISSING_AA_API_KEY_ERROR = "AA Free API key is not configured";
+
+function canRetryMissingAaApiKey(): boolean {
+  return Boolean(process.env.AA_API_KEY?.trim());
+}
 
 export interface ModelBenchmarkSearchIdentity {
   id: string;
@@ -178,13 +183,24 @@ export function hasEligibleModelBenchmarkSearch(): boolean {
   const row = getDbInstance()
     .prepare(
       `SELECT 1 FROM model_benchmark_search_models
-       WHERE attempts < ? AND (
-         (status IN ('pending', 'source_error', 'pending_unrated')
-          AND (last_run_at IS NULL OR last_run_at <= ?)) OR
-         (status = 'running' AND last_run_at <= ?)
+       WHERE (
+         (attempts < ? AND (
+           (status IN ('pending', 'source_error', 'pending_unrated')
+            AND (last_run_at IS NULL OR last_run_at <= ?)) OR
+           (status = 'running' AND last_run_at <= ?)
+         )) OR (
+           ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
+           AND last_error = ?
+         )
        ) LIMIT 1`
     )
-    .get(MAX_SEARCH_ATTEMPTS, retryBefore, staleBefore);
+    .get(
+      MAX_SEARCH_ATTEMPTS,
+      retryBefore,
+      staleBefore,
+      Number(canRetryMissingAaApiKey()),
+      MISSING_AA_API_KEY_ERROR
+    );
   return row !== undefined;
 }
 
@@ -194,6 +210,7 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
   const retryBefore = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const staleBefore = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
   const nowIso = now.toISOString();
+  const retryMissingAaApiKey = Number(canRetryMissingAaApiKey());
   let claimed: unknown = null;
 
   db.immediate(() => {
@@ -211,17 +228,27 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
       .prepare(
         `
         SELECT * FROM model_benchmark_search_models
-        WHERE attempts < ? AND (
-          (
-            status IN ('pending', 'source_error', 'pending_unrated')
-            AND (last_run_at IS NULL OR last_run_at <= ?)
-          ) OR (status = 'running' AND last_run_at <= ?)
+        WHERE (
+          (attempts < ? AND (
+            (status IN ('pending', 'source_error', 'pending_unrated')
+             AND (last_run_at IS NULL OR last_run_at <= ?)) OR
+            (status = 'running' AND last_run_at <= ?)
+          )) OR (
+            ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
+            AND last_error = ?
+          )
         )
         ORDER BY first_seen_at, model_id
         LIMIT 1
       `
       )
-      .get(MAX_SEARCH_ATTEMPTS, retryBefore, staleBefore);
+      .get(
+        MAX_SEARCH_ATTEMPTS,
+        retryBefore,
+        staleBefore,
+        retryMissingAaApiKey,
+        MISSING_AA_API_KEY_ERROR
+      );
     if (!row) return;
     const modelId = asRecord(row).model_id;
     if (typeof modelId !== "string") return;
@@ -230,13 +257,25 @@ export function claimModelBenchmarkSearch(): ModelBenchmarkSearchRun | null {
         `
         UPDATE model_benchmark_search_models
         SET status = 'running', attempts = attempts + 1, last_run_at = ?, last_error = NULL
-        WHERE model_id = ? AND attempts < ? AND (
-          status IN ('pending', 'source_error', 'pending_unrated') OR
-          (status = 'running' AND last_run_at <= ?)
+        WHERE model_id = ? AND (
+          (attempts < ? AND (
+            status IN ('pending', 'source_error', 'pending_unrated') OR
+            (status = 'running' AND last_run_at <= ?)
+          )) OR (
+            ? = 1 AND status IN ('source_error', 'retry_exhausted_unrated')
+            AND last_error = ?
+          )
         )
       `
       )
-      .run(nowIso, modelId, MAX_SEARCH_ATTEMPTS, staleBefore);
+      .run(
+        nowIso,
+        modelId,
+        MAX_SEARCH_ATTEMPTS,
+        staleBefore,
+        retryMissingAaApiKey,
+        MISSING_AA_API_KEY_ERROR
+      );
     if (result.changes > 0) claimed = { ...asRecord(row), last_run_at: nowIso };
   });
 

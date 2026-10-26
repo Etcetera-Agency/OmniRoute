@@ -17,10 +17,15 @@ therefore cannot build or maintain the requested coding/general model scores.
 - Normalize comparable observations by midrank inside the same benchmark,
   version, reasoning-effort, and configuration cohort. Combine multiple
   efforts without converting missing effort data into zero.
+- Keep global scores for generic Auto routing and also calculate low, medium,
+  and high profile scores for band selection. High prefers each model's xhigh
+  observations, then high. Missing profile effort uses unknown-effort evidence,
+  then a marked low-confidence proxy from that model's other efforts; it never
+  becomes zero and never gates on reasoning capability.
 - Publish supported model-level `coding` and `general` scores using the agreed
-  per-family median and reciprocal task fallback. Store them under the
-  independent `benchmark_fitness` source so manual and Arena scores retain
-  priority.
+  per-family median and reciprocal task fallback. Store global scores under
+  `benchmark_fitness` and band scores under `benchmark_fitness:<profile>` so
+  manual and Arena scores retain priority.
 - Keep models without enough eligible evidence unrated. Never synthesize a
   score for a model with no comparable measurements.
 - Limit each queue drain to a bounded batch and resume it in the background;
@@ -47,9 +52,19 @@ therefore cannot build or maintain the requested coding/general model scores.
   `general`; repeated identical evidence does not change the result.
 - Per-family aggregation counts AA Coding, SWE-bench, Terminal-Bench, and
   DeepSWE at most once each. Missing effort values are omitted, not zero-filled.
+- Low, medium, and high bands resolve their own profile scores; high prefers
+  xhigh then high. Missing profile effort uses unknown or marked same-model
+  proxy evidence, never zero, and does not require reasoning capability.
+- A matching profile score takes priority over global benchmark fitness for
+  bands, while `user_override` and Arena remain higher priority. Missing
+  profile rows fall through to existing global and capability/static sources.
 - Coding and general use the agreed reciprocal fallback. Models without
   comparable evidence remain unrated and never overwrite `user_override` or
   `arena_elo` rows.
+- Band selection uses the matching profile score before global benchmark
+  scores. Direct and inherited `user_override` and Arena scores retain higher
+  priority. Missing profile scores fall through existing score sources and
+  never write zero.
 - The existing strict free-only Structured Output path is the only search
   extraction path. Its output affects ratings only after exact model, URL, and
   literal evidence-quote checks pass.
