@@ -433,6 +433,14 @@ function logBreakerStateChange(name: string, from: string, to: string): void {
 
 export { shouldTripProviderBreakerForResult } from "./chatPredicates";
 
+interface OneShotBenchmarkChatOptions {
+  model: string;
+  connectionId: string;
+}
+
+// AICODE-NOTE: Only the internal benchmark caller can mark a request for one-shot dispatch.
+const oneShotBenchmarkChatRequests = new WeakMap<object, OneShotBenchmarkChatOptions>();
+
 async function handleChatImplementation(
   request: any,
   clientRawRequest: any = null,
@@ -801,6 +809,39 @@ async function handleChatImplementation(
     });
   }
   const apiKeyInfo = policy.apiKeyInfo;
+  const oneShotBenchmarkChat = oneShotBenchmarkChatRequests.get(request);
+  if (oneShotBenchmarkChat) {
+    if (modelStr !== oneShotBenchmarkChat.model) {
+      return errorResponse(
+        HTTP_STATUS.BAD_REQUEST,
+        "Pinned benchmark model changed during routing"
+      );
+    }
+    telemetry.endPhase();
+    const response = await handleSingleModelChat(
+      { ...body, model: oneShotBenchmarkChat.model },
+      oneShotBenchmarkChat.model,
+      clientRawRequest,
+      request,
+      null,
+      apiKeyInfo,
+      telemetry,
+      {
+        sessionId: null,
+        sessionAffinityKey: null,
+        forcedConnectionId: oneShotBenchmarkChat.connectionId,
+        emergencyFallbackTried: true,
+        skipUpstreamRetry: true,
+        modelPinned: true,
+        correlationId: reqId,
+      },
+      null,
+      false
+    );
+    recordTelemetry(telemetry);
+    return response;
+  }
+
   let managedLease: ManagedLeaseDispatchContext | null = null;
   if (isExclusiveLeaseManagedKey(apiKeyInfo)) {
     try {
@@ -1520,6 +1561,15 @@ function readEmptyStreamSiblingRecoveryFlag(): boolean {
   } catch {
     return false;
   }
+}
+
+export function handleOneShotBenchmarkChat(
+  request: Request,
+  body: Record<string, unknown>,
+  options: OneShotBenchmarkChatOptions
+): Promise<Response> {
+  oneShotBenchmarkChatRequests.set(request, options);
+  return handleChat(request, null, body, "model-benchmark-search");
 }
 
 /** Handle one resolved model through gates, credentials, and retry/fallback. */

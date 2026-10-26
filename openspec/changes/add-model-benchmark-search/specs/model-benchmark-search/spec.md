@@ -1,0 +1,156 @@
+## ADDED Requirements
+
+### Requirement: Queue new models.dev model identities durably
+
+After an initial capability snapshot exists, each successful non-dry-run
+models.dev sync with capability sync enabled SHALL queue each newly observed
+exact model ID before replacing the previous capability snapshot. Repeated
+syncs SHALL NOT create duplicate queue records. The first sync establishes the
+baseline and SHALL NOT queue the entire catalog.
+
+#### Scenario: First models.dev sync establishes a baseline
+
+- **GIVEN** no prior `model_capabilities` rows exist
+- **WHEN** models.dev capability sync succeeds
+- **THEN** the capability snapshot is saved
+- **AND** no benchmark search records are queued
+
+#### Scenario: A new model ID triggers one durable search
+
+- **GIVEN** a prior capability snapshot contains `model-a`
+- **AND** the next successful sync contains `model-a` and `model-b`
+- **WHEN** that sync saves capabilities
+- **THEN** `model-b` is durably queued before the prior snapshot is replaced
+- **AND** one queued search starts in the background
+- **AND** repeated syncs do not add another queue row for `model-b`
+
+#### Scenario: Dry-run or capability-disabled sync does not enqueue
+
+- **GIVEN** models.dev contains an ID absent from the last capability snapshot
+- **WHEN** sync runs with `dryRun=true` or `syncCapabilities=false`
+- **THEN** no benchmark search row is created
+
+### Requirement: Require complete exact misses before discovery search
+
+The source lookup SHALL compare exact model IDs or declared display names,
+ignoring only surrounding whitespace and letter case. It SHALL require a
+complete Artificial Analysis Free scan and complete SWE-bench,
+Terminal-Bench 2.0, Terminal-Bench 2.1, and DeepSWE responses before it may
+classify a model as missing from known leaderboards. An error or incomplete
+scan SHALL remain a source error and SHALL NOT trigger discovery search.
+
+#### Scenario: Known-source record suppresses discovery search
+
+- **GIVEN** a source has a complete record for the exact model identity
+- **WHEN** the AA and official leaderboard sources are checked
+- **THEN** the matching evidence is persisted
+- **AND** Hugging Face and web discovery are not called
+
+#### Scenario: Complete miss searches HF and the free web provider
+
+- **GIVEN** AA Free and all four official leaderboard datasets completed
+- **AND** none contains the exact model identity
+- **WHEN** the lookup continues
+- **THEN** Hugging Face model eval metadata is queried
+- **AND** web discovery uses only `duckduckgo-free` without an alternate
+- **AND** returned records are stored as review-required evidence
+
+#### Scenario: Incomplete source scan prevents a false negative
+
+- **GIVEN** any required source errors or reports incomplete pagination
+- **WHEN** the source scan finishes
+- **THEN** no complete-miss state is recorded
+- **AND** HF and web discovery are not called
+- **AND** the model remains unrated with its source error receipt
+
+### Requirement: Preserve evidence without publishing benchmark scores
+
+Search evidence SHALL retain source/version, exact matched model identity,
+benchmark/version, declared reasoning effort/config, metric/value, source URL,
+source date, verification status, capture time, and raw source data. Missing
+values SHALL remain null. Raw evidence SHALL be stored separately from the
+frozen production score map and SHALL NOT change it.
+
+#### Scenario: Missing effort or score stays unknown
+
+- **GIVEN** a source record omits effort, config, or metric value
+- **WHEN** evidence is persisted
+- **THEN** each absent field remains null
+- **AND** no value is synthesized as zero
+
+#### Scenario: Search material stays unrated until strict processing is proven
+
+- **GIVEN** an exact-missing model has HF or free-web search results
+- **WHEN** strict free-only routing and native server-enforced SO are not
+  proven
+- **THEN** evidence remains review-required and the model remains unrated
+- **AND** no model inference or score-map write occurs
+
+### Requirement: Process free-web results through verified strict Structured Output
+
+After `/v1/search` returns results for a complete exact miss, the system SHALL
+process those results only with `xingchen-agi/xing4.0-29b-a4b:free` through its
+verified OpenRouter Phala endpoint. Before each inference, it SHALL verify one
+exact Phala endpoint, zero prompt/completion pricing, support for
+`response_format` and `structured_outputs`, and an active local OpenRouter
+connection whose synced catalog marks the exact model free. It SHALL pin that
+connection and send `json_schema` with `strict: true`, `provider.only: ["phala"]`,
+`provider.require_parameters: true`, and `provider.allow_fallbacks: false`.
+It SHALL clear session affinity for the one-shot request so a prior session pin
+cannot replace the verified connection. It SHALL not retry, rotate accounts,
+select another model/provider, or enter global/emergency fallback. Extracted
+records SHALL remain candidate-review-required and SHALL NOT update production
+scores.
+
+#### Scenario: Missing free endpoint or connection blocks inference
+
+- **GIVEN** search results exist
+- **AND** endpoint metadata, exact zero pricing, strict-schema support, or an
+  exact free local connection is missing
+- **WHEN** the processor evaluates the request
+- **THEN** it records a blocked unrated state
+- **AND** it sends no model request
+
+#### Scenario: Existing session affinity cannot replace the free connection
+
+- **GIVEN** an existing session affinity points to another OpenRouter connection
+- **AND** the exact free Phala gates select a different eligible connection
+- **WHEN** the one-shot normalization request is dispatched
+- **THEN** the prior session affinity is ignored
+- **AND** the request uses the selected free connection or stops without fallback
+
+#### Scenario: Valid strict output becomes review-required evidence only
+
+- **GIVEN** every endpoint and exact-free-connection gate passes
+- **WHEN** the pinned Phala model returns a strict-schema response
+- **AND** the model identity, URL, and literal quote match returned search data
+- **THEN** the extracted fields are stored as candidate-review-required
+- **AND** no rating or score-map write occurs
+
+#### Scenario: Invalid strict output does not trigger fallback
+
+- **GIVEN** one pinned model request returns malformed, non-stop, or mismatched
+  output
+- **WHEN** validation fails
+- **THEN** the search remains unrated with a bounded error receipt
+- **AND** no retry, alternate model, provider, account, or fallback request occurs
+
+### Requirement: Bound and deduplicate source work
+
+Each source request SHALL have a timeout and bounded retry behavior. AA
+pagination, HF results, web results, queue attempts, and evidence retention
+queries SHALL use explicit limits. Identical evidence SHALL be idempotent, and
+source errors SHALL record status and a bounded error string.
+
+#### Scenario: Repeated source result does not duplicate evidence
+
+- **GIVEN** the same source record is returned on a retry
+- **WHEN** evidence is persisted
+- **THEN** one row with the same deterministic evidence hash is retained
+
+#### Scenario: Retry exhaustion stays unrated
+
+- **GIVEN** a model search has reached its maximum attempts
+- **WHEN** another queue drain runs
+- **THEN** the model is marked `retry_exhausted_unrated`
+- **AND** no score is assigned

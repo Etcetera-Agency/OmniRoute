@@ -731,3 +731,97 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   which benchmark family is removed (7–12 raw IDs in this snapshot); values
   are relative estimates, not success probabilities. Live deployment and
   inference acceptance remain pending.
+
+## Missing-model benchmark source search — 2026-10-26
+
+- The OpenSpec change adds a durable queue triggered by newly observed exact
+  models.dev IDs after the initial capability baseline, bounded AA Free and
+  official leaderboard checks, HF eval metadata, and explicit
+  `duckduckgo-free` discovery only after a complete exact miss. Raw source
+  evidence is isolated from the frozen score map. The authenticated read route
+  uses the existing `isAuthenticated` gate.
+- TDD: the focused suite was first run RED while the search module was absent;
+  after implementation and test-isolation repair, all 16 focused tests pass.
+  The test now sets its temporary `DATA_DIR` before importing `DefaultExecutor`,
+  which otherwise initializes the cached DB path first. `git diff --check`
+  passes. `npm run typecheck:core -- --pretty false` still fails on existing
+  repository diagnostics; filtered output has no errors in the new search
+  modules, and `chat.ts` diagnostics are outside this diff.
+- Code Simplifier removed the duplicate evidence-input interface and
+  unnecessary request-init casts, and made the new route's return type
+  explicit. No behavior changed; focused tests and typecheck were rerun.
+- Strict OpenSpec validation is unavailable because this worktree has no
+  `openspec` executable. The package remains unarchived. Read-only runtime
+  checks found an exact free OpenRouter connection for the selected model;
+  endpoint metadata and connection eligibility are rechecked by the processor
+  before each call. No live inference with this branch has been run. The global
+  `freeAccessPolicy` is off, so the implementation bypasses auto-combo and
+  directly pins the exact zero-price model/connection. The separate full-pool
+  auto-combo switch is not in this dispatch path. Strict provider controls,
+  request pinning, and fallback exits have local tests and await independent
+  review plus post-deployment receipt.
+- Source API tests use deterministic fixtures; no benchmark-source refresh or
+  model inference was performed for this branch. The existing models.dev sync
+  was enabled separately under the owner's earlier instruction; this branch
+  has not been pushed, merged, or deployed.
+- OpenRouter follow-up: official model metadata reports the `:free` model has
+  one Phala endpoint at $0/M input/output and supports JSON Schema structured
+  output. OpenRouter docs require endpoint support plus `provider.only`,
+  `require_parameters: true`, and `allow_fallbacks: false` for this route.
+  OmniRoute's OpenRouter executor does not run its JSON Schema downgrade, and
+  its parameter strip rules do not target OpenRouter.
+- The processor now re-reads the official OpenRouter endpoint API immediately
+  before selecting a connection or inferring. It requires the exact model ID,
+  exactly one Phala endpoint with the exact model ID, zero prompt/completion
+  pricing, and both `response_format` and `structured_outputs`; otherwise it
+  blocks without inference. Successful metadata verification and its check
+  time are included in the processor receipt. This metadata check is tested
+  with exact, nonzero-price, and multiple-endpoint fixtures.
+- Added a one-shot internal chat dispatch for benchmark normalization. It is
+  available only through a module-local `WeakMap` marker, requires an active
+  OpenRouter API connection whose synced per-connection catalog lists the exact
+  model as free, selects the first eligible connection ID in sorted order, and
+  pins it. `skipUpstreamRetry` and `emergencyFallbackTried` suppress account
+  retry/emergency fallback; the early return also avoids the global 502/503
+  fallback. Request includes exact Phala-only provider controls and
+  `strict: true` JSON Schema. Output is accepted only when model identity, URL,
+  and populated fields are present in an exact returned title/snippet quote.
+  Accepted evidence remains candidate-review-required and unrated.
+- No live inference was run: internal-key eligibility still needs a read-only
+  check. The Linux worktree now has its own installed dependencies; the
+  focused test suite passes 16/16. `npm run typecheck:core -- --pretty false` reports many
+  repository errors; none point to `modelBenchmarkSearchProcessor.ts`,
+  `modelBenchmarkSearch.ts`, or the new one-shot block in `chat.ts`. Existing
+  errors remain elsewhere in `chat.ts` and other files. `git diff --check`
+  passes. Code Simplifier review found no smaller safe implementation.
+- Live one-shot request receipt and independent review before rating publication
+  remain open in `openspec/TODO.md`.
+
+## Final route review — 2026-10-26
+
+- The discovery path calls the same in-process handler used by `POST /v1/search`
+  with explicit `duckduckgo-free` and no alternate. Its bounded result rows are
+  included in the user message of the strict-SO request; the model does not run
+  its own search.
+- Independent Luna-xhigh review found four issues: the OpenRouter route prefix,
+  AA slug matching with effort-qualified names, draining only one queue row per
+  sync, and session affinity overriding the pinned free connection. All four
+  are fixed. The one-shot path clears session identifiers; credential selection
+  gets a fresh request key, so prior affinity cannot replace the exact free
+  connection.
+- Regression checks showed the route-prefix, slug, and queue defects before
+  their fixes. The affinity assertion also failed against the old behavior and
+  passed after the fix. Final focused suite: 17/17 pass. `git diff --check` passes.
+- Code Simplifier reviewed the changed implementation; no further safe
+  simplification was needed. Core typecheck still exits 2 on existing
+  repository-wide diagnostics; a fresh filtered check reports no errors in the
+  new search modules, models.dev sync changes, or changed chat lines.
+- Independent static review found no remaining code-path blocker. Live endpoint,
+  zero-price metadata, exact active connection, internal-key eligibility, and
+  deployed no-fallback acceptance remain unverified. No live inference was run.
+- Pre-commit checks caught an unused fetch argument; removed it and reran the
+  focused suite (17/17 pass). Docs sync then required updating all 66 `llm.txt`
+  locale mirrors to match the new migration count.
+- After owner approval, updated the migration count in `AGENTS.md`. Documented
+  `AA_API_KEY` and excluded three runner-provided GitHub variables from product
+  env checks. `npm run check:docs-all` passes; soft drift warnings remain.

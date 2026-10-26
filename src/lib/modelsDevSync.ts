@@ -25,6 +25,10 @@ import { getDbInstance } from "./db/core";
 import { invalidateDbCache, getModelCatalogCacheVersion } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
 import { preserveStoredModalitySets } from "./db/models/capabilityModalities";
+import {
+  enqueueModelBenchmarkSearches,
+  getModelCapabilityIdentitySnapshot,
+} from "./db/modelBenchmarkSearch";
 
 import {
   transformModelsDevToPricing,
@@ -37,6 +41,7 @@ import type {
   CapabilitiesByProvider,
   ModelsDevData,
 } from "./modelsDevSync/transform";
+import { extractModelsDevModelIdentities } from "./modelsDevSync/modelIdentity";
 
 // Re-export the pure transform layer (moved to ./modelsDevSync/transform)
 // so this module's public API is unchanged.
@@ -706,6 +711,8 @@ export async function syncModelsDev(opts?: {
       const raw = await fetchModelsDev(signal);
       const pricing = transformModelsDevToPricing(raw);
       const capabilities = syncCapabilities ? transformModelsDevToCapabilities(raw) : {};
+      const previousIdentities =
+        !dryRun && syncCapabilities ? getModelCapabilityIdentitySnapshot() : null;
 
       const modelCount = Object.values(pricing).reduce(
         (sum, models) => sum + Object.keys(models).length,
@@ -721,6 +728,14 @@ export async function syncModelsDev(opts?: {
       }
 
       if (!dryRun) {
+        if (previousIdentities?.hasRows) {
+          // AICODE-NOTE: enqueue exact model IDs before replacing this snapshot so a failed
+          // queue write cannot make the new catalog identity disappear from the next diff.
+          const newIdentities = extractModelsDevModelIdentities(raw).filter(
+            (identity) => !previousIdentities.ids.has(identity.id)
+          );
+          enqueueModelBenchmarkSearches(newIdentities);
+        }
         saveModelsDevPricing(pricing);
         if (syncCapabilities) {
           ensureCapabilitiesTable();
@@ -729,6 +744,16 @@ export async function syncModelsDev(opts?: {
         lastSyncTime = new Date().toISOString();
         lastSyncModelCount = modelCount;
         lastSyncCapabilityCount = capabilityCount;
+        if (syncCapabilities) {
+          void import("./modelBenchmarkSearch")
+            .then(({ drainModelBenchmarkSearchQueue }) => drainModelBenchmarkSearchQueue())
+            .catch((error) => {
+              console.warn(
+                "[MODEL_BENCHMARK_SEARCH] Background refresh failed:",
+                error instanceof Error ? error.message : String(error)
+              );
+            });
+        }
       }
 
       return {
