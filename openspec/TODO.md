@@ -2,6 +2,43 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+## Missing-model benchmark search
+
+- [x] Local `add-model-benchmark-search` source-lookup slice: successful
+      non-dry-run models.dev capability syncs detect exact new model IDs after
+      the initial baseline, persist an idempotent queue row before replacing
+      the previous capability snapshot, and drain one row in the background.
+      AA Free plus SWE-bench, Terminal-Bench 2.0/2.1, and DeepSWE must all be
+      complete exact misses before Hugging Face eval metadata and explicit
+      `duckduckgo-free` discovery run. Raw source/version/model/benchmark/
+      effort/config/value/URL/date/status evidence stays in separate tables;
+      source failures, partial scans, and missing effort/value stay unverified
+      and unrated. No frozen score-map write path exists. Focused RED/GREEN
+      tests and core typecheck are recorded in `completion.review`.
+- [x] Add a separate strict-SO processor for explicit `duckduckgo-free`
+      candidates. It uses `xingchen-agi/xing4.0-29b-a4b:free`, requests only
+      OpenRouter endpoint `phala`, requires endpoint parameter support, disables
+      OpenRouter fallbacks, and sends strict JSON Schema. It proceeds only when
+      an active OpenRouter connection's synced catalog lists the exact model as
+      free and an internal API key is available. The connection is selected by
+      sorted ID and pinned for one `handleChat` dispatch; same-account retries,
+      prior session affinity, emergency model fallback, and global fallback are
+      bypassed. Output fields
+      must match an exact returned URL and quote from its title/snippet. Records
+      remain review-required and unrated; score-map is untouched. Before
+      selecting a connection, each run verifies the official OpenRouter
+      endpoint API returns exactly one matching Phala endpoint, zero prompt and
+      completion prices, and both `response_format` and `structured_outputs`.
+- [ ] Live acceptance remains open: verify the runtime has an eligible
+      connection and compatible internal API key, then run one controlled
+      request and retain the provider-attempt and response-validation receipt.
+      No live inference was run for this implementation. Any request error,
+      schema failure, invalid output, or missing evidence stays unrated.
+- [ ] Keep production ratings blocked until a reviewer confirms exact model
+      identity, reasoning effort/config, benchmark/version, metric/value, source
+      URL/date, and source verification status. Independently calibrate/review
+      any score-map update before production publication.
+
 ## GitHub overlay-image build
 
 - Native acceptance and publication passed on 2026-10-03. Main Actions run
@@ -500,6 +537,7 @@ Deferred cross-repository and operations work:
 - [ ] A2 source is locally verified (56focused, strict11/11, ESLint, independent review/Simplifier); obtain exact CI image tuple and run authorized A5/A6 before claiming live Laya budget delivery or semantic discrimination.
 
 - [ ] A4 source ready after26focused/strict11/11/independent review/Simplifier; obtain owner-authorized push/main integration for existing GitHub image workflow. Verify actual fullSHA/BUILD_SHA/compiledrouteSHA/image digest, then follow A5backup/deploy/smokes and A6matrix. Existing unrelated test repairs remain outside minimal release.
+
 # Free auto-band score-source correction — 2026-10-25
 
 - [x] Implement and review `fix-free-band-quality-sources` locally: treat

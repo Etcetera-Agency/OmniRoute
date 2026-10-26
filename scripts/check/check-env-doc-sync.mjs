@@ -114,6 +114,9 @@ const IGNORE_FROM_CODE = new Set([
   // Runner-owned identity/event context and same-run job results consumed by
   // scripts/quality/admission-verdict.mjs; never application .env settings.
   "GITHUB_EVENT_NAME",
+  "GITHUB_API_URL",
+  "GITHUB_REF",
+  "GITHUB_REPOSITORY",
   "GITHUB_RUN_ATTEMPT",
   "GITHUB_RUN_ID",
   "GITHUB_SHA",
