@@ -31,10 +31,12 @@ import {
 } from "./db/modelBenchmarkSearch";
 
 import {
+  extractModelsDevZeroPriceModels,
   transformModelsDevToPricing,
   transformModelsDevToCapabilities,
 } from "./modelsDevSync/transform";
 import type {
+  ModelsDevZeroPriceModels,
   PricingModels,
   PricingByProvider,
   ModelCapabilityEntry,
@@ -46,11 +48,13 @@ import { extractModelsDevModelIdentities } from "./modelsDevSync/modelIdentity";
 // Re-export the pure transform layer (moved to ./modelsDevSync/transform)
 // so this module's public API is unchanged.
 export {
+  extractModelsDevZeroPriceModels,
   mapProviderId,
   transformModelsDevToPricing,
   transformModelsDevToCapabilities,
 } from "./modelsDevSync/transform";
 export type {
+  ModelsDevZeroPriceModels,
   ModelCapabilityEntry,
   CapabilitiesByProvider,
   PricingByProvider,
@@ -65,6 +69,11 @@ interface SyncStatus {
   lastSyncCapabilityCount: number;
   nextSync: string | null;
   intervalMs: number;
+}
+
+export interface ModelsDevZeroPriceEvidence {
+  fetchedAt: string;
+  modelsByProvider: ModelsDevZeroPriceModels;
 }
 
 interface SyncResult {
@@ -289,24 +298,63 @@ export function getModelsDevPricing(): PricingByProvider {
   return synced;
 }
 
-/**
- * Save synced pricing to `models_dev_pricing` namespace (full replace).
- */
-export function saveModelsDevPricing(data: PricingByProvider): void {
+/** Save normalized pricing and the successful sync's raw zero-price evidence atomically. */
+export function saveModelsDevPricing(
+  data: PricingByProvider,
+  zeroPriceEvidence?: ModelsDevZeroPriceEvidence
+): void {
   const db = getDbInstance();
   const del = db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'");
   const insert = db.prepare(
     "INSERT INTO key_value (namespace, key, value) VALUES ('models_dev_pricing', ?, ?)"
+  );
+  const saveZeroPriceEvidence = db.prepare(
+    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('models_dev_zero_price', 'snapshot', ?)"
   );
   const tx = db.transaction(() => {
     del.run();
     for (const [provider, models] of Object.entries(data)) {
       insert.run(provider, JSON.stringify(models));
     }
+    if (zeroPriceEvidence) saveZeroPriceEvidence.run(JSON.stringify(zeroPriceEvidence));
   });
   tx();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
+}
+
+/** Read direct raw-provider zero-price evidence written by a successful sync. */
+export function getModelsDevZeroPriceEvidence(): ModelsDevZeroPriceEvidence | null {
+  if (isModelsDevSyncEnvDisabled()) return null;
+
+  const row = getDbInstance()
+    .prepare(
+      "SELECT value FROM key_value WHERE namespace = 'models_dev_zero_price' AND key = 'snapshot'"
+    )
+    .get();
+  const rawValue = toRecord(row).value;
+  if (typeof rawValue !== "string") return null;
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<ModelsDevZeroPriceEvidence>;
+    const modelsByProvider = parsed.modelsByProvider;
+    if (
+      typeof parsed.fetchedAt !== "string" ||
+      !modelsByProvider ||
+      typeof modelsByProvider !== "object" ||
+      Array.isArray(modelsByProvider) ||
+      !Object.values(modelsByProvider).every(
+        (models): models is string[] =>
+          Array.isArray(models) &&
+          models.every((model): model is string => typeof model === "string")
+      )
+    ) {
+      return null;
+    }
+    return { fetchedAt: parsed.fetchedAt, modelsByProvider };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -314,7 +362,11 @@ export function saveModelsDevPricing(data: PricingByProvider): void {
  */
 export function clearModelsDevPricing(): void {
   const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
+  const clear = db.transaction(() => {
+    db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
+    db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_zero_price'").run();
+  });
+  clear();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
 }
@@ -709,7 +761,10 @@ export async function syncModelsDev(opts?: {
 
     try {
       const raw = await fetchModelsDev(signal);
+      // AICODE-NOTE: fetchModelsDev can return its 24-hour cache; freshness must use the raw fetch time.
+      const fetchedAt = new Date(cacheTime).toISOString();
       const pricing = transformModelsDevToPricing(raw);
+      const zeroPriceModels = extractModelsDevZeroPriceModels(raw);
       const capabilities = syncCapabilities ? transformModelsDevToCapabilities(raw) : {};
       const catalogIdentities = syncCapabilities ? extractModelsDevModelIdentities(raw) : [];
       const previousIdentities =
@@ -734,7 +789,7 @@ export async function syncModelsDev(opts?: {
           // marker, then queues exact new IDs before this capability snapshot is replaced.
           enqueueModelsDevCatalogIdentities(catalogIdentities, previousIdentities);
         }
-        saveModelsDevPricing(pricing);
+        saveModelsDevPricing(pricing, { fetchedAt, modelsByProvider: zeroPriceModels });
         if (syncCapabilities) {
           ensureCapabilitiesTable();
           saveModelsDevCapabilities(capabilities);

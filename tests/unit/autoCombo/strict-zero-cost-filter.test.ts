@@ -245,6 +245,98 @@ test("strict pool filter keeps only keyless(no-auth) + guaranteed-quota-SAFE can
   assert.deepEqual(result, [KEYLESS, QUOTA_SAFE]);
 });
 
+test("fresh exact models.dev zero-price evidence admits an uncatalogued candidate", () => {
+  const candidate = { provider: "openrouter", model: "vendor/model:free", connectionId: REAL_CONN };
+  const evidence = {
+    fetchedAt: NOW,
+    modelsByProvider: { openrouter: ["vendor/model:free"] },
+  };
+  const result = evaluateCandidateConnections(candidate, undefined, () => undefined, {
+    ...BASE_OPTIONS,
+    modelsDevZeroPriceEvidence: evidence,
+  });
+
+  assert.deepEqual(result, [REAL_CONN]);
+});
+
+test("models.dev strict evidence uses exact provider and full model IDs", () => {
+  const evidence = {
+    fetchedAt: NOW,
+    modelsByProvider: { togetherai: ["vendor/model:free"] },
+  };
+  for (const candidate of [
+    { provider: "openrouter", model: "vendor/model:free", connectionId: REAL_CONN },
+    { provider: "togetherai", model: "vendor/model", connectionId: REAL_CONN },
+  ]) {
+    assert.deepEqual(
+      evaluateCandidateConnections(candidate, undefined, () => undefined, {
+        ...BASE_OPTIONS,
+        modelsDevZeroPriceEvidence: evidence,
+      }),
+      []
+    );
+  }
+});
+
+test("strict models.dev evidence fails closed when stale, future-dated, malformed, or dynamic", () => {
+  const candidate = { provider: "openrouter", model: "vendor/model:free", connectionId: REAL_CONN };
+  const snapshots = [
+    { fetchedAt: "2026-08-18T00:00:00.000Z", modelsByProvider: { openrouter: [candidate.model] } },
+    { fetchedAt: "2026-08-21T00:00:00.000Z", modelsByProvider: { openrouter: [candidate.model] } },
+    {
+      fetchedAt: NOW,
+      modelsByProvider: { openrouter: "not-an-array" as unknown as string[] },
+    },
+    { fetchedAt: NOW, modelsByProvider: { openrouter: ["free"] } },
+  ];
+  for (const evidence of snapshots) {
+    assert.deepEqual(
+      evaluateCandidateConnections(candidate, undefined, () => undefined, {
+        ...BASE_OPTIONS,
+        modelsDevZeroPriceEvidence: evidence,
+      }),
+      []
+    );
+  }
+
+  assert.deepEqual(
+    evaluateCandidateConnections(
+      { provider: "openrouter", model: "free", connectionId: REAL_CONN },
+      undefined,
+      () => undefined,
+      {
+        ...BASE_OPTIONS,
+        modelsDevZeroPriceEvidence: {
+          fetchedAt: NOW,
+          modelsByProvider: { openrouter: ["free"] },
+        },
+      }
+    ),
+    []
+  );
+});
+
+test("models.dev price evidence cannot bypass an existing static quota exclusion", () => {
+  const entry = FREE_MODEL_BUDGETS.find(
+    (m) => m.provider === "groq" && m.modelId === "openai/gpt-oss-120b"
+  );
+  assert.deepEqual(
+    evaluateCandidateConnections(
+      QUOTA_SAFE,
+      entry,
+      () => freshState({ status: "EXHAUSTED", remainingFreeAllowance: 0 }),
+      {
+        ...BASE_OPTIONS,
+        modelsDevZeroPriceEvidence: {
+          fetchedAt: NOW,
+          modelsByProvider: { groq: ["openai/gpt-oss-120b"] },
+        },
+      }
+    ),
+    []
+  );
+});
+
 // Autodiscovery cases (14-19) are in
 // tests/unit/autoCombo/strict-zero-cost-autodiscovery.test.ts, which fabricates
 // synthetic FREE_MODEL_BUDGETS-shaped fixtures rather than real provider ids —

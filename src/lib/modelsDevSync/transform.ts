@@ -21,6 +21,8 @@ export type PricingEntry = {
   reasoning?: number;
 };
 
+export type ModelsDevZeroPriceModels = Record<string, string[]>;
+
 export type PricingModels = Record<string, PricingEntry>;
 export type PricingByProvider = Record<string, PricingModels>;
 
@@ -224,6 +226,32 @@ export function transformModelsDevToPricing(raw: ModelsDevData): PricingByProvid
         if (!result[omniProvider]) result[omniProvider] = {};
         result[omniProvider][modelId] = entry;
       }
+    }
+  }
+
+  return result;
+}
+
+/** Keep raw identities only when every published price is explicitly zero. */
+export function extractModelsDevZeroPriceModels(raw: ModelsDevData): ModelsDevZeroPriceModels {
+  const result: ModelsDevZeroPriceModels = {};
+
+  for (const [providerId, providerData] of Object.entries(raw)) {
+    for (const [modelId, model] of Object.entries(providerData.models || {})) {
+      if (providerId === "openrouter" && (modelId === "free" || model.id === "openrouter/free")) {
+        continue;
+      }
+      const cost = model.cost;
+      if (
+        typeof cost?.input !== "number" ||
+        cost.input !== 0 ||
+        typeof cost.output !== "number" ||
+        cost.output !== 0 ||
+        !Object.values(cost).every((price) => typeof price === "number" && price === 0)
+      ) {
+        continue;
+      }
+      (result[providerId] ??= []).push(modelId);
     }
   }
 

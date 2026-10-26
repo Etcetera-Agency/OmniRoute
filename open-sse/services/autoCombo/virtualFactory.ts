@@ -4,6 +4,7 @@ import { MODE_PACKS } from "./modePacks";
 import { DEFAULT_WEIGHTS, reliabilityFactor, ScoringWeights } from "./scoring";
 import { getCachedProviderConnections } from "@/lib/db/readCache";
 import { getSettings } from "@/lib/db/settings";
+import { getModelsDevZeroPriceEvidence, isModelsDevSyncEnvForcedOn } from "@/lib/modelsDevSync";
 import { getProviderRegistry } from "./providerRegistryAccessor";
 import type { ConnectionFields } from "@/lib/db/encryption";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
@@ -789,12 +790,16 @@ export async function prepareVirtualAutoComboInputs(
       maxStateAgeMs: toNumber(settings.autoRefreshProviderQuotaInterval, 180) * 1000,
     };
     const strictZeroCostOn = settings.freeAccessPolicy === "strict";
+    const modelsDevSyncOn = isModelsDevSyncEnvForcedOn() || settings.modelsDevSyncEnabled === true;
+    const modelsDevZeroPriceEvidence =
+      strictZeroCostOn && modelsDevSyncOn ? getModelsDevZeroPriceEvidence() : null;
     const strictOptions = {
       // The read-only candidate inspector (#9133) must be able to see what the
       // guard would exclude, and why — the same opt-out the resilience filter
       // already honours through `skip`. Dispatch (`skip === false`) is unaffected.
       enabled: strictZeroCostOn && !skip,
       resolveFreeAccessState,
+      modelsDevZeroPriceEvidence,
       ...strictZeroCostThresholds,
     };
     const strict = filterStrictZeroCostCandidatesWithDiagnosis(
@@ -822,7 +827,7 @@ export async function prepareVirtualAutoComboInputs(
           candidate,
           findBudgetEntry(candidate),
           resolveFreeAccessState,
-          strictZeroCostThresholds
+          { ...strictZeroCostThresholds, modelsDevZeroPriceEvidence }
         );
         return {
           ...candidate,
