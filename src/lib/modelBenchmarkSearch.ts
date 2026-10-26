@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { handleSearch } from "@omniroute/open-sse/handlers/search";
+import type { ModelBenchmarkFitness } from "./modelBenchmarkFitness";
 import {
   NORMALIZATION_BLOCK_REASON,
   NORMALIZATION_MODEL,
@@ -8,10 +9,13 @@ import {
 import {
   claimModelBenchmarkSearch,
   finishModelBenchmarkSearch,
+  hasEligibleModelBenchmarkSearch,
+  isModelBenchmarkSearchNameUnique,
   saveModelBenchmarkSearchEvidence,
   type ModelBenchmarkSearchEvidenceInput,
   type ModelBenchmarkSearchRun,
 } from "./db/modelBenchmarkSearch";
+import { recomputeModelBenchmarkFitness } from "./modelBenchmarkFitnessSync";
 
 const AA_FREE_URL = "https://artificialanalysis.ai/api/v2/language/models/free";
 const SWE_BENCH_URL =
@@ -23,6 +27,9 @@ const REQUEST_TIMEOUT_MS = 6_000;
 const MAX_AA_PAGES = 5;
 const MAX_HF_RESULTS = 10;
 const MAX_SEARCH_RESULTS = 10;
+const SHARED_SOURCE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_MODELS_PER_DRAIN = 20;
+const CONTINUE_DRAIN_DELAY_MS = 60_000;
 export const DUCKDUCKGO_FREE_SEARCH = {
   provider: "duckduckgo-free",
   maxResults: MAX_SEARCH_RESULTS,
@@ -43,7 +50,6 @@ interface ParsedEvidence {
   sourceVersion: string | null;
   matchedModelId: string | null;
   matchedModelName: string | null;
-  identities: string[];
   benchmark: string | null;
   benchmarkVersion: string | null;
   reasoningEffort: string | null;
@@ -65,6 +71,34 @@ interface SourceCheck {
   error?: string;
   matches: ParsedEvidence[];
 }
+
+interface ModelSourceEvidence {
+  checks: SourceCheck[];
+  sourceStatus: Record<string, unknown>;
+}
+
+interface SearchRunOutcome {
+  modelId: string;
+  normalizationStatus: string;
+  sourceStatus: Record<string, unknown>;
+  discoveredEvidence: boolean;
+  lastError: string | null;
+}
+
+interface SourceSnapshot extends Omit<SourceCheck, "matches"> {
+  allRows: ParsedEvidence[];
+}
+
+interface BenchmarkSourceSnapshot {
+  aa: SourceSnapshot;
+  official: Record<OfficialSourceName, SourceSnapshot>;
+}
+
+let sharedSourceSnapshotCache: {
+  fetchImpl: typeof fetch;
+  loadedAt: number;
+  promise: Promise<BenchmarkSourceSnapshot>;
+} | null = null;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -201,7 +235,6 @@ function evidence(
     sourceVersion: values.sourceVersion ?? null,
     matchedModelId: values.matchedModelId ?? null,
     matchedModelName: values.matchedModelName ?? null,
-    identities: values.identities ?? [],
     benchmark: values.benchmark ?? null,
     benchmarkVersion: values.benchmarkVersion ?? null,
     reasoningEffort: values.reasoningEffort ?? null,
@@ -227,7 +260,6 @@ export function parseDeepSweEvidence(data: unknown): ParsedEvidence[] {
       sourceVersion: "DeepSWE v1.1",
       matchedModelId: model,
       matchedModelName: model,
-      identities: model ? [model] : [],
       benchmark: "DeepSWE",
       benchmarkVersion: "v1.1",
       reasoningEffort: effort,
@@ -235,6 +267,7 @@ export function parseDeepSweEvidence(data: unknown): ParsedEvidence[] {
       metric: asFiniteNumber(row.pass_rate) !== null ? "pass_rate" : null,
       value: asFiniteNumber(row.pass_rate),
       sourceDate: asString(root.generated_at),
+      verificationStatus: "official_leaderboard",
       raw: row,
     });
   });
@@ -249,20 +282,13 @@ export function parseTerminalEvidence(data: unknown, version: "2.0" | "2.1"): Pa
     const modelNames = Array.isArray(metadata.model_names)
       ? metadata.model_names.filter((item): item is string => typeof item === "string")
       : [];
-    const modelIds = [
-      asString(metadata.model_id),
-      asString(metadata.model),
-      displayName,
-      ...modelNames,
-    ].filter((item): item is string => item !== null);
     const metrics = asRecord(row.metrics);
     return evidence({
       source: `terminal-bench-${version}`,
       sourceUrl: TERMINAL_BENCH_URL,
       sourceVersion: `Terminal-Bench ${version}`,
-      matchedModelId: asString(metadata.model_id) ?? modelNames[0] ?? null,
-      matchedModelName: displayName,
-      identities: modelIds,
+      matchedModelId: asString(metadata.model_id),
+      matchedModelName: displayName ?? modelNames[0] ?? asString(metadata.model),
       benchmark: "Terminal-Bench",
       benchmarkVersion: version,
       reasoningEffort: asString(metadata.reasoning_effort),
@@ -270,6 +296,7 @@ export function parseTerminalEvidence(data: unknown, version: "2.0" | "2.1"): Pa
       metric: asFiniteNumber(metrics.accuracy) !== null ? "accuracy" : null,
       value: asFiniteNumber(metrics.accuracy),
       sourceDate: asString(metadata.date) ?? asString(row.updated_at),
+      verificationStatus: "official_leaderboard",
       raw: row,
     });
   });
@@ -289,11 +316,6 @@ function parseSweEvidence(data: unknown): ParsedEvidence[] {
           sourceVersion: groupName ? `SWE-bench ${groupName}` : "SWE-bench leaderboard",
           matchedModelId: asString(row.model_id),
           matchedModelName: modelName,
-          identities: [
-            asString(row.model_id),
-            asString(row.model_display),
-            asString(row.name),
-          ].filter((item): item is string => item !== null),
           benchmark: "SWE-bench",
           benchmarkVersion: groupName,
           reasoningEffort: asString(row.reasoning_effort),
@@ -301,6 +323,7 @@ function parseSweEvidence(data: unknown): ParsedEvidence[] {
           metric: asFiniteNumber(row.resolved) !== null ? "resolved" : null,
           value: asFiniteNumber(row.resolved),
           sourceDate: asString(row.date),
+          verificationStatus: "official_leaderboard",
           raw: row,
         })
       );
@@ -309,21 +332,24 @@ function parseSweEvidence(data: unknown): ParsedEvidence[] {
   return rows;
 }
 
-async function checkAAFree(model: ModelIdentity, fetchImpl: typeof fetch): Promise<SourceCheck> {
+async function loadAAFreeSnapshot(fetchImpl: typeof fetch): Promise<SourceSnapshot> {
   const apiKey = process.env.AA_API_KEY;
   if (!apiKey) {
-    return sourceReceipt(
-      "error",
-      AA_FREE_URL,
-      null,
-      null,
-      null,
-      [],
-      "AA Free API key is not configured"
-    );
+    return {
+      ...sourceReceipt(
+        "error",
+        AA_FREE_URL,
+        null,
+        null,
+        null,
+        [],
+        "AA Free API key is not configured"
+      ),
+      allRows: [],
+    };
   }
 
-  const allRows: JsonRecord[] = [];
+  const sourceRows: JsonRecord[] = [];
   let version: string | null = null;
   let lastDate: string | null = null;
   let lastRaw: unknown = null;
@@ -340,7 +366,7 @@ async function checkAAFree(model: ModelIdentity, fetchImpl: typeof fetch): Promi
       if (!Array.isArray(root.data) || typeof pagination.has_more !== "boolean") {
         throw new Error("Invalid AA Free response shape");
       }
-      allRows.push(...asRows(root.data));
+      sourceRows.push(...asRows(root.data));
       version =
         typeof root.intelligence_index_version === "number"
           ? `Artificial Analysis Free index v${root.intelligence_index_version}`
@@ -349,60 +375,86 @@ async function checkAAFree(model: ModelIdentity, fetchImpl: typeof fetch): Promi
       lastRaw = data;
       if (!pagination.has_more) break;
       if (page === MAX_AA_PAGES) {
-        return sourceReceipt(
-          "incomplete",
-          AA_FREE_URL,
+        const allRows = parseAAEvidence(sourceRows, version, lastDate);
+        return {
+          ...sourceReceipt(
+            "incomplete",
+            AA_FREE_URL,
+            sourceRows,
+            version,
+            lastDate,
+            [],
+            "AA Free page limit reached"
+          ),
           allRows,
-          version,
-          lastDate,
-          [],
-          "AA Free page limit reached"
-        );
+        };
       }
     }
-    const matches = allRows
-      .filter((row) => {
-        const name = asString(row.name);
-        const identities = [asString(row.slug), name];
-        return exactIdentityFields(
-          model,
-          identities.filter((item): item is string => item !== null)
-        );
-      })
-      .map((row) => {
-        const slug = asString(row.slug);
-        const name = asString(row.name);
-        const effort = aaReasoningEffort(name);
-        return evidence({
-          source: "artificial-analysis-free",
-          sourceUrl: AA_FREE_URL,
-          sourceVersion: version,
-          matchedModelId: slug,
-          matchedModelName: name,
-          identities: [slug, name].filter((item): item is string => item !== null),
-          reasoningEffort: effort,
-          sourceDate: asString(row.release_date) ?? lastDate,
-          raw: row,
-        });
-      });
-    return sourceReceipt(
-      matches.length ? "found" : "missing",
-      AA_FREE_URL,
+    const allRows = parseAAEvidence(sourceRows, version, lastDate);
+    return {
+      ...sourceReceipt(
+        allRows.length ? "found" : "missing",
+        AA_FREE_URL,
+        sourceRows,
+        version,
+        lastDate,
+        []
+      ),
       allRows,
-      version,
-      lastDate,
-      matches
-    );
+    };
   } catch (error) {
-    return sourceReceipt("error", AA_FREE_URL, lastRaw, version, lastDate, [], errorMessage(error));
+    return {
+      ...sourceReceipt("error", AA_FREE_URL, lastRaw, version, lastDate, [], errorMessage(error)),
+      allRows: [],
+    };
   }
 }
 
-async function checkOfficialSource(
-  model: ModelIdentity,
+function parseAAEvidence(
+  rows: JsonRecord[],
+  version: string | null,
+  defaultDate: string | null
+): ParsedEvidence[] {
+  const output: ParsedEvidence[] = [];
+  for (const row of rows) {
+    const slug = asString(row.slug);
+    const name = asString(row.name);
+    if (!slug && !name) continue;
+    const evaluations = asRecord(row.evaluations);
+    const shared = {
+      source: "artificial-analysis-free",
+      sourceUrl: AA_FREE_URL,
+      sourceVersion: version,
+      matchedModelId: slug,
+      matchedModelName: name,
+      benchmarkVersion: version,
+      reasoningEffort: aaReasoningEffort(name),
+      sourceDate: asString(row.release_date) ?? defaultDate,
+      verificationStatus: "source_verified",
+      raw: row,
+    } as const;
+    output.push(
+      evidence({
+        ...shared,
+        benchmark: "AA Coding",
+        metric: "artificial_analysis_coding_index",
+        value: asFiniteNumber(evaluations.artificial_analysis_coding_index),
+      }),
+      evidence({
+        ...shared,
+        benchmark: "AA Intelligence",
+        metric: "artificial_analysis_intelligence_index",
+        value: asFiniteNumber(evaluations.artificial_analysis_intelligence_index),
+      })
+    );
+  }
+  return output;
+}
+
+async function loadOfficialSourceSnapshot(
   name: OfficialSourceName,
   fetchImpl: typeof fetch
-): Promise<SourceCheck> {
+): Promise<SourceSnapshot> {
   const request = sourceRequest(name);
   try {
     const { data, response } = await fetchJson(request.url, request.init, fetchImpl);
@@ -430,20 +482,84 @@ async function checkOfficialSource(
         parsed = parseDeepSweEvidence(data);
         break;
     }
-    const matches = parsed.filter((row) => exactIdentityFields(model, row.identities));
     const version = sourceVersion(name);
     const responseHash = hash(data);
     return {
-      status: matches.length ? "found" : "missing",
+      status: parsed.length ? "found" : "missing",
       sourceUrl: request.url,
       sourceVersion: version,
       sourceDate: responseDate(response),
       responseHash,
-      matches,
+      allRows: parsed,
     };
   } catch (error) {
-    return sourceReceipt("error", request.url, null, null, null, [], errorMessage(error));
+    return {
+      ...sourceReceipt("error", request.url, null, null, null, [], errorMessage(error)),
+      allRows: [],
+    };
   }
+}
+
+async function loadBenchmarkSourceSnapshot(
+  fetchImpl: typeof fetch
+): Promise<BenchmarkSourceSnapshot> {
+  const [aa, sweBench, terminal20, terminal21, deepswe] = await Promise.all([
+    loadAAFreeSnapshot(fetchImpl),
+    loadOfficialSourceSnapshot("swe-bench", fetchImpl),
+    loadOfficialSourceSnapshot("terminal-bench-2.0", fetchImpl),
+    loadOfficialSourceSnapshot("terminal-bench-2.1", fetchImpl),
+    loadOfficialSourceSnapshot("deepswe", fetchImpl),
+  ]);
+  return {
+    aa,
+    official: {
+      "swe-bench": sweBench,
+      "terminal-bench-2.0": terminal20,
+      "terminal-bench-2.1": terminal21,
+      deepswe,
+    },
+  };
+}
+
+function getBenchmarkSourceSnapshot(fetchImpl: typeof fetch): Promise<BenchmarkSourceSnapshot> {
+  const now = Date.now();
+  if (
+    sharedSourceSnapshotCache &&
+    sharedSourceSnapshotCache.fetchImpl === fetchImpl &&
+    now - sharedSourceSnapshotCache.loadedAt < SHARED_SOURCE_CACHE_TTL_MS
+  ) {
+    return sharedSourceSnapshotCache.promise;
+  }
+  const promise = loadBenchmarkSourceSnapshot(fetchImpl);
+  sharedSourceSnapshotCache = { fetchImpl, loadedAt: now, promise };
+  return promise;
+}
+
+function matchSnapshotForModel(
+  model: ModelIdentity,
+  snapshot: SourceSnapshot,
+  uniqueName: boolean
+): SourceCheck {
+  const matches = snapshot.allRows.filter((row) => {
+    if (row.matchedModelId && folded(row.matchedModelId) === folded(model.id)) return true;
+    if (!uniqueName || !row.matchedModelName) return false;
+    return folded(row.matchedModelName) === folded(model.name);
+  });
+  const status =
+    snapshot.status === "error" || snapshot.status === "incomplete"
+      ? snapshot.status
+      : matches.length
+        ? "found"
+        : "missing";
+  return {
+    status,
+    sourceUrl: snapshot.sourceUrl,
+    sourceVersion: snapshot.sourceVersion,
+    sourceDate: snapshot.sourceDate,
+    responseHash: snapshot.responseHash,
+    matches,
+    ...(snapshot.error ? { error: snapshot.error } : {}),
+  };
 }
 
 function sourceRequest(name: OfficialSourceName): { url: string; init: RequestInit } {
@@ -516,9 +632,6 @@ async function findHuggingFaceEvidence(
             sourceVersion: "Hugging Face Hub evalResults",
             matchedModelId: asString(root.id) ?? repoId,
             matchedModelName: asString(root.name) ?? repoId,
-            identities: [asString(root.id) ?? repoId, asString(root.name) ?? repoId].filter(
-              (v): v is string => !!v
-            ),
             benchmark: dataset,
             benchmarkVersion: asString(row.dataset_revision) ?? asString(row.revision),
             reasoningEffort: asString(row.reasoning_effort),
@@ -643,48 +756,69 @@ function errorMessage(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 300);
 }
 
+function materializeModelEvidence(
+  model: ModelIdentity,
+  snapshot: BenchmarkSourceSnapshot
+): ModelSourceEvidence {
+  const uniqueName = isModelBenchmarkSearchNameUnique(model.name);
+  const checks = [
+    matchSnapshotForModel(model, snapshot.aa, uniqueName),
+    ...Object.values(snapshot.official).map((source) =>
+      matchSnapshotForModel(model, source, uniqueName)
+    ),
+  ];
+  const matches = checks.flatMap((source) => source.matches);
+  if (matches.length) saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, matches));
+
+  return {
+    checks,
+    sourceStatus: Object.fromEntries(
+      ["artificialAnalysis", "sweBench", "terminalBench20", "terminalBench21", "deepSwe"].map(
+        (key, index) => [key, sourceStatusForStorage(checks[index])]
+      )
+    ),
+  };
+}
+
 async function refreshSearchRun(
   run: ModelBenchmarkSearchRun,
-  fetchImpl: typeof fetch
-): Promise<void> {
+  fetchImpl: typeof fetch,
+  direct: ModelSourceEvidence,
+  directScore: ModelBenchmarkFitness | undefined
+): Promise<SearchRunOutcome> {
   const model = { id: run.modelId, name: run.modelName };
-  const [aa, swe, terminal20, terminal21, deepswe] = await Promise.all([
-    checkAAFree(model, fetchImpl),
-    checkOfficialSource(model, "swe-bench", fetchImpl),
-    checkOfficialSource(model, "terminal-bench-2.0", fetchImpl),
-    checkOfficialSource(model, "terminal-bench-2.1", fetchImpl),
-    checkOfficialSource(model, "deepswe", fetchImpl),
-  ]);
-  const official = [swe, terminal20, terminal21, deepswe];
-  const sourceStatus: Record<string, unknown> = {
-    artificialAnalysis: sourceStatusForStorage(aa),
-    sweBench: sourceStatusForStorage(swe),
-    terminalBench20: sourceStatusForStorage(terminal20),
-    terminalBench21: sourceStatusForStorage(terminal21),
-    deepSwe: sourceStatusForStorage(deepswe),
-  };
-  const officialMatches = official.flatMap((source) => source.matches);
-  const rows = [...aa.matches, ...officialMatches];
-  if (rows.length) saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, rows));
+  const sourceStatus = { ...direct.sourceStatus };
+  sourceStatus.fitness = directScore ?? null;
 
-  const completeMiss = isCompleteMissingFromKnownLeaderboards({
-    aa: aa.status,
-    official: official.map((source) => source.status),
-  });
-  if (!completeMiss) {
-    const failed = [aa, ...official].filter(
+  if (
+    typeof directScore?.codingFitness === "number" ||
+    typeof directScore?.generalFitness === "number"
+  ) {
+    return {
+      modelId: model.id,
+      normalizationStatus: "not_needed",
+      sourceStatus,
+      discoveredEvidence: false,
+      lastError: null,
+    };
+  }
+
+  const completeSweep = direct.checks.every(
+    (source) => source.status === "found" || source.status === "missing"
+  );
+  if (!completeSweep) {
+    const failed = direct.checks.filter(
       (source) => source.status === "error" || source.status === "incomplete"
     );
-    finishModelBenchmarkSearch({
+    return {
       modelId: model.id,
-      status: rows.length ? "existing_benchmark_record" : "source_error",
       normalizationStatus: "not_started",
       sourceStatus,
+      discoveredEvidence: false,
       lastError: failed.length
         ? failed.map((source) => source.error || source.status).join("; ")
         : null,
-    });
-    return;
+    };
   }
 
   const [hf, web] = await Promise.all([
@@ -707,7 +841,6 @@ async function refreshSearchRun(
       sourceVersion: NORMALIZATION_MODEL,
       matchedModelId: item.matchedModelId,
       matchedModelName: item.matchedModelName,
-      identities: [item.matchedModelId, item.matchedModelName],
       reasoningEffort: item.reasoningEffort,
       reasoningConfig: item.reasoningConfig,
       benchmark: item.benchmark,
@@ -716,7 +849,7 @@ async function refreshSearchRun(
       value: item.value,
       sourceUrl: item.sourceUrl,
       sourceDate: item.sourceDate,
-      verificationStatus: "candidate_review_required",
+      verificationStatus: "source_verified_review_required",
       raw: item.raw,
     })
   );
@@ -729,22 +862,109 @@ async function refreshSearchRun(
     hf.status === "error" ? asString(hf.receipt.error) : null,
     asString(web.receipt.status) === "error" ? asString(web.receipt.error) : null,
   ].filter((error): error is string => error !== null);
-  finishModelBenchmarkSearch({
+  return {
     modelId: model.id,
-    status: discovered.length ? "review_required" : "pending_unrated",
     normalizationStatus: processor.status,
     sourceStatus,
+    discoveredEvidence: discovered.length > 0,
     lastError: searchErrors.length ? searchErrors.join("; ") : null,
-  });
+  };
 }
 
 let drainPromise: Promise<void> | null = null;
+let continuationTimer: ReturnType<typeof setTimeout> | null = null;
+
+function toScoreMap(scores: ModelBenchmarkFitness[]): Map<string, ModelBenchmarkFitness> {
+  return new Map(scores.map((score) => [score.modelId, score]));
+}
 
 export function drainModelBenchmarkSearchQueue(): Promise<void> {
+  // AICODE-NOTE: Materialize and score only claimed rows per batch; relative cohort ranking still covers all stored evidence.
   if (drainPromise) return drainPromise;
   drainPromise = (async () => {
-    while (await drainOneModel()) {
-      // Keep work sequential so every new identity advances without a daily-sync wait.
+    const snapshot = await getBenchmarkSourceSnapshot(fetch);
+    const runs: ModelBenchmarkSearchRun[] = [];
+    while (runs.length < MAX_MODELS_PER_DRAIN) {
+      const run = claimModelBenchmarkSearch();
+      if (!run) break;
+      runs.push(run);
+    }
+    if (runs.length === 0) return;
+
+    const directEvidence = new Map<string, ModelSourceEvidence>();
+    const outcomes: SearchRunOutcome[] = [];
+    for (const run of runs) {
+      try {
+        directEvidence.set(
+          run.modelId,
+          materializeModelEvidence({ id: run.modelId, name: run.modelName }, snapshot)
+        );
+      } catch (error) {
+        outcomes.push({
+          modelId: run.modelId,
+          normalizationStatus: NORMALIZATION_BLOCK_REASON,
+          sourceStatus: { error: errorMessage(error) },
+          discoveredEvidence: false,
+          lastError: errorMessage(error),
+        });
+      }
+    }
+
+    const directScores = await recomputeModelBenchmarkFitness();
+    const scores = toScoreMap(directScores.scores);
+    for (const run of runs) {
+      const direct = directEvidence.get(run.modelId);
+      if (!direct) continue;
+      try {
+        const outcome = await refreshSearchRun(
+          run,
+          fetch,
+          direct,
+          scores.get(run.modelId.toLowerCase())
+        );
+        outcomes.push(outcome);
+      } catch (error) {
+        outcomes.push({
+          modelId: run.modelId,
+          normalizationStatus: NORMALIZATION_BLOCK_REASON,
+          sourceStatus: { ...direct.sourceStatus, error: errorMessage(error) },
+          discoveredEvidence: false,
+          lastError: errorMessage(error),
+        });
+      }
+    }
+
+    const finalFitness = outcomes.some((outcome) => outcome.discoveredEvidence)
+      ? await recomputeModelBenchmarkFitness()
+      : directScores;
+    const finalScores = toScoreMap(finalFitness.scores);
+    for (const outcome of outcomes) {
+      const score = finalScores.get(outcome.modelId.toLowerCase());
+      let status: string;
+      if (typeof score?.codingFitness === "number" || typeof score?.generalFitness === "number") {
+        status = "scored";
+      } else if (outcome.discoveredEvidence) {
+        status = "review_required";
+      } else if (outcome.lastError) {
+        status = "source_error";
+      } else {
+        status = "unrated_no_evidence";
+      }
+      finishModelBenchmarkSearch({
+        modelId: outcome.modelId,
+        status,
+        normalizationStatus: outcome.normalizationStatus,
+        sourceStatus: { ...outcome.sourceStatus, fitness: score ?? null },
+        lastError: outcome.lastError,
+      });
+    }
+
+    if (hasEligibleModelBenchmarkSearch()) {
+      continuationTimer = setTimeout(() => {
+        continuationTimer = null;
+        void drainModelBenchmarkSearchQueue();
+      }, CONTINUE_DRAIN_DELAY_MS);
+      continuationTimer.unref?.();
     }
   })().finally(() => {
     drainPromise = null;
@@ -752,19 +972,9 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
   return drainPromise;
 }
 
-async function drainOneModel(): Promise<boolean> {
-  const run = claimModelBenchmarkSearch();
-  if (!run) return false;
-  try {
-    await refreshSearchRun(run, fetch);
-  } catch (error) {
-    finishModelBenchmarkSearch({
-      modelId: run.modelId,
-      status: "source_error",
-      normalizationStatus: NORMALIZATION_BLOCK_REASON,
-      sourceStatus: { error: errorMessage(error) },
-      lastError: errorMessage(error),
-    });
-  }
-  return true;
+export function resetModelBenchmarkSearchStateForTests(): void {
+  sharedSourceSnapshotCache = null;
+  if (continuationTimer) clearTimeout(continuationTimer);
+  continuationTimer = null;
+  drainPromise = null;
 }

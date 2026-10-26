@@ -843,3 +843,42 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   `npm run check:docs-all` passes. These results do not establish a green full suite.
   The branch has no configured PR checks. Live inference and deployed
   acceptance remain unverified.
+
+## Full-catalog benchmark scoring — 2026-10-26
+
+- Code Simplifier reviewed the final matching and queue changes. Removed the
+  mixed ID/name match list: exact matches now compare only the source's
+  `matchedModelId`; display-name matching is allowed only against
+  `matchedModelName` when that catalog name is unique. Terminal-Bench no longer
+  treats its first `model_names` value as an ID.
+- Added a regression where a source display name equals a different catalog
+  model ID. It failed before the fix and passed after it. Independent
+  Luna-xhigh review confirmed the collision finding closed with no remaining
+  blocker.
+- Added a regression for a renamed existing catalog ID: the current models.dev
+  name refreshes while queue status, attempt count, and last-run state remain
+  unchanged. It failed before the fix and passed afterward. Independent
+  Luna-xhigh review confirmed both findings are closed with no side effects.
+- Focused suites pass: Node 67/67, routing Vitest 21/21, Prettier, scoped ESLint,
+  `check:docs-counts`, and `git diff --check`. The docs-count check reports the
+  same three soft warnings already present in the repository.
+- Strict OpenSpec CLI validation is unavailable in this worktree because no
+  `openspec` executable is installed; proposal, design, requirements, tasks,
+  and TODO entries were reviewed manually. The known core typecheck has
+  repository-wide errors, with none in the owned changed files; OpenSSE's two
+  remaining diagnostics are in untouched files.
+- At this pre-commit review checkpoint there is no commit, push, merge, image
+  build, deploy, live catalog backfill, or inference. Those release and
+  strict-free runtime receipts remain open in `openspec/TODO.md`.
+
+## Pre-merge commit checkpoint — 2026-10-26
+
+- Committed the full-catalog backfill, evidence scoring, strict free-only
+  Structured Output search, regression tests, OpenSpec package, root TODO, and
+  migration-count documentation on `codex/modeldev-full-catalog-scoring`.
+- Final independent Luna-xhigh review closed the display-name/ID and model
+  rename findings with no remaining blocker. Commit hooks passed formatting,
+  scoped ESLint, documentation-version synchronization, repository any-budget,
+  artifact-tracking, and attribution checks.
+- Push/PR merge, main-image build, production deploy, live queue/backfill, and
+  strict-free search receipts remain pending.

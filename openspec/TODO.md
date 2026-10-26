@@ -2,6 +2,26 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+## Full-catalog benchmark scoring
+
+- [x] Local implementation on `codex/modeldev-full-catalog-scoring`: one-time
+      backfill for each unique current models.dev ID, enqueue later exact IDs,
+      process the durable queue in resumable batches, and publish only
+      evidence-supported scores in `benchmark_fitness`. Models without enough
+      comparable verified measurements remain unrated. Focused tests pass
+      67/67 Node tests and 21/21 routing tests; `check:docs-counts` passes. The
+      full core typecheck still reports repository-wide diagnostics, while the
+      touched-file filter reports none; OpenSSE typecheck errors are in two
+      untouched files. Independent review closed both the display-name/ID and
+      catalog-rename findings; live release remains pending. See
+      `completion.review` and `openspec/changes/score-full-model-catalog/`.
+- [ ] After main deploy, verify the actual full-catalog queue, scored/unrated
+      totals, future-model enqueue, exact free connection and zero-price
+      Structured Output search path, and one controlled end-to-end score.
+      Record source/image fingerprints and provider-attempt/cost receipts.
+      Do not run inference unless the strict free-only route is verified; paid
+      or out-of-band fallback is prohibited.
+
 ## Missing-model benchmark search
 
 - [x] Local `add-model-benchmark-search` source-lookup slice: successful

@@ -77,12 +77,14 @@ async function waitFor(predicate: () => unknown, timeoutMs = 2_000) {
 
 test.beforeEach(() => {
   resetStorage();
+  search.resetModelBenchmarkSearchStateForTests();
   globalThis.fetch = originalFetch;
   restoreEnv();
   delete process.env.AA_API_KEY;
 });
 
 test.afterEach(() => {
+  search.resetModelBenchmarkSearchStateForTests();
   globalThis.fetch = originalFetch;
   restoreEnv();
   core.resetDbInstance();
@@ -347,7 +349,7 @@ test("normalization accepts only exact quoted fields and returned source URLs", 
   );
 });
 
-test("models.dev new identity queues once and source errors never prove absence", async () => {
+test("models.dev sync backfills all catalog IDs once, then queues new IDs", async () => {
   let catalog: Record<string, unknown> = {
     openai: {
       id: "openai",
@@ -374,7 +376,10 @@ test("models.dev new identity queues once and source errors never prove absence"
 
   const baselineSync = await importFreshModelsDevSync("benchmark-baseline");
   assert.equal((await baselineSync.syncModelsDev({ maxRetries: 0 })).success, true);
-  assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 0);
+  assert.deepEqual(
+    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
+    ["baseline-model"]
+  );
 
   catalog = {
     openai: {
@@ -388,7 +393,10 @@ test("models.dev new identity queues once and source errors never prove absence"
   };
   const dryRunSync = await importFreshModelsDevSync("benchmark-dry-run");
   assert.equal((await dryRunSync.syncModelsDev({ dryRun: true, maxRetries: 0 })).success, true);
-  assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 0);
+  assert.deepEqual(
+    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
+    ["baseline-model"]
+  );
 
   const capabilitiesDisabledSync = await importFreshModelsDevSync("benchmark-no-capabilities");
   assert.equal(
@@ -396,7 +404,10 @@ test("models.dev new identity queues once and source errors never prove absence"
       .success,
     true
   );
-  assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 0);
+  assert.deepEqual(
+    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
+    ["baseline-model"]
+  );
 
   catalog = {
     openai: {
@@ -443,6 +454,141 @@ test("models.dev new identity queues once and source errors never prove absence"
     searchDb.listModelBenchmarkSearchRuns().filter((run) => run.modelId === "new-model-2").length,
     1
   );
+  await search.drainModelBenchmarkSearchQueue();
+});
+
+test("first benchmark backfill includes IDs from an already-populated models.dev snapshot", async () => {
+  const initialCatalog = {
+    openai: {
+      id: "openai",
+      name: "OpenAI",
+      models: {
+        "previous-model": { id: "previous-model", name: "Previous Model", tool_call: true },
+      },
+    },
+  };
+  const initialSync = await importFreshModelsDevSync("benchmark-existing-snapshot");
+  initialSync.ensureCapabilitiesTable();
+  initialSync.saveModelsDevCapabilities(
+    initialSync.transformModelsDevToCapabilities(initialCatalog)
+  );
+
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url === "https://models.dev/api.json") {
+      return jsonResponse({
+        openai: {
+          id: "openai",
+          name: "OpenAI",
+          models: {
+            "previous-model": { id: "previous-model", name: "Previous Model", tool_call: true },
+            "current-model": { id: "current-model", name: "Current Model", tool_call: true },
+          },
+        },
+      });
+    }
+    if (
+      url ===
+      "https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json"
+    ) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url === "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json") {
+      return jsonResponse({ rows: [] });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  const sync = await importFreshModelsDevSync("benchmark-full-backfill-existing");
+  assert.equal((await sync.syncModelsDev({ maxRetries: 0 })).success, true);
+  assert.deepEqual(
+    searchDb
+      .listModelBenchmarkSearchRuns(100)
+      .map((run) => run.modelId)
+      .sort(),
+    ["current-model", "previous-model"]
+  );
+  await search.drainModelBenchmarkSearchQueue();
+});
+
+test("catalog backfill transaction leaves no marker when an identity insert fails", () => {
+  const db = core.getDbInstance();
+  db.exec(`
+    CREATE TRIGGER fail_model_benchmark_enqueue
+    BEFORE INSERT ON model_benchmark_search_models
+    WHEN NEW.model_id = 'abort-model'
+    BEGIN
+      SELECT RAISE(ABORT, 'forced enqueue failure');
+    END;
+  `);
+
+  assert.throws(
+    () =>
+      searchDb.enqueueModelsDevCatalogIdentities(
+        [
+          { id: "queued-before-abort", name: "Queued Before Abort" },
+          { id: "abort-model", name: "Abort Model" },
+        ],
+        { hasRows: false, ids: new Set() }
+      ),
+    /forced enqueue failure/
+  );
+  assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 0);
+  assert.equal(
+    db
+      .prepare("SELECT 1 FROM model_benchmark_search_state WHERE state_key = ?")
+      .get("models_dev_full_catalog_backfill"),
+    undefined
+  );
+});
+
+test("full-catalog enqueue ignores duplicate IDs within one snapshot", () => {
+  const result = searchDb.enqueueModelsDevCatalogIdentities(
+    [
+      { id: "duplicate-model", name: "Duplicate Model" },
+      { id: "duplicate-model", name: "Duplicate Model" },
+    ],
+    { hasRows: true, ids: new Set(["duplicate-model"]) }
+  );
+
+  assert.deepEqual(result, { fullBackfill: true, queued: 1 });
+  assert.deepEqual(
+    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
+    ["duplicate-model"]
+  );
+});
+
+test("catalog sync refreshes a renamed model without resetting its queue state", () => {
+  searchDb.enqueueModelBenchmarkSearches([{ id: "renamed-model", name: "Old Name" }]);
+  const lastRunAt = "2026-10-25T12:00:00.000Z";
+  core
+    .getDbInstance()
+    .prepare(
+      `UPDATE model_benchmark_search_models
+       SET status = 'running', normalization_status = 'in_progress', attempts = 2, last_run_at = ?
+       WHERE model_id = ?`
+    )
+    .run(lastRunAt, "renamed-model");
+  core
+    .getDbInstance()
+    .prepare("INSERT INTO model_benchmark_search_state (state_key, state_value) VALUES (?, ?)")
+    .run("models_dev_full_catalog_backfill", "queued");
+
+  const result = searchDb.enqueueModelsDevCatalogIdentities(
+    [{ id: "renamed-model", name: "Current Name" }],
+    { hasRows: true, ids: new Set(["renamed-model"]) }
+  );
+
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.deepEqual(result, { fullBackfill: false, queued: 0 });
+  assert.equal(run.modelName, "Current Name");
+  assert.equal(run.status, "running");
+  assert.equal(run.normalizationStatus, "in_progress");
+  assert.equal(run.attempts, 2);
+  assert.equal(run.lastRunAt, lastRunAt);
 });
 
 test("search retries stop after five attempts", () => {
@@ -460,6 +606,136 @@ test("search retries stop after five attempts", () => {
 
   assert.equal(searchDb.claimModelBenchmarkSearch(), null);
   assert.equal(searchDb.listModelBenchmarkSearchRuns()[0].status, "retry_exhausted_unrated");
+});
+
+test("full-catalog drain processes a bounded batch and resumes remaining models", async () => {
+  searchDb.enqueueModelBenchmarkSearches(
+    Array.from({ length: 21 }, (_, index) => ({
+      id: `batch-model-${index}`,
+      name: `Batch Model ${index}`,
+    }))
+  );
+  globalThis.fetch = async () => {
+    throw new Error("network disabled in batch test");
+  };
+
+  await search.drainModelBenchmarkSearchQueue();
+  const firstBatch = searchDb.listModelBenchmarkSearchRuns(100);
+  assert.equal(firstBatch.filter((run) => run.status === "source_error").length, 20);
+  assert.equal(firstBatch.filter((run) => run.status === "pending").length, 1);
+
+  await search.drainModelBenchmarkSearchQueue();
+  const resumed = searchDb.listModelBenchmarkSearchRuns(100);
+  assert.equal(resumed.filter((run) => run.status === "source_error").length, 21);
+  assert.equal(resumed.filter((run) => run.status === "pending").length, 0);
+});
+
+test("full-catalog batch materializes sources only for models it claims", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  const models = Array.from({ length: 21 }, (_, index) => ({
+    id: `bounded-model-${index}`,
+    name: `Bounded Model ${index}`,
+  }));
+  searchDb.enqueueModelBenchmarkSearches(models);
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: models.map((model, index) => ({
+          slug: model.id,
+          name: model.name,
+          release_date: "2026-10-01",
+          evaluations: {
+            artificial_analysis_coding_index: index + 1,
+            artificial_analysis_intelligence_index: index + 1,
+          },
+        })),
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    throw new Error(`Unexpected batch request: ${url}`);
+  };
+
+  await search.drainModelBenchmarkSearchQueue();
+
+  const firstBatchEvidence = searchDb.listAllModelBenchmarkSearchEvidence();
+  assert.equal(firstBatchEvidence.length, 20);
+  assert.equal(new Set(firstBatchEvidence.map((row) => row.modelId)).size, 20);
+  assert.equal(
+    searchDb.listModelBenchmarkSearchRuns(100).filter((run) => run.status === "pending").length,
+    1
+  );
+  assert.equal(
+    searchDb.listModelBenchmarkSearchRuns(100).filter((run) => run.status === "scored").length,
+    20
+  );
+
+  await search.drainModelBenchmarkSearchQueue();
+  assert.equal(searchDb.listAllModelBenchmarkSearchEvidence().length, 21);
+});
+
+test("display names cannot masquerade as exact model IDs during source matching", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [
+          {
+            slug: "vendor/model-a",
+            name: "Shared Model",
+            release_date: "2026-10-01",
+            evaluations: {
+              artificial_analysis_coding_index: 10,
+              artificial_analysis_intelligence_index: 20,
+            },
+          },
+          {
+            slug: "external-model-id",
+            name: "Shared Model",
+            release_date: "2026-10-01",
+            evaluations: {
+              artificial_analysis_coding_index: 20,
+              artificial_analysis_intelligence_index: 30,
+            },
+          },
+        ],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url.startsWith("https://lite.duckduckgo.com/lite/")) {
+      return new Response("<html></html>", { status: 200 });
+    }
+    throw new Error(`Unexpected ambiguity request: ${url}`);
+  };
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "vendor/model-a", name: "Shared Model" },
+    { id: "vendor/model-b", name: "Shared Model" },
+    { id: "Shared Model", name: "Different Model" },
+  ]);
+
+  await search.drainModelBenchmarkSearchQueue();
+
+  assert.equal(searchDb.listModelBenchmarkSearchEvidence("vendor/model-a").length, 1);
+  assert.equal(searchDb.listModelBenchmarkSearchEvidence("vendor/model-b").length, 0);
+  assert.equal(searchDb.listModelBenchmarkSearchEvidence("Shared Model").length, 0);
 });
 
 test("complete AA and official miss runs HF and explicit free search, then stays unrated", async () => {
@@ -618,7 +894,7 @@ test("an incomplete official source blocks HF and web search", async () => {
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("incomplete-model").length, 0);
 });
 
-test("an exact official SWE row is retained and suppresses discovery search", async () => {
+test("direct AA scores avoid search while retaining an exact official SWE row", async () => {
   process.env.AA_API_KEY = "test-only-key";
   const urls: string[] = [];
   globalThis.fetch = async (input) => {
@@ -628,7 +904,26 @@ test("an exact official SWE row is retained and suppresses discovery search", as
       return jsonResponse({
         intelligence_index_version: 4.1,
         pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
-        data: [{ slug: "other-model", name: "Other Model (high)", release_date: "2026-10-01" }],
+        data: [
+          {
+            slug: "new-model",
+            name: "New Model (high)",
+            release_date: "2026-10-01",
+            evaluations: {
+              artificial_analysis_coding_index: 20,
+              artificial_analysis_intelligence_index: 30,
+            },
+          },
+          {
+            slug: "peer-model",
+            name: "Peer Model (high)",
+            release_date: "2026-10-01",
+            evaluations: {
+              artificial_analysis_coding_index: 10,
+              artificial_analysis_intelligence_index: 15,
+            },
+          },
+        ],
       });
     }
     if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
@@ -645,14 +940,20 @@ test("an exact official SWE row is retained and suppresses discovery search", as
     throw new Error(`Discovery search must not run: ${url}`);
   };
 
-  searchDb.enqueueModelBenchmarkSearches([{ id: "new-model", name: "New Model" }]);
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "new-model", name: "New Model" },
+    { id: "peer-model", name: "Peer Model" },
+  ]);
   await search.drainModelBenchmarkSearchQueue();
 
   const [run] = searchDb.listModelBenchmarkSearchRuns();
-  assert.equal(run.status, "existing_benchmark_record");
-  assert.equal(run.sourceStatus.artificialAnalysis.status, "missing");
+  assert.equal(run.status, "scored");
+  assert.equal(run.sourceStatus.artificialAnalysis.status, "found");
   assert.equal(run.sourceStatus.sweBench.status, "found");
-  const [row] = searchDb.listModelBenchmarkSearchEvidence("new-model");
+  const row = searchDb
+    .listModelBenchmarkSearchEvidence("new-model")
+    .find((item) => item.source === "swe-bench");
+  assert.ok(row);
   assert.equal(row.source, "swe-bench");
   assert.equal(row.benchmarkVersion, "Verified");
   assert.equal(row.value, 0);
@@ -675,7 +976,26 @@ test("AA exact slug matches when display name includes a reasoning effort", asyn
       return jsonResponse({
         intelligence_index_version: 4.1,
         pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
-        data: [{ slug: "new-model", name: "New Model (high)", release_date: "2026-10-01" }],
+        data: [
+          {
+            slug: "new-model",
+            name: "New Model (high)",
+            release_date: "2026-10-01",
+            evaluations: {
+              artificial_analysis_coding_index: 20,
+              artificial_analysis_intelligence_index: 30,
+            },
+          },
+          {
+            slug: "peer-model",
+            name: "Peer Model (high)",
+            release_date: "2026-10-01",
+            evaluations: {
+              artificial_analysis_coding_index: 10,
+              artificial_analysis_intelligence_index: 15,
+            },
+          },
+        ],
       });
     }
     if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
@@ -690,11 +1010,14 @@ test("AA exact slug matches when display name includes a reasoning effort", asyn
     throw new Error(`Discovery search must not run: ${url}`);
   };
 
-  searchDb.enqueueModelBenchmarkSearches([{ id: "new-model", name: "New Model" }]);
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "new-model", name: "New Model" },
+    { id: "peer-model", name: "Peer Model" },
+  ]);
   await search.drainModelBenchmarkSearchQueue();
 
   const [run] = searchDb.listModelBenchmarkSearchRuns();
-  assert.equal(run.status, "existing_benchmark_record");
+  assert.equal(run.status, "scored");
   assert.equal(run.sourceStatus.artificialAnalysis.status, "found");
   const [row] = searchDb.listModelBenchmarkSearchEvidence("new-model");
   assert.equal(row.matchedModelId, "new-model");
