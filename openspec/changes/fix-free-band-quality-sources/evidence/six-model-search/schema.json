@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/schemas/six-model-search-report-v1.json",
+  "title": "Six exact model benchmark search results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "research_date", "structured_output", "targets"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "research_date": { "type": "string", "format": "date" },
+    "structured_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assessment", "mechanism", "evidence"],
+      "properties": {
+        "assessment": {
+          "enum": ["server_enforced", "native_agent_contract_only", "unverified"]
+        },
+        "mechanism": { "type": "string", "minLength": 1 },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["location", "observation"],
+            "properties": {
+              "location": { "type": "string", "minLength": 1 },
+              "observation": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/target" },
+      "allOf": [
+        { "contains": { "properties": { "model_id": { "const": "api-airforce/google/gemma3-270m:free" } }, "required": ["model_id"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "properties": { "model_id": { "const": "groq/allam-2-7b" } }, "required": ["model_id"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "properties": { "model_id": { "const": "kilocode/stealth/glyph-cluster" } }, "required": ["model_id"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "properties": { "model_id": { "const": "opencode-zen/big-pickle" } }, "required": ["model_id"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "properties": { "model_id": { "const": "opencode-zen/longcat-2.5-preview-free" } }, "required": ["model_id"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "properties": { "model_id": { "const": "opencode-zen/space-bunny-free" } }, "required": ["model_id"] }, "minContains": 1, "maxContains": 1 }
+      ]
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "benchmarks"],
+      "properties": {
+        "model_id": {
+          "enum": [
+            "api-airforce/google/gemma3-270m:free",
+            "groq/allam-2-7b",
+            "kilocode/stealth/glyph-cluster",
+            "opencode-zen/big-pickle",
+            "opencode-zen/longcat-2.5-preview-free",
+            "opencode-zen/space-bunny-free"
+          ]
+        },
+        "benchmarks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["SWE-bench Verified", "SWE-bench Multilingual", "SWE-bench Pro", "Terminal-Bench", "DeepSWE"],
+          "properties": {
+            "SWE-bench Verified": { "$ref": "#/$defs/benchmark_group" },
+            "SWE-bench Multilingual": { "$ref": "#/$defs/benchmark_group" },
+            "SWE-bench Pro": { "$ref": "#/$defs/benchmark_group" },
+            "Terminal-Bench": { "$ref": "#/$defs/benchmark_group" },
+            "DeepSWE": { "$ref": "#/$defs/benchmark_group" }
+          }
+        }
+      }
+    },
+    "benchmark_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "results", "search_log"],
+      "properties": {
+        "status": { "enum": ["found", "not_found"] },
+        "results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/result" }
+        },
+        "search_log": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/search_entry" }
+        }
+      },
+      "oneOf": [
+        { "properties": { "status": { "const": "found" }, "results": { "minItems": 1 } } },
+        { "properties": { "status": { "const": "not_found" }, "results": { "maxItems": 0 } } }
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "model_version", "score", "unit", "benchmark_version", "effort", "agent", "source_url", "source_date", "evidence_quote"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "model_version": { "type": ["string", "null"] },
+        "score": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 },
+        "benchmark_version": { "type": ["string", "null"] },
+        "effort": { "type": ["string", "null"] },
+        "agent": { "type": ["string", "null"] },
+        "source_url": { "type": "string", "format": "uri" },
+        "source_date": { "type": ["string", "null"], "format": "date" },
+        "evidence_quote": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "search_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "url", "queries", "searched_at", "outcome"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "queries": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "searched_at": { "type": "string", "format": "date" },
+        "outcome": { "enum": ["inspected", "no_match"] }
+      }
+    }
+  }
+}

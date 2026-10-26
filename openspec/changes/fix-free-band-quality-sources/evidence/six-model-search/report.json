@@ -1,0 +1,664 @@
+{
+  "schema_version": 1,
+  "research_date": "2026-10-25",
+  "structured_output": {
+    "assessment": "native_agent_contract_only",
+    "mechanism": "Six native collaboration agents were instructed to emit target JSON objects. The tool accepts a natural-language task but no output-schema parameter; lead validates files against this JSON Schema. OmniRoute POST /v1/search returns normalized JSON search data, not schema-constrained LLM output. Hermes agent JSON Schema mode is non-strict and can be removed when a route rejects it.",
+    "evidence": [
+      {
+        "location": "collaboration.spawn_agent tool contract",
+        "observation": "Input includes task/message and model preset, but no response_schema or response_format argument; agents produced requested JSON under instruction and lead-side validation."
+      },
+      {
+        "location": "/srv/projects/hermes/.worktrees/free-band-modeldev-sync/src/app/api/v1/search/route.ts:130-145, 422-430",
+        "observation": "POST /v1/search validates its request with v1SearchSchema, runs a search provider, then returns JSON.stringify(response); it has no model output schema argument."
+      },
+      {
+        "location": "/srv/projects/hermes/.worktrees/free-band-modeldev-sync/src/shared/validation/schemas/apiV1.ts:586-698",
+        "observation": "v1SearchSchema is an input schema; searchResultSchema describes result fields. Neither is response_format enforcement for model-generated research."
+      },
+      {
+        "location": "/srv/projects/hermes/nomadic-sdk/.candidate/hermes-agent/agent/plugin_llm.py:403-411",
+        "observation": "The agent adapter builds response_format.type=json_schema with strict=false."
+      },
+      {
+        "location": "/srv/projects/hermes/nomadic-sdk/.candidate/hermes-agent/agent/auxiliary_structured_output.py:90-111",
+        "observation": "For known unsupported routes the agent removes response_format and logs that schema enforcement degrades to prompt compliance."
+      }
+    ]
+  },
+  "targets": [
+    {
+      "model_id": "groq/allam-2-7b",
+      "benchmarks": {
+        "SWE-bench Verified": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench Verified leaderboard",
+              "url": "https://www.swebench.com/verified.html",
+              "queries": [
+                "site:swebench.com \"ALLaM\" OR \"allam\"",
+                "site:swebench.com \"allam-2-7b\" OR \"ALLaM 2\"",
+                "\"ALLaM-2-7B\" \"SWE-bench\" OR \"Terminal-Bench\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "SWE-bench Multilingual": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench Multilingual leaderboard",
+              "url": "https://www.swebench.com/multilingual.html",
+              "queries": [
+                "site:swebench.com/multilingual.html \"allam\"",
+                "\"groq/allam-2-7b\" \"SWE-bench Multilingual\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "SWE-bench Pro": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Scale AI SWE-bench Pro public leaderboard",
+              "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=full",
+              "queries": [
+                "site:labs.scale.com/leaderboard/swe_bench_pro_public \"allam-2-7b\"",
+                "\"allam-2-7b\" \"SWE-bench Pro\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "Terminal-Bench": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Terminal-Bench leaderboard hosted by Snorkel AI",
+              "url": "https://snorkel.ai/leaderboard/terminal-bench/",
+              "queries": [
+                "site:snorkel.ai/leaderboard/terminal-bench \"allam\"",
+                "site:terminalbench.com \"ALLaM\" OR \"allam-2-7b\"",
+                "\"allam-2-7b\" \"Terminal-Bench\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "DeepSWE": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Datacurve DeepSWE leaderboard",
+              "url": "https://deepswe.datacurve.ai/",
+              "queries": [
+                "site:deepswe.datacurve.ai allam OR \"ALLaM\"",
+                "site:deepswe.datacurve.ai \"allam-2-7b\"",
+                "\"DeepSWE\" benchmark score leaderboard"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "model_id": "opencode-zen/big-pickle",
+      "benchmarks": {
+        "SWE-bench Verified": {
+          "status": "found",
+          "results": [
+            {
+              "model": "Big Pickle",
+              "model_version": null,
+              "score": 65,
+              "unit": "% resolved (13/20)",
+              "benchmark_version": "SWE-bench Verified Mini (20-task fixed-seed subset)",
+              "effort": null,
+              "agent": "OpenCode 1.18.33",
+              "source_url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+              "source_date": "2026-10-04",
+              "evidence_quote": "Big Pickle 13 of 20"
+            }
+          ],
+          "search_log": [
+            {
+              "source": "Fellipe Soares, primary benchmark report",
+              "url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+              "queries": [
+                "\"Big Pickle\" \"SWE-bench Verified Mini\"",
+                "\"Big Pickle\" \"SWE-bench Verified\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            },
+            {
+              "source": "Official SWE-bench leaderboard",
+              "url": "https://www.swebench.com/",
+              "queries": [
+                "site:swebench.com \"Big Pickle\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Multilingual": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench leaderboard, Multilingual track",
+              "url": "https://www.swebench.com/",
+              "queries": [
+                "SWE-bench Multilingual leaderboard official Big Pickle",
+                "\"opencode-zen/big-pickle\" \"SWE-bench Multilingual\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Pro": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Scale AI official SWE-Bench Pro V2 public leaderboard",
+              "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2",
+              "queries": [
+                "SWE-bench Pro leaderboard \"Big Pickle\"",
+                "site:scale.com SWE-bench Pro Big Pickle",
+                "\"Big Pickle\" \"SWE-bench Pro\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "Terminal-Bench": {
+          "status": "found",
+          "results": [
+            {
+              "model": "Big Pickle",
+              "model_version": null,
+              "score": 71,
+              "unit": "% tasks solved (10/14)",
+              "benchmark_version": "Terminal-Bench 2.1 (14-task subset)",
+              "effort": null,
+              "agent": "OpenCode 1.18.33",
+              "source_url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+              "source_date": "2026-10-04",
+              "evidence_quote": "Big Pickle 10 of 14"
+            }
+          ],
+          "search_log": [
+            {
+              "source": "Fellipe Soares, primary benchmark report",
+              "url": "https://fellipesoares.com.br/en/opencode-stealth-models-benchmarks/",
+              "queries": [
+                "\"Big Pickle\" \"Terminal-Bench 2.1\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            },
+            {
+              "source": "Official Terminal-Bench 2.0 leaderboard on Harbor Hub",
+              "url": "https://hub.harborframework.com/datasets/terminal-bench/terminal-bench-2/latest?leaderboard=2-0&tab=leaderboard",
+              "queries": [
+                "\"Big Pickle\" \"Terminal-Bench 2.0\"",
+                "Terminal-Bench official leaderboard Big Pickle"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "DeepSWE": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Datacurve official DeepSWE leaderboard",
+              "url": "https://deepswe.datacurve.ai/",
+              "queries": [
+                "site:deepswe.datacurve.ai \"Big Pickle\"",
+                "site:deepswe.datacurve.ai \"opencode-zen/big-pickle\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "model_id": "api-airforce/google/gemma3-270m:free",
+      "benchmarks": {
+        "SWE-bench Verified": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench Leaderboards",
+              "url": "https://www.swebench.com/",
+              "queries": [
+                "\"google/gemma3-270m\" \"SWE-bench Verified\"",
+                "site:swebench.com \"gemma-3-270m\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Multilingual": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench Multilingual page and results",
+              "url": "https://www.swebench.com/multilingual",
+              "queries": [
+                "\"google/gemma3-270m\" \"SWE-bench Multilingual\"",
+                "\"gemma3-270m\" \"SWE-bench Multilingual\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Pro": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Scale AI SWE-Bench Pro V2 public leaderboard",
+              "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2",
+              "queries": [
+                "\"google/gemma3-270m\" \"SWE-bench Pro\"",
+                "\"gemma3-270m\" \"SWE-bench Pro\"",
+                "site:scale.com \"gemma-3-270m\" \"swe-bench\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "Terminal-Bench": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official Terminal-Bench leaderboard",
+              "url": "https://www.tbench.ai/leaderboard",
+              "queries": [
+                "\"gemma3-270m\" \"Terminal-Bench\"",
+                "site:terminal-bench.com \"gemma-3-270m\"",
+                "\"google/gemma3-270m\" \"Terminal-Bench\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "DeepSWE": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Datacurve DeepSWE 1.1 leaderboard, checked via its published tracker and exact-source search",
+              "url": "https://www.deepswe.dev/",
+              "queries": [
+                "\"gemma3-270m\" \"DeepSWE\"",
+                "site:deepswe.datacurve.ai \"gemma-3-270m\"",
+                "site:deepswe.datacurve.ai \"google/gemma-3-270m-it\"",
+                "\"Google Gemma 3 270M\" \"DeepSWE\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "model_id": "kilocode/stealth/glyph-cluster",
+      "benchmarks": {
+        "SWE-bench Verified": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench leaderboard",
+              "url": "https://www.swebench.com/",
+              "queries": [
+                "\"kilocode/stealth/glyph-cluster\" SWE-bench Verified",
+                "site:swebench.com \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Multilingual": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official SWE-bench Multilingual leaderboard",
+              "url": "https://www.swebench.com/multilingual",
+              "queries": [
+                "\"kilocode/stealth/glyph-cluster\" \"SWE-bench Multilingual\"",
+                "site:swebench.com/multilingual \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Pro": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Scale AI SWE-Bench Pro public leaderboard",
+              "url": "https://labs.scale.com/leaderboard/swe_bench_pro",
+              "queries": [
+                "\"kilocode/stealth/glyph-cluster\" \"SWE-bench Pro\"",
+                "site:labs.scale.com/leaderboard/swe_bench_pro \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "Terminal-Bench": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Official Terminal-Bench leaderboard",
+              "url": "https://www.tbench.ai/?version=2.1",
+              "queries": [
+                "\"kilocode/stealth/glyph-cluster\" \"Terminal-Bench\"",
+                "site:tbench.ai \"glyph-cluster\" OR \"stealth/glyph-cluster\" Terminal-Bench"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "DeepSWE": {
+          "status": "found",
+          "results": [
+            {
+              "model": "stealth/glyph-cluster",
+              "model_version": null,
+              "score": 2.7,
+              "unit": "percent pass@1",
+              "benchmark_version": "DeepSWE v1.1",
+              "effort": "xhigh",
+              "agent": "mini-swe-agent 2.4.6",
+              "source_url": "https://huggingface.co/datasets/ProCreations/glyph-cluster-deepswe-traces",
+              "source_date": "2026-10-08",
+              "evidence_quote": "“pass@1 | 2.7% ± 0.7%”; model `stealth/glyph-cluster`, effort `xhigh`; “self-run evaluation and does not appear on the official leaderboard.”"
+            }
+          ],
+          "search_log": [
+            {
+              "source": "Official Datacurve DeepSWE leaderboard v1.1",
+              "url": "https://deepswe.datacurve.ai/",
+              "queries": [
+                "\"kilocode/stealth/glyph-cluster\" DeepSWE",
+                "site:deepswe.datacurve.ai \"glyph-cluster\" OR \"stealth/glyph-cluster\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "ProCreations dataset card with self-run DeepSWE traces",
+              "url": "https://huggingface.co/datasets/ProCreations/glyph-cluster-deepswe-traces",
+              "queries": [
+                "\"glyph-cluster\" \"DeepSWE v1.1\" \"2.7%\"",
+                "\"stealth/glyph-cluster\" pass@1 xhigh concurrency"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "model_id": "opencode-zen/longcat-2.5-preview-free",
+      "benchmarks": {
+        "SWE-bench Verified": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "SWE-bench official Verified leaderboard",
+              "url": "https://www.swebench.com/verified.html",
+              "queries": [
+                "site:swebench.com/verified.html \"LongCat-2.5-Preview\"",
+                "site:swebench.com \"LongCat-2.5-Preview\" \"Verified\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "Meituan LongCat API changelog",
+              "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+              "queries": [
+                "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "SWE-bench Multilingual": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "SWE-bench official Multilingual leaderboard and benchmark page",
+              "url": "https://www.swebench.com/multilingual.html",
+              "queries": [
+                "site:swebench.com/multilingual \"LongCat-2.5-Preview\"",
+                "site:swebench.com \"LongCat-2.5-Preview\" \"Multilingual\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "Meituan LongCat API changelog",
+              "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+              "queries": [
+                "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "SWE-bench Pro": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Scale AI official SWE-Bench Pro V2 leaderboard",
+              "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=full",
+              "queries": [
+                "site:labs.scale.com/leaderboard/swe_bench_pro_public_v2 \"LongCat-2.5-Preview\"",
+                "site:labs.scale.com/leaderboard/swe_bench_pro \"LongCat-2.5-Preview\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "Meituan LongCat API changelog",
+              "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+              "queries": [
+                "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "Terminal-Bench": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Terminal-Bench official leaderboard",
+              "url": "https://www.tbench.ai/?version=2.1",
+              "queries": [
+                "site:tbench.ai \"LongCat-2.5-Preview\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "Meituan LongCat API changelog",
+              "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+              "queries": [
+                "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        },
+        "DeepSWE": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Datacurve official DeepSWE leaderboard",
+              "url": "https://deepswe.datacurve.ai/",
+              "queries": [
+                "site:deepswe.datacurve.ai \"longcat-2.5-preview\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "Meituan LongCat API changelog",
+              "url": "https://longcat.ai/platform/docs/ChangeLog.html",
+              "queries": [
+                "site:longcat.ai/platform/docs/change-log \"LongCat-2.5-Preview\" benchmark"
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "inspected"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "model_id": "opencode-zen/space-bunny-free",
+      "benchmarks": {
+        "SWE-bench Verified": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "SWE-bench official leaderboard",
+              "url": "https://www.swebench.com/",
+              "queries": [
+                "\"opencode-zen/space-bunny-free\" \"SWE-bench Verified\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Multilingual": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "SWE-bench Multilingual official page",
+              "url": "https://www.swebench.com/multilingual",
+              "queries": [
+                "\"opencode-zen/space-bunny-free\" \"SWE-bench Multilingual\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "SWE-bench Pro": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Scale AI SWE-Bench Pro V2 public leaderboard",
+              "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2",
+              "queries": [
+                "\"opencode-zen/space-bunny-free\" \"SWE-bench Pro\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "Terminal-Bench": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Terminal-Bench 4.0 official leaderboard",
+              "url": "https://www.tbench.ai/",
+              "queries": [
+                "\"opencode-zen/space-bunny-free\" \"Terminal-Bench\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        },
+        "DeepSWE": {
+          "status": "not_found",
+          "results": [],
+          "search_log": [
+            {
+              "source": "Datacurve DeepSWE official leaderboard",
+              "url": "https://deepswe.datacurve.ai/",
+              "queries": [
+                "\"opencode-zen/space-bunny-free\" \"DeepSWE\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            },
+            {
+              "source": "MiniMax official M3.1 Flash announcement",
+              "url": "https://www.minimax.io/blog/minimax-m31f",
+              "queries": [
+                "site:minimax.io/blog/minimax-m31f \"opencode-zen/space-bunny-free\" \"DeepSWE\""
+              ],
+              "searched_at": "2026-10-25",
+              "outcome": "no_match"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

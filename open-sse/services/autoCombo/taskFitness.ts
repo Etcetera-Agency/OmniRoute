@@ -10,15 +10,17 @@
  * 2b. Layers 1-2 retried against the base model this id inherits quality scores
  *     from, when `resolveScoresAs` resolves one (#11489). Reported as
  *     `<source>:inherited`.
- * 2c. If the request id or its scoresAs base is vendor-retired (#11625), layers
- *     1–3 are skipped so a leftover arena row cannot short-circuit the layer-3
- *     veto, and a dead *codex id cannot keep the coding wildcard boost.
- * 3. Models.dev tier — derived from `model_capabilities` table capability data,
+ * 2c. If the request id or its scoresAs base is vendor-retired (#11625), the
+ *     evidence-backed sources are skipped so stale quality cannot outlive the
+ *     model lifecycle.
+ * 3. Profile-specific benchmark consensus — used only for band fitness when a
+ *     low/medium/high calculation profile is supplied.
+ * 4. Models.dev tier — derived from `model_capabilities` table capability data,
  *     with a vendor-lifecycle veto (#11508: a retired id never earns a tier
  *     score) and the same base-model inheritance as layers 1–2
  *     (`models_dev_tier:inherited`)
- * 4. Static FITNESS_TABLE — small hand-maintained table of VERSIONED model ids
- * 5. Wildcard boosts — pattern matching boosts over a neutral 0.5 baseline
+ * 5. Static FITNESS_TABLE — small hand-maintained table of VERSIONED model ids
+ * 6. Wildcard boosts — pattern matching boosts over a neutral 0.5 baseline
  *
  * Layer 4 is deliberately small and versioned (#11503). It used to carry
  * version-less family patterns (`claude-sonnet`, `qwen`, `llama`, `codex`, …) that
@@ -39,6 +41,11 @@
 // ─── Static fitness table (versioned rows only, fallback layer 4) ────────
 
 import { getDbInstance } from "../../../src/lib/db/core.ts";
+import { getModelCapabilitiesCacheVersion } from "../../../src/lib/db/readCache.ts";
+import {
+  getBenchmarkConsensusFitness,
+  type BandFitnessProfile,
+} from "./bands/benchmarkConsensusFitness";
 import {
   getModelIntelligenceBySource,
   setUserFitnessOverrideEntry,
@@ -224,6 +231,7 @@ function queryModelIntelligence(model: string, category: string, source: string)
 // ─── Models.dev capability → tier → fitness resolution ──────────────────
 
 let _capabilitiesCache: Record<string, ModelCapRow> | null = null;
+let _capabilitiesCacheVersion = -1;
 
 interface ModelCapRow {
   tool_call: boolean | null;
@@ -251,7 +259,8 @@ function deriveTierFromCapabilities(cap: ModelCapRow): string {
  * that carry one. Both are deterministic and independent of row order.
  */
 function loadModelCapabilities(): Record<string, ModelCapRow> | null {
-  if (_capabilitiesCache) return _capabilitiesCache;
+  const cacheVersion = getModelCapabilitiesCacheVersion();
+  if (_capabilitiesCache && _capabilitiesCacheVersion === cacheVersion) return _capabilitiesCache;
 
   try {
     const db = getDbInstance();
@@ -323,6 +332,7 @@ function loadModelCapabilities(): Record<string, ModelCapRow> | null {
     }
 
     _capabilitiesCache = cache;
+    _capabilitiesCacheVersion = cacheVersion;
     return cache;
   } catch {
     return null;
@@ -475,7 +485,8 @@ function isFitnessRetired(modelId: string): boolean {
 
 export function getTaskFitnessWithSource(
   model: string,
-  taskType: string
+  taskType: string,
+  profile?: BandFitnessProfile
 ): { score: number; source: string } {
   const normalizedModel = model.toLowerCase();
   const normalizedTask = taskType.toLowerCase();
@@ -504,6 +515,13 @@ export function getTaskFitnessWithSource(
     const inherited = lookupInheritedFitness(normalizedModel, normalizedTask);
     if (inherited !== null) {
       return inherited;
+    }
+
+    if (profile) {
+      const benchmarkScore = getBenchmarkConsensusFitness(normalizedModel, normalizedTask, profile);
+      if (benchmarkScore !== null) {
+        return { score: benchmarkScore, source: `benchmark_consensus:${profile}` };
+      }
     }
 
     const tierScore = getModelsDevTierFitness(normalizedModel, normalizedTask);

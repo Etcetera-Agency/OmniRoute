@@ -688,3 +688,46 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - A broader related test invocation hit a permission assertion that assumes `chmod 000` prevents reads; the runner is root, which can still read the file. This unrelated test was not changed. No full suite is claimed.
 - Code Simplifier reviewed the scoped source and tests; no further safe simplification. Independent Luna-xhigh review initially rejected the global-default approach, then confirmed the narrowed correction closes that scope issue with no findings: `:free` propagation is explicit, calibration/general/low are unaffected, and tools/capability checks remain enforced.
 - Local implementation is reviewable on `codex/auto-band-live-fix`; no live inference has been sent. Production remains on source `876c6c4b471c5a1eb344418a249217f5b309d706` until the normal main release path runs. Remaining acceptance: main deployment, nonempty eligible `coding/high/tools:free` candidates, then one controlled `check_combo(value=7)` tool call with actual model/connection, zero-cost, and no paid/out-of-band fallback receipts.
+
+## Free auto-band quality-source correction — 2026-10-25
+
+- Implemented in the isolated `/srv/projects/hermes/.worktrees/free-band-modeldev-sync` worktree on `codex/free-band-modeldev-sync`, based on `1f4e5d2b77`. No commit, push, merge, live configuration change, or inference was performed.
+- The band filter now admits the exact `models_dev_tier` source and its colon-qualified variants across all tasks/bands only for explicit `:free` requests; explicit configured `ratedSources` still work independently. The `:free` classification, tools/capability filters, existing score ranges, and fail-closed behavior remain in place. Capability fitness stays keyed by raw/global model ID and creates no `user_override` rows.
+- AutoCombo's model-capability snapshot now follows the existing invalidation generation after successful models.dev sync; failed and dry-run sync behavior is covered. Added tests for sync visibility, raw/global ID, no synthetic override, every free task/band, and rejection of `models_dev_tier_extra` even with free opt-in enabled.
+- Focused verification in a temporary Linux-compatible dependency environment: band-filter suite 14 passed / 6 unrelated skipped; two AutoCombo test files 19 passed; sync/cache regression passed; `typecheck:core` passed. `check:open-sse-typecheck` reported one unrelated error in `open-sse/services/systemOne/schema.ts` (TS2353). A direct rerun in this worktree could not start because its `node_modules` is absent (`vitest`, `tsx`, and `tsc` not found); no dependencies were installed here. `git diff --check` passed.
+- Code Simplifier reviewed the changed source and tests; no safe source simplification was needed. Independent Luna-xhigh review initially requested an exact-source pseudocode correction and an opt-in lookalike test; both were fixed and the reviewer confirmed those findings resolved. No remaining runtime safety findings were reported. Strict OpenSpec validation remains pending because the CLI is unavailable in this worktree.
+- Independent static scoring assessment found the capability-to-tier mapping systematically over-admits coding candidates to high; it cannot determine absolute per-model quality. A benchmark-source comparison continues in thread `01a17450-0959-74c2-88b7-47dc50e226bf`. Owner decision on whether capability-only scores may participate in mid/high remains open in `openspec/TODO.md`; no live acceptance is claimed.
+
+## Free auto-band quality-source review closeout — 2026-10-25
+
+- Re-read the official Artificial Analysis API schema and examples. The Free
+  list exposes configuration-specific rows by `id` and `name`; its example is
+  `gpt-oss-20B (high)` with Coding and Intelligence indices. The schema does
+  not define a normalized effort field. Pro adds `reasoning_model: boolean`,
+  while reasoning token/cost fields describe usage. The parser now trusts a
+  recognized API-name suffix before paired chart metadata.
+- Candidate scores use the effective mode recorded by Hermes for that band.
+  A mapped `xhigh` row is used even when a `high` sibling exists; if that
+  mapped row is missing, the sibling remains numeric but is marked as an
+  estimate. Generic high reference populations prefer `high`, then `xhigh`.
+  Missing-effort values are never converted to zero.
+- Independent review findings were corrected: unreviewed punctuation-similar
+  model names remain distinct unless an exact reviewed alias maps them; equal
+  scores from different agents remain separate observations; singleton
+  evidence text matches the five-identity cohort minimum; candidate effort
+  matching and sibling fallback provenance agree across code, tests, and spec.
+- Recalculation yields 78 provider/model rows, 66 raw model IDs, numeric
+  evidence for 43 IDs, 23 without numeric evidence, and no provider-copy
+  conflicts. The generated table SHA-256 is
+  `3e753f3c3f6bfd35ecaa995a69d6f512c1b8f975f311708da8ca98f8e4bcecd9`.
+  Configured band ranges, including the 0.70 high cutoff, are unchanged.
+- Focused verification: AA/configuration tests 26/26; unified estimator tests
+  24/24; AutoCombo Vitest 26/26; models.dev sync regression 21/21; core
+  typecheck passed; strict OpenSpec validation passed; `git diff --check`
+  passed. Independent Luna-xhigh review closed all findings with no residual
+  issue. Code Simplifier was applied to the changed calculation code.
+- This remains an uncommitted local branch. No push, merge, live setting
+  change, or inference was performed. Band membership remains sensitive to
+  which benchmark family is removed (7–12 raw IDs in this snapshot); values
+  are relative estimates, not success probabilities. Live deployment and
+  inference acceptance remain pending.

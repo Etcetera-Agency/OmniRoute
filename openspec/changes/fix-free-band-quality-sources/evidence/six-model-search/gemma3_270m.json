@@ -1,0 +1,89 @@
+{
+  "model_id": "api-airforce/google/gemma3-270m:free",
+  "benchmarks": {
+    "SWE-bench Verified": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench Leaderboards",
+          "url": "https://www.swebench.com/",
+          "queries": [
+            "\"google/gemma3-270m\" \"SWE-bench Verified\"",
+            "site:swebench.com \"gemma-3-270m\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Multilingual": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench Multilingual page and results",
+          "url": "https://www.swebench.com/multilingual",
+          "queries": [
+            "\"google/gemma3-270m\" \"SWE-bench Multilingual\"",
+            "\"gemma3-270m\" \"SWE-bench Multilingual\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "SWE-bench Pro": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Scale AI SWE-Bench Pro V2 public leaderboard",
+          "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2",
+          "queries": [
+            "\"google/gemma3-270m\" \"SWE-bench Pro\"",
+            "\"gemma3-270m\" \"SWE-bench Pro\"",
+            "site:scale.com \"gemma-3-270m\" \"swe-bench\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "Terminal-Bench": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official Terminal-Bench leaderboard",
+          "url": "https://www.tbench.ai/leaderboard",
+          "queries": [
+            "\"gemma3-270m\" \"Terminal-Bench\"",
+            "site:terminal-bench.com \"gemma-3-270m\"",
+            "\"google/gemma3-270m\" \"Terminal-Bench\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    },
+    "DeepSWE": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Datacurve DeepSWE 1.1 leaderboard, checked via its published tracker and exact-source search",
+          "url": "https://www.deepswe.dev/",
+          "queries": [
+            "\"gemma3-270m\" \"DeepSWE\"",
+            "site:deepswe.datacurve.ai \"gemma-3-270m\"",
+            "site:deepswe.datacurve.ai \"google/gemma-3-270m-it\"",
+            "\"Google Gemma 3 270M\" \"DeepSWE\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "no_match"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "model_id": "groq/allam-2-7b",
+  "benchmarks": {
+    "SWE-bench Verified": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench Verified leaderboard",
+          "url": "https://www.swebench.com/verified.html",
+          "queries": [
+            "site:swebench.com \"ALLaM\" OR \"allam\"",
+            "site:swebench.com \"allam-2-7b\" OR \"ALLaM 2\"",
+            "\"ALLaM-2-7B\" \"SWE-bench\" OR \"Terminal-Bench\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "SWE-bench Multilingual": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Official SWE-bench Multilingual leaderboard",
+          "url": "https://www.swebench.com/multilingual.html",
+          "queries": [
+            "site:swebench.com/multilingual.html \"allam\"",
+            "\"groq/allam-2-7b\" \"SWE-bench Multilingual\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "SWE-bench Pro": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Scale AI SWE-bench Pro public leaderboard",
+          "url": "https://labs.scale.com/leaderboard/swe_bench_pro_public_v2?tab=full",
+          "queries": [
+            "site:labs.scale.com/leaderboard/swe_bench_pro_public \"allam-2-7b\"",
+            "\"allam-2-7b\" \"SWE-bench Pro\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "Terminal-Bench": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Terminal-Bench leaderboard hosted by Snorkel AI",
+          "url": "https://snorkel.ai/leaderboard/terminal-bench/",
+          "queries": [
+            "site:snorkel.ai/leaderboard/terminal-bench \"allam\"",
+            "site:terminalbench.com \"ALLaM\" OR \"allam-2-7b\"",
+            "\"allam-2-7b\" \"Terminal-Bench\""
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    },
+    "DeepSWE": {
+      "status": "not_found",
+      "results": [],
+      "search_log": [
+        {
+          "source": "Datacurve DeepSWE leaderboard",
+          "url": "https://deepswe.datacurve.ai/",
+          "queries": [
+            "site:deepswe.datacurve.ai allam OR \"ALLaM\"",
+            "site:deepswe.datacurve.ai \"allam-2-7b\"",
+            "\"DeepSWE\" benchmark score leaderboard"
+          ],
+          "searched_at": "2026-10-25",
+          "outcome": "inspected"
+        }
+      ]
+    }
+  }
+}

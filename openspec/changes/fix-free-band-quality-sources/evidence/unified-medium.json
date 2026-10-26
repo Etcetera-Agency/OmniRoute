@@ -1,0 +1,4560 @@
+{
+  "hypothesis": "profile-matched model ranks; one median vote per family; symmetric task fallback",
+  "effort": "medium",
+  "candidate_count": 78,
+  "measurements_after_dedup": 485,
+  "reference_counts": {
+    "DeepSWE (unspecified version)": 5,
+    "DeepSWE 1.1": 32,
+    "SWE-bench Multilingual": 21,
+    "SWE-bench Pro (unspecified version)": 10,
+    "SWE-bench Pro v2": 1,
+    "SWE-bench Verified": 101,
+    "SWE-bench Verified Mini (20-task fixed-seed subset)": 1,
+    "Terminal-Bench (unspecified version)": 2,
+    "Terminal-Bench 2.0": 53,
+    "Terminal-Bench 2.1": 25,
+    "Terminal-Bench 2.1 (14-task subset)": 1,
+    "Terminal-Bench 3.0": 2,
+    "Terminal-Bench 4.0": 2
+  },
+  "models": [
+    {
+      "target": "api-airforce/google/gemma3-270m:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "gemini/lyria-3-clip-preview",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "gemini/lyria-3-pro-preview",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/allam-2-7b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/canopylabs/orpheus-arabic-saudi",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/canopylabs/orpheus-v1-english",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/groq/compound",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/groq/compound-mini",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/llama-3.1-8b-instant",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.06521739130434782,
+      "general": 0.07865168539325842,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.06521739130434782,
+      "aa_general": 0.07865168539325842,
+      "aa_estimate_reasons": {
+        "coding": [
+          "historical_aa_result"
+        ],
+        "general": [
+          "historical_aa_result",
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.06521739130434782
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/llama-3.3-70b-versatile",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.14673913043478262,
+      "general": 0.07865168539325842,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.14673913043478262,
+      "aa_general": 0.07865168539325842,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.14673913043478262
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.10326086956521739,
+      "general": 0.07303370786516854,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.10326086956521739,
+      "aa_general": 0.07303370786516854,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "AA Coding": 0.10326086956521739
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/meta-llama/llama-prompt-guard-2-22m",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/meta-llama/llama-prompt-guard-2-86m",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/openai/gpt-oss-120b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.16336633663366337,
+      "general": 0.16853932584269662,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.3641304347826087,
+      "aa_general": 0.16853932584269662,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy",
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "SWE-bench": 0.16336633663366337,
+        "Terminal-Bench": 0.0660377358490566,
+        "AA Coding": 0.3641304347826087
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            26.0
+          ],
+          "score_percent": 26.0,
+          "fitness": 0.16336633663366337,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            18.6891385768,
+            14.1573033708
+          ],
+          "score_percent": 16.4232209738,
+          "fitness": 0.0660377358490566,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "groq/openai/gpt-oss-20b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.13786915504511896,
+      "general": 0.14606741573033707,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.266304347826087,
+      "aa_general": 0.14606741573033707,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy",
+          "partial_variant_coverage"
+        ],
+        "general": [
+          "aa_effort_proxy",
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "Terminal-Bench": 0.009433962264150943,
+        "AA Coding": 0.266304347826087
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            3.3707865169,
+            3.0711610487
+          ],
+          "score_percent": 3.2209737828,
+          "fitness": 0.009433962264150943,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "groq/openai/gpt-oss-safeguard-20b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "groq/qwen/qwen3-32b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.21739130434782608,
+      "general": 0.07865168539325842,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.21739130434782608,
+      "aa_general": 0.07865168539325842,
+      "aa_estimate_reasons": {
+        "coding": [
+          "historical_aa_result"
+        ],
+        "general": [
+          "historical_aa_result"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.21739130434782608
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "groq/qwen/qwen3.6-27b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.7380952380952381,
+      "general": 0.398876404494382,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.717391304347826,
+      "aa_general": 0.398876404494382,
+      "aa_estimate_reasons": {
+        "coding": [
+          "historical_aa_result"
+        ],
+        "general": [
+          "historical_aa_result"
+        ]
+      },
+      "family_votes": {
+        "SWE-bench": 0.7380952380952381,
+        "Terminal-Bench": 0.8018867924528302,
+        "AA Coding": 0.717391304347826
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            71.3
+          ],
+          "score_percent": 71.3,
+          "fitness": 0.7380952380952381,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.6-27B/resolve/6a9e13bd6fc8f0983b9b99948120bc37f49c13e9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            53.5
+          ],
+          "score_percent": 53.5,
+          "fitness": 0.35,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.6-27B/resolve/6a9e13bd6fc8f0983b9b99948120bc37f49c13e9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            77.2
+          ],
+          "score_percent": 77.2,
+          "fitness": 0.9455445544554455,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.6-27B/resolve/6a9e13bd6fc8f0983b9b99948120bc37f49c13e9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            59.3
+          ],
+          "score_percent": 59.3,
+          "fitness": 0.8018867924528302,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.6-27B/resolve/6a9e13bd6fc8f0983b9b99948120bc37f49c13e9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid",
+          "high"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "groq/qwen/qwen3.8-27b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.5822826086956522,
+      "general": 0.601123595505618,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.7445652173913043,
+      "aa_general": 0.601123595505618,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.296875,
+        "SWE-bench": 0.85,
+        "Terminal-Bench": 0.42,
+        "AA Coding": 0.7445652173913043
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            42.2
+          ],
+          "score_percent": 42.2,
+          "fitness": 0.296875,
+          "reference_models": 32,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.8-27B/resolve/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            61.7
+          ],
+          "score_percent": 61.7,
+          "fitness": 0.85,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.8-27B/resolve/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            73.0
+          ],
+          "score_percent": 73.0,
+          "fitness": 0.42,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/Qwen/Qwen3.8-27B/resolve/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "groq/whisper-large-v3",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "groq/whisper-large-v3-turbo",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "kilocode/cohere/north-mini-code:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.42452830188679247,
+      "general": 0.15168539325842698,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.5054347826086957,
+      "aa_general": 0.15168539325842698,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.374009900990099,
+        "Terminal-Bench": 0.42452830188679247,
+        "AA Coding": 0.5054347826086957
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            40.2
+          ],
+          "score_percent": 40.2,
+          "fitness": 0.05,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/CohereLabs/North-Mini-Code-1.0/resolve/d11e61a842617a22dc328552fa5bb86231ee4f37/.eval_results/swe-bench-pro.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            67.6
+          ],
+          "score_percent": 67.6,
+          "fitness": 0.698019801980198,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/CohereLabs/North-Mini-Code-1.0/resolve/d11e61a842617a22dc328552fa5bb86231ee4f37/.eval_results/swe-bench-verified.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            36.0
+          ],
+          "score_percent": 36.0,
+          "fitness": 0.42452830188679247,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/CohereLabs/North-Mini-Code-1.0/resolve/d11e61a842617a22dc328552fa5bb86231ee4f37/.eval_results/terminal-bench-v2.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/dots-studio/dots-3-note-preview:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.8809523809523809
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            75.7
+          ],
+          "score_percent": 75.7,
+          "fitness": 0.8809523809523809,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/dots-studio/dots3-note-prev/resolve/e8d2aa5191a4a6b04845eafac14c0df867b065da/.eval_results/dots3-note-prev.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            61.0
+          ],
+          "score_percent": 61.0,
+          "fitness": 0.75,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/dots-studio/dots3-note-prev/resolve/e8d2aa5191a4a6b04845eafac14c0df867b065da/.eval_results/dots3-note-prev.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            78.4
+          ],
+          "score_percent": 78.4,
+          "fitness": 0.9653465346534653,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/dots-studio/dots3-note-prev/resolve/e8d2aa5191a4a6b04845eafac14c0df867b065da/.eval_results/dots3-note-prev.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/kilo-auto/free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/liquid/lfm-2.5-2.6b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.08152173913043478,
+      "general": 0.07865168539325842,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.08152173913043478,
+      "aa_general": 0.07865168539325842,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.08152173913043478
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.15760869565217392,
+      "general": 0.15730337078651685,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.15760869565217392,
+      "aa_general": 0.15730337078651685,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.15760869565217392
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.5108695652173914,
+      "general": 0.25842696629213485,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.5108695652173914,
+      "aa_general": 0.25842696629213485,
+      "aa_estimate_reasons": {
+        "coding": [
+          "historical_aa_result"
+        ],
+        "general": [
+          "historical_aa_result"
+        ]
+      },
+      "family_votes": {
+        "SWE-bench": 0.5396039603960396,
+        "Terminal-Bench": 0.330188679245283,
+        "AA Coding": 0.5108695652173914
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            60.47,
+            59.2,
+            53.73
+          ],
+          "score_percent": 59.2,
+          "fitness": 0.5396039603960396,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16/resolve/2dc98e2afe4face0e4ce40972a915c45368bd34a/.eval_results/swe_bench_verified.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            31.0
+          ],
+          "score_percent": 31.0,
+          "fitness": 0.330188679245283,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16/resolve/2dc98e2afe4face0e4ce40972a915c45368bd34a/.eval_results/terminal-bench_2.0.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low",
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.6197548326261197,
+      "general": 0.4438202247191011,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.6739130434782609,
+      "aa_general": 0.4438202247191011,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.6197548326261197,
+        "Terminal-Bench": 0.06,
+        "AA Coding": 0.6739130434782609
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            67.7
+          ],
+          "score_percent": 67.7,
+          "fitness": 0.4523809523809524,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16/resolve/77df655d5e9f8362164ed14dd8b48f8bce657498/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            70.7
+          ],
+          "score_percent": 70.7,
+          "fitness": 0.7871287128712872,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16/resolve/77df655d5e9f8362164ed14dd8b48f8bce657498/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            56.4
+          ],
+          "score_percent": 56.4,
+          "fitness": 0.06,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16/resolve/77df655d5e9f8362164ed14dd8b48f8bce657498/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/nvidia/nemotron-3.5-content-safety:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/nvidia/nemotron-3.5-lightning:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.41847826086956524,
+      "general": 0.2640449438202247,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.41847826086956524,
+      "aa_general": 0.2640449438202247,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "AA Coding": 0.41847826086956524
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/nvidia/nemotron-3.5-super-vl:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.18,
+      "general": 0.5674157303370787,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.5674157303370787,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.1,
+        "SWE-bench": 0.5,
+        "Terminal-Bench": 0.18
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            24.65
+          ],
+          "score_percent": 24.65,
+          "fitness": 0.1,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            67.72
+          ],
+          "score_percent": 67.72,
+          "fitness": 0.5,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            51.78
+          ],
+          "score_percent": 51.78,
+          "fitness": 0.25,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            71.1
+          ],
+          "score_percent": 71.1,
+          "fitness": 0.8267326732673267,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            60.67
+          ],
+          "score_percent": 60.67,
+          "fitness": 0.18,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/poolside/laguna-s-2.1:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.38,
+      "general": 0.38,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.3,
+        "SWE-bench": 0.8130952380952381,
+        "Terminal-Bench": 0.38
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            40.4
+          ],
+          "score_percent": 40.4,
+          "fitness": 0.3,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/.eval_results/deepswe.yaml",
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            78.5
+          ],
+          "score_percent": 78.5,
+          "fitness": 0.9761904761904762,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/.eval_results/swe-bench_multilingual.yaml",
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            59.4
+          ],
+          "score_percent": 59.4,
+          "fitness": 0.65,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/.eval_results/swe-bench_pro.yaml",
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            70.2
+          ],
+          "score_percent": 70.2,
+          "fitness": 0.38,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/poolside/laguna-xs-2.1:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.2966981132075472,
+      "general": 0.2966981132075472,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.15,
+        "Terminal-Bench": 0.44339622641509435
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            63.1
+          ],
+          "score_percent": 63.1,
+          "fitness": 0.11904761904761904,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            47.6
+          ],
+          "score_percent": 47.6,
+          "fitness": 0.15,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/swe-bench_pro.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            70.9
+          ],
+          "score_percent": 70.9,
+          "fitness": 0.806930693069307,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/swe-bench_verified.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            37.5
+          ],
+          "score_percent": 37.5,
+          "fitness": 0.44339622641509435,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/terminal-bench-2.0.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/reflection/beam-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.7,
+      "general": 0.7,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.5,
+        "SWE-bench": 0.95,
+        "Terminal-Bench": 0.7
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            43.3
+          ],
+          "score_percent": 43.3,
+          "fitness": 0.5,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            78.3
+          ],
+          "score_percent": 78.3,
+          "fitness": 0.9285714285714286,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            66.1
+          ],
+          "score_percent": 66.1,
+          "fitness": 0.95,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            81.6
+          ],
+          "score_percent": 81.6,
+          "fitness": 0.995049504950495,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            80.1
+          ],
+          "score_percent": 80.1,
+          "fitness": 0.7,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid",
+          "high"
+        ],
+        "general": [
+          "mid",
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/stealth/glyph-cluster",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.015625
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            2.7
+          ],
+          "score_percent": 2.7,
+          "fitness": 0.015625,
+          "reference_models": 32,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "xhigh"
+          ],
+          "sources": [
+            "https://huggingface.co/datasets/ProCreations/glyph-cluster-deepswe-traces"
+          ],
+          "notes": [
+            "cross_effort_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.3251060820367751,
+      "general": 0.3251060820367751,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.5502121640735502,
+        "Terminal-Bench": 0.1
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            66.0
+          ],
+          "score_percent": 66.0,
+          "fitness": 0.21428571428571427,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B/resolve/a32a2e99b5877c6b7ad16e9954ec08488bcc5fa2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            75.0
+          ],
+          "score_percent": 75.0,
+          "fitness": 0.8861386138613861,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B/resolve/a32a2e99b5877c6b7ad16e9954ec08488bcc5fa2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            57.5
+          ],
+          "score_percent": 57.5,
+          "fitness": 0.1,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B/resolve/a32a2e99b5877c6b7ad16e9954ec08488bcc5fa2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "mistral/mistral-medium-3-5",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.6358695652173914,
+      "general": 0.28651685393258425,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.6358695652173914,
+      "aa_general": 0.28651685393258425,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.6358695652173914
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/deepseek-ai/deepseek-v4.1-flash",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.9821875,
+      "general": 0.7528089887640449,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.7528089887640449,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_effort_proxy",
+          "historical_aa_result"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.984375,
+        "Terminal-Bench": 0.98
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            74.2
+          ],
+          "score_percent": 74.2,
+          "fitness": 0.984375,
+          "reference_models": 32,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/314113f8a7dadb388215396ba5fbee2c610a04d6/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            90.6
+          ],
+          "score_percent": 90.6,
+          "fitness": 0.98,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/314113f8a7dadb388215396ba5fbee2c610a04d6/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "mid",
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/google/diffusiongemma-26b-a4b-it",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.2554347826086957,
+      "general": 0.14606741573033707,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.2554347826086957,
+      "aa_general": 0.14606741573033707,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.2554347826086957
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/google/gemma-4-31b-it",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.592391304347826,
+      "general": 0.29775280898876405,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.592391304347826,
+      "aa_general": 0.29775280898876405,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "AA Coding": 0.592391304347826
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/meta/llama-3.2-11b-vision-instruct",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.033707865168539325,
+      "general": 0.033707865168539325,
+      "coding_source": "general_fallback",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.033707865168539325,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "nvidia/meta/llama-3.2-90b-vision-instruct",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.06741573033707865,
+      "general": 0.06741573033707865,
+      "coding_source": "general_fallback",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.06741573033707865,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "nvidia/meta/muse-glimmer-30b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.657608695652174,
+      "general": 0.34269662921348315,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.657608695652174,
+      "aa_general": 0.34269662921348315,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.657608695652174
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.41847826086956524,
+      "general": 0.2640449438202247,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.41847826086956524,
+      "aa_general": 0.2640449438202247,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "AA Coding": 0.41847826086956524
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.18,
+      "general": 0.5674157303370787,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.5674157303370787,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.1,
+        "SWE-bench": 0.5,
+        "Terminal-Bench": 0.18
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            24.65
+          ],
+          "score_percent": 24.65,
+          "fitness": 0.1,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            67.72
+          ],
+          "score_percent": 67.72,
+          "fitness": 0.5,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            51.78
+          ],
+          "score_percent": 51.78,
+          "fitness": 0.25,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            71.1
+          ],
+          "score_percent": 71.1,
+          "fitness": 0.8267326732673267,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            60.67
+          ],
+          "score_percent": 60.67,
+          "fitness": 0.18,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/poolside/laguna-xs-2.1",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.2966981132075472,
+      "general": 0.2966981132075472,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.15,
+        "Terminal-Bench": 0.44339622641509435
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            63.1
+          ],
+          "score_percent": 63.1,
+          "fitness": 0.11904761904761904,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            47.6
+          ],
+          "score_percent": 47.6,
+          "fitness": 0.15,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/swe-bench_pro.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            70.9
+          ],
+          "score_percent": 70.9,
+          "fitness": 0.806930693069307,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/swe-bench_verified.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            37.5
+          ],
+          "score_percent": 37.5,
+          "fitness": 0.44339622641509435,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/terminal-bench-2.0.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/stepfun-ai/step-5-preview",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.848314606741573,
+      "general": 0.848314606741573,
+      "coding_source": "general_fallback",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.848314606741573,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/z-ai/glm-5.3",
+      "requested_effort": "medium",
+      "effective_effort": "high",
+      "coding": 0.94,
+      "general": 0.7584269662921348,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.9619565217391305,
+      "aa_general": 0.7584269662921348,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy",
+          "partial_variant_coverage"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.8953125,
+        "Terminal-Bench": 0.94,
+        "AA Coding": 0.9619565217391305
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            66.9
+          ],
+          "score_percent": 66.9,
+          "fitness": 0.9,
+          "reference_models": 5,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/zai-org/GLM-5.3/resolve/ba32f8c19c8738e2c57c71798c601d477a7bf844/.eval_results/deep-swe.yaml",
+            "https://huggingface.co/zai-org/GLM-5.3/resolve/ba32f8c19c8738e2c57c71798c601d477a7bf844/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            68.95787139689578
+          ],
+          "score_percent": 68.95787139689578,
+          "fitness": 0.890625,
+          "reference_models": 32,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "max"
+          ],
+          "sources": [
+            "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json"
+          ],
+          "notes": [
+            "cross_effort_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            88.2
+          ],
+          "score_percent": 88.2,
+          "fitness": 0.94,
+          "reference_models": 25,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/zai-org/GLM-5.3/resolve/ba32f8c19c8738e2c57c71798c601d477a7bf844/.eval_results/terminal-bench-2.1.yaml",
+            "https://huggingface.co/zai-org/GLM-5.3/resolve/ba32f8c19c8738e2c57c71798c601d477a7bf844/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "mid",
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "nvidia/z-ai/glm-5.3-flash",
+      "requested_effort": "medium",
+      "effective_effort": "high",
+      "coding": 0.82,
+      "general": 0.8258426966292135,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.9184782608695652,
+      "aa_general": 0.8258426966292135,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.6859375,
+        "Terminal-Bench": 0.82,
+        "AA Coding": 0.9184782608695652
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            63.4
+          ],
+          "score_percent": 63.4,
+          "fitness": 0.7,
+          "reference_models": 5,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/zai-org/GLM-5.3-Flash/resolve/46a050bec13002ad29ee795c16e61cf4fa3c4a9c/.eval_results/GLM-5.3-Flash.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            63.39285714285714
+          ],
+          "score_percent": 63.39285714285714,
+          "fitness": 0.671875,
+          "reference_models": 32,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "max"
+          ],
+          "sources": [
+            "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json"
+          ],
+          "notes": [
+            "cross_effort_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            84.3
+          ],
+          "score_percent": 84.3,
+          "fitness": 0.82,
+          "reference_models": 25,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/zai-org/GLM-5.3-Flash/resolve/46a050bec13002ad29ee795c16e61cf4fa3c4a9c/.eval_results/GLM-5.3-Flash.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/beam-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.7,
+      "general": 0.6573033707865169,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.6573033707865169,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.5,
+        "SWE-bench": 0.95,
+        "Terminal-Bench": 0.7
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            43.3
+          ],
+          "score_percent": 43.3,
+          "fitness": 0.5,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            78.3
+          ],
+          "score_percent": 78.3,
+          "fitness": 0.9285714285714286,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            66.1
+          ],
+          "score_percent": 66.1,
+          "fitness": 0.95,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            81.6
+          ],
+          "score_percent": 81.6,
+          "fitness": 0.995049504950495,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            80.1
+          ],
+          "score_percent": 80.1,
+          "fitness": 0.7,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/reflection/Beam-1.0-501B-A23B/resolve/50a18f8ccf28c75cfdfd9cfe602451c5c81acaef/.eval_results/Beam-1.0-501B-A23B.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid",
+          "high"
+        ],
+        "general": [
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/big-pickle",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/deepseek-v4.1-flash-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.9821875,
+      "general": 0.7528089887640449,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.7528089887640449,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_effort_proxy",
+          "historical_aa_result"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.984375,
+        "Terminal-Bench": 0.98
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            74.2
+          ],
+          "score_percent": 74.2,
+          "fitness": 0.984375,
+          "reference_models": 32,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/314113f8a7dadb388215396ba5fbee2c610a04d6/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            90.6
+          ],
+          "score_percent": 90.6,
+          "fitness": 0.98,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/314113f8a7dadb388215396ba5fbee2c610a04d6/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "mid",
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/glm-5.3-flash-free",
+      "requested_effort": "medium",
+      "effective_effort": "high",
+      "coding": 0.82,
+      "general": 0.8258426966292135,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.9184782608695652,
+      "aa_general": 0.8258426966292135,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.6859375,
+        "Terminal-Bench": 0.82,
+        "AA Coding": 0.9184782608695652
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            63.4
+          ],
+          "score_percent": 63.4,
+          "fitness": 0.7,
+          "reference_models": 5,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/zai-org/GLM-5.3-Flash/resolve/46a050bec13002ad29ee795c16e61cf4fa3c4a9c/.eval_results/GLM-5.3-Flash.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            63.39285714285714
+          ],
+          "score_percent": 63.39285714285714,
+          "fitness": 0.671875,
+          "reference_models": 32,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "max"
+          ],
+          "sources": [
+            "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json"
+          ],
+          "notes": [
+            "cross_effort_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            84.3
+          ],
+          "score_percent": 84.3,
+          "fitness": 0.82,
+          "reference_models": 25,
+          "desired_effort": "high",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/zai-org/GLM-5.3-Flash/resolve/46a050bec13002ad29ee795c16e61cf4fa3c4a9c/.eval_results/GLM-5.3-Flash.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/longcat-2.5-preview-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/mimo-v2.6-flash-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.8484375,
+      "general": 0.7247191011235955,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.7247191011235955,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.796875,
+        "Terminal-Bench": 0.9
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE 1.1",
+          "selected_scores": [
+            67.9
+          ],
+          "score_percent": 67.9,
+          "fitness": 0.796875,
+          "reference_models": 32,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL/resolve/dcd3fd83fb181622fbc606fbb1709901982a62c2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            87.6
+          ],
+          "score_percent": 87.6,
+          "fitness": 0.9,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL/resolve/dcd3fd83fb181622fbc606fbb1709901982a62c2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "high"
+        ],
+        "general": [
+          "mid",
+          "high"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/nemotron-3.5-lightning-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.41847826086956524,
+      "general": 0.2640449438202247,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.41847826086956524,
+      "aa_general": 0.2640449438202247,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.41847826086956524
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/nemotron-3.5-super-vl-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.18,
+      "general": 0.5674157303370787,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.5674157303370787,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "DeepSWE": 0.1,
+        "SWE-bench": 0.5,
+        "Terminal-Bench": 0.18
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            24.65
+          ],
+          "score_percent": 24.65,
+          "fitness": 0.1,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            67.72
+          ],
+          "score_percent": 67.72,
+          "fitness": 0.5,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            51.78
+          ],
+          "score_percent": 51.78,
+          "fitness": 0.25,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            71.1
+          ],
+          "score_percent": 71.1,
+          "fitness": 0.8267326732673267,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            60.67
+          ],
+          "score_percent": 60.67,
+          "fitness": 0.18,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "opencode-zen/space-bunny-free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/cohere/north-mini-code:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.42452830188679247,
+      "general": 0.15168539325842698,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.5054347826086957,
+      "aa_general": 0.15168539325842698,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.374009900990099,
+        "Terminal-Bench": 0.42452830188679247,
+        "AA Coding": 0.5054347826086957
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            40.2
+          ],
+          "score_percent": 40.2,
+          "fitness": 0.05,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/CohereLabs/North-Mini-Code-1.0/resolve/d11e61a842617a22dc328552fa5bb86231ee4f37/.eval_results/swe-bench-pro.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            67.6
+          ],
+          "score_percent": 67.6,
+          "fitness": 0.698019801980198,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/CohereLabs/North-Mini-Code-1.0/resolve/d11e61a842617a22dc328552fa5bb86231ee4f37/.eval_results/swe-bench-verified.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            36.0
+          ],
+          "score_percent": 36.0,
+          "fitness": 0.42452830188679247,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/CohereLabs/North-Mini-Code-1.0/resolve/d11e61a842617a22dc328552fa5bb86231ee4f37/.eval_results/terminal-bench-v2.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/dots-studio/dots-3-note-preview:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.8809523809523809
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            75.7
+          ],
+          "score_percent": 75.7,
+          "fitness": 0.8809523809523809,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/dots-studio/dots3-note-prev/resolve/e8d2aa5191a4a6b04845eafac14c0df867b065da/.eval_results/dots3-note-prev.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            61.0
+          ],
+          "score_percent": 61.0,
+          "fitness": 0.75,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/dots-studio/dots3-note-prev/resolve/e8d2aa5191a4a6b04845eafac14c0df867b065da/.eval_results/dots3-note-prev.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            78.4
+          ],
+          "score_percent": 78.4,
+          "fitness": 0.9653465346534653,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/dots-studio/dots3-note-prev/resolve/e8d2aa5191a4a6b04845eafac14c0df867b065da/.eval_results/dots3-note-prev.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.5380434782608695,
+      "general": 0.33707865168539325,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.5380434782608695,
+      "aa_general": 0.33707865168539325,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.5380434782608695
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low",
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/google/gemma-4-31b-it:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.592391304347826,
+      "general": 0.29775280898876405,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.592391304347826,
+      "aa_general": 0.29775280898876405,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "AA Coding": 0.592391304347826
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/google/lyria-3-clip-preview",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "openrouter/google/lyria-3-pro-preview",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": false
+    },
+    {
+      "target": "openrouter/liquid/lfm-2.5-2.6b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.08152173913043478,
+      "general": 0.07865168539325842,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.08152173913043478,
+      "aa_general": 0.07865168539325842,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.08152173913043478
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.15760869565217392,
+      "general": 0.15730337078651685,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.15760869565217392,
+      "aa_general": 0.15730337078651685,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": [
+          "aa_general_estimate"
+        ]
+      },
+      "family_votes": {
+        "AA Coding": 0.15760869565217392
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.5108695652173914,
+      "general": 0.25842696629213485,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.5108695652173914,
+      "aa_general": 0.25842696629213485,
+      "aa_estimate_reasons": {
+        "coding": [
+          "historical_aa_result"
+        ],
+        "general": [
+          "historical_aa_result"
+        ]
+      },
+      "family_votes": {
+        "SWE-bench": 0.5396039603960396,
+        "Terminal-Bench": 0.330188679245283,
+        "AA Coding": 0.5108695652173914
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            60.47,
+            59.2,
+            53.73
+          ],
+          "score_percent": 59.2,
+          "fitness": 0.5396039603960396,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16/resolve/2dc98e2afe4face0e4ce40972a915c45368bd34a/.eval_results/swe_bench_verified.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            31.0
+          ],
+          "score_percent": 31.0,
+          "fitness": 0.330188679245283,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16/resolve/2dc98e2afe4face0e4ce40972a915c45368bd34a/.eval_results/terminal-bench_2.0.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low",
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.6197548326261197,
+      "general": 0.4438202247191011,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.6739130434782609,
+      "aa_general": 0.4438202247191011,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.6197548326261197,
+        "Terminal-Bench": 0.06,
+        "AA Coding": 0.6739130434782609
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            67.7
+          ],
+          "score_percent": 67.7,
+          "fitness": 0.4523809523809524,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16/resolve/77df655d5e9f8362164ed14dd8b48f8bce657498/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            70.7
+          ],
+          "score_percent": 70.7,
+          "fitness": 0.7871287128712872,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16/resolve/77df655d5e9f8362164ed14dd8b48f8bce657498/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            56.4
+          ],
+          "score_percent": 56.4,
+          "fitness": 0.06,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16/resolve/77df655d5e9f8362164ed14dd8b48f8bce657498/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/nvidia/nemotron-3.5-content-safety:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.41847826086956524,
+      "general": 0.2640449438202247,
+      "coding_source": "AA Coding",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.41847826086956524,
+      "aa_general": 0.2640449438202247,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "AA Coding": 0.41847826086956524
+      },
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.18,
+      "general": 0.5674157303370787,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": null,
+      "aa_general": 0.5674157303370787,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.1,
+        "SWE-bench": 0.5,
+        "Terminal-Bench": 0.18
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            24.65
+          ],
+          "score_percent": 24.65,
+          "fitness": 0.1,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            67.72
+          ],
+          "score_percent": 67.72,
+          "fitness": 0.5,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            51.78
+          ],
+          "score_percent": 51.78,
+          "fitness": 0.25,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            71.1
+          ],
+          "score_percent": 71.1,
+          "fitness": 0.8267326732673267,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            60.67
+          ],
+          "score_percent": 60.67,
+          "fitness": 0.18,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16/resolve/fb0ee0bc6b3f70342afd8d84cb80dbadbaa8a1fe/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/openrouter/free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": null,
+      "general": null,
+      "coding_source": null,
+      "general_source": null,
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {},
+      "benchmark_votes": [],
+      "bands": {
+        "coding": [],
+        "general": []
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/poolside/laguna-s-2.1:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.38,
+      "general": 0.38,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "DeepSWE": 0.3,
+        "SWE-bench": 0.8130952380952381,
+        "Terminal-Bench": 0.38
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "DeepSWE (unspecified version)",
+          "selected_scores": [
+            40.4
+          ],
+          "score_percent": 40.4,
+          "fitness": 0.3,
+          "reference_models": 5,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/.eval_results/deepswe.yaml",
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            78.5
+          ],
+          "score_percent": 78.5,
+          "fitness": 0.9761904761904762,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/.eval_results/swe-bench_multilingual.yaml",
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            59.4
+          ],
+          "score_percent": 59.4,
+          "fitness": 0.65,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/.eval_results/swe-bench_pro.yaml",
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            70.2
+          ],
+          "score_percent": 70.2,
+          "fitness": 0.38,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-S-2.1/resolve/0f573140834b11cfac0c2af97a101a7a69a13e22/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/poolside/laguna-xs-2.1:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.2966981132075472,
+      "general": 0.2966981132075472,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.15,
+        "Terminal-Bench": 0.44339622641509435
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            63.1
+          ],
+          "score_percent": 63.1,
+          "fitness": 0.11904761904761904,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            47.6
+          ],
+          "score_percent": 47.6,
+          "fitness": 0.15,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/swe-bench_pro.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            70.9
+          ],
+          "score_percent": 70.9,
+          "fitness": 0.806930693069307,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/swe-bench_verified.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.0",
+          "selected_scores": [
+            37.5
+          ],
+          "score_percent": 37.5,
+          "fitness": 0.44339622641509435,
+          "reference_models": 53,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/.eval_results/terminal-bench-2.0.yaml",
+            "https://huggingface.co/poolside/Laguna-XS-2.1/resolve/c5f36269bbdbd3f27fddc9a9f9dbae0cf2cf57db/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/recursive/flint-v1.0:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.44811881188118813,
+      "general": 0.44811881188118813,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.8762376237623762,
+        "Terminal-Bench": 0.02
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            74.2
+          ],
+          "score_percent": 74.2,
+          "fitness": 0.8762376237623762,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/RecursiveSI/flint/resolve/2a247be0c0aec895ccb0ac7ca92229ec6df37288/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            54.9
+          ],
+          "score_percent": 54.9,
+          "fitness": 0.02,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/RecursiveSI/flint/resolve/2a247be0c0aec895ccb0ac7ca92229ec6df37288/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/thinkingmachines/inkling-small:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.7397653895824365,
+      "general": 0.5224719101123596,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.7119565217391305,
+      "aa_general": 0.5224719101123596,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "SWE-bench": 0.7675742574257426,
+        "AA Coding": 0.7119565217391305
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            55.9
+          ],
+          "score_percent": 55.9,
+          "fitness": 0.55,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/thinkingmachines/Inkling-Small/resolve/8cc5877b44d343f88b92086aa1fb72897950f06a/.eval_results/swe-bench_pro.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            80.2
+          ],
+          "score_percent": 80.2,
+          "fitness": 0.9851485148514851,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/thinkingmachines/Inkling-Small/resolve/8cc5877b44d343f88b92086aa1fb72897950f06a/.eval_results/swe-bench_verified.yaml"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid",
+          "high"
+        ],
+        "general": [
+          "low",
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/thinkingmachines/inkling:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.6902173913043478,
+      "general": 0.47752808988764045,
+      "coding_source": "family_median",
+      "general_source": "AA Intelligence",
+      "aa_coding": 0.6902173913043478,
+      "aa_general": 0.47752808988764045,
+      "aa_estimate_reasons": {
+        "coding": [
+          "aa_effort_proxy"
+        ],
+        "general": [
+          "aa_effort_proxy"
+        ]
+      },
+      "family_votes": {
+        "SWE-bench": 0.7027227722772277,
+        "Terminal-Bench": 0.22,
+        "AA Coding": 0.6902173913043478
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Pro (unspecified version)",
+          "selected_scores": [
+            54.3
+          ],
+          "score_percent": 54.3,
+          "fitness": 0.45,
+          "reference_models": 10,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/thinkingmachines/Inkling/resolve/828496eeae4c243ff1a22f7f28ff83694f2f7bc9/.eval_results/swe-bench_pro.yaml",
+            "https://huggingface.co/thinkingmachines/Inkling/resolve/828496eeae4c243ff1a22f7f28ff83694f2f7bc9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy",
+            "unspecified_benchmark_version"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            77.6
+          ],
+          "score_percent": 77.6,
+          "fitness": 0.9554455445544554,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/thinkingmachines/Inkling/resolve/828496eeae4c243ff1a22f7f28ff83694f2f7bc9/.eval_results/swe-bench_verified.yaml",
+            "https://huggingface.co/thinkingmachines/Inkling/resolve/828496eeae4c243ff1a22f7f28ff83694f2f7bc9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            63.8
+          ],
+          "score_percent": 63.8,
+          "fitness": 0.22,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/thinkingmachines/Inkling/resolve/828496eeae4c243ff1a22f7f28ff83694f2f7bc9/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "mid"
+        ],
+        "general": [
+          "low",
+          "mid"
+        ]
+      },
+      "reasoning_capable": true
+    },
+    {
+      "target": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+      "requested_effort": "medium",
+      "effective_effort": "medium",
+      "coding": 0.3251060820367751,
+      "general": 0.3251060820367751,
+      "coding_source": "family_median",
+      "general_source": "coding_fallback",
+      "aa_coding": null,
+      "aa_general": null,
+      "aa_estimate_reasons": {
+        "coding": [],
+        "general": []
+      },
+      "family_votes": {
+        "SWE-bench": 0.5502121640735502,
+        "Terminal-Bench": 0.1
+      },
+      "benchmark_votes": [
+        {
+          "benchmark": "SWE-bench Multilingual",
+          "selected_scores": [
+            66.0
+          ],
+          "score_percent": 66.0,
+          "fitness": 0.21428571428571427,
+          "reference_models": 21,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B/resolve/a32a2e99b5877c6b7ad16e9954ec08488bcc5fa2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "SWE-bench Verified",
+          "selected_scores": [
+            75.0
+          ],
+          "score_percent": 75.0,
+          "fitness": 0.8861386138613861,
+          "reference_models": 101,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B/resolve/a32a2e99b5877c6b7ad16e9954ec08488bcc5fa2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        },
+        {
+          "benchmark": "Terminal-Bench 2.1",
+          "selected_scores": [
+            57.5
+          ],
+          "score_percent": 57.5,
+          "fitness": 0.1,
+          "reference_models": 25,
+          "desired_effort": "medium",
+          "selected_efforts": [
+            "unknown"
+          ],
+          "sources": [
+            "https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B/resolve/a32a2e99b5877c6b7ad16e9954ec08488bcc5fa2/README.md"
+          ],
+          "notes": [
+            "effort_unknown_proxy"
+          ]
+        }
+      ],
+      "bands": {
+        "coding": [
+          "low"
+        ],
+        "general": [
+          "low"
+        ]
+      },
+      "reasoning_capable": true
+    }
+  ],
+  "scored_count": 53,
+  "no_numeric_evidence": [
+    "api-airforce/google/gemma3-270m:free",
+    "gemini/lyria-3-clip-preview",
+    "gemini/lyria-3-pro-preview",
+    "groq/allam-2-7b",
+    "groq/canopylabs/orpheus-arabic-saudi",
+    "groq/canopylabs/orpheus-v1-english",
+    "groq/groq/compound",
+    "groq/groq/compound-mini",
+    "groq/meta-llama/llama-prompt-guard-2-22m",
+    "groq/meta-llama/llama-prompt-guard-2-86m",
+    "groq/openai/gpt-oss-safeguard-20b",
+    "groq/whisper-large-v3",
+    "groq/whisper-large-v3-turbo",
+    "kilocode/dots-studio/dots-3-note-preview:free",
+    "kilocode/kilo-auto/free",
+    "kilocode/nvidia/nemotron-3.5-content-safety:free",
+    "kilocode/stealth/glyph-cluster",
+    "opencode-zen/big-pickle",
+    "opencode-zen/longcat-2.5-preview-free",
+    "opencode-zen/space-bunny-free",
+    "openrouter/dots-studio/dots-3-note-preview:free",
+    "openrouter/google/lyria-3-clip-preview",
+    "openrouter/google/lyria-3-pro-preview",
+    "openrouter/nvidia/nemotron-3.5-content-safety:free",
+    "openrouter/openrouter/free"
+  ],
+  "band_counts": {
+    "coding": {
+      "low": 34,
+      "mid": 15,
+      "high": 11
+    },
+    "general": {
+      "low": 39,
+      "mid": 13,
+      "high": 8
+    }
+  },
+  "reasoning_band_counts": {
+    "coding": {
+      "low": 29,
+      "mid": 15,
+      "high": 11
+    },
+    "general": {
+      "low": 34,
+      "mid": 13,
+      "high": 8
+    }
+  },
+  "input_sha256": {
+    "aa-medium.json": "677845e7886a9c2421114b82aeb455a65328361391320b6f1ef484a9f78b3514",
+    "benchmark-results.json": "e7c638a07853ba2bf38c67dafbb6fe5b0be4afa96e0bd21d207feb9c20e55fb7",
+    "benchmark-hf.json": "ba664702fa921c5579d1712d21d7e242ddb65d1841c66c6dee12a6244aecb701",
+    "six-model-search/allam_2_7b.json": "425354bcb2c9aad58c1160710f75c13935f3a733cd1175a4cf1bfec237da2cc9",
+    "six-model-search/big_pickle.json": "8fc984c380a4302ff27aa7e5ada71d5136ea504a829989bf63167b8460b41748",
+    "six-model-search/gemma3_270m.json": "709e0642ef6a824c746ca25530350420d61689c7f964641dd8dafa42af28332e",
+    "six-model-search/glyph_cluster.json": "17fff5527d828d0c47dd1504f29e5ad266ab32c80d3a21e0ba462064b3f43e17",
+    "six-model-search/longcat_2_5_preview.json": "ea158fdb623c5129ab2c3319f5fa86963263a7afb42ab47250325e9249ea5371",
+    "six-model-search/report.json": "966d86df3edc477d983e764a36bb21df8136382afe0bce847aa343a0c07a8757",
+    "six-model-search/schema.json": "9856191940376fb0527165e9fb4515c66eaecc19fbc940f07677b7e946d5f685",
+    "six-model-search/space_bunny.json": "fec3b01fe46e2b161b47b6610700907cc781cf5f59a98657442352df466f0763"
+  },
+  "leave_one_family_out": {
+    "AA Coding": {
+      "scored_count": 53,
+      "median_absolute_coding_change": 0.022343749999999996,
+      "coding_band_changes": [
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "mistral/mistral-medium-3-5",
+        "nvidia/google/gemma-4-31b-it",
+        "nvidia/meta/muse-glimmer-30b",
+        "nvidia/z-ai/glm-5.3-flash",
+        "opencode-zen/glm-5.3-flash-free",
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "openrouter/google/gemma-4-31b-it:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/thinkingmachines/inkling-small:free",
+        "openrouter/thinkingmachines/inkling:free"
+      ]
+    },
+    "SWE-bench": {
+      "scored_count": 47,
+      "median_absolute_coding_change": 0.0,
+      "coding_band_changes": [
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/cohere/north-mini-code:free",
+        "kilocode/nvidia/nemotron-3-super-120b-a12b:free",
+        "kilocode/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "kilocode/poolside/laguna-xs-2.1:free",
+        "kilocode/reflection/beam-free",
+        "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+        "nvidia/poolside/laguna-xs-2.1",
+        "opencode-zen/beam-free",
+        "openrouter/cohere/north-mini-code:free",
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/recursive/flint-v1.0:free",
+        "openrouter/thinkingmachines/inkling:free",
+        "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
+      ]
+    },
+    "Terminal-Bench": {
+      "scored_count": 47,
+      "median_absolute_coding_change": 0.010351966873705987,
+      "coding_band_changes": [
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/poolside/laguna-s-2.1:free",
+        "kilocode/poolside/laguna-xs-2.1:free",
+        "kilocode/xingchen-agi/xing4.0-29b-a4b:free",
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "nvidia/poolside/laguna-xs-2.1",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/mimo-v2.6-flash-free",
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/poolside/laguna-xs-2.1:free",
+        "openrouter/recursive/flint-v1.0:free",
+        "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
+      ]
+    },
+    "DeepSWE": {
+      "scored_count": 53,
+      "median_absolute_coding_change": 0.0,
+      "coding_band_changes": [
+        "groq/qwen/qwen3.8-27b",
+        "kilocode/poolside/laguna-s-2.1:free",
+        "kilocode/reflection/beam-free",
+        "nvidia/deepseek-ai/deepseek-v4.1-flash",
+        "opencode-zen/beam-free",
+        "opencode-zen/deepseek-v4.1-flash-free",
+        "opencode-zen/mimo-v2.6-flash-free",
+        "openrouter/poolside/laguna-s-2.1:free"
+      ]
+    }
+  }
+}
