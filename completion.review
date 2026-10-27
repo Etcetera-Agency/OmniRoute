@@ -18,13 +18,19 @@
   reproduced a paid OpenAI call, then passed after the guard with HTTP 400 and
   zero provider calls. The reviewer confirmed this closes the selected
   high/SO/free route leak and does not bypass ordinary 429 handling.
-- Focused checks pass: normalizer pre-dispatch guards 2/2, normalizer route and
-  schema 1/1, timeout persistence 1/1, enabled free-band fallback 1/1, exact
-  high/SO/free saved-combo and mocked 429-to-next-candidate regressions 1/1,
-  and reasoning-rule rewrite blocked 1/1. Formatting and `git diff --check`
-  pass. Full `tests/unit/modelBenchmarkSearch.test.ts` remains 40/41: its strict
-  timeout persistence test passes alone but failed after earlier file tests
-  before reaching the test's provider mock.
+- The free-band expansion guard now imports `parseBandId` from the pure grammar
+  module instead of `bands/index.ts`, whose static import chain also loads
+  Radar database resolution. Code Simplifier reviewed the local diff; this
+  dependency-only change is already minimal.
+- Focused checks pass: `benchmark-normalizer-auto-routing.test.ts` 2/2,
+  normalizer route/policy checks 3/3, timeout persistence alone 1/1, enabled
+  free-band fallback 1/1, exact high/SO/free saved-combo and mocked
+  429-to-next-candidate regressions, and reasoning-rule rewrite blocked. The
+  timeout test still fails in the full `modelBenchmarkSearch.test.ts` file
+  (40/41); the isolated test passes. The remaining static Radar-boundary test
+  failure follows the existing `autoRouting.ts` → `suffixComposition.ts` →
+  `bands/index.ts` path and was reproduced on clean `origin/main`.
+  `git diff --check` passes.
 - A remaining unrelated edge applies to the legacy `auto/best-free` requester:
   reasoning-rule rewrites are not guarded by this new-band change. It is
   recorded in `openspec/TODO.md`; this change is scoped to explicit band

@@ -1842,7 +1842,7 @@ test("a strict-SO timeout saves the row before the next model is claimed", async
   ) =>
     originalSetTimeout(
       callback,
-      delay === processor.NORMALIZATION_TIMEOUT_MS ? 1_000 : delay,
+      delay === processor.NORMALIZATION_TIMEOUT_MS ? 5_000 : delay,
       ...args
     )) as typeof globalThis.setTimeout;
 

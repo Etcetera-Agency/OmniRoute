@@ -129,7 +129,17 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       Reasoning-routing overrides were found to be another pre-dispatch route
       rewrite; a local guard now fails closed for an explicit free Auto channel,
       with a regression proving no paid provider call is made. Exact live
-      cooldown and normalizer acceptance remain open.
+      cooldown and normalizer acceptance remain open. The candidate-pool guard
+      now imports `parseBandId` from the pure band grammar module, avoiding a
+      new static dependency on Radar database resolution. The dedicated normal
+      Auto routing test passes 2/2, normalizer route/policy checks pass 3/3, and
+      the strict-SO timeout test passes alone; the full model-search file still
+      reports 40/41. The remaining free-verdict static Radar-boundary failure
+      also reproduces on clean `origin/main` through the pre-existing
+      `autoRouting.ts` → `suffixComposition.ts` → `bands/index.ts` path; track
+      that baseline cleanup separately. The mocked 429 case verifies the
+      existing in-band Auto failover; production cooldown behavior has not been
+      exercised and must be allowed to proceed naturally after deployment.
       A separate legacy edge remains outside this new-band change: a reasoning
       rule can rewrite `auto/best-free` before its free-tier filter. Decide in a
       separate task whether that historical requester needs the same fail-closed
