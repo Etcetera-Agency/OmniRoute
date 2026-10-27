@@ -21,12 +21,15 @@
    formatting. Apply Code Simplifier and resolve independent review findings.
 9. Update `completion.review` and `openspec/TODO.md` with code, test, review,
    and current live evidence before commit.
-10. Merge through the authorized PR path, verify the main deployment, then run
-    one controlled request through the high/SO/free Auto channel and confirm
-    selected target, actual Structured Output, strict zero cost, and no
-    out-of-band or paid attempts. Confirm scheduled benchmark queue progress
-    from fresh live receipts before closing the change.
+10. Merge through the authorized PR path and verify the main deployment. Let
+    the existing benchmark queue make its due request through ordinary
+    high/SO/free Auto; confirm selected target, actual Structured Output,
+    strict zero cost, and no out-of-band or paid attempts from fresh live
+    receipts. Do not manually trigger, pin, or redirect the request.
 11. Let ordinary Auto retries finish within a twenty-minute normalizer deadline;
     defer its own HTTP 504 with the existing queue delay; keep the stale-row
     lease at twenty-five minutes; verify no duplicate or manually redirected
     request starts.
+12. Require the normalizer prompt to request a verbatim contiguous excerpt from
+    the selected result title or snippet; add a regression matching that prompt
+    contract to the parser's exact-substring validation.

@@ -33,6 +33,10 @@ channel, or use the global fallback. Reasoning, task, hook, or web-search model
 rewrites SHALL fail closed before inference when they change an explicit free
 Auto channel. Extracted records SHALL remain
 candidate-review-required and SHALL NOT update production scores.
+The normalization instruction SHALL require `evidence_quote` to be copied as
+an exact, contiguous, verbatim substring from the selected search result's title
+or snippet. It SHALL direct the model to omit a candidate when the quote does
+not directly support its populated fields.
 
 #### Scenario: A transient 429 advances through the normal Auto pool
 
@@ -120,3 +124,12 @@ candidate-review-required and SHALL NOT update production scores.
 - **WHEN** validation fails
 - **THEN** the row receives a bounded error receipt
 - **AND** the scorer does not retry by pinning another model or connection
+
+#### Scenario: Normalizer quotes exact source text
+
+- **GIVEN** search results with titles and snippets
+- **WHEN** the normalizer builds its strict structured-output request
+- **THEN** the instruction requires an exact, contiguous, verbatim quote from
+  the selected result title or snippet
+- **AND** it tells the model not to paraphrase or combine separate text
+- **AND** unsupported candidates are omitted
