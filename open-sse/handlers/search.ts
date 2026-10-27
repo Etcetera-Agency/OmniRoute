@@ -1084,8 +1084,27 @@ function normalizeOllamaResponse(
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
+  // AICODE-NOTE: Validate before normalization so only an explicit empty array means no results.
+  if (!data || typeof data !== "object" || Array.isArray(data) || !Array.isArray(data.results)) {
+    throw new Error("Invalid Ollama Search response: results must be an array");
+  }
+
+  const items = data.results;
+  for (const item of items) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error("Invalid Ollama Search response: each result must be an object");
+    }
+    if (
+      typeof item.title !== "string" ||
+      !item.title.trim() ||
+      typeof item.url !== "string" ||
+      !item.url.trim()
+    ) {
+      throw new Error("Invalid Ollama Search response: each result must include title and url");
+    }
+  }
+
   const now = new Date().toISOString();
-  const items = Array.isArray(data?.results) ? data.results : [];
 
   const results = items.map((item: any, idx: number) =>
     makeResult(

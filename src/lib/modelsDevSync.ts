@@ -24,10 +24,6 @@
 import { getDbInstance } from "./db/core";
 import { invalidateDbCache, getModelCatalogCacheVersion } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
-import {
-  enqueueModelsDevCatalogIdentities,
-  getModelCapabilityIdentitySnapshot,
-} from "./db/modelBenchmarkSearch";
 
 import {
   extractModelsDevZeroPriceModels,
@@ -723,9 +719,6 @@ export async function syncModelsDev(opts?: {
       const zeroPriceModels = extractModelsDevZeroPriceModels(raw);
       const capabilities = syncCapabilities ? transformModelsDevToCapabilities(raw) : {};
       const catalogIdentities = syncCapabilities ? extractModelsDevModelIdentities(raw) : [];
-      const previousIdentities =
-        !dryRun && syncCapabilities ? getModelCapabilityIdentitySnapshot() : null;
-
       const modelCount = Object.values(pricing).reduce(
         (sum, models) => sum + Object.keys(models).length,
         0
@@ -740,11 +733,6 @@ export async function syncModelsDev(opts?: {
       }
 
       if (!dryRun) {
-        if (previousIdentities) {
-          // AICODE-NOTE: the DB helper atomically writes the first full-catalog queue and
-          // marker, then queues exact new IDs before this capability snapshot is replaced.
-          enqueueModelsDevCatalogIdentities(catalogIdentities, previousIdentities);
-        }
         saveModelsDevPricing(pricing, { fetchedAt, modelsByProvider: zeroPriceModels });
         if (syncCapabilities) {
           ensureCapabilitiesTable();
@@ -755,7 +743,9 @@ export async function syncModelsDev(opts?: {
         lastSyncCapabilityCount = capabilityCount;
         if (syncCapabilities) {
           void import("./modelBenchmarkSearch")
-            .then(({ drainModelBenchmarkSearchQueue }) => drainModelBenchmarkSearchQueue())
+            .then(({ refreshModelBenchmarkCatalogEvidence }) =>
+              refreshModelBenchmarkCatalogEvidence(catalogIdentities, globalThis.fetch)
+            )
             .catch((error) => {
               console.warn(
                 "[MODEL_BENCHMARK_SEARCH] Background refresh failed:",

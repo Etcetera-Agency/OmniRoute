@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { getDbInstance } from "./core";
 
 const MAX_SEARCH_ATTEMPTS = 5;
@@ -49,7 +48,6 @@ export interface ModelBenchmarkSearchEvidence {
   sourceDate: string | null;
   verificationStatus: string;
   capturedAt: string;
-  raw: unknown;
 }
 
 export type ModelBenchmarkSearchEvidenceInput = ModelBenchmarkSearchEvidence;
@@ -470,35 +468,36 @@ export function saveModelBenchmarkSearchEvidence(
   rows: ModelBenchmarkSearchEvidenceInput[]
 ): number {
   if (rows.length === 0) return 0;
+  const grouped = new Map<
+    string,
+    {
+      modelId: string;
+      source: string;
+      rows: ModelBenchmarkSearchEvidenceInput[];
+    }
+  >();
+  for (const row of rows) {
+    const key = JSON.stringify([row.modelId, row.source]);
+    const set = grouped.get(key) ?? { modelId: row.modelId, source: row.source, rows: [] };
+    set.rows.push(row);
+    grouped.set(key, set);
+  }
+  return replaceModelBenchmarkEvidenceSources([...grouped.values()]);
+}
+
+function insertModelBenchmarkEvidence(rows: ModelBenchmarkSearchEvidenceInput[]): number {
   const db = getDbInstance();
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO model_benchmark_search_evidence (
+    INSERT INTO model_benchmark_evidence (
       evidence_hash, model_id, source, source_version, matched_model_id,
       matched_model_name, benchmark, benchmark_version, reasoning_effort,
       reasoning_config_json, metric, value, source_url, source_date,
-      verification_status, captured_at, raw_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      verification_status, captured_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  const removeLegacyAaRow = db.prepare(
-    "DELETE FROM model_benchmark_search_evidence WHERE evidence_hash = ? AND source = 'artificial-analysis-free'"
-  );
   let inserted = 0;
   const tx = db.transaction(() => {
     for (const row of rows) {
-      if (row.source === "artificial-analysis-free") {
-        const legacyHash = createHash("sha256")
-          .update(
-            JSON.stringify({
-              modelId: row.modelId,
-              source: row.source,
-              sourceVersion: row.sourceVersion,
-              sourceUrl: row.sourceUrl,
-              raw: row.raw,
-            })
-          )
-          .digest("hex");
-        removeLegacyAaRow.run(legacyHash);
-      }
       inserted += insert.run(
         row.evidenceHash,
         row.modelId,
@@ -515,13 +514,58 @@ export function saveModelBenchmarkSearchEvidence(
         row.sourceUrl,
         row.sourceDate,
         row.verificationStatus,
-        row.capturedAt,
-        JSON.stringify(row.raw)
+        row.capturedAt
       ).changes;
     }
   });
   tx();
   return inserted;
+}
+
+export function replaceModelBenchmarkEvidenceSources(
+  replacements: Array<{
+    modelId: string;
+    source: string;
+    rows: ModelBenchmarkSearchEvidenceInput[];
+  }>,
+  afterReplace?: () => void
+): number {
+  if (replacements.length === 0) return 0;
+  const keys = new Set<string>();
+  const evidenceHashes = new Set<string>();
+  for (const { modelId, source, rows } of replacements) {
+    const key = JSON.stringify([modelId, source]);
+    if (keys.has(key)) throw new Error(`Duplicate model benchmark evidence set: ${key}`);
+    keys.add(key);
+    if (rows.some((row) => row.modelId !== modelId || row.source !== source)) {
+      throw new Error(`Evidence rows must match replacement set ${key}`);
+    }
+    for (const row of rows) {
+      if (evidenceHashes.has(row.evidenceHash)) {
+        throw new Error(`Duplicate evidence hash: ${row.evidenceHash}`);
+      }
+      evidenceHashes.add(row.evidenceHash);
+    }
+  }
+  const db = getDbInstance();
+  const tx = db.transaction(() => {
+    const remove = db.prepare(
+      "DELETE FROM model_benchmark_evidence WHERE model_id = ? AND source = ?"
+    );
+    for (const replacement of replacements) remove.run(replacement.modelId, replacement.source);
+    const inserted = insertModelBenchmarkEvidence(replacements.flatMap(({ rows }) => rows));
+    afterReplace?.();
+    return inserted;
+  });
+  return tx();
+}
+
+export function replaceModelBenchmarkEvidenceSource(
+  modelId: string,
+  source: string,
+  rows: ModelBenchmarkSearchEvidenceInput[]
+): number {
+  return replaceModelBenchmarkEvidenceSources([{ modelId, source, rows }]);
 }
 
 export function listModelBenchmarkSearchRuns(limit = 100): ModelBenchmarkSearchRun[] {
@@ -546,7 +590,7 @@ export function listModelBenchmarkSearchEvidence(
   return getDbInstance()
     .prepare(
       `
-      SELECT * FROM model_benchmark_search_evidence
+      SELECT * FROM model_benchmark_evidence
       WHERE model_id = ?
       ORDER BY captured_at DESC, evidence_hash
       LIMIT ?
@@ -559,7 +603,7 @@ export function listModelBenchmarkSearchEvidence(
 export function listAllModelBenchmarkSearchEvidence(): ModelBenchmarkSearchEvidence[] {
   return getDbInstance()
     .prepare(
-      `SELECT * FROM model_benchmark_search_evidence
+      `SELECT * FROM model_benchmark_evidence
        ORDER BY model_id, captured_at DESC, evidence_hash`
     )
     .all()
@@ -571,7 +615,7 @@ export function listAllModelBenchmarkSearchEvidenceForModel(
 ): ModelBenchmarkSearchEvidence[] {
   return getDbInstance()
     .prepare(
-      `SELECT * FROM model_benchmark_search_evidence
+      `SELECT * FROM model_benchmark_evidence
        WHERE model_id = ?
        ORDER BY captured_at DESC, evidence_hash`
     )
@@ -600,7 +644,6 @@ function mapEvidenceRow(value: unknown): ModelBenchmarkSearchEvidence {
     sourceDate: typeof record.source_date === "string" ? record.source_date : null,
     verificationStatus: String(record.verification_status),
     capturedAt: String(record.captured_at),
-    raw: parseJson(record.raw_json),
   };
 }
 

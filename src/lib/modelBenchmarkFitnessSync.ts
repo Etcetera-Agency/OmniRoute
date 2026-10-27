@@ -1,7 +1,4 @@
-import {
-  bulkUpsertModelIntelligence,
-  replaceModelIntelligenceSources,
-} from "./db/modelIntelligence";
+import { replaceModelIntelligenceSources } from "./db/modelIntelligence";
 import {
   listAllModelBenchmarkSearchEvidence,
   listModelBenchmarkSearchCatalogModels,
@@ -20,6 +17,12 @@ const MODEL_BENCHMARK_FITNESS_PROFILES: readonly ModelBenchmarkFitnessProfile[] 
   "low",
   "medium",
   "high",
+];
+const MODEL_BENCHMARK_FITNESS_SOURCES = [
+  MODEL_BENCHMARK_FITNESS_SOURCE,
+  ...MODEL_BENCHMARK_FITNESS_PROFILES.map(
+    (profile) => `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
+  ),
 ];
 
 function toModelIntelligenceEntries(
@@ -175,42 +178,58 @@ export function getEligibleModelBenchmarkFitnessObservations(
   return [...latest.values()].map(({ observation }) => observation);
 }
 
+export function publishModelBenchmarkFitnessSnapshot(): {
+  scores: ModelBenchmarkFitness[];
+  observationCount: number;
+  publishedCount: number;
+  profilePublishedCount: number;
+  deletedCount: number;
+} {
+  const models = listModelBenchmarkSearchCatalogModels();
+  if (models.length === 0)
+    throw new Error("Cannot publish benchmark fitness without catalog models");
+
+  const evidence = listAllModelBenchmarkSearchEvidence();
+  const observations = getEligibleModelBenchmarkFitnessObservations(evidence);
+  const modelIds = models.map((model) => model.id.toLowerCase());
+  const scores = computeModelBenchmarkFitness(observations, modelIds);
+  const profileEntries = MODEL_BENCHMARK_FITNESS_PROFILES.flatMap((profile) =>
+    toModelIntelligenceEntries(
+      computeModelBenchmarkFitness(observations, modelIds, profile),
+      `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
+    )
+  );
+  const baseEntries = toModelIntelligenceEntries(scores, MODEL_BENCHMARK_FITNESS_SOURCE);
+  const replacement = replaceModelIntelligenceSources(MODEL_BENCHMARK_FITNESS_SOURCES, [
+    ...baseEntries,
+    ...profileEntries,
+  ]);
+
+  return {
+    scores,
+    observationCount: observations.length,
+    publishedCount: replacement.publishedCount,
+    profilePublishedCount: profileEntries.length,
+    deletedCount: replacement.deletedCount,
+  };
+}
+
+export async function invalidateModelBenchmarkFitnessCache(): Promise<void> {
+  const { invalidateFitnessCache } =
+    await import("@omniroute/open-sse/services/autoCombo/taskFitness");
+  invalidateFitnessCache();
+}
+
 export async function recomputeModelBenchmarkFitness(): Promise<{
   scores: ModelBenchmarkFitness[];
   observationCount: number;
   publishedCount: number;
   profilePublishedCount: number;
+  deletedCount: number;
 }> {
-  const models = listModelBenchmarkSearchCatalogModels();
-  const evidence = listAllModelBenchmarkSearchEvidence();
-  const observations = getEligibleModelBenchmarkFitnessObservations(evidence);
-  const scores = computeModelBenchmarkFitness(
-    observations,
-    models.map((model) => model.id.toLowerCase())
-  );
-  const profileEntries = MODEL_BENCHMARK_FITNESS_PROFILES.flatMap((profile) =>
-    toModelIntelligenceEntries(
-      computeModelBenchmarkFitness(
-        observations,
-        models.map((model) => model.id.toLowerCase()),
-        profile
-      ),
-      `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
-    )
-  );
-  const profileSources = MODEL_BENCHMARK_FITNESS_PROFILES.map(
-    (profile) => `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
-  );
-  const profileReplacement = replaceModelIntelligenceSources(profileSources, profileEntries);
-  const profilePublishedCount = profileReplacement.publishedCount;
-  const publishedCount =
-    bulkUpsertModelIntelligence(
-      toModelIntelligenceEntries(scores, MODEL_BENCHMARK_FITNESS_SOURCE)
-    ) + profilePublishedCount;
-  if (publishedCount > 0 || profileReplacement.deletedCount > 0) {
-    const { invalidateFitnessCache } =
-      await import("@omniroute/open-sse/services/autoCombo/taskFitness");
-    invalidateFitnessCache();
+  const result = publishModelBenchmarkFitnessSnapshot();
+  if (result.publishedCount > 0 || result.deletedCount > 0) {
+    await invalidateModelBenchmarkFitnessCache();
   }
-  return { scores, observationCount: observations.length, publishedCount, profilePublishedCount };
+  return result;
 }

@@ -137,9 +137,7 @@ test("publishes measured tasks without replacing manual or Arena ratings", async
   });
   core
     .getDbInstance()
-    .prepare(
-      "UPDATE model_benchmark_search_evidence SET value = 0 WHERE model_id = ? AND metric = ?"
-    )
+    .prepare("UPDATE model_benchmark_evidence SET value = 0 WHERE model_id = ? AND metric = ?")
     .run("model-c", "artificial_analysis_coding_index");
   await fitnessSync.recomputeModelBenchmarkFitness();
 
@@ -273,7 +271,7 @@ test("publishes profile scores separately, preserves global score, and removes s
     source: "benchmark_fitness",
   });
 
-  core.getDbInstance().prepare("DELETE FROM model_benchmark_search_evidence").run();
+  core.getDbInstance().prepare("DELETE FROM model_benchmark_evidence").run();
   await fitnessSync.recomputeModelBenchmarkFitness();
   for (const profile of ["low", "medium", "high"]) {
     assert.equal(
@@ -370,4 +368,126 @@ test("profile scores precede global scores while manual and Arena scores retain 
     score: 0.95,
     source: "arena_elo:inherited",
   });
+});
+
+test("publishes complete current snapshot inside its transaction and removes stale owned rows", async () => {
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "inactive-canonical", name: "Inactive Canonical" },
+    { id: "peer", name: "Peer" },
+  ]);
+  searchDb.updateModelBenchmarkSearchIdentityStatuses([
+    { id: "inactive-canonical", status: "review_required" },
+  ]);
+  for (const source of [
+    "benchmark_fitness",
+    "benchmark_fitness:low",
+    "benchmark_fitness:medium",
+    "benchmark_fitness:high",
+    "arena_elo",
+  ]) {
+    intelligence.upsertModelIntelligence({
+      model: "stale-model",
+      source,
+      category: "coding",
+      score: 0.9,
+      eloRaw: null,
+      confidence: "high",
+      expiresAt: null,
+    });
+  }
+
+  let published: ReturnType<typeof fitnessSync.publishModelBenchmarkFitnessSnapshot> | undefined;
+  searchDb.replaceModelBenchmarkEvidenceSources(
+    [
+      {
+        modelId: "inactive-canonical",
+        source: "deepswe",
+        rows: [evidence("inactive-canonical", "pass@1", 0.5, "deepswe", "verified", "DeepSWE")],
+      },
+      {
+        modelId: "peer",
+        source: "deepswe",
+        rows: [evidence("peer", "pass@1", 0.9, "deepswe", "verified", "DeepSWE")],
+      },
+    ],
+    () => {
+      assert.equal(core.getDbInstance().inTransaction, true);
+      published = fitnessSync.publishModelBenchmarkFitnessSnapshot();
+      assert.equal(
+        intelligence.getModelIntelligenceBySource(
+          "inactive-canonical",
+          "benchmark_fitness",
+          "coding"
+        )?.score,
+        0.25
+      );
+    }
+  );
+
+  assert.ok(published);
+  assert.equal(
+    published.scores.find(({ modelId }) => modelId === "inactive-canonical")?.codingFitness,
+    0.25
+  );
+  assert.equal(published.publishedCount, 16);
+  assert.equal(published.profilePublishedCount, 12);
+  assert.equal(published.deletedCount, 4);
+  for (const source of [
+    "benchmark_fitness",
+    "benchmark_fitness:low",
+    "benchmark_fitness:medium",
+    "benchmark_fitness:high",
+  ]) {
+    assert.equal(intelligence.getModelIntelligenceBySource("stale-model", source, "coding"), null);
+  }
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("stale-model", "arena_elo", "coding")?.score,
+    0.9
+  );
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("inactive-canonical", "benchmark_fitness", "coding")
+      ?.model,
+    "inactive-canonical"
+  );
+  assert.equal(
+    intelligence.getModelIntelligenceBySource(
+      "provider/inactive-canonical",
+      "benchmark_fitness",
+      "coding"
+    ),
+    null
+  );
+
+  await fitnessSync.invalidateModelBenchmarkFitnessCache();
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("inactive-canonical", "coding"), {
+    score: 0.25,
+    source: "benchmark_fitness",
+  });
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource("inactive-canonical", "default"), {
+    score: 0.25,
+    source: "benchmark_fitness",
+  });
+  assert.notEqual(
+    taskFitness.getTaskFitnessWithSource("provider/inactive-canonical", "coding").source,
+    "benchmark_fitness"
+  );
+});
+
+test("empty canonical catalog cannot delete existing benchmark fitness", () => {
+  intelligence.upsertModelIntelligence({
+    model: "preserved-model",
+    source: "benchmark_fitness",
+    category: "coding",
+    score: 0.75,
+    eloRaw: null,
+    confidence: "high",
+    expiresAt: null,
+  });
+
+  assert.throws(() => fitnessSync.publishModelBenchmarkFitnessSnapshot(), /without catalog models/);
+  assert.equal(
+    intelligence.getModelIntelligenceBySource("preserved-model", "benchmark_fitness", "coding")
+      ?.score,
+    0.75
+  );
 });

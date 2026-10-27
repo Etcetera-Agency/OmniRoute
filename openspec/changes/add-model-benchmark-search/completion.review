@@ -1,8 +1,8 @@
 # Completion review — add-model-benchmark-search
 
-**Status:** the search-route, queue-liveness, and durable rate-limit recovery
-fixes are implemented. Focused verification and independent review pass. PR,
-deployment, and controlled live acceptance remain pending.
+**Status:** local implementation, integrated verification, and independent
+review are complete. Merge, release migration rehearsal, deployment, and
+controlled live acceptance remain pending.
 
 ## Root cause
 
@@ -215,3 +215,67 @@ awaited operation for the live stall is not proven from available logs.
 - Main image run `40504168756` passed the resolver-test `COPY` then failed at test line 46: Node `v26.10.0` resolved `undici` from the test module's `/tmp` location, not `/app/node_modules`. `require.resolve('undici')` from `/app` returned `/app/node_modules/undici/index.js`. Dockerfile now copies the smoke to `/app/scripts/ops` so normal module resolution uses the image's runtime dependencies; missing packages still fail the gate.
 - On the ARM64 server, an isolated container using immutable runtime image `sha256:c51c4d12acaaf038eb7634eef62d50ce1b660f3c5b828be35e167550eb7cacd9` reproduced the `/tmp` failure, then passed the same resolver test under `/app` (130 emitted files, 31 external imports) and actual bundled `--check-runtime` (`runtime module graph loaded`). Container used `--network=none`, read-only root/artifacts, tmpfs `/tmp`, and no production data, env, or key mounts. The operator import smoke applied migrations only to the tmpfs database. Failed run stopped before image publish or deploy; production container was not touched.
 - The next automatic main ARM64 build/runtime gate remains required before deployment and the live maintenance acceptance.
+
+## 2026-10-27 evidence table rename and current-set persistence
+
+- Migration 200 renames `model_benchmark_search_evidence` to
+  `model_benchmark_evidence`, removes `raw_json` for every source, and compacts
+  rows by the exact existing formula-observation key. It keeps the latest
+  `captured_at`; equal timestamps use the fitness reader's existing hash order.
+  The migration runs in the existing migration transaction. Fresh and repeated
+  initialization leave only the new table, with no alias or dual write.
+- The replacement API handles exact `(modelId, source)` current sets, including
+  valid empty sets. Duplicate scopes, mismatched row scopes, and duplicate
+  incoming hashes reject before deletes. Plain inserts make conflicts roll back
+  the transaction. Its synchronous callback publishes native fitness inside
+  that same transaction.
+- The full refresh validates all five current direct feeds before mutation,
+  uses the complete fresh canonical models.dev catalog including inactive
+  models, matches exact IDs before unique exact names, then replaces evidence
+  and the four owned native score sources atomically. Missing canonical IDs
+  lose all benchmark evidence and owned benchmark scores. Current IDs keep
+  non-direct observations until a valid replacement for that source arrives.
+  Successful HF and manual queued-source updates replace their exact sets;
+  valid-empty updates clear them. Failed, malformed, timed-out, or incomplete
+  responses preserve the last valid rows and scores. Malformed Ollama results
+  use the existing 502 provider error path.
+- Normal models.dev sync still writes pricing and capabilities, then starts an
+  error-isolated refresh with the fresh full catalog. It does not enqueue or
+  drain the separate manual discovery queue. In-process refresh calls serialize
+  in invocation order while retaining each call's catalog input.
+- The AutoCombo consumer regression proves raw canonical IDs reach native
+  `model_intelligence` for both coding and general high-band filters; the
+  provider-prefixed route ID remains separate. Formula, normalization,
+  deduplication, effort profiles, thresholds, capability writes, Auto filters,
+  and free-cost files are unchanged.
+- Historical per-row data has no reliable source-batch or deletion boundary.
+  Migration therefore compacts only exact duplicate formula keys, preserves
+  distinct keys, and removes all raw payloads. Old deleted keys or successful
+  empty outcomes cannot be reconstructed. For still-current catalog IDs,
+  distinct non-direct observations remain last-known current cache until a
+  valid replacement arrives; this is not an archive or a claim of recoverable
+  source history.
+- Review dispositions: the finding that older distinct keys may remain was
+  checked against this accepted last-known-current contract; inferring omitted
+  batch rows from the legacy schema would invent history. The normal-sync queue
+  finding is closed by the explicit design: discovery queue work remains a
+  separate manual path. No other actionable cross-module finding remains.
+- Final offline verification: combined storage, loader/catalog, publisher,
+  migration, search-handler, and queue suites pass 115/115; models.dev sync
+  and hook suites pass 46/46; actual AutoCombo band consumer passes 5/5 using
+  Vitest forks. The compiled operator bundle
+  `dist/ops/reprocess-model-benchmark-search.mjs` has SHA-256
+  `61ef7e74693af471d347708b6bb11e05e2b2ad227472ac13d142accc5737cde4`; its
+  `--check-runtime` smoke loads the module graph in an isolated temp data
+  directory. `npm run check:docs-all` and strict OpenSpec validation pass;
+  docs checker reports 99 existing potential-drift warnings. Prettier and
+  `git diff --check` pass.
+- The ordinary `npm run build:fast` is blocked before compilation because this
+  worktree's `node_modules` symlink resolves outside the filesystem root. The
+  authoritative ARM64 image and upgraded-runtime migration rehearsal were not
+  run here and remain release gates. After this fix merges, apply exact upstream
+  v3.8.52 before any image build; rehearse migration 200 on an isolated
+  consistent DB clone, verify schema/data/formula/FK/integrity semantics and
+  restore the pre-migration snapshot with the prior image, then build one
+  authoritative ARM64 image. No push, merge, deployment, production DB write,
+  live search, or inference occurred in this local package.

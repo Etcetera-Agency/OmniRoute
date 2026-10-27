@@ -3,25 +3,13 @@ process.env.DATA_DIR = runtimeCheck ? "/tmp/model-benchmark-search-runtime-check
 console.log = (...args) => console.error(...args);
 
 try {
-  const [{ getAllActiveSyncedModels }, { reprocessModelBenchmarkSearchEvidence }] =
-    await Promise.all([
-      import("../../src/lib/db/models/activeSyncedCatalog"),
-      import("../../src/lib/modelBenchmarkSearch"),
-    ]);
+  const { reprocessModelBenchmarkSearchEvidence } =
+    await import("../../src/lib/modelBenchmarkSearch");
   if (runtimeCheck) {
     process.stdout.write("runtime module graph loaded\n");
     process.exit(0);
   }
-  const activeCatalogs = await getAllActiveSyncedModels();
-  const modelIds = [
-    ...new Set(
-      Object.values(activeCatalogs)
-        .flat()
-        .map((model) => model.id)
-        .filter(Boolean)
-    ),
-  ];
-  const result = await reprocessModelBenchmarkSearchEvidence(modelIds);
+  const result = await reprocessModelBenchmarkSearchEvidence();
   process.stdout.write(`${JSON.stringify(result)}\n`);
   if (
     result.receipts.some(
