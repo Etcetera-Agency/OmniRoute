@@ -594,6 +594,10 @@ test("normalization request uses Auto channel with strict schema and high reason
 
   assert.equal(body.model, processor.NORMALIZATION_MODEL);
   const messages = body.messages as Array<{ role: string; content: string }>;
+  assert.match(
+    messages[0].content,
+    /copy evidence_quote as an exact, contiguous, verbatim substring from the selected result title or snippet/i
+  );
   assert.deepEqual(JSON.parse(messages[1].content), {
     model_id: "new-model",
     model_name: "New Model",
@@ -868,6 +872,36 @@ test("normalization accepts only exact quoted fields and returned source URLs", 
   const parsed = processor.parseNormalizationResponse(response, model, searchResults);
   assert.equal(parsed?.[0].value, 45);
   assert.equal(parsed?.[0].benchmark, "SWE-bench Verified");
+  const responseWithQuote = (evidenceQuote: string) => ({
+    ...response,
+    choices: [
+      {
+        ...response.choices[0],
+        message: {
+          content: response.choices[0].message.content.replace(
+            JSON.stringify(searchResults[0].snippet),
+            JSON.stringify(evidenceQuote)
+          ),
+        },
+      },
+    ],
+  });
+  assert.equal(
+    processor.parseNormalizationResponse(
+      responseWithQuote("New Model pass rate: 45% on SWE-bench Verified on 2026-10-20."),
+      model,
+      searchResults
+    ),
+    null
+  );
+  assert.equal(
+    processor.parseNormalizationResponse(
+      responseWithQuote(`${searchResults[0].title}\n${searchResults[0].snippet}`),
+      model,
+      searchResults
+    ),
+    null
+  );
   assert.equal(
     processor.parseNormalizationResponse(
       {
