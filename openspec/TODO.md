@@ -871,15 +871,22 @@ Deferred cross-repository and operations work:
       read-only root, read-only smoke artifacts, and tmpfs `/tmp`; no production
       data, env, keys, provider calls, or container changes were involved. Run
       `40504168756` failed before publish/deploy.
-- [ ] After the current fix merges to main, apply the exact v3.8.52 upstream
-      update before any image build. With the upgraded source and runtime
-      dependencies, rehearse migration 200 on a consistent isolated clone of
-      the production DB. Verify renamed schema, removed `raw_json`, exact
-      formula-key compaction, unchanged eligible outputs, foreign-key and DB
-      integrity, and rollback by restoring the pre-migration snapshot with the
-      prior image. Only then run one authoritative ARM64 image build/runtime
-      smoke, verify and publish its immutable digest, and proceed to approved
-      deployment.
+- [ ] Upgrade the isolated branch from merged fix `7bb10048702966cccaa0eebe62bb83bfad040265`
+      to final official v3.8.52 source `ad6f33f66bda34eba98645d3bfdabbde294bc843`
+      and pin the matching overlay index `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
+      before any image build. Keep deployed fork migrations 197–199; map
+      upstream 197–212 to 200–215 and pending fork 200 to 216. Preserve
+      benchmark formula/profiles/current-set publication, strict zero-cost
+      free-only Auto bands, and capabilities. Prove the exact source/runtime
+      migration inventory, order and upstream SQL effects, then run targeted
+      upstream migration, benchmark, Auto-band, capability, and overlay
+      regressions. TL313 must rehearse the full ordered migration set against
+      a consistent isolated production DB clone, verify the migrated schema,
+      FTS5 and credential behavior, benchmark outputs, foreign keys and DB
+      integrity, and test rollback by restoring its pre-migration snapshot with
+      the prior image. Only after that gate and the parent's grant may the
+      disabled workflow build one authoritative ARM64 image, verify and publish
+      its immutable digest, and proceed to approved deployment.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.
