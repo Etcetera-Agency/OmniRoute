@@ -290,3 +290,157 @@ row whose recorded error is the missing-AA-key condition.
 - **THEN** the row is marked `retry_exhausted_unrated`
 - **AND** the row is excluded from claimable-work checks
 - **AND** no source snapshot is loaded unless another eligible row exists
+
+### Requirement: Keep distinct benchmark metrics as distinct evidence
+
+The evidence fingerprint SHALL include the benchmark and metric identity in
+addition to the existing stable source fields. Two observations parsed from
+one raw source row SHALL persist separately when their benchmark or metric
+differs. A repeated observation with the same existing stable fields,
+benchmark, and metric SHALL remain idempotent. Fitness recomputation SHALL
+consume the separately persisted observations without changing its existing
+formula, thresholds, fallback, or effort profiles.
+On refresh, persistence SHALL repair legacy collisions caused by the former
+fingerprint, retaining one observation per stable identity, benchmark, and
+metric. Repeated refresh SHALL remain idempotent.
+
+#### Scenario: One AA payload row persists both published metrics
+
+- **GIVEN** an AA Free row includes both
+  `artificial_analysis_coding_index` and
+  `artificial_analysis_intelligence_index`
+- **WHEN** its `AA Coding` and `AA Intelligence` evidence is persisted
+- **THEN** one row is retained for each benchmark and metric
+- **AND** each row retains its own source-reported value and the shared raw row
+- **AND** a retry deduplicates each metric independently
+- **AND** fitness recomputation sees both metric observations
+
+#### Scenario: Refresh repairs prior cross-metric collision idempotently
+
+- **GIVEN** retained raw AA evidence contains one source row whose metrics
+  collided under the former fingerprint
+- **WHEN** evidence refresh runs after the correction
+- **THEN** both benchmark/metric observations persist
+- **AND** repeated refresh leaves exactly one observation per metric
+
+### Requirement: Gate discovery search on active synced model identity
+
+After a complete exact miss in AA and every required official source, the
+system SHALL query Hugging Face and Ollama Search only if the queued model ID
+exactly matches an ID in the active OmniRoute synced provider catalogs after
+case folding. It SHALL use `getAllActiveSyncedModels` for this check. A missing
+match or empty catalog SHALL persist an auditable eligibility reason, keep the
+model unrated, and prevent HF, Ollama Search, and strict-SO requests. The
+catalog check SHALL NOT change client-request or provider-attempt counts.
+Unavailable models SHALL persist reason
+`model_not_in_active_synced_catalog` in source status.
+
+#### Scenario: Unavailable model cannot start discovery requests
+
+- **GIVEN** AA and every official source completed with an exact miss
+- **AND** no active synced provider catalog contains the exact model ID after
+  case folding
+- **WHEN** the queue evaluates discovery eligibility
+- **THEN** it persists reason `model_not_in_active_synced_catalog`
+- **AND** it finishes the model `unrated_no_evidence`
+- **AND** it sends no HF, Ollama Search, or strict-SO request
+
+#### Scenario: Case-folded exact model ID preserves HF discovery
+
+- **GIVEN** AA and every official source completed with an exact miss
+- **AND** an active synced provider catalog contains the same model ID with
+  different letter case
+- **WHEN** the queue evaluates discovery eligibility
+- **THEN** it continues through the existing HF query and model-detail route
+- **AND** it preserves explicit zero-cost Ollama Search with no alternate
+- **AND** it makes no name, prefix, alias, or substring match
+
+### Requirement: Reprocess direct benchmark evidence without discovery search
+
+The system SHALL provide an internal one-shot operation that accepts explicit
+model IDs, validates them against the active synced provider catalogs, loads
+the AA Free and required official source snapshot once, reparses retained AA
+raw evidence, and materializes direct benchmark evidence only for exact active
+IDs from the runtime catalogs, including IDs absent from the models.dev
+capability snapshot. It SHALL emit an auditable receipt for each requested ID,
+including matched/missing identity, each direct source's status and
+completeness, exact-match outcome (`matched`, `ambiguous`, `missing`, or
+`unverified`), and evidence write counts. It SHALL run the existing global
+benchmark fitness and effort-profile recomputation once and report observation
+and publication counts. It MAY persist identity-only rows for validated active
+runtime IDs to satisfy the evidence foreign key. New identity rows SHALL start
+nonclaimable as `unrated_no_evidence`; after recomputation, only newly inserted
+rows SHALL settle to `scored`, `review_required`, or `unrated_no_evidence`
+according to their direct evidence and computed score. Existing rows SHALL
+preserve status on conflict. All resulting statuses SHALL remain nonclaimable.
+It SHALL NOT create search
+run/job rows, claim queued work, or call queue drain, `refreshSearchRun`,
+Hugging Face, Ollama Search, or strict-SO. Evidence SHALL keep the actual
+runtime ID; matching SHALL use exact raw source IDs or unique exact names,
+without provider-prefix stripping. No public API endpoint SHALL be added for
+this operation. Its bundled entry SHALL run only
+when explicitly invoked by an operator; it SHALL not run during service
+startup. The release procedure SHALL prevent startup-triggered models.dev sync
+and queue drain from running during the maintenance restart.
+
+#### Scenario: One-shot operation processes full active catalog without search
+
+- **GIVEN** the operator script supplies every active runtime model ID,
+  without a sample or first-page limit
+- **AND** all source fetches return complete supported payloads
+- **WHEN** the internal reprocessing operation runs
+- **THEN** it loads the direct source snapshot once
+- **AND** it records one receipt per requested ID with source completeness and
+  evidence writes
+- **AND** it recomputes existing global and effort-profile fitness once
+- **AND** it reports profile publication counts
+- **AND** it creates no search run/job rows and sends no HF, Ollama Search, or
+  strict-SO request
+- **AND** any new identity-only rows cannot be selected by a later queue drain
+
+#### Scenario: Inactive or non-ID request remains auditable
+
+- **GIVEN** a requested identity is missing from all active synced catalogs
+- **WHEN** the internal reprocessing operation runs
+- **THEN** the identity receives a `missing` receipt
+- **AND** it has no direct evidence writes
+- **AND** it has no identity-only database row
+- **AND** it is not materialized by name, alias, prefix, or substring
+
+#### Scenario: Duplicate exact names are reported as ambiguous
+
+- **GIVEN** a complete direct source includes an exact model name shared by
+  multiple active runtime identities
+- **AND** it does not include an exact matching model ID
+- **WHEN** the internal reprocessing operation checks that source
+- **THEN** each affected receipt reports `identityMatch: ambiguous`
+- **AND** it writes no evidence from the ambiguous name
+
+#### Scenario: Published evidence reaches the raw-ID free band consumer
+
+- **GIVEN** the active `nvidia` provider catalog contains raw model ID
+  `z-ai/glm-5.3`
+- **AND** a second synced NVIDIA model is free, tool-capable, and has lower
+  direct benchmark scores
+- **AND** AA returns exact ID matches and an official source returns unique
+  exact-name matches for both models
+- **WHEN** direct reprocessing publishes fitness and the actual free-band
+  consumer evaluates `coding_high_tools:free` and `general_high_tools:free`
+- **THEN** both filters read the `benchmark_fitness:high` profile using raw
+  fitness key `z-ai/glm-5.3`
+- **AND** both filters admit `nvidia/z-ai/glm-5.3` and exclude the lower-scoring
+  free, tool-capable model
+- **AND** each filter sees direct benchmark fitness before static
+  `benchmark_consensus` or `models_dev_tier` fallback
+- **AND** route-facing `candidate.modelStr` remains `nvidia/z-ai/glm-5.3`
+- **AND** no provider prefix is added to or stripped from the stored fitness ID
+- **AND** fitness formula, profile precedence, and band ranges are unchanged
+
+#### Scenario: Partial direct source scan stays incomplete
+
+- **GIVEN** one AA or official source response is incomplete or errors
+- **WHEN** the operation materializes evidence from the one source snapshot
+- **THEN** the affected source receipt remains incomplete with its error status
+- **AND** complete direct-source evidence remains persisted
+- **AND** global fitness recomputation runs once from persisted eligible evidence
+- **AND** no discovery search or normalization request occurs

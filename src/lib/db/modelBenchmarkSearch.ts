@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getDbInstance } from "./core";
 
 const MAX_SEARCH_ATTEMPTS = 5;
@@ -94,6 +95,45 @@ export function enqueueModelBenchmarkSearches(identities: ModelBenchmarkSearchId
   `);
   const tx = db.transaction(() => {
     for (const identity of identities) upsert.run(identity.id, identity.name);
+  });
+  tx();
+}
+
+export function upsertModelBenchmarkSearchIdentities(
+  identities: ModelBenchmarkSearchIdentity[]
+): string[] {
+  if (identities.length === 0) return [];
+  const db = getDbInstance();
+  const exists = db.prepare("SELECT 1 FROM model_benchmark_search_models WHERE model_id = ?");
+  const upsert = db.prepare(`
+    INSERT INTO model_benchmark_search_models (model_id, model_name, status)
+    VALUES (?, ?, 'unrated_no_evidence')
+    ON CONFLICT(model_id) DO UPDATE SET model_name = excluded.model_name
+  `);
+  const insertedIds: string[] = [];
+  const tx = db.transaction(() => {
+    for (const identity of identities) {
+      if (!exists.get(identity.id)) insertedIds.push(identity.id);
+      upsert.run(identity.id, identity.name);
+    }
+  });
+  tx();
+  return insertedIds;
+}
+
+export function updateModelBenchmarkSearchIdentityStatuses(
+  identities: Array<{
+    id: string;
+    status: "scored" | "review_required" | "unrated_no_evidence";
+  }>
+): void {
+  if (identities.length === 0) return;
+  const db = getDbInstance();
+  const update = db.prepare(
+    "UPDATE model_benchmark_search_models SET status = ? WHERE model_id = ?"
+  );
+  const tx = db.transaction(() => {
+    for (const identity of identities) update.run(identity.status, identity.id);
   });
   tx();
 }
@@ -439,9 +479,26 @@ export function saveModelBenchmarkSearchEvidence(
       verification_status, captured_at, raw_json
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  const removeLegacyAaRow = db.prepare(
+    "DELETE FROM model_benchmark_search_evidence WHERE evidence_hash = ? AND source = 'artificial-analysis-free'"
+  );
   let inserted = 0;
   const tx = db.transaction(() => {
     for (const row of rows) {
+      if (row.source === "artificial-analysis-free") {
+        const legacyHash = createHash("sha256")
+          .update(
+            JSON.stringify({
+              modelId: row.modelId,
+              source: row.source,
+              sourceVersion: row.sourceVersion,
+              sourceUrl: row.sourceUrl,
+              raw: row.raw,
+            })
+          )
+          .digest("hex");
+        removeLegacyAaRow.run(legacyHash);
+      }
       inserted += insert.run(
         row.evidenceHash,
         row.modelId,
@@ -506,6 +563,19 @@ export function listAllModelBenchmarkSearchEvidence(): ModelBenchmarkSearchEvide
        ORDER BY model_id, captured_at DESC, evidence_hash`
     )
     .all()
+    .map(mapEvidenceRow);
+}
+
+export function listAllModelBenchmarkSearchEvidenceForModel(
+  modelId: string
+): ModelBenchmarkSearchEvidence[] {
+  return getDbInstance()
+    .prepare(
+      `SELECT * FROM model_benchmark_search_evidence
+       WHERE model_id = ?
+       ORDER BY captured_at DESC, evidence_hash`
+    )
+    .all(modelId)
     .map(mapEvidenceRow);
 }
 

@@ -56,6 +56,11 @@ RUN mkdir -p /app/data \
   && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \
   && test -s /app/.build/backend-overlay/routes-manifest.json
 
+# AICODE-NOTE: Bundle the explicit operator separately so prebuilt backend packaging skips a second Next build.
+FROM backend-dependencies AS operator-builder
+COPY . ./
+RUN node scripts/build/bundle-model-benchmark-search-reprocess.mjs
+
 # Adapter for a separately compiled backend export. This stage is selected
 # only when BACKEND_ARTIFACT_STAGE=prebuilt-backend; BuildKit prunes the
 # backend-builder stage, so packaging does not compile a second time.
@@ -124,6 +129,9 @@ COPY --from=merged-backend \
 COPY --from=merged-backend \
   /app/.build/next/routes-manifest.json \
   /app/.build/next/routes-manifest.json
+COPY --from=operator-builder \
+  /app/dist/ops/reprocess-model-benchmark-search.mjs \
+  /app/scripts/ops/reprocess-model-benchmark-search.mjs
 
 # AICODE-NOTE: Keep browser packages sourced from shared dependencies so
 # prebuilt backend packaging never pulls in backend-builder compilation.

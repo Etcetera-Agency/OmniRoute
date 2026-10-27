@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, beforeEach, describe, it } from "vitest";
+import { afterAll, beforeEach, describe, it, vi } from "vitest";
 
 const previousEnv = {
   dataDir: process.env.DATA_DIR,
   bandsEnabled: process.env.OMNIROUTE_AUTO_BANDS,
   bandsConfig: process.env.OMNIROUTE_AUTO_BANDS_CONFIG,
   fullPoolFallback: process.env.OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL,
+  aaApiKey: process.env.AA_API_KEY,
 };
 const testDataDir = mkdtempSync(path.join(tmpdir(), "omniroute-auto-bands-quality-e2e-"));
 process.env.DATA_DIR = testDataDir;
@@ -21,9 +22,12 @@ const [
   { setUserFitnessOverride, getTaskFitnessWithSource },
   { saveModelsDevCapabilities },
   { getResolvedModelCapabilities },
-  { resetDbInstance },
+  { getDbInstance, resetDbInstance },
   { getBandConfig, getBandRange, setCalibratedBandRanges },
-  { classifyTier },
+  { classifyTier, clearTierCache, setTierPricingSnapshot },
+  providersDb,
+  modelsDb,
+  benchmarkSearch,
 ] = await Promise.all([
   import("../../../open-sse/services/autoCombo/virtualFactory"),
   import("../../../open-sse/services/autoCombo/taskFitness"),
@@ -32,6 +36,9 @@ const [
   import("../../../src/lib/db/core"),
   import("../../../open-sse/services/autoCombo/bands/config"),
   import("../../../open-sse/services/tierResolver"),
+  import("../../../src/lib/db/providers"),
+  import("../../../src/lib/db/models"),
+  import("../../../src/lib/modelBenchmarkSearch"),
 ]);
 
 function resetStorage(): void {
@@ -72,6 +79,18 @@ function buildCapability(tool_call: boolean) {
   };
 }
 
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "content-type": "application/json", date: "Mon, 26 Oct 2026 00:00:00 GMT" },
+  });
+}
+
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
 function getReturnedModelIds(
   combo: Awaited<ReturnType<typeof createVirtualAutoComboFromPrepared>>
 ) {
@@ -80,14 +99,22 @@ function getReturnedModelIds(
 
 beforeEach(() => {
   resetStorage();
+  vi.unstubAllGlobals();
+  if (previousEnv.aaApiKey === undefined) delete process.env.AA_API_KEY;
+  else process.env.AA_API_KEY = previousEnv.aaApiKey;
   process.env.OMNIROUTE_AUTO_BANDS = "1";
   delete process.env.OMNIROUTE_AUTO_BANDS_CONFIG;
   delete process.env.OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL;
   setCalibratedBandRanges(null);
+  setTierPricingSnapshot(null);
+  clearTierCache();
   resetEmptyAutoPoolWarnStateForTests();
 });
 
 afterAll(() => {
+  vi.unstubAllGlobals();
+  setTierPricingSnapshot(null);
+  clearTierCache();
   resetDbInstance();
   rmSync(testDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   if (previousEnv.dataDir === undefined) delete process.env.DATA_DIR;
@@ -101,9 +128,144 @@ afterAll(() => {
   } else {
     process.env.OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL = previousEnv.fullPoolFallback;
   }
+  if (previousEnv.aaApiKey === undefined) delete process.env.AA_API_KEY;
+  else process.env.AA_API_KEY = previousEnv.aaApiKey;
 });
 
 describe("auto quality-band candidate-pool integration", () => {
+  it("routes raw NVIDIA catalog IDs through benchmark high profiles in free tool bands", async () => {
+    process.env.AA_API_KEY = "bands-quality-e2e-test-key";
+    const rawModelId = "z-ai/glm-5.3";
+    const peerModelId = "z-ai/glm-5.2";
+    const connection = await providersDb.createProviderConnection({
+      provider: "nvidia",
+      authType: "apikey",
+      name: "bands-quality-e2e-nvidia",
+      apiKey: "bands-quality-e2e-test-key",
+      isActive: true,
+      testStatus: "active",
+      providerSpecificData: {},
+    });
+    await modelsDb.replaceSyncedAvailableModelsForConnection("nvidia", connection.id, [
+      { id: rawModelId, name: "GLM 5.3" },
+      { id: peerModelId, name: "GLM 5.2" },
+    ]);
+    saveModelsDevCapabilities({
+      nvidia: {
+        [rawModelId]: buildCapability(true),
+        [peerModelId]: buildCapability(true),
+      },
+    });
+    setTierPricingSnapshot({
+      nvidia: {
+        [rawModelId]: { input: 0, output: 0 },
+        [peerModelId]: { input: 0, output: 0 },
+      },
+    });
+    clearTierCache();
+
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+        return jsonResponse({
+          intelligence_index_version: 4.1,
+          pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+          data: [
+            {
+              slug: rawModelId,
+              name: "GLM 5.3 (high)",
+              release_date: "2026-10-01",
+              evaluations: {
+                artificial_analysis_coding_index: 100,
+                artificial_analysis_intelligence_index: 100,
+              },
+            },
+            {
+              slug: peerModelId,
+              name: "GLM 5.2 (high)",
+              release_date: "2026-10-01",
+              evaluations: {
+                artificial_analysis_coding_index: 1,
+                artificial_analysis_intelligence_index: 1,
+              },
+            },
+          ],
+        });
+      }
+      if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+        return jsonResponse({
+          leaderboards: [
+            {
+              name: "Verified",
+              results: [
+                { model_display: "GLM 5.3", resolved: 100 },
+                { model_display: "GLM 5.2", resolved: 1 },
+              ],
+            },
+          ],
+        });
+      }
+      if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+        return jsonResponse({ rows: [] });
+      }
+      if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+      throw new Error(`Unexpected benchmark source request: ${url}`);
+    });
+
+    await benchmarkSearch.reprocessModelBenchmarkSearchEvidence([rawModelId, peerModelId]);
+
+    const codingFitness = getTaskFitnessWithSource(rawModelId, "coding", "high");
+    const generalFitness = getTaskFitnessWithSource(rawModelId, "default", "high");
+    const peerCodingFitness = getTaskFitnessWithSource(peerModelId, "coding", "high");
+    const peerGeneralFitness = getTaskFitnessWithSource(peerModelId, "default", "high");
+    assert.equal(codingFitness.source, "benchmark_fitness:high");
+    assert.equal(generalFitness.source, "benchmark_fitness:high");
+    assert.equal(peerCodingFitness.source, "benchmark_fitness:high");
+    assert.equal(peerGeneralFitness.source, "benchmark_fitness:high");
+    assert.ok(peerCodingFitness.score < codingFitness.score);
+    assert.ok(peerGeneralFitness.score < generalFitness.score);
+    assert.equal(classifyTier("nvidia", rawModelId).tier, "free");
+    assert.equal(classifyTier("nvidia", peerModelId).tier, "free");
+    assert.equal(
+      getResolvedModelCapabilities({ provider: "nvidia", model: rawModelId }).toolCalling,
+      true
+    );
+    assert.equal(
+      getResolvedModelCapabilities({ provider: "nvidia", model: peerModelId }).toolCalling,
+      true
+    );
+    const persistedFitness = getDbInstance().prepare(
+      `SELECT score FROM model_intelligence
+       WHERE model = ? AND source = 'benchmark_fitness:high' AND category = ?`
+    );
+    for (const category of ["coding", "default"]) {
+      assert.ok(persistedFitness.get(rawModelId, category));
+    }
+
+    const targetCandidate = {
+      ...makeCandidate("nvidia", rawModelId, 1),
+      connectionId: connection.id,
+    };
+    const peerCandidate = {
+      ...makeCandidate("nvidia", peerModelId, 2),
+      connectionId: connection.id,
+    };
+    const prepared = { regularCandidates: [targetCandidate, peerCandidate], familyCandidates: [] };
+    const codingCombo = await createVirtualAutoComboFromPrepared(prepared, undefined, {
+      category: "coding_high_tools" as never,
+      tier: "free",
+    });
+    const generalCombo = await createVirtualAutoComboFromPrepared(prepared, undefined, {
+      category: "general_high_tools" as never,
+      tier: "free",
+    });
+
+    assert.deepEqual(getReturnedModelIds(codingCombo), [`nvidia/${rawModelId}`]);
+    assert.deepEqual(getReturnedModelIds(generalCombo), [`nvidia/${rawModelId}`]);
+    assert.equal(targetCandidate.model, rawModelId);
+    assert.equal(targetCandidate.modelStr, `nvidia/${rawModelId}`);
+  }, 20_000);
+
   it("intersects the default low range with real tool capability and admits unrated low candidates", async () => {
     const inRangeToolModel = "band-quality-low-tools-in-range";
     const outOfRangeToolModel = "band-quality-low-tools-out-of-range";

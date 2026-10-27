@@ -87,6 +87,46 @@ route as fallback.
   identity aliases, or score inference from search snippets. Free strict-SO
   extraction only creates review-required evidence and cannot publish ratings.
 
+## 2026-10-27 defect correction
+
+Two defects were confirmed in the existing source-lookup slice:
+
+- The stable evidence fingerprint does not include benchmark/metric identity.
+  AA Coding and AA Intelligence are parsed from one source row with identical
+  raw payload, so `INSERT OR IGNORE` can discard the second metric. Include
+  `benchmark` and `metric` in the fingerprint; keep all other source matching,
+  normalization, and deduplication rules unchanged.
+- A complete miss in AA and the official sources currently starts HF and
+  Ollama Search even when the model ID is absent from OmniRoute's active synced
+  provider catalogs. Before either discovery request, require an exact
+  case-folded model-ID match from `getAllActiveSyncedModels`. Persist an
+  unavailable-catalog reason and leave the model unrated when no match exists.
+
+Do not change the fitness formula, thresholds, fallback, effort profiles, or
+provider attempt accounting. Preserve the existing Hugging Face query/detail
+route for eligible catalog models.
+
+The existing queue is not a safe operator path for repairing retained AA
+evidence: a direct-source miss can continue into web search and normalization.
+Add one internal operator function and one bundled one-shot script. The script
+derives the full currently active OmniRoute model-ID set from active provider
+catalogs, passes explicit IDs for validation, and emits a receipt without
+adding a public endpoint. It must not rely only on the models.dev capability
+snapshot, which can omit identities that are active Auto-band candidates. The function loads the
+AA/official source snapshot once, materializes direct evidence only for exact
+active IDs, records unmatched and ambiguous IDs plus per-source
+completeness/write counts, and runs the existing global fitness/profile
+recomputation once. New identity rows start unrated and nonclaimable, then only
+new rows settle to the existing scored/review-required/unrated status after
+recomputation; existing status is preserved on conflict. It never drains or
+changes the search queue and never calls HF, Ollama Search, or strict-SO.
+
+Bundle the one-shot entry with esbuild in the backend builder stage and copy
+the JavaScript bundle into the final overlay image; do not depend on runtime
+`tsx` or an uncopied source script. Invoke it explicitly with `node` inside the
+container. Release sequencing must prevent the existing startup models.dev
+sync and queue drain from running during the maintenance restart.
+
 ## Acceptance
 
 - A later successful models.dev sync detects a newly persisted raw model ID,
