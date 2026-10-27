@@ -158,10 +158,10 @@ awaited operation for the live stall is not proven from available logs.
   this inference-only graph was unnecessary for that entry point.
 - Moved the pure normalization model/retry constants and parser into
   `modelBenchmarkSearchNormalization.ts`. The search module now dynamically
-  imports the processor only inside the queued search normalization path. The
-  bundled operator is split into an eager direct path and lazy queue-only
-  chunks, keeping the normal queued behavior while excluding the Bedrock SDK
-  from the operator's eager dependency graph.
+  imports `modelBenchmarkSearchProcessor.ts` only from queued search
+  normalization. This adds a lazy normalization chunk and removes that
+  processor's Bedrock SDK dependency from the operator's eager graph; shared
+  search-provider helpers remain eagerly imported.
 - RED was reproduced against the prior artifact in the runtime dependency
   tree: the direct graph contained the unresolved Bedrock SDK import. GREEN:
   the new artifact resolver traversed 130 emitted files and resolved 31
@@ -177,6 +177,12 @@ awaited operation for the live stall is not proven from available logs.
   bundle into `/app`. Existing benchmark-search tests pass 44/44, fitness-sync
   tests pass 5/5, and the artifact dependency resolver test passes. RED/GREEN
   tests and the source-level direct-reprocessing regressions remain meaningful.
+- Independent release review confirmed `getSearchProvider` and
+  `executeWebSearch` remain eager imports of the shared search module, so their
+  dependencies are present in the direct bundle. The direct operator does not
+  invoke these helpers, and no import-time network call was identified. This is
+  a nonblocking dependency-load observation; no further split is scoped absent
+  a concrete missing dependency or side effect.
 - Code Simplifier reviewed the source change and test; no smaller change
   preserved the direct/queued import boundary. Independent Luna-xhigh review
   found one unused local binding in the resolver test; it was removed, and
