@@ -126,6 +126,30 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       proof, and scheduled queue progress with scored/unrated totals. Do not pin
       a provider, manufacture a live 429, reset the queue, or send duplicate
       requests while the normal route is cooling down.
+      On 2026-10-27, a standard models.dev sync completed and advanced the
+      queue one row at a time. Ollama Search returned zero-cost candidates for
+      `openai-gpt-56-luna-pro` and `openai-gpt-56-sol`; both normalizer requests
+      used `auto/general_high_so:free` but hit the scorer's five-minute timeout.
+      The service logged the ordinary `integrate.api.nvidia.com` response-start
+      retry; no provider pin or pool change was made. A code-graph review found
+      that Auto has its own ten-minute safety cap and can return HTTP 504 before
+      the scorer deadline. The local fix leaves that cap unchanged, gives the
+      scorer twenty minutes, keeps the stale-row lease at twenty-five minutes,
+      and defers either a route HTTP 504 or true scorer timeout with the existing
+      fifteen-minute queue retry. The 504 regression first reproduced the queue
+      advancing after Auto's own safety response; final focused tests pass 3/3,
+      including the native-504 deferral. Prettier passes and the repo-wide core
+      typecheck has no diagnostics in changed files. Independent Luna review
+      confirmed retry eligibility after the stored delay and found no remaining
+      issue. Still pending: PR merge, deployment, ordinary free Auto live
+      receipt, and fresh scheduled queue receipts.
+      A 05:10 UTC pre-deployment read-only snapshot found a healthy container
+      on source `dc240241f56b6919024d8be0ccec25fe46f78b9d`, with 199 applied
+      migrations and queue counts 353 review-required, 1 running, 99 scored,
+      3,592 source-error, 50 unrated-no-evidence. `openai-gpt-6-astra-pro` was
+      already running from 05:08:30 UTC; do not duplicate it during cutover.
+      The three earlier normalizer failures have no retry timestamp and were
+      not reset/requeued; review their reprocessing as a separate queue action.
       Reasoning-routing overrides were found to be another pre-dispatch route
       rewrite; a local guard now fails closed for an explicit free Auto channel,
       with a regression proving no paid provider call is made. Exact live

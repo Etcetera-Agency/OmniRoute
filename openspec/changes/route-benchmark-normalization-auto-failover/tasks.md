@@ -26,3 +26,7 @@
     selected target, actual Structured Output, strict zero cost, and no
     out-of-band or paid attempts. Confirm scheduled benchmark queue progress
     from fresh live receipts before closing the change.
+11. Let ordinary Auto retries finish within a twenty-minute normalizer deadline;
+    defer its own HTTP 504 with the existing queue delay; keep the stale-row
+    lease at twenty-five minutes; verify no duplicate or manually redirected
+    request starts.
