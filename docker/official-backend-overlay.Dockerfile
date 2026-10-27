@@ -134,13 +134,14 @@ COPY --from=operator-builder \
   /app/dist/ops/ \
   /app/scripts/ops/
 COPY tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs \
-  /tmp/model-benchmark-search-runtime-resolution.test.mjs
+  /app/scripts/ops/model-benchmark-search-runtime-resolution.test.mjs
 USER root
+# AICODE-NOTE: Keep resolver test under /app so bare imports resolve against runtime node_modules.
 # AICODE-NOTE: Resolve only the direct operator's eager module graph; importing it would run DB initialization.
 RUN --network=none BENCHMARK_OPERATOR_ROOT=/app \
   BENCHMARK_OPERATOR_METAFILE=/app/scripts/ops/reprocess-model-benchmark-search.meta.json \
-  node --test /tmp/model-benchmark-search-runtime-resolution.test.mjs \
-  && rm /tmp/model-benchmark-search-runtime-resolution.test.mjs \
+  node --test /app/scripts/ops/model-benchmark-search-runtime-resolution.test.mjs \
+  && rm /app/scripts/ops/model-benchmark-search-runtime-resolution.test.mjs \
     /app/scripts/ops/reprocess-model-benchmark-search.meta.json
 # AICODE-NOTE: Check-mode imports operator modules only.
 # Its forced temporary DATA_DIR isolates import-time DB initialization.
