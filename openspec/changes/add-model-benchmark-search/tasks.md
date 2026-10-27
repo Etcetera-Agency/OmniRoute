@@ -152,3 +152,31 @@
       raw catalog `model.id` for both `coding_high_tools:free` and
       `general_high_tools:free`, while keeping `${providerId}/${modelId}` only
       as the route-facing model string.
+
+## 5. Final-image direct operator runtime packaging
+
+- [x] 5.1 Add an artifact-level RED test that builds the one-shot operator and
+      loads that exact bundle in the final runtime dependency tree. The test
+      must fail on the observed unresolved `@aws-sdk/client-bedrock-runtime`
+      import, rather than relying on syntax checks, help output, or source-only
+      tests. Keep the smoke before active-catalog reads, source fetching,
+      database work, queue work, search, or inference.
+- [x] 5.2 Trace the unresolved package from the operator entry through the
+      bundled import graph and make the smallest evidence-backed packaging
+      change so every required runtime import resolves in the final image.
+      Preserve direct-only reprocessing semantics and avoid retaining
+      inference-only runtime packages when the trace proves they are unused.
+- [x] 5.3 After the operator bundle is copied into the final runtime stage,
+      run the same side-effect-free module-load smoke in that stage and fail
+      image packaging on any unresolved runtime import. The check must not
+      access production data or make network/provider calls.
+- [x] 5.4 Run the artifact smoke and existing direct-reprocessing functional
+      tests; prove the RED failure and GREEN result. Confirm no queue/search/
+      normalizer calls or production DB writes are possible in the smoke mode.
+- [x] 5.5 Apply Code Simplifier; update `completion.review` and
+      `openspec/TODO.md` with the deployed-image failure, source import cause,
+      local fix, test evidence, review result, and remaining release gates;
+      obtain independent review before local commit.
+- [ ] 5.6 Build the authoritative ARM64 final image after integration and
+      retain its final-stage direct-operator smoke receipt; this worktree cannot
+      run that image build on its AMD64 host.

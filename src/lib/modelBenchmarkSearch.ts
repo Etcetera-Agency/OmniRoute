@@ -7,8 +7,7 @@ import {
   NORMALIZATION_MODEL,
   RATE_LIMIT_RETRY_FALLBACK_MS,
   parseNormalizationRetryAfter,
-  processModelBenchmarkSearchResults,
-} from "./modelBenchmarkSearchProcessor";
+} from "./modelBenchmarkSearchNormalization";
 import {
   claimModelBenchmarkSearch,
   expireExhaustedModelBenchmarkSearchRuns,
@@ -918,6 +917,7 @@ function directProcessingStatus(
 }
 
 // AICODE-NOTE: Direct reprocessing never creates claimable search work.
+// Keep normalization loading behind queued search only.
 export async function reprocessModelBenchmarkSearchEvidence(
   modelIds: string[]
 ): Promise<ReprocessResult> {
@@ -1155,6 +1155,8 @@ async function refreshSearchRun(
       snippet: asString(raw.snippet) ?? undefined,
     };
   });
+  // AICODE-NOTE: Keep handleChat and provider executors out of the direct operator bundle graph.
+  const { processModelBenchmarkSearchResults } = await import("./modelBenchmarkSearchProcessor");
   const processor = await processModelBenchmarkSearchResults(model, searchResults);
   const { evidence: normalizedCandidates, ...processorReceipt } = processor;
   const normalized = normalizedCandidates.map((item) =>

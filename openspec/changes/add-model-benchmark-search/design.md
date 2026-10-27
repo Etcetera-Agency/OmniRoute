@@ -378,3 +378,25 @@ and command unchanged. Run the bundle only through an explicit `node` operator
 command with `/app/data` as `DATA_DIR`; never attach it to service startup. The
 release runbook must pause startup-triggered models.dev sync/queue drain before
 the maintenance restart, then execute the one-shot bundle once.
+
+## 2026-10-27 final-image operator package check
+
+The direct operator's dependency graph must be tested after esbuild output is
+copied into the final image stage. A successful bundle build or syntax check
+does not prove that runtime-external packages exist in the image. Run a
+side-effect-free module-load check in the final stage; it must stop before
+catalog access, AA/official source requests, database writes, queue activity,
+search-provider calls, or inference. A missing runtime import fails image
+packaging before deployment.
+
+```text
+verifyOperatorRuntime(bundle):
+  load(bundle.runtimeModuleGraph)
+  return before catalog reads, source requests, database writes, queue work,
+    search-provider calls, or inference
+
+buildFinalImage():
+  copy(bundle, finalImage.operatorPath)
+  verifyOperatorRuntime(finalImage.operatorPath)
+  fail packaging when module loading fails
+```

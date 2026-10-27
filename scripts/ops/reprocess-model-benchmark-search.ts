@@ -1,4 +1,5 @@
-process.env.DATA_DIR = "/app/data";
+const runtimeCheck = process.argv.includes("--check-runtime");
+process.env.DATA_DIR = runtimeCheck ? "/tmp/model-benchmark-search-runtime-check" : "/app/data";
 console.log = (...args) => console.error(...args);
 
 try {
@@ -7,6 +8,10 @@ try {
       import("../../src/lib/db/models/activeSyncedCatalog"),
       import("../../src/lib/modelBenchmarkSearch"),
     ]);
+  if (runtimeCheck) {
+    process.stdout.write("runtime module graph loaded\n");
+    process.exit(0);
+  }
   const activeCatalogs = await getAllActiveSyncedModels();
   const modelIds = [
     ...new Set(
