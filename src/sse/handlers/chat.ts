@@ -134,7 +134,11 @@ import {
   applyReasoningRouting,
   filterReasoningCombo,
 } from "./reasoningRouting";
-import { createVirtualAutoCombo, resolveAutoRoutingState } from "./autoRouting";
+import {
+  createVirtualAutoCombo,
+  isExplicitFreeAutoChannel,
+  resolveAutoRoutingState,
+} from "./autoRouting";
 import { getComboFailureLogError } from "./comboFailureLogging";
 
 // Pipeline integration — wired modules
@@ -426,14 +430,6 @@ const comboPromoteDeps = { updateCombo, info: log.info, warn: log.warn };
 
 export { shouldTripProviderBreakerForResult } from "./chatPredicates";
 
-interface OneShotBenchmarkChatOptions {
-  model: string;
-  connectionId: string;
-}
-
-// AICODE-NOTE: Only the internal benchmark caller can mark a request for one-shot dispatch.
-const oneShotBenchmarkChatRequests = new WeakMap<object, OneShotBenchmarkChatOptions>();
-
 async function handleChatImplementation(
   request: any,
   clientRawRequest: any = null,
@@ -630,7 +626,6 @@ async function handleChatImplementation(
     log.debug("CC_DISCOVERY", `Resolved cc discovery alias: ${modelStr} → ${ccAliasStrip.model}`);
     modelStr = ccAliasStrip.model;
   }
-
   // Freeze the client-facing model and reasoning intent before automatic routers
   // mutate the working request. Reasoning policies always match this stable input.
   const reasoningIntent = extractReasoningIntent(modelStr, body);
@@ -670,6 +665,7 @@ async function handleChatImplementation(
     log.warn("CHAT", "Missing model");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   }
+  const requestedAutoModel = modelStr;
 
   // Reject image-generation models routed to /v1/chat/completions (#6457).
   // Image-only models live in IMAGE_PROVIDERS (open-sse/config/imageRegistry.ts)
@@ -714,39 +710,6 @@ async function handleChatImplementation(
     return policy.rejection;
   }
   const apiKeyInfo = policy.apiKeyInfo;
-  const oneShotBenchmarkChat = oneShotBenchmarkChatRequests.get(request);
-  if (oneShotBenchmarkChat) {
-    if (modelStr !== oneShotBenchmarkChat.model) {
-      return errorResponse(
-        HTTP_STATUS.BAD_REQUEST,
-        "Pinned benchmark model changed during routing"
-      );
-    }
-    telemetry.endPhase();
-    const response = await handleSingleModelChat(
-      { ...body, model: oneShotBenchmarkChat.model },
-      oneShotBenchmarkChat.model,
-      clientRawRequest,
-      request,
-      null,
-      apiKeyInfo,
-      telemetry,
-      {
-        sessionId: null,
-        sessionAffinityKey: null,
-        forcedConnectionId: oneShotBenchmarkChat.connectionId,
-        emergencyFallbackTried: true,
-        skipUpstreamRetry: true,
-        modelPinned: true,
-        correlationId: reqId,
-      },
-      null,
-      false
-    );
-    recordTelemetry(telemetry);
-    return response;
-  }
-
   let managedLease: ManagedLeaseDispatchContext | null = null;
   if (isExclusiveLeaseManagedKey(apiKeyInfo)) {
     try {
@@ -1027,6 +990,17 @@ async function handleChatImplementation(
   reasoningDecision = reasoningRouting.reasoningDecision;
   requestRoutingTags = reasoningRouting.requestRoutingTags;
 
+  // AICODE-NOTE: An explicit :free Auto channel is a billing boundary; reject model rewrites before dispatch.
+  if (
+    isExplicitFreeAutoChannel(requestedAutoModel) &&
+    (resolvedModelStr !== requestedAutoModel || reasoningDecision?.targetCombo)
+  ) {
+    return errorResponse(
+      HTTP_STATUS.BAD_REQUEST,
+      "Explicit free Auto route cannot be rewritten by routing policies"
+    );
+  }
+
   const autoRouting = await resolveAutoRoutingState(resolvedModelStr);
   if (autoRouting.response) return autoRouting.response;
 
@@ -1300,6 +1274,7 @@ async function handleChatImplementation(
     // If combo exhausted all models, try the global fallback before giving up.
     if (
       !response.ok &&
+      autoRouting.spec?.tier !== "free" &&
       [502, 503].includes(response.status) &&
       typeof (settings as any)?.globalFallbackModel === "string" &&
       (settings as any).globalFallbackModel.trim()
@@ -1442,15 +1417,6 @@ async function handleChatImplementation(
 }
 
 export const handleChat = chatAdmission.withChatAdmission(handleChatImplementation);
-
-export function handleOneShotBenchmarkChat(
-  request: Request,
-  body: Record<string, unknown>,
-  options: OneShotBenchmarkChatOptions
-): Promise<Response> {
-  oneShotBenchmarkChatRequests.set(request, options);
-  return handleChat(request, null, body, "model-benchmark-search");
-}
 
 /** Handle one resolved model through gates, credentials, and retry/fallback. */
 async function handleSingleModelChat(

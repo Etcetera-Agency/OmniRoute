@@ -1,17 +1,14 @@
-import { handleOneShotBenchmarkChat } from "@/sse/handlers/chat";
-import { getProviderConnections } from "@/lib/db/providers";
+import { handleChat } from "@/sse/handlers/chat";
 import { pickApiKeyForInternalUse } from "@/lib/db/apiKeys";
-import { getSyncedAvailableModelsForConnection } from "@/lib/db/models";
+import { getCachedSettings } from "@/lib/db/readCache";
+import { isBandsEnabled } from "@omniroute/open-sse/services/autoCombo/bands/index.ts";
 import { createInjectionGuard } from "@/middleware/promptInjectionGuard";
 
-export const NORMALIZATION_MODEL = "xingchen-agi/xing4.0-29b-a4b:free";
-export const NORMALIZATION_ROUTED_MODEL = `openrouter/${NORMALIZATION_MODEL}`;
+export const NORMALIZATION_MODEL = "auto/general_high_so:free";
 export const NORMALIZATION_TIMEOUT_MS = 5 * 60 * 1000;
-export const NORMALIZATION_BLOCK_REASON = "blocked_unproven_free_native_so_route" as const;
+export const NORMALIZATION_BLOCK_REASON = "blocked_strict_free_auto_route_unavailable" as const;
 const NORMALIZATION_MIN_INTERVAL_MS = 5_000;
 export const RATE_LIMIT_RETRY_FALLBACK_MS = 15 * 60 * 1000;
-const ENDPOINT_METADATA_URL =
-  "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints";
 const injectionGuard = createInjectionGuard({ logger: null });
 
 const NORMALIZATION_SCHEMA = {
@@ -55,11 +52,6 @@ const NORMALIZATION_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-export interface NormalizationConnectionCandidate {
-  id: string;
-  models: Array<{ id: string; isFree: boolean | undefined }>;
-}
-
 export interface NormalizedBenchmarkCandidate {
   matchedModelId: string;
   matchedModelName: string;
@@ -77,14 +69,11 @@ export interface NormalizedBenchmarkCandidate {
 interface ProcessorResult {
   status: string;
   candidateCount: number;
-  provider: "openrouter";
-  endpoint: "phala";
   model: string;
-  connectionId: string | null;
-  endpointMetadataVerified: boolean;
-  endpointMetadataCheckedAt: string | null;
-  attemptCount: number;
+  normalizerRequestCount: number;
   retryAfterAt?: string;
+  requestId?: string;
+  responseModel?: string;
   evidence: NormalizedBenchmarkCandidate[];
   error?: string;
 }
@@ -126,55 +115,16 @@ export function parseNormalizationRetryAfter(headers: Headers, now = Date.now())
   return new Date(now + RATE_LIMIT_RETRY_FALLBACK_MS).toISOString();
 }
 
-export function selectFreeNormalizationConnection(
-  connections: NormalizationConnectionCandidate[],
-  modelId: string,
-  pinnedConnectionId?: string
-): string | null {
-  const eligible = connections.filter((connection) =>
-    connection.models.some((model) => model.id === modelId && model.isFree === true)
-  );
-  if (pinnedConnectionId) {
-    return eligible.some((connection) => connection.id === pinnedConnectionId)
-      ? pinnedConnectionId
-      : null;
-  }
-  return eligible.map((connection) => connection.id).sort()[0] ?? null;
-}
-
-export function isNormalizationEndpointVerified(response: unknown): boolean {
-  const data = asRecord(asRecord(response).data);
-  const endpoints = data.endpoints;
-  if (data.id !== NORMALIZATION_MODEL || !Array.isArray(endpoints) || endpoints.length !== 1) {
-    return false;
-  }
-  const endpoint = asRecord(endpoints[0]);
-  const pricing = asRecord(endpoint.pricing);
-  const parameters = Array.isArray(endpoint.supported_parameters)
-    ? endpoint.supported_parameters
-    : [];
-  return (
-    endpoint.model_id === NORMALIZATION_MODEL &&
-    endpoint.provider_name === "Phala" &&
-    endpoint.tag === "phala" &&
-    pricing.prompt === "0" &&
-    pricing.completion === "0" &&
-    parameters.includes("response_format") &&
-    parameters.includes("structured_outputs")
-  );
-}
-
 function processorResult(
   status: string,
   candidateCount: number,
   options: Partial<
     Pick<
       ProcessorResult,
-      | "connectionId"
-      | "endpointMetadataVerified"
-      | "endpointMetadataCheckedAt"
-      | "attemptCount"
+      | "normalizerRequestCount"
       | "retryAfterAt"
+      | "requestId"
+      | "responseModel"
       | "evidence"
       | "error"
     >
@@ -183,14 +133,11 @@ function processorResult(
   return {
     status,
     candidateCount,
-    provider: "openrouter",
-    endpoint: "phala",
     model: NORMALIZATION_MODEL,
-    connectionId: options.connectionId ?? null,
-    endpointMetadataVerified: options.endpointMetadataVerified ?? false,
-    endpointMetadataCheckedAt: options.endpointMetadataCheckedAt ?? null,
-    attemptCount: options.attemptCount ?? 0,
+    normalizerRequestCount: options.normalizerRequestCount ?? 0,
     ...(options.retryAfterAt ? { retryAfterAt: options.retryAfterAt } : {}),
+    ...(options.requestId ? { requestId: options.requestId } : {}),
+    ...(options.responseModel ? { responseModel: options.responseModel } : {}),
     evidence: options.evidence ?? [],
     ...(options.error ? { error: options.error } : {}),
   };
@@ -202,7 +149,7 @@ export function buildNormalizationRequest(
   results: unknown[]
 ): Record<string, unknown> {
   return {
-    model: NORMALIZATION_ROUTED_MODEL,
+    model: NORMALIZATION_MODEL,
     messages: [
       {
         role: "system",
@@ -220,11 +167,7 @@ export function buildNormalizationRequest(
     ],
     stream: false,
     max_tokens: 2048,
-    provider: {
-      only: ["phala"],
-      require_parameters: true,
-      allow_fallbacks: false,
-    },
+    reasoning_effort: "high",
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -347,72 +290,34 @@ export function parseNormalizationResponse(
 
 export async function processModelBenchmarkSearchResults(
   model: { id: string; name: string },
-  results: Array<{ url: string; title?: string; snippet?: string }>,
-  pinnedConnectionId?: string
+  results: Array<{ url: string; title?: string; snippet?: string }>
 ): Promise<ProcessorResult> {
   if (results.length === 0) {
     return processorResult("no_search_candidates_unrated", 0);
   }
 
-  let endpointMetadata: unknown;
-  try {
-    const response = await fetch(ENDPOINT_METADATA_URL, {
-      signal: AbortSignal.timeout(6_000),
-      cache: "no-store",
+  if (!isBandsEnabled()) {
+    return processorResult(NORMALIZATION_BLOCK_REASON, results.length, {
+      error: "Auto bands must be enabled for strict-SO normalization",
     });
-    if (!response.ok) {
-      return processorResult("blocked_openrouter_endpoint_unverified", results.length);
-    }
-    endpointMetadata = await response.json();
+  }
+  let settings: Record<string, unknown>;
+  try {
+    settings = await getCachedSettings();
   } catch {
-    return processorResult("blocked_openrouter_endpoint_unverified", results.length);
+    return processorResult(NORMALIZATION_BLOCK_REASON, results.length, {
+      error: "Unable to verify freeAccessPolicy for strict-SO normalization",
+    });
   }
-  if (!isNormalizationEndpointVerified(endpointMetadata)) {
-    return processorResult("blocked_openrouter_endpoint_unverified", results.length);
-  }
-  const endpointProof = {
-    endpointMetadataVerified: true,
-    endpointMetadataCheckedAt: new Date().toISOString(),
-  };
-
-  const connections = await getProviderConnections({
-    provider: "openrouter",
-    isActive: true,
-    authType: "apikey",
-  });
-  const connectionCandidates = await Promise.all(
-    connections.map(async (connection) => {
-      const id = typeof connection.id === "string" ? connection.id : "";
-      if (!id) return null;
-      const models = await getSyncedAvailableModelsForConnection("openrouter", id);
-      return {
-        id,
-        models: models.map((item) => ({ id: item.id, isFree: item.isFree })),
-      };
-    })
-  );
-  const connectionId = selectFreeNormalizationConnection(
-    connectionCandidates.filter(
-      (candidate): candidate is NormalizationConnectionCandidate => !!candidate
-    ),
-    NORMALIZATION_MODEL,
-    pinnedConnectionId
-  );
-  if (!connectionId) {
-    return processorResult("blocked_no_exact_free_connection", results.length, {
-      ...endpointProof,
-      ...(pinnedConnectionId
-        ? { error: "Previously pinned free connection is no longer eligible" }
-        : {}),
+  if (settings.freeAccessPolicy !== "strict") {
+    return processorResult(NORMALIZATION_BLOCK_REASON, results.length, {
+      error: "freeAccessPolicy must be strict for strict-SO normalization",
     });
   }
 
   const apiKey = await pickApiKeyForInternalUse("internal-probe");
   if (!apiKey) {
-    return processorResult("blocked_no_internal_api_key", results.length, {
-      connectionId,
-      ...endpointProof,
-    });
+    return processorResult("blocked_no_internal_api_key", results.length);
   }
 
   const controller = new AbortController();
@@ -420,17 +325,13 @@ export async function processModelBenchmarkSearchResults(
   try {
     const body = buildNormalizationRequest(model.id, model.name, results);
     if (injectionGuard(body).blocked) {
-      return processorResult("blocked_untrusted_search_content", results.length, {
-        connectionId,
-        ...endpointProof,
-      });
+      return processorResult("blocked_untrusted_search_content", results.length);
     }
     const request = new Request("http://omniroute.internal/v1/chat/completions", {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
-        "x-omniroute-connection": connectionId,
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -447,40 +348,35 @@ export async function processModelBenchmarkSearchResults(
       timeout.unref?.();
     });
     const response = await Promise.race([
-      handleOneShotBenchmarkChat(request, body, {
-        model: NORMALIZATION_ROUTED_MODEL,
-        connectionId,
-      }),
+      handleChat(request, null, body, "model-benchmark-search"),
       timeoutResult,
     ]);
     if (!response.ok) {
       return processorResult("normalization_request_failed_unrated", results.length, {
-        connectionId,
-        ...endpointProof,
-        attemptCount: 1,
+        normalizerRequestCount: 1,
+        requestId: response.headers.get("x-request-id") ?? undefined,
         error: `HTTP ${response.status}`,
         ...(response.status === 429
           ? { retryAfterAt: parseNormalizationRetryAfter(response.headers) }
           : {}),
       });
     }
-    const parsed = parseNormalizationResponse(
-      await Promise.race([response.json(), timeoutResult]),
-      model,
-      results
-    );
+    const responseBody = await Promise.race([response.json(), timeoutResult]);
+    const responseRecord = asRecord(responseBody);
+    const parsed = parseNormalizationResponse(responseRecord, model, results);
+    const requestId =
+      response.headers.get("x-request-id") ?? nullableString(responseRecord.id) ?? undefined;
     if (!parsed) {
       return processorResult("normalization_response_invalid_unrated", results.length, {
-        connectionId,
-        ...endpointProof,
-        attemptCount: 1,
+        normalizerRequestCount: 1,
+        requestId: response.headers.get("x-request-id") ?? undefined,
       });
     }
     const status = parsed.length ? "candidate_evidence_unrated" : "no_evidence_unrated";
     return processorResult(status, results.length, {
-      connectionId,
-      ...endpointProof,
-      attemptCount: 1,
+      normalizerRequestCount: 1,
+      requestId,
+      responseModel: nullableString(responseRecord.model) ?? undefined,
       evidence: parsed,
     });
   } catch (error) {
@@ -492,9 +388,7 @@ export async function processModelBenchmarkSearchResults(
       timedOut ? "normalization_timeout_unrated" : "normalization_request_failed_unrated",
       results.length,
       {
-        connectionId,
-        ...endpointProof,
-        attemptCount: 1,
+        normalizerRequestCount: 1,
         error: message,
       }
     );

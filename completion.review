@@ -1,5 +1,43 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## Benchmark search uses the normal free Auto route (2026-10-27)
+
+- Replaced the normalizer's fixed OpenRouter model/connection and one-shot
+  dispatch with the ordinary `handleChat` path using
+  `auto/general_high_so:free`, strict JSON Schema, and high reasoning effort.
+  Removed the one-shot helper and saved-connection retry pin; the receipt now
+  calls its count `normalizerRequestCount` so it cannot be mistaken for Auto's
+  provider-attempt count.
+- Dispatch fails closed unless Auto bands are enabled and persisted
+  `freeAccessPolicy` is exactly `strict`. Explicit free-band pools cannot widen
+  to the full pool, free Auto requests skip the global fallback, and recognized
+  built-in Auto channels cannot be shadowed by same-named saved combos.
+- Independent Luna-xhigh review found reasoning-routing rules could rewrite
+  `auto/general_high_so:free` to a paid model before the free filter. Added a
+  pre-dispatch guard for model or target-combo rewrites. The new regression first
+  reproduced a paid OpenAI call, then passed after the guard with HTTP 400 and
+  zero provider calls. The reviewer confirmed this closes the selected
+  high/SO/free route leak and does not bypass ordinary 429 handling.
+- Focused checks pass: normalizer pre-dispatch guards 2/2, normalizer route and
+  schema 1/1, timeout persistence 1/1, enabled free-band fallback 1/1, exact
+  high/SO/free saved-combo and mocked 429-to-next-candidate regressions 1/1,
+  and reasoning-rule rewrite blocked 1/1. Formatting and `git diff --check`
+  pass. Full `tests/unit/modelBenchmarkSearch.test.ts` remains 40/41: its strict
+  timeout persistence test passes alone but failed after earlier file tests
+  before reaching the test's provider mock.
+- A remaining unrelated edge applies to the legacy `auto/best-free` requester:
+  reasoning-rule rewrites are not guarded by this new-band change. It is
+  recorded in `openspec/TODO.md`; this change is scoped to explicit band
+  channels.
+- Project type checks remain red outside the new guard: `typecheck:core` exits
+  with broad repository diagnostics; `check:open-sse-typecheck` reports
+  `open-sse/services/systemOne/schema.ts` TS2353 and
+  `src/lib/proxySubscription/parse.ts` TS2345 (three instances). Neither file is
+  changed here. The `typecheck:core` rerun has no diagnostic at the new guard.
+- No live inference, provider setting change, queue reset, commit, push, merge,
+  image build, or deploy occurred for this local slice. Source is on
+  `fix/benchmark-normalizer-auto-routing`; live acceptance remains open.
+
 ## Strict zero-cost models.dev evidence (2026-10-26)
 
 - Added a separate snapshot from raw models.dev data: exact provider/model IDs,
