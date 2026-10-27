@@ -1,7 +1,7 @@
 import { getDbInstance } from "./core";
 
 const MAX_SEARCH_ATTEMPTS = 5;
-const STALE_SEARCH_RUN_MS = 15 * 60 * 1000;
+const STALE_SEARCH_RUN_MS = 25 * 60 * 1000;
 const MISSING_AA_API_KEY_ERROR = "AA Free API key is not configured";
 
 function canRetryMissingAaApiKey(): boolean {

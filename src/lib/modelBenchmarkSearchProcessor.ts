@@ -5,7 +5,7 @@ import { isBandsEnabled } from "@omniroute/open-sse/services/autoCombo/bands/ind
 import { createInjectionGuard } from "@/middleware/promptInjectionGuard";
 
 export const NORMALIZATION_MODEL = "auto/general_high_so:free";
-export const NORMALIZATION_TIMEOUT_MS = 5 * 60 * 1000;
+export const NORMALIZATION_TIMEOUT_MS = 20 * 60 * 1000;
 export const NORMALIZATION_BLOCK_REASON = "blocked_strict_free_auto_route_unavailable" as const;
 const NORMALIZATION_MIN_INTERVAL_MS = 5_000;
 export const RATE_LIMIT_RETRY_FALLBACK_MS = 15 * 60 * 1000;
@@ -356,7 +356,7 @@ export async function processModelBenchmarkSearchResults(
         normalizerRequestCount: 1,
         requestId: response.headers.get("x-request-id") ?? undefined,
         error: `HTTP ${response.status}`,
-        ...(response.status === 429
+        ...(response.status === 429 || response.status === 504
           ? { retryAfterAt: parseNormalizationRetryAfter(response.headers) }
           : {}),
       });
@@ -390,6 +390,9 @@ export async function processModelBenchmarkSearchResults(
       {
         normalizerRequestCount: 1,
         error: message,
+        ...(timedOut
+          ? { retryAfterAt: new Date(Date.now() + RATE_LIMIT_RETRY_FALLBACK_MS).toISOString() }
+          : {}),
       }
     );
   } finally {

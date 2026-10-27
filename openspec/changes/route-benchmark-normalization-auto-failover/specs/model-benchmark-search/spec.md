@@ -11,7 +11,16 @@ dispatch. The recognized built-in Auto channel SHALL take precedence over a
 saved combo with the same exact name. The ordinary Auto route SHALL select and
 retry only eligible targets
 within that requested channel, including moving to the next eligible target
-after a transient HTTP 429 under its established cooldown rules.
+after a transient HTTP 429 under its established cooldown rules. The benchmark
+processor SHALL wait for the ordinary handler to finish its provider attempts
+before applying its own bounded deadline. That deadline SHALL be twenty minutes,
+and the stale running-row lease SHALL be twenty-five minutes so an active request
+cannot be claimed twice. If the scorer deadline expires, it SHALL abort the
+request and persist the existing fifteen-minute queue retry; it SHALL NOT issue
+an immediate duplicate request. If ordinary Auto returns its bounded HTTP 504
+before the scorer deadline, the processor SHALL persist the existing
+fifteen-minute queue retry and stop the current queue drain without changing
+Auto's provider selection or timeout.
 
 The request SHALL retain the high band, free tier, and mandatory Structured
 Output capability for every target. Strict zero-cost admission SHALL remain
@@ -59,6 +68,28 @@ candidate-review-required and SHALL NOT update production scores.
 - **AND** it uses the existing bounded queue deferral when no header is present
 - **AND** it issues no immediate duplicate inference request
 - **AND** collected search evidence remains review-required and unrated
+
+#### Scenario: A slow Auto attempt gets time to fail over
+
+- **GIVEN** the ordinary high/SO/free route has not finished its eligible
+  provider retries at the previous five-minute scorer boundary
+- **WHEN** the benchmark normalizer waits for the route
+- **THEN** the scorer keeps the request alive until its bounded twenty-minute
+  deadline
+- **AND** it does not start another queue item or duplicate the request
+- **WHEN** that deadline expires without a route response
+- **THEN** the row receives the existing fifteen-minute retry delay
+- **AND** the twenty-five-minute stale-row lease prevents overlap
+
+#### Scenario: Ordinary Auto reaches its own safety timeout
+
+- **GIVEN** ordinary Auto reaches its configured safety limit before the scorer
+  deadline and returns HTTP 504
+- **WHEN** the benchmark normalizer receives that response
+- **THEN** it stores the existing fifteen-minute retry timestamp
+- **AND** the queue does not claim the next model in that drain
+- **AND** the next request uses the same ordinary Auto channel and its normal
+  provider selection, cooldowns, and safety limit
 
 #### Scenario: No high/SO/free target fails closed
 

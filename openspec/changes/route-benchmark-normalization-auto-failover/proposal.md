@@ -25,6 +25,16 @@ the next eligible target after a transient 429.
 - Keep every attempt inside the selected free/high/SO Auto channel. Let the
   existing Auto loop handle target failover and cooldown; never manually
   retry a pinned connection or switch bands.
+- Let the ordinary Auto handler finish its own provider attempts before the
+  scorer deadline. The live strict-SO request exceeded the previous five-minute
+  limit while OmniRoute retried a slow provider. Use one bounded twenty-minute
+  scorer deadline, a twenty-five-minute stale-row lease, and the existing
+  fifteen-minute queue retry after a true scorer timeout. This prevents a live
+  request from being claimed twice.
+- The ordinary Auto safety loop can return HTTP 504 at its own ten-minute cap
+  before the scorer deadline. Preserve that response and defer the benchmark row
+  with the same existing fifteen-minute queue retry. Do not raise the Auto cap,
+  skip a target, or make a provider-specific retry.
 - Keep source-quote validation, review-required evidence, and the existing
   queue-level deferral when the complete Auto route returns 429.
 
