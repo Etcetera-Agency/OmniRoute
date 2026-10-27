@@ -209,3 +209,9 @@ awaited operation for the live stall is not proven from available logs.
 ## 2026-10-27 Docker build-context correction
 
 - The final runtime stage copied its resolver smoke from `tests/unit/build`, but root `.dockerignore` excludes `tests`. Added ordered exact-path exceptions that keep all other test content excluded. A minimal BuildKit build used this repository as the actual root context with `FROM scratch` and `COPY tests`; it exported only the resolver smoke, which matched the tracked file byte-for-byte. This proves context inclusion only; the authoritative ARM64 image build and final-stage smoke remain release gates.
+
+## 2026-10-27 ARM64 resolver-location correction
+
+- Main image run `40504168756` passed the resolver-test `COPY` then failed at test line 46: Node `v26.10.0` resolved `undici` from the test module's `/tmp` location, not `/app/node_modules`. `require.resolve('undici')` from `/app` returned `/app/node_modules/undici/index.js`. Dockerfile now copies the smoke to `/app/scripts/ops` so normal module resolution uses the image's runtime dependencies; missing packages still fail the gate.
+- On the ARM64 server, an isolated container using immutable runtime image `sha256:c51c4d12acaaf038eb7634eef62d50ce1b660f3c5b828be35e167550eb7cacd9` reproduced the `/tmp` failure, then passed the same resolver test under `/app` (130 emitted files, 31 external imports) and actual bundled `--check-runtime` (`runtime module graph loaded`). Container used `--network=none`, read-only root/artifacts, tmpfs `/tmp`, and no production data, env, or key mounts. The operator import smoke applied migrations only to the tmpfs database. Failed run stopped before image publish or deploy; production container was not touched.
+- The next automatic main ARM64 build/runtime gate remains required before deployment and the live maintenance acceptance.
