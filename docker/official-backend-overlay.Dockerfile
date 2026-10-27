@@ -56,7 +56,8 @@ RUN mkdir -p /app/data \
   && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \
   && test -s /app/.build/backend-overlay/routes-manifest.json
 
-# AICODE-NOTE: Bundle the explicit operator separately so prebuilt backend packaging skips a second Next build.
+# AICODE-NOTE: Separate operator bundle lets prebuilt backend packaging skip another Next build.
+# AICODE-NOTE: Split queue-only normalization so direct operator doesn't resolve Bedrock SDK.
 FROM backend-dependencies AS operator-builder
 COPY . ./
 RUN node scripts/build/bundle-model-benchmark-search-reprocess.mjs
@@ -130,8 +131,23 @@ COPY --from=merged-backend \
   /app/.build/next/routes-manifest.json \
   /app/.build/next/routes-manifest.json
 COPY --from=operator-builder \
-  /app/dist/ops/reprocess-model-benchmark-search.mjs \
-  /app/scripts/ops/reprocess-model-benchmark-search.mjs
+  /app/dist/ops/ \
+  /app/scripts/ops/
+COPY tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs \
+  /tmp/model-benchmark-search-runtime-resolution.test.mjs
+USER root
+# AICODE-NOTE: Resolve only the direct operator's eager module graph; importing it would run DB initialization.
+RUN --network=none BENCHMARK_OPERATOR_ROOT=/app \
+  BENCHMARK_OPERATOR_METAFILE=/app/scripts/ops/reprocess-model-benchmark-search.meta.json \
+  node --test /tmp/model-benchmark-search-runtime-resolution.test.mjs \
+  && rm /tmp/model-benchmark-search-runtime-resolution.test.mjs \
+    /app/scripts/ops/reprocess-model-benchmark-search.meta.json
+# AICODE-NOTE: Check-mode imports operator modules only.
+# Its forced temporary DATA_DIR isolates import-time DB initialization.
+RUN --network=none rm -rf /tmp/model-benchmark-search-runtime-check \
+  && node /app/scripts/ops/reprocess-model-benchmark-search.mjs --check-runtime \
+  && rm -rf /tmp/model-benchmark-search-runtime-check
+USER node
 
 # AICODE-NOTE: Keep browser packages sourced from shared dependencies so
 # prebuilt backend packaging never pulls in backend-builder compilation.

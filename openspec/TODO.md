@@ -832,6 +832,36 @@ Deferred cross-repository and operations work:
 
 # Benchmark evidence integrity and direct reprocessing — 2026-10-27
 
+- [x] Fix the live PR #39 direct-operator packaging failure in local source.
+      One explicit run of `/app/scripts/ops/reprocess-model-benchmark-search.mjs`
+      failed before DB work with `ERR_MODULE_NOT_FOUND` for
+      `@aws-sdk/client-bedrock-runtime`; deployed image digest is
+      `sha256:c51c4d12acaaf038eb7634eef62d50ce1b660f3c5b828be35e167550eb7cacd9`.
+      The transitive path was operator → `modelBenchmarkSearch.ts` → static
+      `modelBenchmarkSearchProcessor.ts` → `handleChat`/executor registry →
+      Bedrock runtime SDK. The local fix moves pure normalization constants and
+      retry parsing to `modelBenchmarkSearchNormalization.ts`, then dynamically
+      loads the processor only from queued search normalization. The operator
+      eager bundle graph excludes the missing SDK while the queued path remains
+      available. RED on the prior artifact reproduced the unresolved SDK in the
+      runtime dependency tree. GREEN: the new artifact resolved 130 emitted
+      files and 31 external imports, and the actual bundle's `--check-runtime`
+      import completed in an isolated Node 24 runtime tree with the Bedrock SDK
+      absent. The smoke used only a temporary `/tmp` data directory and made no
+      network, provider, search, queue, or production database calls. Existing
+      suites pass 44/44 and 5/5. Independent review found an unused test
+      binding, which was removed; follow-up review found no remaining issue.
+      Code Simplifier found no simpler change that preserved the queue path.
+      Dockerfile now runs both checks in the final runtime stage with network
+      disabled. A narrow `.dockerignore` whitelist includes only the resolver
+      smoke; a root-context BuildKit `FROM scratch`/`COPY tests` check exported
+      only that file and passed byte comparison. The ARM64 image build was not
+      run locally: this host is AMD64
+      and lacks the required `backend_export` build input. After integration,
+      build the authoritative ARM64 final image and retain its smoke receipt.
+      Release still requires the existing maintenance gate: prevent startup
+      models.dev sync/queue drain, run the explicit operator once across all
+      active raw IDs, and inspect receipts.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.

@@ -144,6 +144,60 @@ awaited operation for the live stall is not proven from available logs.
 - Strict OpenSpec validation remains pending because the `openspec` CLI is not installed in this worktree; the gate is listed in `openspec/TODO.md`.
 - Remaining live work: after integration, disable startup models.dev sync and queue drain, run the bundle across the complete active catalog, confirm source evidence reaches available band candidates, and verify final fitness receipts. After direct evidence is ready, the separately authorized synthetic override cleanup must verify whitelist hash `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`, take a private DB backup, and delete only exact key/value/timestamp matches with a concurrent-change guard. No live rows, backup, PR, merge, or deployment were changed in this local package.
 
+## 2026-10-27 direct operator packaging follow-up
+
+- The PR #39 image was healthy, but one explicit direct operator invocation
+  failed before database work with `ERR_MODULE_NOT_FOUND` for
+  `@aws-sdk/client-bedrock-runtime`. The affected deployed image was
+  `ghcr.io/etcetera-agency/omniroute@sha256:c51c4d12acaaf038eb7634eef62d50ce1b660f3c5b828be35e167550eb7cacd9`.
+- The import trace showed the direct operator statically loaded
+  `modelBenchmarkSearch.ts`, which statically imported
+  `modelBenchmarkSearchProcessor.ts`; that processor imports `handleChat` and
+  the executor registry, which loads the Bedrock runtime SDK at module scope.
+  Direct evidence reprocessing does not use search-result normalization, so
+  this inference-only graph was unnecessary for that entry point.
+- Moved the pure normalization model/retry constants and parser into
+  `modelBenchmarkSearchNormalization.ts`. The search module now dynamically
+  imports `modelBenchmarkSearchProcessor.ts` only from queued search
+  normalization. This adds a lazy normalization chunk and removes that
+  processor's Bedrock SDK dependency from the operator's eager graph; shared
+  search-provider helpers remain eagerly imported.
+- RED was reproduced against the prior artifact in the runtime dependency
+  tree: the direct graph contained the unresolved Bedrock SDK import. GREEN:
+  the new artifact resolver traversed 130 emitted files and resolved 31
+  external imports without evaluating modules; the artifact contains no eager
+  Bedrock SDK import. The actual bundled operator's `--check-runtime` mode then
+  imported its app modules successfully in an isolated Node 24 runtime tree
+  with `@aws-sdk/client-bedrock-runtime` absent. The check used only a temporary
+  `/tmp/model-benchmark-search-runtime-check` data directory and stopped before
+  catalog reads or reprocessing; no network/provider/search/queue calls or
+  production database writes occurred.
+- The final runtime Docker stage now runs the emitted-graph resolver and the
+  actual bundle's import check under `RUN --network=none`, after copying the
+  bundle into `/app`. Existing benchmark-search tests pass 44/44, fitness-sync
+  tests pass 5/5, and the artifact dependency resolver test passes. RED/GREEN
+  tests and the source-level direct-reprocessing regressions remain meaningful.
+- Independent release review confirmed `getSearchProvider` and
+  `executeWebSearch` remain eager imports of the shared search module, so their
+  dependencies are present in the direct bundle. The direct operator does not
+  invoke these helpers, and no import-time network call was identified. This is
+  a nonblocking dependency-load observation; no further split is scoped absent
+  a concrete missing dependency or side effect.
+- Code Simplifier reviewed the source change and test; no smaller change
+  preserved the direct/queued import boundary. Independent Luna-xhigh review
+  found one unused local binding in the resolver test; it was removed, and
+  follow-up review found no remaining issue. It also asked that this review
+  record include the packaging failure, fix, verification, and release gates;
+  that record is now complete.
+- This worktree could not run the full final image build: its host is AMD64,
+  while the authoritative image is ARM64, and the Dockerfile also requires the
+  unavailable `backend_export` build input. The final-stage checks are wired
+  into the Docker build, but their execution in that image remains a release
+  gate. After integration, build the authoritative ARM64 image and retain the
+  smoke receipt. Then follow the maintenance gate before running the operator
+  across all active raw catalog IDs. Strict OpenSpec CLI validation also
+  remains pending because the CLI is unavailable in this worktree.
+
 ## 2026-10-27 raw-ID free-band consumer follow-up
 
 - Traced the active identity contract end-to-end: the active synced catalog supplies raw `model.id`, `virtualFactory` passes it to fitness lookup as `candidate.model`, and the separately provider-prefixed `candidate.modelStr` is used for routing. The free high-tool filters resolve `benchmark_fitness:high` for coding and general before static fallback sources.
@@ -151,3 +205,7 @@ awaited operation for the live stall is not proven from available logs.
 - Code Simplifier reviewed the test-only change; an unused fitness-sync import was removed, the candidates use the real active connection ID, and no formula, precedence, or range changes were needed.
 - Verification: `tests/unit/autoCombo/bands-quality-e2e.test.ts` passes 5/5 with the current worktree's `vitest.mcp.config.ts` and root, including the new regression; `git diff --check` passes. The existing native config-loader warning about `__dirname` remains.
 - Independent Luna-xhigh review initially found that target-only inclusion checks would not prove the quality filter excluded other candidates. The regression now checks direct high-profile scores for both models, verifies the peer scores lower while remaining free/tool-capable, and requires each actual band output to contain only the target. Follow-up review found no remaining actionable findings.
+
+## 2026-10-27 Docker build-context correction
+
+- The final runtime stage copied its resolver smoke from `tests/unit/build`, but root `.dockerignore` excludes `tests`. Added ordered exact-path exceptions that keep all other test content excluded. A minimal BuildKit build used this repository as the actual root context with `FROM scratch` and `COPY tests`; it exported only the resolver smoke, which matched the tracked file byte-for-byte. This proves context inclusion only; the authoritative ARM64 image build and final-stage smoke remain release gates.

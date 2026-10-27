@@ -148,3 +148,16 @@ sync and queue drain from running during the maintenance restart.
 - Focused RED/GREEN tests cover sync-trigger conditions, exact missing-both
   gating, search-provider selection/no alternate, idempotency, source failures,
   and missing effort/value semantics.
+
+## 2026-10-27 direct operator runtime packaging correction
+
+The PR #39 operator bundle was deployed in the ARM64 image
+`ghcr.io/etcetera-agency/omniroute@sha256:c51c4d12acaaf038eb7634eef62d50ce1b660f3c5b828be35e167550eb7cacd9`,
+but an explicit invocation failed before database work with
+`ERR_MODULE_NOT_FOUND: @aws-sdk/client-bedrock-runtime`. Bundle size and syntax
+checks did not exercise module resolution against the final image's runtime
+dependencies. Add a build-time smoke that loads the copied operator's complete
+runtime module graph in that dependency tree and stops before catalog reads,
+source requests, database writes, queue work, search, or inference. An
+unresolved runtime module SHALL fail image packaging. Keep the operator
+explicit-only and preserve the direct-evidence operation's existing behavior.
