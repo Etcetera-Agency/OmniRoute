@@ -164,7 +164,8 @@ describe("auto quality-band candidate-pool integration", () => {
     });
     clearTierCache();
 
-    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+    const terminalPackages = new Set<string>();
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestUrl(input);
       if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
         return jsonResponse({
@@ -206,13 +207,64 @@ describe("auto quality-band candidate-pool integration", () => {
         });
       }
       if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
-        return jsonResponse({ rows: [] });
+        const packageName = JSON.parse(String(init?.body)).package;
+        terminalPackages.add(packageName);
+        assert.ok(
+          packageName === "terminal-bench/terminal-bench-2" ||
+            packageName === "terminal-bench/terminal-bench-2-1"
+        );
+        return jsonResponse({
+          rows: [
+            {
+              metadata: {
+                model_id: rawModelId,
+                model_display: "GLM 5.3",
+                reasoning_effort: "high",
+              },
+              metrics: { accuracy: 1 },
+            },
+            {
+              metadata: {
+                model_id: peerModelId,
+                model_display: "GLM 5.2",
+                reasoning_effort: "high",
+              },
+              metrics: { accuracy: 0 },
+            },
+          ],
+        });
       }
-      if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+      if (url.includes("deepswe.datacurve.ai")) {
+        return jsonResponse({
+          rows: [
+            { model: rawModelId, reasoning_effort: "high", pass_rate: 1 },
+            { model: peerModelId, reasoning_effort: "high", pass_rate: 0 },
+          ],
+        });
+      }
       throw new Error(`Unexpected benchmark source request: ${url}`);
     });
 
-    await benchmarkSearch.reprocessModelBenchmarkSearchEvidence([rawModelId, peerModelId]);
+    const refresh = await benchmarkSearch.refreshModelBenchmarkCatalogEvidence(
+      [
+        { id: rawModelId, name: "GLM 5.3" },
+        { id: peerModelId, name: "GLM 5.2" },
+      ],
+      fetch
+    );
+    assert.deepEqual([...terminalPackages].sort(), [
+      "terminal-bench/terminal-bench-2",
+      "terminal-bench/terminal-bench-2-1",
+    ]);
+    assert.equal(refresh.receipts.length, 2);
+    for (const receipt of refresh.receipts) {
+      assert.equal(receipt.identityStatus, "matched");
+      for (const source of Object.values(receipt.sources)) {
+        assert.equal(source.status, "found");
+        assert.equal(source.complete, true);
+        assert.ok(source.records > 0);
+      }
+    }
 
     const codingFitness = getTaskFitnessWithSource(rawModelId, "coding", "high");
     const generalFitness = getTaskFitnessWithSource(rawModelId, "default", "high");

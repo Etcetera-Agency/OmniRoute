@@ -70,10 +70,10 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       12 at `>=.70`, 13 at `>=.65`, and 17 at `>=.60`; AA calibration changed
       the high-band count to 15. Those old counts do not set live thresholds.
 - [ ] After profile deployment and AA-key recovery, verify full-catalog
-      scored/unrated totals,
-      automatic future-model enqueue, exact search receipts, and the selected
-      free-only search model's zero-cost route. Paid or out-of-band fallback is
-      prohibited.
+      current-snapshot scored/unrated totals and native profile publication.
+      The normal models.dev sync refreshes current benchmarks directly; manual
+      discovery queue work remains separate. Paid or out-of-band fallback is
+      prohibited for that optional search workflow.
 
 ## Missing-model benchmark search
 
@@ -212,13 +212,11 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       internal direct-only reprocessor and bundled operator entry are locally
       implemented; after review and commit, obtain owner-approved
       integration/release and complete live acceptance.
-      Fingerprint includes benchmark and metric; refresh repairs prior AA
-      cross-metric collisions idempotently from retained raw evidence. The later
-      release run must prevent startup-triggered models.dev sync and queue drain,
-      reprocess every active OmniRoute catalog model ID (including IDs absent
-      from the models.dev snapshot) without a 108-row cap, and verify per-ID
-      missing/ambiguous/source-failure receipts plus both metrics and global
-      effort-profile recomputation before closing this package. TL304 found 31
+      Fingerprint includes benchmark and metric; the first complete current
+      refresh replaces legacy direct rows from the live five-feed snapshot.
+      Migration 200 drops legacy raw payloads rather than replaying an archive. The
+      earlier active-only live runbook is superseded by the full-canonical
+      current-snapshot task below; do not run it as the fitness refresh. TL304 found 31
       actual strict-zero-cost built-in-band candidates with no
       `benchmark_fitness*` rows: 29 have `user_override` rows and two lack exact
       models.dev identity matches. TL304 provenance trace found 152
@@ -860,8 +858,8 @@ Deferred cross-repository and operations work:
       and lacks the required `backend_export` build input. After integration,
       build the authoritative ARM64 final image and retain its smoke receipt.
       Release still requires the existing maintenance gate: prevent startup
-      models.dev sync/queue drain, run the explicit operator once across all
-      active raw IDs, and inspect receipts.
+      models.dev sync/queue drain, run the explicit current-snapshot operator
+      once across all canonical IDs, and inspect receipts.
 - [x] Diagnose main image run `40504168756`: the resolver test copy passed,
       but Node 26 resolved `undici` from the test's `/tmp` location instead of
       `/app/node_modules`. Move the temporary test under
@@ -873,24 +871,30 @@ Deferred cross-repository and operations work:
       read-only root, read-only smoke artifacts, and tmpfs `/tmp`; no production
       data, env, keys, provider calls, or container changes were involved. Run
       `40504168756` failed before publish/deploy.
-- [ ] After the resolver-location correction merges, rerun the existing main
-      workflow. Require final ARM64 build/runtime smoke, image verification,
-      publish, and immutable-digest deployment before maintenance acceptance.
+- [ ] After the current fix merges to main, apply the exact v3.8.52 upstream
+      update before any image build. With the upgraded source and runtime
+      dependencies, rehearse migration 200 on a consistent isolated clone of
+      the production DB. Verify renamed schema, removed `raw_json`, exact
+      formula-key compaction, unchanged eligible outputs, foreign-key and DB
+      integrity, and rollback by restoring the pre-migration snapshot with the
+      prior image. Only then run one authoritative ARM64 image build/runtime
+      smoke, verify and publish its immutable digest, and proceed to approved
+      deployment.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.
-- [x] Finish local independent review, regression proof, Code Simplifier, and
-      commit for `add-model-benchmark-search`, including retained-AA repair
-      when the same source ID has changed payload and repair across more than
-      100 stored evidence rows.
+- [x] Finish local integrated review, regression proof, Code Simplifier, strict
+      OpenSpec validation, and local commit for `add-model-benchmark-search`.
+      The first complete current-source refresh replaces legacy direct rows
+      without replaying archived payloads. Merge and release remain separate.
 - [ ] After approved integration, prevent startup models.dev sync and queue
-      drain during maintenance restart; run the bundled direct-only reprocessor
-      across every active synced runtime identity. Confirm source match,
+      work during maintenance restart; run the bundled full-catalog refresh
+      across every canonical raw identity. Confirm source match,
       missing, ambiguity, incomplete-source, persistence, and fitness-profile
       publication receipts. Keep actual runtime IDs as publication keys; do not
       infer provider-prefix mappings.
-- [ ] Run strict OpenSpec validation when the CLI is available; `openspec`
-      is not installed in this worktree, so package validation remains pending.
+- [x] Validate `add-model-benchmark-search` with strict OpenSpec CLI validation
+      after the integrated spec and completion record are current.
 - [ ] Confirm direct benchmark evidence reaches every currently available
       built-in-band candidate identity. Before cleanup, verify whitelist hash
       `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`, take
@@ -900,3 +904,40 @@ Deferred cross-repository and operations work:
 - [ ] Run approved live acceptance only after release: verify new evidence and
       recomputed profiles against the actual runtime catalog, then record the
       exact source/image and receipts before closing this package.
+
+## Current benchmark snapshot — 2026-10-27
+
+- [x] Implement normal-sync background refresh over the full fresh canonical
+      models.dev catalog. Preserve pricing/capability writes; do not enqueue or
+      drain the separate discovery queue from this hook. Calls serialize in
+      invocation order and keep their own catalog payload.
+- [x] Require all five sources to be complete, valid, and nonempty before
+      mutation; use exact raw IDs first, then unique exact names. Replace current
+      source/model observations and all four owned native score sources in one
+      transaction. Clear all evidence and owned score scopes for removed
+      canonical IDs; preserve current non-direct evidence for IDs still present.
+- [x] Keep only formula inputs and current source references. Valid HF/queue
+      updates replace exact current sets, including valid-empty sets; malformed
+      and failed updates preserve prior rows and scores. Do not retain raw JSON
+      or changed-value history.
+- [x] Migration 200 renames the evidence table, drops legacy `raw_json` for all
+      sources, and compacts duplicate rows by the exact existing formula
+      observation key. It retains latest `captured_at` with the existing reader
+      tie order and preserves distinct observation keys. Legacy source-batch
+      boundaries, deleted distinct keys, and successful empty results cannot be
+      reconstructed from per-row data.
+- [x] Verify raw canonical identity reaches native `model_intelligence` and
+      the unchanged actual coding/general band consumer, including inactive
+      canonical IDs and separate route-facing provider IDs. Auto filters,
+      capability metadata, formula, routing, and free-cost files are unchanged.
+- [x] Complete focused integrated regressions, malformed-response coverage,
+      independent review, Code Simplifier, and local OpenSpec validation. The
+      completion review records exact commands and any local build limits.
+- [ ] Before production release, run isolated migration rehearsal on a
+      consistent database clone and verify the migration-specific schema/data
+      invariants and database rollback path; then build the authoritative ARM64
+      image and retain artifact receipts.
+- [ ] After approved deployment, run one complete current refresh against the
+      actual canonical catalog and retain immutable image/source and current-set
+      receipts. Do not run discovery, search, or inference as part of this
+      direct refresh. Keep the pre-migration DB snapshot until acceptance closes.
