@@ -32,9 +32,10 @@
 - [x] 2.1 Add the idempotent queue/evidence migration and DB-domain operations.
 - [x] 2.2 Implement bounded AA, SWE-bench, Terminal-Bench 2.0/2.1, DeepSWE,
       HF eval metadata, and explicit zero-cost Ollama Search source client.
-- [x] 2.3 Trigger durable queueing from successful models.dev identity deltas
-      before replacing the prior model capability snapshot; drain all eligible
-      models sequentially and preserve retry/error receipts.
+- [x] 2.3 Keep durable discovery-queue operations separate from models.dev
+      synchronization. Normal sync refreshes the full current benchmark
+      catalog and does not enqueue identities or start a queue drain; the
+      existing explicit queue path retains sequential claims and retry receipts.
 - [x] 2.4 Add authenticated read access for runs and raw evidence; keep all
       unverified/missing results pending and prevent score-map writes.
 - [x] 2.5 Add a fail-closed strict-SO processor. It may infer only after each
@@ -119,35 +120,30 @@
       persisting an auditable unrated eligibility reason.
 - [x] 4.4 Run focused benchmark-search and fitness-recompute tests, review the
       diff with Code Simplifier, and update this review plus `openspec/TODO.md`.
-- [ ] 4.5 After owner integration, reprocess existing AA raw evidence that
-      collided under the old fingerprint; verify both metrics persist and
-      recompute before closing the live acceptance gates.
-- [x] 4.6 Make refresh repair old cross-metric collisions from retained raw AA
-      evidence and prove repeated refresh is idempotent.
-- [ ] 4.7 Record local package review, approved integration/release, live
-      acceptance, and legacy-evidence reprocessing receipts before closure.
-- [x] 4.8 Add an internal direct-evidence reprocessing operation: validate
-      explicit exact catalog IDs, repair retained AA payloads, load one AA plus
-      official source snapshot, persist nonclaimable identity-only rows for
-      matched IDs while preserving existing status on conflict, materialize
-      evidence under actual runtime IDs, and recompute global fitness and
-      effort profiles once.
-- [x] 4.9 Add one bundled operator script that supplies every active OmniRoute
-      provider-catalog model ID, including identities absent from the models.dev
-      snapshot, without a sample limit; print per-ID/source/write/publication
-      receipts and copy into the final overlay without changing startup or
-      adding a public endpoint.
+- [x] 4.5 The complete five-feed refresh replaces legacy direct-source sets
+      from current inputs, including both AA metrics. Migration 200 drops every
+      legacy raw payload, so it does not replay archived AA JSON.
+- [x] 4.6 Make a complete current AA refresh recreate both benchmark metrics
+      from the source and prove repeated current-set replacement is idempotent;
+      migration 200 does not replay archived raw payloads.
+- [ ] 4.7 Record local package review, approved integration/release, migration
+      rehearsal, live acceptance, and current-source refresh receipts before
+      closure.
+- [x] 4.8 Keep an internal direct-refresh operation with explicit catalog input,
+      full source validation, current-set replacement, and native fitness
+      publication. The full-catalog input and normal-sync hook are completed in
+      tasks 6.3–6.5.
+- [x] 4.9 Keep the bundled maintenance operator and runtime dependency check.
+      Its former active-provider-only input is superseded by task 6.3's full
+      canonical catalog input; do not use the older path for fitness refresh.
 - [x] 4.10 Add tests for no search-run/job, search, or normalizer calls; exact
       identity receipts; incomplete-source reporting; evidence persistence
       under runtime IDs; nonclaimable identity status and drain exclusion; and
       global profile publication. Include more than 108 active IDs to catch
       truncation.
-- [ ] 4.11 Before the later release reprocessing, prevent startup-triggered
-      models.dev sync and queue drain during the maintenance restart; run the
-      bundle across all active IDs and verify missing IDs and source failures
-      remain auditable. Confirm source evidence reaches all currently available
-      built-in-band candidate IDs; preserve existing user override precedence
-      until override provenance is established separately.
+- [x] 4.11 The prior active-only release operation is superseded by task 6.10.
+      Do not run it as the catalog-wide fitness refresh; use the full canonical
+      current-snapshot operation after approved integration.
 - [x] 4.12 Prove direct reprocessing feeds the actual free-band consumer using
       raw catalog `model.id` for both `coding_high_tools:free` and
       `general_high_tools:free`, while keeping `${providerId}/${modelId}` only
@@ -180,3 +176,58 @@
 - [ ] 5.6 Build the authoritative ARM64 final image after integration and
       retain its final-stage direct-operator smoke receipt; this worktree cannot
       run that image build on its AMD64 host.
+
+## 6. Full-catalog current benchmark snapshot and native publication
+
+- [x] 6.1 Add a detailed design and RED regressions before implementation for
+      full canonical catalog enumeration, exact raw/unique-name matching,
+      current-set replacement, all-source fail-closed behavior, atomic native
+      base/profile replacement, HF/queue set replacement, and migration 200.
+- [x] 6.2 Add migration 200 to rename
+      `model_benchmark_search_evidence` to `model_benchmark_evidence` while
+      preserving rows, FK cascade, uniqueness, and indexes. Fresh databases
+      SHALL finish with only the new table; repeated initialization SHALL not
+      recreate the old table or compatibility view.
+- [x] 6.3 Replace the active-provider-only direct operator's catalog input with
+      all distinct canonical `model_capabilities` IDs and names. Require every
+      AA/official source to be complete and nonempty before writes; match exact
+      raw IDs first, then unique exact names in the canonical catalog.
+- [x] 6.4 Persist only current formula observations. A valid complete source
+      refresh SHALL replace its source set, changed values SHALL replace prior
+      values, omitted rows SHALL be deleted, and distinct current benchmark,
+      harness/version, metric, effort, and configuration observations SHALL be
+      retained. Do not persist raw payload or changed-value history.
+- [x] 6.5 Atomically replace all five direct-source sets and the owned native
+      `benchmark_fitness` base plus low/medium/high sources for every canonical
+      raw ID. Clear stale owned keys and evidence for removed catalog IDs;
+      preserve current non-direct observations for IDs still in catalog and
+      preserve `user_override`, arena, and unrelated sources. Publish only after
+      all five direct feeds validate; no readiness-marker table is required.
+- [x] 6.6 Update successful HF and queued source/model writers to replace their
+      current observation sets, including valid empty results. Failed,
+      malformed, timed-out, or incomplete source responses SHALL preserve the
+      last valid set. Keep active-only discovery/search gates unchanged.
+- [x] 6.7 Test the legacy migration transition without inventing source
+      boundaries: migration 200 renames the table, removes `raw_json` for every
+      source, and retains only the latest row for each exact existing formula
+      observation key using the reader's capture/hash ordering. Distinct keys
+      remain; legacy deleted keys and successful empty outcomes cannot be
+      reconstructed. Compare formula output before and after migration.
+- [x] 6.8 Prove a raw canonical ID maps through native `model_intelligence` to
+      the unchanged actual free coding/general high-band consumer while
+      `candidate.modelStr` remains provider-prefixed. Prove inactive canonical
+      IDs are included without creating search work or provider calls.
+- [x] 6.9 Run final combined regression suites and built-operator
+      `--check-runtime`, Code Simplifier, independent review, and strict OpenSpec
+      validation. Record results and remaining release gates in
+      `completion.review` and repo-level `openspec/TODO.md` before commit.
+- [ ] 6.10 Release order: merge this fix, apply the exact upstream v3.8.52
+      update, then rehearse migration 200 on a consistent isolated production
+      DB clone with the upgraded runtime dependencies. Assert renamed schema,
+      no raw payload column, formula-key compaction, unchanged eligible
+      outputs, FK/integrity checks, and rollback by restoring the pre-migration
+      copy with the prior image. Do not build any image until the update and
+      rehearsal pass. Then build one authoritative ARM64 image, pause startup
+      sync/queue work during maintenance, run one complete full-catalog refresh,
+      and retain immutable image/source and current-set receipts. Do not run
+      discovery, search, or inference as part of this direct refresh.

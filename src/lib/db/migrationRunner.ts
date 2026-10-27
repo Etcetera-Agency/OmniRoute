@@ -214,6 +214,159 @@ function isDeferredUnsupportedMigration(
   return isOptionalFts5Migration(migration) && !supportsFts5(db);
 }
 
+type ModelBenchmarkEvidenceMigrationRow = {
+  evidence_hash: string;
+  model_id: string;
+  source: string;
+  benchmark: string | null;
+  benchmark_version: string | null;
+  reasoning_effort: string | null;
+  reasoning_config_json: string | null;
+  metric: string | null;
+  value: number | null;
+  captured_at: string;
+};
+
+function stableBenchmarkConfig(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(stableBenchmarkConfig).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableBenchmarkConfig(record[key])}`)
+    .join(",")}}`;
+}
+
+function benchmarkEvidenceFamily(row: ModelBenchmarkEvidenceMigrationRow): string | null {
+  if (row.source === "artificial-analysis-free") {
+    if (row.metric === "artificial_analysis_coding_index") return "aa-coding";
+    if (row.metric === "artificial_analysis_intelligence_index") return "aa-intelligence";
+    return null;
+  }
+  if (row.source === "swe-bench") return "swe-bench";
+  if (row.source === "terminal-bench-2.0" || row.source === "terminal-bench-2.1") {
+    return "terminal-bench";
+  }
+  if (row.source === "deepswe") return "deepswe";
+  if (
+    row.source !== "huggingface-eval-results" &&
+    row.source !== "duckduckgo-free-structured-output"
+  ) {
+    return null;
+  }
+
+  const benchmark = row.benchmark?.toLocaleLowerCase("en-US") ?? "";
+  if (benchmark.includes("swe-bench")) return "swe-bench";
+  if (benchmark.includes("terminal-bench")) return "terminal-bench";
+  if (benchmark.includes("deepswe")) return "deepswe";
+  return null;
+}
+
+function benchmarkEvidenceMetric(family: string, metric: string | null): string | null {
+  if (!metric) return null;
+  const normalized = metric
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/[\s-]+/g, "_");
+  if (family === "aa-coding" && normalized === "artificial_analysis_coding_index") {
+    return normalized;
+  }
+  if (family === "aa-intelligence" && normalized === "artificial_analysis_intelligence_index") {
+    return normalized;
+  }
+  if (family === "swe-bench" && ["resolved", "resolved_rate"].includes(normalized)) {
+    return "resolved";
+  }
+  if (
+    family === "terminal-bench" &&
+    ["accuracy", "pass_rate", "success_rate"].includes(normalized)
+  ) {
+    return "accuracy";
+  }
+  if (
+    family === "deepswe" &&
+    ["pass_rate", "accuracy", "pass@1", "pass_at_1"].includes(normalized)
+  ) {
+    return "pass_rate";
+  }
+  return null;
+}
+
+function benchmarkEvidenceObservationKey(row: ModelBenchmarkEvidenceMigrationRow): string {
+  let reasoningConfig: unknown = null;
+  if (typeof row.reasoning_config_json === "string") {
+    try {
+      reasoningConfig = JSON.parse(row.reasoning_config_json);
+    } catch {
+      reasoningConfig = null;
+    }
+  }
+
+  const family = benchmarkEvidenceFamily(row);
+  const metric = family && benchmarkEvidenceMetric(family, row.metric);
+  if (
+    typeof row.value === "number" &&
+    Number.isFinite(row.value) &&
+    family &&
+    metric &&
+    row.benchmark
+  ) {
+    return JSON.stringify([
+      row.model_id,
+      row.source,
+      family,
+      row.benchmark,
+      row.benchmark_version,
+      row.reasoning_effort,
+      stableBenchmarkConfig(reasoningConfig),
+      metric,
+    ]);
+  }
+
+  return JSON.stringify([
+    "fallback",
+    "unscored",
+    row.model_id,
+    row.source,
+    row.benchmark,
+    row.benchmark_version,
+    row.reasoning_effort,
+    stableBenchmarkConfig(reasoningConfig),
+    row.metric,
+  ]);
+}
+
+/**
+ * Compacts legacy benchmark rows using the same observation key and tie order as
+ * the fitness reader before migration 200 removes the old payload column.
+ */
+// AICODE-NOTE: Keep this one-time key aligned with getEligibleModelBenchmarkFitnessObservations.
+export function compactLegacyModelBenchmarkEvidence(db: SqliteAdapter): void {
+  const rows = db
+    .prepare(
+      `SELECT evidence_hash, model_id, source, benchmark, benchmark_version,
+              reasoning_effort, reasoning_config_json, metric, value, captured_at
+       FROM model_benchmark_evidence
+       ORDER BY model_id, captured_at DESC, evidence_hash`
+    )
+    .all() as ModelBenchmarkEvidenceMigrationRow[];
+  const latest = new Map<string, ModelBenchmarkEvidenceMigrationRow>();
+
+  // This mirrors the reader's >= update while iterating captured_at DESC, hash ASC:
+  // equal timestamps therefore keep the last hash from that ordered result.
+  for (const row of rows) {
+    const key = benchmarkEvidenceObservationKey(row);
+    const current = latest.get(key);
+    if (!current || row.captured_at >= current.captured_at) latest.set(key, row);
+  }
+
+  const currentHashes = new Set([...latest.values()].map((row) => row.evidence_hash));
+  const remove = db.prepare("DELETE FROM model_benchmark_evidence WHERE evidence_hash = ?");
+  for (const row of rows) {
+    if (!currentHashes.has(row.evidence_hash)) remove.run(row.evidence_hash);
+  }
+}
+
 /**
  * Get all migration files sorted by version number.
  */
@@ -1100,6 +1253,12 @@ export function runMigrations(
         applyCompressionReceiptsMigration(db);
       } else if (migration.version === "042") {
         applyCompressionCombosMigration(db, migration.path);
+      } else if (
+        migration.version === "200" &&
+        migration.name === "model_benchmark_evidence_current_set"
+      ) {
+        db.exec(fs.readFileSync(migration.path, "utf-8"));
+        compactLegacyModelBenchmarkEvidence(db);
       } else {
         const sql = fs.readFileSync(migration.path, "utf-8");
         db.exec(sql);

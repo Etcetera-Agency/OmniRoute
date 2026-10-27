@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { getDbInstance } from "./db/core";
 import { getSearchProvider } from "@omniroute/open-sse/config/searchRegistry.ts";
 import { executeWebSearch } from "./search/executeWebSearch";
 import type { ModelBenchmarkFitness } from "./modelBenchmarkFitness";
@@ -17,16 +18,22 @@ import {
   hasEligibleModelBenchmarkSearch,
   isModelBenchmarkSearchNameUnique,
   listAllModelBenchmarkSearchEvidence,
-  listAllModelBenchmarkSearchEvidenceForModel,
+  listModelBenchmarkSearchCatalogModels,
   listEligibleModelBenchmarkSearchRuns,
-  saveModelBenchmarkSearchEvidence,
+  replaceModelBenchmarkEvidenceSources,
   upsertModelBenchmarkSearchIdentities,
   updateModelBenchmarkSearchIdentityStatuses,
   type ModelBenchmarkSearchEvidenceInput,
   type ModelBenchmarkSearchRun,
 } from "./db/modelBenchmarkSearch";
 import { getAllActiveSyncedModels } from "./db/models/activeSyncedCatalog";
-import { recomputeModelBenchmarkFitness } from "./modelBenchmarkFitnessSync";
+import { fetchModelsDev } from "./modelsDevSync";
+import { extractModelsDevModelIdentities } from "./modelsDevSync/modelIdentity";
+import {
+  invalidateModelBenchmarkFitnessCache,
+  publishModelBenchmarkFitnessSnapshot,
+  recomputeModelBenchmarkFitness,
+} from "./modelBenchmarkFitnessSync";
 
 const AA_FREE_URL = "https://artificialanalysis.ai/api/v2/language/models/free";
 const SWE_BENCH_URL =
@@ -94,6 +101,7 @@ interface SearchRunOutcome {
   normalizationStatus: string;
   sourceStatus: Record<string, unknown>;
   discoveredEvidence: boolean;
+  evidenceSetsReplaced?: boolean;
   lastError: string | null;
   retryAfterAt?: string;
   consumeAttempt?: boolean;
@@ -141,6 +149,7 @@ let sharedSourceSnapshotCache: {
   loadedAt: number;
   promise: Promise<BenchmarkSourceSnapshot>;
 } | null = null;
+let catalogRefreshTail: Promise<void> = Promise.resolve();
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -580,10 +589,13 @@ function getBenchmarkSourceSnapshot(fetchImpl: typeof fetch): Promise<BenchmarkS
 function matchSnapshotForModel(
   model: ModelIdentity,
   snapshot: SourceSnapshot,
-  uniqueName: boolean
+  uniqueName: boolean,
+  catalogIds: ReadonlySet<string>
 ): SourceCheck {
+  const modelId = folded(model.id);
   const matches = snapshot.allRows.filter((row) => {
-    if (row.matchedModelId && folded(row.matchedModelId) === folded(model.id)) return true;
+    const matchedId = folded(row.matchedModelId);
+    if (matchedId && catalogIds.has(matchedId)) return matchedId === modelId;
     if (!uniqueName || !row.matchedModelName) return false;
     return folded(row.matchedModelName) === folded(model.name);
   });
@@ -602,6 +614,62 @@ function matchSnapshotForModel(
     matches,
     ...(snapshot.error ? { error: snapshot.error } : {}),
   };
+}
+
+function requireCompleteBenchmarkSnapshot(snapshot: BenchmarkSourceSnapshot): void {
+  for (const source of [snapshot.aa, ...Object.values(snapshot.official)]) {
+    if (source.status !== "found" || source.allRows.length === 0) {
+      throw new Error(
+        `${source.sourceVersion ?? source.sourceUrl}: ${source.error ?? source.status}`
+      );
+    }
+  }
+}
+
+function uniqueCatalogNames(models: ModelIdentity[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const model of models) {
+    const key = folded(model.name);
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return new Set([...counts].filter(([, count]) => count === 1).map(([name]) => name));
+}
+
+function evidenceSourceReplacements(
+  models: ModelIdentity[],
+  snapshot: BenchmarkSourceSnapshot,
+  names = uniqueCatalogNames(models),
+  foundSourcesOnly = false,
+  catalogIds = new Set(models.map((model) => folded(model.id)).filter((id): id is string => !!id))
+): Array<{ modelId: string; source: string; rows: ModelBenchmarkSearchEvidenceInput[] }> {
+  const snapshots: Array<[string, SourceSnapshot]> = [
+    ["artificial-analysis-free", snapshot.aa],
+    ["swe-bench", snapshot.official["swe-bench"]],
+    ["terminal-bench-2.0", snapshot.official["terminal-bench-2.0"]],
+    ["terminal-bench-2.1", snapshot.official["terminal-bench-2.1"]],
+    ["deepswe", snapshot.official.deepswe],
+  ].filter(
+    ([, source]) => !foundSourcesOnly || (source.status === "found" && source.allRows.length > 0)
+  );
+  const replacements: Array<{
+    modelId: string;
+    source: string;
+    rows: ModelBenchmarkSearchEvidenceInput[];
+  }> = [];
+  for (const model of models) {
+    for (const [sourceName, source] of snapshots) {
+      const matches = matchSnapshotForModel(
+        model,
+        source,
+        names.has(folded(model.name) ?? ""),
+        catalogIds
+      );
+      const rows = toEvidenceRows(model.id, matches.matches);
+      const uniqueRows = [...new Map(rows.map((row) => [row.evidenceHash, row])).values()];
+      replacements.push({ modelId: model.id, source: sourceName, rows: uniqueRows });
+    }
+  }
+  return replacements;
 }
 
 function sourceRequest(name: OfficialSourceName): { url: string; init: RequestInit } {
@@ -651,9 +719,14 @@ async function findHuggingFaceEvidence(
       const { data } = await fetchJson(url.toString(), {}, fetchImpl);
       if (!Array.isArray(data)) throw new Error("Invalid Hugging Face model list response");
       rawResponses.push(data);
-      for (const result of asRows(data)) {
+      for (const item of data) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          throw new Error("Invalid Hugging Face model list item");
+        }
+        const result = asRecord(item);
         const repoId = asString(result.id) ?? asString(result.modelId);
-        if (repoId && exactIdentityFields(model, [repoId])) matches.set(repoId, result);
+        if (!repoId) throw new Error("Invalid Hugging Face model list item");
+        if (exactIdentityFields(model, [repoId])) matches.set(repoId, result);
       }
     }
 
@@ -663,10 +736,17 @@ async function findHuggingFaceEvidence(
       const url = `https://huggingface.co/api/models/${repoPath}?expand%5B%5D=evalResults`;
       const { data } = await fetchJson(url, {}, fetchImpl);
       const root = asRecord(data);
-      const results = Array.isArray(root.evalResults) ? root.evalResults : [];
+      if (!Array.isArray(root.evalResults)) {
+        throw new Error("Invalid Hugging Face evalResults response");
+      }
+      const results = root.evalResults;
       for (const item of results) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          throw new Error("Invalid Hugging Face evalResults item");
+        }
         const row = asRecord(item);
         const dataset = asString(row.dataset_id) ?? asString(row.dataset_name);
+        if (!dataset) throw new Error("Invalid Hugging Face evalResults item");
         found.push(
           evidence({
             source: "huggingface-eval-results",
@@ -809,10 +889,12 @@ function toEvidenceRows(
       modelId,
       source: row.source,
       sourceVersion: row.sourceVersion,
-      sourceUrl: row.sourceUrl,
       benchmark: row.benchmark,
+      benchmarkVersion: row.benchmarkVersion,
       metric: row.metric,
-      raw: row.raw,
+      value: row.value,
+      reasoningEffort: row.reasoningEffort,
+      reasoningConfig: row.reasoningConfig,
     };
     return {
       evidenceHash: hash(stableContent),
@@ -831,7 +913,6 @@ function toEvidenceRows(
       sourceDate: row.sourceDate,
       verificationStatus: row.verificationStatus,
       capturedAt,
-      raw: row.raw,
     };
   });
 }
@@ -842,52 +923,29 @@ function errorMessage(error: unknown): string {
 
 function materializeModelEvidence(
   model: ModelIdentity,
-  snapshot: BenchmarkSourceSnapshot
+  snapshot: BenchmarkSourceSnapshot,
+  uniqueNames?: Set<string>,
+  catalogIds = new Set([folded(model.id) ?? ""])
 ): ModelSourceEvidence {
-  const uniqueName = isModelBenchmarkSearchNameUnique(model.name);
+  const uniqueName = uniqueNames
+    ? uniqueNames.has(folded(model.name) ?? "")
+    : isModelBenchmarkSearchNameUnique(model.name);
   const checks = [
-    matchSnapshotForModel(model, snapshot.aa, uniqueName),
+    matchSnapshotForModel(model, snapshot.aa, uniqueName, catalogIds),
     ...Object.values(snapshot.official).map((source) =>
-      matchSnapshotForModel(model, source, uniqueName)
+      matchSnapshotForModel(model, source, uniqueName, catalogIds)
     ),
   ];
   const matches = checks.flatMap((source) => source.matches);
-  const evidenceWrites = matches.length
-    ? saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, matches))
-    : 0;
-
   return {
     checks,
-    evidenceWrites,
+    evidenceWrites: matches.length,
     sourceStatus: Object.fromEntries(
       ["artificialAnalysis", "sweBench", "terminalBench20", "terminalBench21", "deepSwe"].map(
         (key, index) => [key, sourceStatusForStorage(checks[index])]
       )
     ),
   };
-}
-
-function reparseRetainedAaEvidence(
-  modelIds: ReadonlySet<string>,
-  currentAaRows: ParsedEvidence[],
-  evidenceRows: ReturnType<typeof listAllModelBenchmarkSearchEvidence>
-): ParsedEvidence[] {
-  const currentAaPayloads = new Set(
-    currentAaRows.map((row) => hash({ sourceVersion: row.sourceVersion, raw: row.raw }))
-  );
-  const retainedAaRows = new Map<string, ParsedEvidence[]>();
-  for (const row of evidenceRows) {
-    if (row.source !== "artificial-analysis-free" || !modelIds.has(folded(row.modelId) ?? "")) {
-      continue;
-    }
-    const raw = asRecord(row.raw);
-    const key = hash({ sourceVersion: row.sourceVersion, raw });
-    if (!folded(asString(raw.slug) ?? row.matchedModelId) || currentAaPayloads.has(key)) continue;
-    if (!retainedAaRows.has(key)) {
-      retainedAaRows.set(key, parseAAEvidence([raw], row.sourceVersion, row.sourceDate));
-    }
-  }
-  return [...retainedAaRows.values()].flat();
 }
 
 function sourceIdentityMatch(
@@ -916,44 +974,59 @@ function directProcessingStatus(
   return "unrated_no_evidence";
 }
 
-// AICODE-NOTE: Direct reprocessing never creates claimable search work.
-// Keep normalization loading behind queued search only.
-export async function reprocessModelBenchmarkSearchEvidence(
-  modelIds: string[]
+// AICODE-NOTE: The operator refreshes the full canonical catalog; only the queued path searches or normalizes evidence.
+export async function reprocessModelBenchmarkSearchEvidence(): Promise<ReprocessResult> {
+  const catalog = extractModelsDevModelIdentities(await fetchModelsDev());
+  return refreshModelBenchmarkCatalogEvidence(catalog, fetch);
+}
+
+export function refreshModelBenchmarkCatalogEvidence(
+  inputModels: ModelIdentity[],
+  fetchImpl: typeof fetch
 ): Promise<ReprocessResult> {
-  if (modelIds.length === 0) {
-    throw new Error("At least one model ID is required");
-  }
-
-  const activeCatalogs = await getAllActiveSyncedModels();
-  const activeModels = new Map<string, ModelIdentity>();
-  for (const models of Object.values(activeCatalogs)) {
-    for (const model of models) {
-      if (model.id && !activeModels.has(model.id)) {
-        activeModels.set(model.id, { id: model.id, name: model.name });
-      }
-    }
-  }
-
-  const requestedModels = new Map<string, ModelIdentity | null>();
-  for (const id of modelIds) {
-    const model = activeModels.get(id);
-    requestedModels.set(id, model ?? null);
-  }
-  const matchedModels = [...requestedModels.values()].filter(
-    (model): model is ModelIdentity => model !== null
+  const refresh = catalogRefreshTail.then(() =>
+    refreshModelBenchmarkCatalogEvidenceNow(inputModels, fetchImpl)
   );
-  const newIdentityIds = new Set(upsertModelBenchmarkSearchIdentities(matchedModels));
-  const snapshot = await loadBenchmarkSourceSnapshot(fetch);
-  const requestedIds = new Set(matchedModels.map((model) => folded(model.id) ?? ""));
-  snapshot.aa.allRows.push(
-    ...reparseRetainedAaEvidence(
-      requestedIds,
-      snapshot.aa.allRows,
-      listAllModelBenchmarkSearchEvidence()
-    )
+  catalogRefreshTail = refresh.then(
+    () => undefined,
+    () => undefined
   );
+  return refresh;
+}
 
+async function refreshModelBenchmarkCatalogEvidenceNow(
+  inputModels: ModelIdentity[],
+  fetchImpl: typeof fetch
+): Promise<ReprocessResult> {
+  const models = [
+    ...new Map(
+      inputModels.filter((model) => model.id.trim()).map((model) => [model.id, model])
+    ).values(),
+  ];
+  if (models.length === 0) throw new Error("Canonical model catalog is empty");
+
+  const snapshot = await loadBenchmarkSourceSnapshot(fetchImpl);
+  requireCompleteBenchmarkSnapshot(snapshot);
+
+  const replacements = evidenceSourceReplacements(models, snapshot);
+  const currentIds = new Set(models.map((model) => model.id));
+  const directSources = [
+    "artificial-analysis-free",
+    "swe-bench",
+    "terminal-bench-2.0",
+    "terminal-bench-2.1",
+    "deepswe",
+  ];
+  const obsoleteSources = new Map<string, Set<string>>();
+  for (const row of listAllModelBenchmarkSearchEvidence()) {
+    if (currentIds.has(row.modelId)) continue;
+    const sources = obsoleteSources.get(row.modelId) ?? new Set(directSources);
+    sources.add(row.source);
+    obsoleteSources.set(row.modelId, sources);
+  }
+  for (const [modelId, sources] of obsoleteSources) {
+    for (const source of sources) replacements.push({ modelId, source, rows: [] });
+  }
   const sourceNames = [
     "artificialAnalysis",
     "sweBench",
@@ -961,90 +1034,78 @@ export async function reprocessModelBenchmarkSearchEvidence(
     "terminalBench21",
     "deepSwe",
   ];
-  const sourceChecks = [snapshot.aa, ...Object.values(snapshot.official)];
-  const receipts: ReprocessReceipt[] = [...requestedModels.entries()].map(([modelId, model]) => {
-    if (!model) {
-      return {
-        modelId,
-        identityStatus: "missing",
-        evidenceStatus: "missing",
+  const snapshots = [snapshot.aa, ...Object.values(snapshot.official)];
+  const uniqueNames = uniqueCatalogNames(models);
+  const canonicalIds = new Set(
+    models.map((model) => folded(model.id)).filter((id): id is string => !!id)
+  );
+  const result = getDbInstance().transaction(() => {
+    upsertModelBenchmarkSearchIdentities(models);
+    let fitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null = null;
+    const evidenceWrites = replaceModelBenchmarkEvidenceSources(replacements, () => {
+      fitness = publishModelBenchmarkFitnessSnapshot();
+    });
+    if (!fitness) throw new Error("Benchmark fitness snapshot was not published");
+
+    const scoredIds = new Set(
+      fitness.scores
+        .filter(
+          (score) =>
+            typeof score.codingFitness === "number" || typeof score.generalFitness === "number"
+        )
+        .map((score) => folded(score.modelId) ?? "")
+    );
+    const receipts = models.map((model): ReprocessReceipt => {
+      const checks = snapshots.map((source) =>
+        matchSnapshotForModel(
+          model,
+          source,
+          uniqueNames.has(folded(model.name) ?? ""),
+          canonicalIds
+        )
+      );
+      const records = checks.map((check) => check.matches.length);
+      const receipt: ReprocessReceipt = {
+        modelId: model.id,
+        identityStatus: "matched",
+        evidenceStatus: records.some(Boolean) ? "matched" : "missing",
         sources: Object.fromEntries(
-          sourceNames.map((name, index) => {
-            const source = sourceChecks[index];
-            return [
-              name,
-              {
-                status: source.status,
-                identityMatch: "missing",
-                complete: source.status === "found" || source.status === "missing",
-                records: 0,
-              },
-            ];
-          })
-        ),
-        evidenceWrites: 0,
-      };
-    }
-    const materialized = materializeModelEvidence(model, snapshot);
-    return {
-      modelId: model.id,
-      identityStatus: "matched",
-      evidenceStatus: materialized.checks.some((source) => source.matches.length > 0)
-        ? "matched"
-        : "missing",
-      sources: Object.fromEntries(
-        sourceNames.map((name, index) => {
-          const source = materialized.checks[index];
-          return [
+          sourceNames.map((name, index) => [
             name,
             {
-              status: source.status,
-              identityMatch: sourceIdentityMatch(model, sourceChecks[index], source),
-              complete: source.status === "found" || source.status === "missing",
-              records: source.matches.length,
+              status: checks[index].status,
+              identityMatch: sourceIdentityMatch(model, snapshots[index], checks[index]),
+              complete: true,
+              records: records[index],
             },
-          ];
-        })
-      ),
-      evidenceWrites: materialized.evidenceWrites,
-    };
-  });
-  const fitness = await recomputeModelBenchmarkFitness();
-  const scoredIds = new Set(
-    fitness.scores
-      .filter(
-        (score) =>
-          typeof score.codingFitness === "number" || typeof score.generalFitness === "number"
-      )
-      .map((score) => folded(score.modelId) ?? "")
-  );
-  const statusByNewIdentity = new Map<string, DirectProcessingStatus>();
-  for (const receipt of receipts) {
-    if (newIdentityIds.has(receipt.modelId)) {
-      statusByNewIdentity.set(
-        receipt.modelId,
-        directProcessingStatus(receipt, scoredIds.has(folded(receipt.modelId) ?? ""))
+          ])
+        ),
+        evidenceWrites: records.reduce((sum, count) => sum + count, 0),
+      };
+      receipt.processingStatus = directProcessingStatus(
+        receipt,
+        scoredIds.has(folded(model.id) ?? "")
       );
-    }
-  }
-  updateModelBenchmarkSearchIdentityStatuses(
-    [...statusByNewIdentity].map(([id, status]) => ({ id, status }))
-  );
-  const finalReceipts = receipts.map((receipt) => ({
-    ...receipt,
-    ...(statusByNewIdentity.has(receipt.modelId)
-      ? { processingStatus: statusByNewIdentity.get(receipt.modelId) }
-      : {}),
-  }));
-  return {
-    receipts: finalReceipts,
-    evidenceWrites: finalReceipts.reduce((total, receipt) => total + receipt.evidenceWrites, 0),
-    fitness: {
-      observationCount: fitness.observationCount,
-      publishedCount: fitness.publishedCount,
-      profilePublishedCount: fitness.profilePublishedCount,
-    },
-  };
+      return receipt;
+    });
+    updateModelBenchmarkSearchIdentityStatuses(
+      receipts.map(({ modelId, processingStatus }) => ({
+        id: modelId,
+        status: processingStatus ?? "unrated_no_evidence",
+      }))
+    );
+    return {
+      receipts,
+      evidenceWrites,
+      fitness: {
+        observationCount: fitness.observationCount,
+        publishedCount: fitness.publishedCount,
+        profilePublishedCount: fitness.profilePublishedCount,
+      },
+    };
+  })();
+  await invalidateModelBenchmarkFitnessCache();
+  return result;
 }
 
 async function refreshSearchRun(
@@ -1057,24 +1118,36 @@ async function refreshSearchRun(
   const sourceStatus = { ...direct.sourceStatus };
   sourceStatus.fitness = directScore ?? null;
 
-  const retainedAaRows = reparseRetainedAaEvidence(
-    new Set([folded(model.id) ?? ""]),
-    direct.checks[0].matches,
-    listAllModelBenchmarkSearchEvidenceForModel(model.id)
-  );
-  const repairedAaEvidence =
-    retainedAaRows.length > 0 &&
-    saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, retainedAaRows)) > 0;
-
   if (
     typeof directScore?.codingFitness === "number" ||
     typeof directScore?.generalFitness === "number"
   ) {
+    if (direct.checks.every((source) => source.status === "missing")) {
+      const hf = await findHuggingFaceEvidence(model, fetchImpl);
+      sourceStatus.huggingFace = hf.receipt;
+      if (hf.status !== "error") {
+        replaceModelBenchmarkEvidenceSources([
+          {
+            modelId: model.id,
+            source: "huggingface-eval-results",
+            rows: toEvidenceRows(model.id, hf.evidence),
+          },
+        ]);
+      }
+      return {
+        modelId: model.id,
+        normalizationStatus: "not_needed",
+        sourceStatus,
+        discoveredEvidence: false,
+        evidenceSetsReplaced: hf.status !== "error",
+        lastError: hf.status === "error" ? asString(hf.receipt.error) : null,
+      };
+    }
     return {
       modelId: model.id,
       normalizationStatus: "not_needed",
       sourceStatus,
-      discoveredEvidence: repairedAaEvidence,
+      discoveredEvidence: false,
       lastError: null,
     };
   }
@@ -1090,7 +1163,7 @@ async function refreshSearchRun(
       modelId: model.id,
       normalizationStatus: "not_started",
       sourceStatus,
-      discoveredEvidence: repairedAaEvidence,
+      discoveredEvidence: false,
       lastError: failed.length
         ? failed.map((source) => source.error || source.status).join("; ")
         : null,
@@ -1120,7 +1193,7 @@ async function refreshSearchRun(
       modelId: model.id,
       normalizationStatus: "not_started",
       sourceStatus,
-      discoveredEvidence: repairedAaEvidence,
+      discoveredEvidence: false,
       lastError: null,
     };
   }
@@ -1132,8 +1205,26 @@ async function refreshSearchRun(
   sourceStatus.huggingFace = hf.receipt;
   sourceStatus.ollamaSearch = web.receipt;
   const sourceEvidence = [...hf.evidence, ...web.evidence];
-  if (sourceEvidence.length) {
-    saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, sourceEvidence));
+  let evidenceSetsReplaced = false;
+  if (hf.status !== "error") {
+    replaceModelBenchmarkEvidenceSources([
+      {
+        modelId: model.id,
+        source: "huggingface-eval-results",
+        rows: toEvidenceRows(model.id, hf.evidence),
+      },
+    ]);
+    evidenceSetsReplaced = true;
+  }
+  if (asString(web.receipt.status) !== "error") {
+    replaceModelBenchmarkEvidenceSources([
+      {
+        modelId: model.id,
+        source: "ollama-search",
+        rows: toEvidenceRows(model.id, web.evidence),
+      },
+    ]);
+    evidenceSetsReplaced = true;
   }
   const searchRetryAfterAt = asString(web.receipt.retryAfterAt);
   if (searchRetryAfterAt) {
@@ -1141,7 +1232,8 @@ async function refreshSearchRun(
       modelId: model.id,
       normalizationStatus: "search_retry_deferred",
       sourceStatus,
-      discoveredEvidence: repairedAaEvidence || sourceEvidence.length > 0,
+      discoveredEvidence: sourceEvidence.length > 0,
+      evidenceSetsReplaced,
       lastError: asString(web.receipt.error) ?? "Ollama Search temporarily unavailable",
       retryAfterAt: searchRetryAfterAt,
       consumeAttempt: asString(web.receipt.error) !== OLLAMA_SEARCH_NO_CREDENTIALS_ERROR,
@@ -1178,8 +1270,20 @@ async function refreshSearchRun(
     })
   );
   sourceStatus.normalizationProcessor = processorReceipt;
-  if (normalized.length) {
-    saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, normalized));
+  if (
+    asString(web.receipt.status) !== "error" &&
+    ["candidate_evidence_unrated", "no_evidence_unrated", "no_search_candidates_unrated"].includes(
+      processor.status
+    )
+  ) {
+    replaceModelBenchmarkEvidenceSources([
+      {
+        modelId: model.id,
+        source: "ollama-search-structured-output",
+        rows: toEvidenceRows(model.id, normalized),
+      },
+    ]);
+    evidenceSetsReplaced = true;
   }
   const discovered = [...sourceEvidence, ...normalized];
   const searchErrors = [
@@ -1202,7 +1306,8 @@ async function refreshSearchRun(
     modelId: model.id,
     normalizationStatus: processor.status,
     sourceStatus,
-    discoveredEvidence: repairedAaEvidence || discovered.length > 0,
+    discoveredEvidence: discovered.length > 0,
+    evidenceSetsReplaced,
     lastError,
     ...(processor.retryAfterAt ? { retryAfterAt: processor.retryAfterAt } : {}),
   };
@@ -1263,13 +1368,33 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
 
       const snapshot = await getBenchmarkSourceSnapshot(fetch);
       const prepared = new Map<string, ModelSourceEvidence>();
-      for (const candidate of listEligibleModelBenchmarkSearchRuns(MAX_MODELS_PER_DRAIN)) {
+      const candidates = listEligibleModelBenchmarkSearchRuns(MAX_MODELS_PER_DRAIN);
+      const catalogModels = listModelBenchmarkSearchCatalogModels();
+      const names = uniqueCatalogNames(catalogModels);
+      const catalogIds = new Set(
+        catalogModels.map((model) => folded(model.id)).filter((id): id is string => !!id)
+      );
+      const replacements = [] as ReturnType<typeof evidenceSourceReplacements>;
+      for (const candidate of candidates) {
+        const model = { id: candidate.modelId, name: candidate.modelName };
         prepared.set(
           candidate.modelId,
-          materializeModelEvidence({ id: candidate.modelId, name: candidate.modelName }, snapshot)
+          materializeModelEvidence(model, snapshot, names, catalogIds)
+        );
+        replacements.push(
+          ...evidenceSourceReplacements([model], snapshot, names, true, catalogIds)
         );
       }
-      let scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
+      let directFitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null = null;
+      if (replacements.length) {
+        replaceModelBenchmarkEvidenceSources(replacements, () => {
+          directFitness = publishModelBenchmarkFitnessSnapshot();
+        });
+        await invalidateModelBenchmarkFitnessCache();
+      }
+      let scores = toScoreMap(
+        directFitness?.scores ?? (await recomputeModelBenchmarkFitness()).scores
+      );
       let completed = 0;
       while (completed < MAX_MODELS_PER_DRAIN) {
         const run = claimModelBenchmarkSearch();
@@ -1278,7 +1403,12 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
         let outcome: SearchRunOutcome | null = null;
         try {
           if (!direct) {
-            direct = materializeModelEvidence({ id: run.modelId, name: run.modelName }, snapshot);
+            direct = materializeModelEvidence(
+              { id: run.modelId, name: run.modelName },
+              snapshot,
+              names,
+              catalogIds
+            );
             scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
           }
           outcome = await refreshSearchRun(
@@ -1287,7 +1417,7 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
             direct,
             scores.get(run.modelId.toLowerCase())
           );
-          if (outcome.discoveredEvidence) {
+          if (outcome.discoveredEvidence || outcome.evidenceSetsReplaced) {
             scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
           }
         } catch (error) {

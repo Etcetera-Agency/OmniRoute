@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { createHash } from "node:crypto";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-model-benchmark-search-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -57,11 +55,6 @@ function requestUrl(input: RequestInfo | URL): string {
   return input.url;
 }
 
-async function importFreshModelsDevSync(label: string) {
-  const modulePath = path.join(process.cwd(), "src/lib/modelsDevSync.ts");
-  return import(`${pathToFileURL(modulePath).href}?case=${label}-${Date.now()}-${Math.random()}`);
-}
-
 async function waitFor(predicate: () => unknown, timeoutMs = 2_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -94,38 +87,32 @@ function insertLegacyAaCodingEvidence(
   const sourceUrl = "https://artificialanalysis.ai/api/v2/language/models/free";
   const modelName = typeof raw.name === "string" ? raw.name : null;
   const sourceDate = typeof raw.release_date === "string" ? raw.release_date : null;
-  const evidenceHash = createHash("sha256")
-    .update(
-      JSON.stringify({ modelId, source: "artificial-analysis-free", sourceVersion, sourceUrl, raw })
-    )
-    .digest("hex");
-  core
-    .getDbInstance()
-    .prepare(
-      `INSERT INTO model_benchmark_search_evidence (
-        evidence_hash, model_id, source, source_version, matched_model_id,
-        matched_model_name, benchmark, benchmark_version, reasoning_effort,
-        metric, value, source_url, source_date, verification_status, captured_at, raw_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      evidenceHash,
+  searchDb.replaceModelBenchmarkEvidenceSources([
+    {
       modelId,
-      "artificial-analysis-free",
-      sourceVersion,
-      modelId,
-      modelName,
-      "AA Coding",
-      sourceVersion,
-      "high",
-      "artificial_analysis_coding_index",
-      value,
-      sourceUrl,
-      sourceDate,
-      "source_verified",
-      new Date().toISOString(),
-      JSON.stringify(raw)
-    );
+      source: "artificial-analysis-free",
+      rows: [
+        {
+          evidenceHash: `legacy-${modelId}`,
+          modelId,
+          source: "artificial-analysis-free",
+          sourceVersion,
+          matchedModelId: modelId,
+          matchedModelName: modelName,
+          benchmark: "AA Coding",
+          benchmarkVersion: sourceVersion,
+          reasoningEffort: "high",
+          reasoningConfig: null,
+          metric: "artificial_analysis_coding_index",
+          value,
+          sourceUrl,
+          sourceDate,
+          verificationStatus: "source_verified",
+          capturedAt: new Date().toISOString(),
+        },
+      ],
+    },
+  ]);
 }
 
 test.beforeEach(() => {
@@ -595,7 +582,6 @@ test("fitness refresh failure preserves a deferred retry and its source receipt"
       sourceDate: null,
       verificationStatus: "verified",
       capturedAt: new Date().toISOString(),
-      raw: {},
     },
   ]);
   const urls: string[] = [];
@@ -993,171 +979,6 @@ test("normalization accepts only exact quoted fields and returned source URLs", 
   );
 });
 
-test("models.dev sync backfills all catalog IDs once, then queues new IDs", async () => {
-  let catalog: Record<string, unknown> = {
-    openai: {
-      id: "openai",
-      name: "OpenAI",
-      models: {
-        "baseline-model": { id: "baseline-model", name: "Baseline Model", tool_call: true },
-      },
-    },
-  };
-  globalThis.fetch = async (input) => {
-    const url = requestUrl(input);
-    if (url === "https://models.dev/api.json") return jsonResponse(catalog);
-    if (url.startsWith("https://raw.githubusercontent.com/SWE-bench/")) {
-      return jsonResponse({ leaderboards: [] });
-    }
-    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
-      return jsonResponse({ rows: [] });
-    }
-    if (url === "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json") {
-      return jsonResponse({ rows: [] });
-    }
-    throw new Error(`Unexpected request: ${url}`);
-  };
-
-  const baselineSync = await importFreshModelsDevSync("benchmark-baseline");
-  assert.equal((await baselineSync.syncModelsDev({ maxRetries: 0 })).success, true);
-  assert.deepEqual(
-    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
-    ["baseline-model"]
-  );
-
-  catalog = {
-    openai: {
-      id: "openai",
-      name: "OpenAI",
-      models: {
-        "baseline-model": { id: "baseline-model", name: "Baseline Model", tool_call: true },
-        "dry-run-model": { id: "dry-run-model", name: "Dry Run Model", tool_call: true },
-      },
-    },
-  };
-  const dryRunSync = await importFreshModelsDevSync("benchmark-dry-run");
-  assert.equal((await dryRunSync.syncModelsDev({ dryRun: true, maxRetries: 0 })).success, true);
-  assert.deepEqual(
-    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
-    ["baseline-model"]
-  );
-
-  const capabilitiesDisabledSync = await importFreshModelsDevSync("benchmark-no-capabilities");
-  assert.equal(
-    (await capabilitiesDisabledSync.syncModelsDev({ syncCapabilities: false, maxRetries: 0 }))
-      .success,
-    true
-  );
-  assert.deepEqual(
-    searchDb.listModelBenchmarkSearchRuns().map((run) => run.modelId),
-    ["baseline-model"]
-  );
-
-  catalog = {
-    openai: {
-      id: "openai",
-      name: "OpenAI",
-      models: {
-        "baseline-model": { id: "baseline-model", name: "Baseline Model", tool_call: true },
-        "new-model": { id: "new-model", name: "New Model", tool_call: true },
-        "new-model-2": { id: "new-model-2", name: "New Model 2", tool_call: true },
-      },
-    },
-  };
-  const newModelSync = await importFreshModelsDevSync("benchmark-new-model");
-  assert.equal((await newModelSync.syncModelsDev({ maxRetries: 0 })).success, true);
-
-  const processed = await waitFor(() => {
-    const runs = searchDb
-      .listModelBenchmarkSearchRuns()
-      .filter((run) => ["new-model", "new-model-2"].includes(run.modelId));
-    return runs.length === 2 && runs.every((run) => run.status !== "pending") ? runs : null;
-  });
-  assert.ok(processed);
-  const processedRuns = processed as ReturnType<typeof searchDb.listModelBenchmarkSearchRuns>;
-  assert.deepEqual(
-    processedRuns.map((run) => [run.modelId, run.modelName, run.status]),
-    [
-      ["new-model", "New Model", "source_error"],
-      ["new-model-2", "New Model 2", "source_error"],
-    ]
-  );
-  for (const run of processedRuns) {
-    assert.equal(run.normalizationStatus, "not_started");
-    assert.equal(run.sourceStatus.artificialAnalysis.status, "error");
-    assert.match(String(run.lastError), /API key is not configured/);
-  }
-
-  const repeatedSync = await importFreshModelsDevSync("benchmark-repeat-model");
-  assert.equal((await repeatedSync.syncModelsDev({ maxRetries: 0 })).success, true);
-  assert.equal(
-    searchDb.listModelBenchmarkSearchRuns().filter((run) => run.modelId === "new-model").length,
-    1
-  );
-  assert.equal(
-    searchDb.listModelBenchmarkSearchRuns().filter((run) => run.modelId === "new-model-2").length,
-    1
-  );
-  await search.drainModelBenchmarkSearchQueue();
-});
-
-test("first benchmark backfill includes IDs from an already-populated models.dev snapshot", async () => {
-  const initialCatalog = {
-    openai: {
-      id: "openai",
-      name: "OpenAI",
-      models: {
-        "previous-model": { id: "previous-model", name: "Previous Model", tool_call: true },
-      },
-    },
-  };
-  const initialSync = await importFreshModelsDevSync("benchmark-existing-snapshot");
-  initialSync.ensureCapabilitiesTable();
-  initialSync.saveModelsDevCapabilities(
-    initialSync.transformModelsDevToCapabilities(initialCatalog)
-  );
-
-  globalThis.fetch = async (input) => {
-    const url = requestUrl(input);
-    if (url === "https://models.dev/api.json") {
-      return jsonResponse({
-        openai: {
-          id: "openai",
-          name: "OpenAI",
-          models: {
-            "previous-model": { id: "previous-model", name: "Previous Model", tool_call: true },
-            "current-model": { id: "current-model", name: "Current Model", tool_call: true },
-          },
-        },
-      });
-    }
-    if (
-      url ===
-      "https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json"
-    ) {
-      return jsonResponse({ leaderboards: [] });
-    }
-    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
-      return jsonResponse({ rows: [] });
-    }
-    if (url === "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json") {
-      return jsonResponse({ rows: [] });
-    }
-    throw new Error(`Unexpected request: ${url}`);
-  };
-
-  const sync = await importFreshModelsDevSync("benchmark-full-backfill-existing");
-  assert.equal((await sync.syncModelsDev({ maxRetries: 0 })).success, true);
-  assert.deepEqual(
-    searchDb
-      .listModelBenchmarkSearchRuns(100)
-      .map((run) => run.modelId)
-      .sort(),
-    ["current-model", "previous-model"]
-  );
-  await search.drainModelBenchmarkSearchQueue();
-});
-
 test("catalog backfill transaction leaves no marker when an identity insert fails", () => {
   const db = core.getDbInstance();
   db.exec(`
@@ -1482,6 +1303,496 @@ test("display names cannot masquerade as exact model IDs during source matching"
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("Shared Model").length, 0);
 });
 
+test("incomplete Hugging Face feeds preserve current evidence and native scores", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  const malformedCases: Array<{ hfDetail: unknown }> = [
+    { hfDetail: { id: "queue-source-model", evalResults: null } },
+    { hfDetail: { id: "queue-source-model" } },
+    { hfDetail: { id: "queue-source-model", evalResults: "invalid" } },
+    { hfDetail: { id: "queue-source-model", evalResults: [null] } },
+    { hfDetail: { id: "queue-source-model", evalResults: [{}] } },
+    {
+      hfDetail: {
+        id: "queue-source-model",
+        evalResults: [{ dataset_id: "SWE-bench" }, null],
+      },
+    },
+  ];
+
+  for (const malformed of malformedCases) {
+    resetStorage();
+    await addActiveCatalogModels([{ id: "queue-source-model", name: "Queue Source Model" }]);
+    searchDb.enqueueModelBenchmarkSearches([
+      { id: "queue-source-model", name: "Queue Source Model" },
+    ]);
+    await providersDb.createProviderConnection({
+      provider: "ollama-cloud",
+      authType: "apikey",
+      name: "ollama-search-malformed-source-test",
+      apiKey: "ollama-search-malformed-source-test-key",
+      isActive: true,
+      testStatus: "active",
+      providerSpecificData: {},
+    });
+    searchDb.upsertModelBenchmarkSearchIdentities([
+      { id: "native-score-model", name: "Native Score Model" },
+    ]);
+    searchDb.replaceModelBenchmarkEvidenceSources([
+      {
+        modelId: "queue-source-model",
+        source: "huggingface-eval-results",
+        rows: [
+          {
+            evidenceHash: "old-hf-observation",
+            modelId: "queue-source-model",
+            source: "huggingface-eval-results",
+            sourceVersion: "test",
+            matchedModelId: "queue-source-model",
+            matchedModelName: "Queue Source Model",
+            benchmark: "SWE-bench",
+            benchmarkVersion: "Verified",
+            reasoningEffort: "high",
+            reasoningConfig: { harness: "old-harness" },
+            metric: "resolved",
+            value: 0.5,
+            sourceUrl: "https://huggingface.co/test",
+            sourceDate: null,
+            verificationStatus: "review_required",
+            capturedAt: new Date().toISOString(),
+          },
+        ],
+      },
+      {
+        modelId: "queue-source-model",
+        source: "ollama-search",
+        rows: [
+          {
+            evidenceHash: "old-ollama-observation",
+            modelId: "queue-source-model",
+            source: "ollama-search",
+            sourceVersion: "test",
+            matchedModelId: null,
+            matchedModelName: null,
+            benchmark: "Terminal-Bench",
+            benchmarkVersion: null,
+            reasoningEffort: null,
+            reasoningConfig: { harness: "old-search-harness" },
+            metric: null,
+            value: null,
+            sourceUrl: "https://example.org/old-result",
+            sourceDate: null,
+            verificationStatus: "candidate_review_required",
+            capturedAt: new Date().toISOString(),
+          },
+        ],
+      },
+      {
+        modelId: "native-score-model",
+        source: "artificial-analysis-free",
+        rows: [
+          {
+            evidenceHash: "native-coding-score",
+            modelId: "native-score-model",
+            source: "artificial-analysis-free",
+            sourceVersion: "test",
+            matchedModelId: "native-score-model",
+            matchedModelName: "Native Score Model",
+            benchmark: "Artificial Analysis Intelligence Index",
+            benchmarkVersion: "4.1",
+            reasoningEffort: null,
+            reasoningConfig: null,
+            metric: "artificial_analysis_coding_index",
+            value: 70,
+            sourceUrl: "https://artificialanalysis.ai/test",
+            sourceDate: null,
+            verificationStatus: "verified",
+            capturedAt: new Date().toISOString(),
+          },
+          {
+            evidenceHash: "native-intelligence-score",
+            modelId: "native-score-model",
+            source: "artificial-analysis-free",
+            sourceVersion: "test",
+            matchedModelId: "native-score-model",
+            matchedModelName: "Native Score Model",
+            benchmark: "Artificial Analysis Intelligence Index",
+            benchmarkVersion: "4.1",
+            reasoningEffort: null,
+            reasoningConfig: null,
+            metric: "artificial_analysis_intelligence_index",
+            value: 80,
+            sourceUrl: "https://artificialanalysis.ai/test",
+            sourceDate: null,
+            verificationStatus: "verified",
+            capturedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    ]);
+    fitnessSync.publishModelBenchmarkFitnessSnapshot();
+    const priorRows = searchDb.listAllModelBenchmarkSearchEvidence();
+    const priorFitness = core
+      .getDbInstance()
+      .prepare(
+        `SELECT model, source, category, score, confidence FROM model_intelligence
+         WHERE source LIKE 'benchmark_fitness%' ORDER BY model, source, category`
+      )
+      .all();
+
+    globalThis.fetch = async (input, init) => {
+      const url = requestUrl(input);
+      if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+        return jsonResponse({
+          intelligence_index_version: 4.1,
+          pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+          data: [],
+        });
+      }
+      if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+        return jsonResponse({ leaderboards: [] });
+      }
+      if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+        return jsonResponse({ rows: [] });
+      }
+      if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+      if (url.startsWith("https://huggingface.co/api/models?")) {
+        const query = new URL(url).searchParams.get("search");
+        return jsonResponse(query === "queue-source-model" ? [{ id: "queue-source-model" }] : []);
+      }
+      if (url.startsWith("https://huggingface.co/api/models/queue-source-model?")) {
+        return jsonResponse(malformed.hfDetail ?? { ...malformed, id: "queue-source-model" });
+      }
+      if (url === "https://ollama.com/api/web_search") {
+        return jsonResponse({
+          provider: "ollama-search",
+          usage: { search_cost_usd: 0 },
+          results: [],
+        });
+      }
+      throw new Error(`Unexpected malformed-source request: ${url}`);
+    };
+
+    await search.drainModelBenchmarkSearchQueue();
+
+    assert.deepEqual(
+      searchDb
+        .listAllModelBenchmarkSearchEvidence()
+        .filter(
+          (row) =>
+            row.source === "artificial-analysis-free" || row.source === "huggingface-eval-results"
+        ),
+      priorRows.filter(
+        (row) =>
+          row.source === "artificial-analysis-free" || row.source === "huggingface-eval-results"
+      )
+    );
+    assert.deepEqual(
+      core
+        .getDbInstance()
+        .prepare(
+          `SELECT model, source, category, score, confidence FROM model_intelligence
+           WHERE source LIKE 'benchmark_fitness%' ORDER BY model, source, category`
+        )
+        .all(),
+      priorFitness
+    );
+  }
+});
+
+test("malformed Ollama response preserves current Ollama and structured evidence", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await addActiveCatalogModels([{ id: "queue-ollama-error", name: "Queue Ollama Error" }]);
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "queue-ollama-error", name: "Queue Ollama Error" },
+  ]);
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-error-preserves-evidence-test",
+    apiKey: "ollama-search-error-preserves-evidence-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  searchDb.replaceModelBenchmarkEvidenceSources([
+    ...["ollama-search", "ollama-search-structured-output"].map((source) => ({
+      modelId: "queue-ollama-error",
+      source,
+      rows: [
+        {
+          evidenceHash: `old-${source}`,
+          modelId: "queue-ollama-error",
+          source,
+          sourceVersion: "test",
+          matchedModelId: "queue-ollama-error",
+          matchedModelName: "Queue Ollama Error",
+          benchmark: "SWE-bench",
+          benchmarkVersion: null,
+          reasoningEffort: "high",
+          reasoningConfig: { harness: "existing" },
+          metric: "resolved",
+          value: 0.5,
+          sourceUrl: "https://example.org/existing",
+          sourceDate: null,
+          verificationStatus: "review_required",
+          capturedAt: new Date().toISOString(),
+        },
+      ],
+    })),
+  ]);
+  const priorRows = searchDb.listModelBenchmarkSearchEvidence("queue-ollama-error");
+
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse(null);
+    if (url === "https://ollama.com/api/web_search") {
+      return jsonResponse({
+        provider: "ollama-search",
+        usage: { search_cost_usd: 0 },
+        results: null,
+      });
+    }
+    throw new Error(`Unexpected malformed Ollama request: ${url}`);
+  };
+
+  await search.drainModelBenchmarkSearchQueue();
+
+  assert.deepEqual(searchDb.listModelBenchmarkSearchEvidence("queue-ollama-error"), priorRows);
+});
+
+test("valid-empty HF refresh removes its native score and recomputes related scores", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await addActiveCatalogModels([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
+  searchDb.enqueueModelBenchmarkSearches([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
+  searchDb.upsertModelBenchmarkSearchIdentities([
+    { id: "queue-empty-peer", name: "Queue Empty Peer" },
+  ]);
+  searchDb.replaceModelBenchmarkEvidenceSources([
+    {
+      modelId: "queue-empty-model",
+      source: "huggingface-eval-results",
+      rows: [
+        {
+          evidenceHash: "old-hf-empty-target",
+          modelId: "queue-empty-model",
+          source: "huggingface-eval-results",
+          sourceVersion: "test",
+          matchedModelId: "queue-empty-model",
+          matchedModelName: "Queue Empty Model",
+          benchmark: "SWE-bench Verified",
+          benchmarkVersion: "v1",
+          reasoningEffort: "high",
+          reasoningConfig: null,
+          metric: "resolved",
+          value: 0.5,
+          sourceUrl: "https://huggingface.co/test",
+          sourceDate: null,
+          verificationStatus: "source_verified_review_required",
+          capturedAt: new Date().toISOString(),
+        },
+      ],
+    },
+    {
+      modelId: "queue-empty-peer",
+      source: "huggingface-eval-results",
+      rows: [
+        {
+          evidenceHash: "old-hf-empty-peer",
+          modelId: "queue-empty-peer",
+          source: "huggingface-eval-results",
+          sourceVersion: "test",
+          matchedModelId: "queue-empty-peer",
+          matchedModelName: "Queue Empty Peer",
+          benchmark: "SWE-bench Verified",
+          benchmarkVersion: "v1",
+          reasoningEffort: "high",
+          reasoningConfig: null,
+          metric: "resolved",
+          value: 0.8,
+          sourceUrl: "https://huggingface.co/test",
+          sourceDate: null,
+          verificationStatus: "source_verified_review_required",
+          capturedAt: new Date().toISOString(),
+        },
+      ],
+    },
+  ]);
+  fitnessSync.publishModelBenchmarkFitnessSnapshot();
+  const scoreRows = () =>
+    core
+      .getDbInstance()
+      .prepare(
+        `SELECT model, source, category, score FROM model_intelligence
+         WHERE model IN ('queue-empty-model', 'queue-empty-peer')
+           AND source LIKE 'benchmark_fitness%' ORDER BY model, source, category`
+      )
+      .all();
+  assert.ok(scoreRows().some((row) => row.model === "queue-empty-model"));
+  assert.ok(scoreRows().some((row) => row.model === "queue-empty-peer"));
+
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) {
+      return jsonResponse(
+        new URL(url).searchParams.get("search") === "queue-empty-model"
+          ? [{ id: "queue-empty-model" }]
+          : []
+      );
+    }
+    if (url.startsWith("https://huggingface.co/api/models/queue-empty-model?")) {
+      return jsonResponse({ id: "queue-empty-model", evalResults: [] });
+    }
+    throw new Error(`Scored model must not run discovery search: ${url}`);
+  };
+
+  await search.drainModelBenchmarkSearchQueue();
+
+  assert.equal(
+    searchDb
+      .listModelBenchmarkSearchEvidence("queue-empty-model")
+      .some((row) => row.source === "huggingface-eval-results"),
+    false
+  );
+  assert.deepEqual(scoreRows(), []);
+});
+
+test("explicit empty HF and Ollama arrays clear their current source sets", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await addActiveCatalogModels([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
+  searchDb.enqueueModelBenchmarkSearches([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-empty-source-test",
+    apiKey: "ollama-search-empty-source-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  searchDb.replaceModelBenchmarkEvidenceSources([
+    {
+      modelId: "queue-empty-model",
+      source: "huggingface-eval-results",
+      rows: [
+        {
+          evidenceHash: "old-hf-empty-test",
+          modelId: "queue-empty-model",
+          source: "huggingface-eval-results",
+          sourceVersion: "test",
+          matchedModelId: "queue-empty-model",
+          matchedModelName: "Queue Empty Model",
+          benchmark: "SWE-bench",
+          benchmarkVersion: null,
+          reasoningEffort: null,
+          reasoningConfig: null,
+          metric: "resolved",
+          value: 0.5,
+          sourceUrl: "https://huggingface.co/test",
+          sourceDate: null,
+          verificationStatus: "review_required",
+          capturedAt: new Date().toISOString(),
+        },
+      ],
+    },
+    {
+      modelId: "queue-empty-model",
+      source: "ollama-search",
+      rows: [
+        {
+          evidenceHash: "old-ollama-empty-test",
+          modelId: "queue-empty-model",
+          source: "ollama-search",
+          sourceVersion: "test",
+          matchedModelId: null,
+          matchedModelName: null,
+          benchmark: "SWE-bench",
+          benchmarkVersion: null,
+          reasoningEffort: null,
+          reasoningConfig: null,
+          metric: null,
+          value: null,
+          sourceUrl: "https://example.org/test",
+          sourceDate: null,
+          verificationStatus: "candidate_review_required",
+          capturedAt: new Date().toISOString(),
+        },
+      ],
+    },
+  ]);
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) {
+      return jsonResponse(
+        new URL(url).searchParams.get("search") === "queue-empty-model"
+          ? [{ id: "queue-empty-model" }]
+          : []
+      );
+    }
+    if (url.startsWith("https://huggingface.co/api/models/queue-empty-model?")) {
+      return jsonResponse({ id: "queue-empty-model", evalResults: [] });
+    }
+    if (url === "https://ollama.com/api/web_search") {
+      return jsonResponse({
+        provider: "ollama-search",
+        usage: { search_cost_usd: 0 },
+        results: [],
+      });
+    }
+    throw new Error(`Unexpected empty-source request: ${url}`);
+  };
+
+  await search.drainModelBenchmarkSearchQueue();
+
+  assert.deepEqual(
+    searchDb
+      .listModelBenchmarkSearchEvidence("queue-empty-model")
+      .filter((row) => ["huggingface-eval-results", "ollama-search"].includes(row.source)),
+    []
+  );
+});
+
 test("complete AA and official miss runs HF and explicit free search, then stays unrated", async () => {
   process.env.AA_API_KEY = "test-only-key";
   process.env.OMNIROUTE_AUTO_BANDS = "1";
@@ -1595,11 +1906,10 @@ test("complete AA and official miss runs HF and explicit free search, then stays
     searchDb.saveModelBenchmarkSearchEvidence([
       {
         ...hfEvidence,
-        raw: hfEvidence.raw,
         reasoningConfig: hfEvidence.reasoningConfig,
       },
     ]),
-    0
+    1
   );
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("new-model").length, 2);
 });
@@ -1665,7 +1975,7 @@ test("complete direct miss stays unrated when model ID is absent from active syn
   });
 });
 
-test("operator reprocess validates and covers every active catalog ID without queue or search work", async () => {
+test("operator reprocess covers every canonical catalog ID without queue or search work", async () => {
   process.env.AA_API_KEY = "test-only-key";
   const providerPrefixedIds = [
     "nvidia/deepseek-ai/deepseek-v4.1-flash",
@@ -1710,14 +2020,11 @@ test("operator reprocess validates and covers every active catalog ID without qu
     })),
     ...providerPrefixedIds.map((id) => ({ id, name: id })),
   ];
-  await addActiveCatalogModels(models);
+  searchDb.upsertModelBenchmarkSearchIdentities(models);
   core
     .getDbInstance()
-    .prepare(
-      `INSERT INTO model_benchmark_search_models (model_id, model_name, status)
-       VALUES (?, ?, 'scored')`
-    )
-    .run(models[3].id, models[3].name);
+    .prepare(`UPDATE model_benchmark_search_models SET status = 'scored' WHERE model_id = ?`)
+    .run(models[3].id);
   const beforeIdentityCount = core
     .getDbInstance()
     .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_models")
@@ -1748,6 +2055,13 @@ test("operator reprocess validates and covers every active catalog ID without qu
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
     urls.push(url);
+    if (url === "https://models.dev/api.json") {
+      return jsonResponse({
+        fixture: {
+          models: Object.fromEntries(models.map(({ id, name }) => [id, { id, name }])),
+        },
+      });
+    }
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
       newIdentitiesStartedUnrated =
         core
@@ -1804,59 +2118,47 @@ test("operator reprocess validates and covers every active catalog ID without qu
     }
     if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
       const requestBody = JSON.parse(String(init?.body ?? "{}"));
-      if (requestBody.name === "main") return jsonResponse({ rows: null });
-      return jsonResponse({ rows: [] });
+      if (requestBody.name === "main") {
+        return jsonResponse({ rows: [{ metadata: { model_id: "unlisted/model" }, metrics: {} }] });
+      }
+      return jsonResponse({ rows: [{ metadata: { model_id: "unlisted/model" }, metrics: {} }] });
     }
-    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.includes("deepswe.datacurve.ai")) {
+      return jsonResponse({ rows: [{ model: "unlisted/model", pass_rate: 0.2 }] });
+    }
     throw new Error(`Unexpected operator reprocess request: ${url}`);
   };
 
-  const unmatchedId = "inactive-probe";
-  const result = await search.reprocessModelBenchmarkSearchEvidence([
-    ...models.map((model) => model.id),
-    unmatchedId,
-  ]);
-  assert.equal(result.receipts.length, 141);
-  assert.equal(result.receipts[0].modelId, models[0].id);
-  assert.equal(result.receipts[0].identityStatus, "matched");
-  assert.equal(result.receipts[0].evidenceStatus, "matched");
-  assert.equal(result.receipts[0].sources.artificialAnalysis.records, 2);
-  assert.equal(result.receipts[2].sources.sweBench.records, 1);
-  assert.equal(result.receipts[3].sources.artificialAnalysis.records, 2);
-  assert.equal(result.receipts[4].sources.artificialAnalysis.identityMatch, "ambiguous");
-  assert.equal(result.receipts[4].sources.artificialAnalysis.records, 0);
-  assert.equal(result.receipts[109].evidenceStatus, "matched");
-  assert.equal(result.receipts[109].sources.artificialAnalysis.records, 2);
-  assert.equal(result.receipts[108].evidenceStatus, "missing");
-  assert.equal(result.receipts[108].sources.terminalBench21.status, "error");
-  assert.equal(result.receipts[108].sources.terminalBench21.complete, false);
+  const result = await search.reprocessModelBenchmarkSearchEvidence();
+  const receiptById = new Map(result.receipts.map((receipt) => [receipt.modelId, receipt]));
+  assert.equal(result.receipts.length, 140);
+  assert.equal(receiptById.get(models[0].id)?.identityStatus, "matched");
+  assert.equal(receiptById.get(models[0].id)?.evidenceStatus, "matched");
+  assert.equal(receiptById.get(models[0].id)?.sources.artificialAnalysis.records, 2);
+  assert.equal(receiptById.get(models[2].id)?.sources.sweBench.records, 1);
+  assert.equal(receiptById.get(models[3].id)?.sources.artificialAnalysis.records, 0);
+  assert.equal(
+    receiptById.get(models[4].id)?.sources.artificialAnalysis.identityMatch,
+    "ambiguous"
+  );
+  assert.equal(receiptById.get(models[4].id)?.sources.artificialAnalysis.records, 0);
+  assert.equal(receiptById.get(providerPrefixedIds[0])?.evidenceStatus, "matched");
+  assert.equal(receiptById.get(providerPrefixedIds[0])?.sources.artificialAnalysis.records, 2);
   assert.deepEqual(
-    result.receipts.slice(109, 140).map((receipt) => receipt.modelId),
-    providerPrefixedIds
+    result.receipts.map((receipt) => receipt.modelId).sort(),
+    models.map((model) => model.id).sort()
   );
-  assert.ok(
-    result.receipts.slice(109, 140).every((receipt) => receipt.identityStatus === "matched")
-  );
-  assert.ok(
-    result.receipts.slice(110, 140).every((receipt) => receipt.evidenceStatus === "missing")
-  );
-  const unmatchedReceipt = result.receipts[140];
-  assert.equal(unmatchedReceipt.modelId, unmatchedId);
-  assert.equal(unmatchedReceipt.identityStatus, "missing");
-  assert.equal(unmatchedReceipt.evidenceStatus, "missing");
-  assert.ok(Object.values(unmatchedReceipt.sources).every((source) => source.records === 0));
-  assert.equal(unmatchedReceipt.sources.terminalBench21.status, "error");
-  assert.equal(unmatchedReceipt.sources.terminalBench21.complete, false);
   assert.equal(newIdentitiesStartedUnrated, true);
-  assert.equal(result.evidenceWrites, 9);
-  assert.ok(result.fitness.observationCount >= 9);
+  assert.equal(result.evidenceWrites, 7);
+  assert.ok(result.fitness.observationCount >= 7);
   assert.ok(result.fitness.profilePublishedCount > 0);
   assert.ok(result.fitness.publishedCount >= result.fitness.profilePublishedCount);
   assert.equal(
     core.getDbInstance().prepare("SELECT count FROM profile_publication_audit").get().count,
     result.fitness.profilePublishedCount
   );
-  assert.equal(urls.length, 5);
+  assert.equal(urls.filter((url) => url !== "https://models.dev/api.json").length, 5);
+  assert.equal(urls.filter((url) => url === "https://models.dev/api.json").length, 1);
   assert.equal(
     urls.some((url) => url.includes("huggingface.co")),
     false
@@ -1878,7 +2180,10 @@ test("operator reprocess validates and covers every active catalog ID without qu
     )
     .all();
   assert.equal(identityRows.length, 140);
-  assert.equal(identityRows.find((row) => row.model_id === models[3].id).status, "scored");
+  assert.equal(
+    identityRows.find((row) => row.model_id === models[3].id).status,
+    "unrated_no_evidence"
+  );
   assert.equal(identityRows.find((row) => row.model_id === models[0].id).status, "scored");
   assert.equal(
     identityRows.find((row) => row.model_id === providerPrefixedIds[0]).status,
@@ -1890,11 +2195,11 @@ test("operator reprocess validates and covers every active catalog ID without qu
     )
   );
   assert.ok(
-    result.receipts
-      .slice(110, 140)
-      .every((receipt) => receipt.processingStatus === "unrated_no_evidence")
+    providerPrefixedIds
+      .slice(1)
+      .every((id) => receiptById.get(id)?.processingStatus === "unrated_no_evidence")
   );
-  assert.equal(result.receipts[109].processingStatus, "scored");
+  assert.equal(receiptById.get(providerPrefixedIds[0])?.processingStatus, "scored");
   assert.ok(identityRows.every((row) => row.attempts === 0 && row.last_run_at === null));
   assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
   assert.equal(searchDb.claimModelBenchmarkSearch(), null);
@@ -1908,23 +2213,9 @@ test("operator reprocess validates and covers every active catalog ID without qu
   assert.equal(
     core
       .getDbInstance()
-      .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_models WHERE model_id = ?")
-      .get(unmatchedId).count,
-    0
-  );
-  assert.equal(
-    core
-      .getDbInstance()
-      .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_evidence WHERE model_id = ?")
-      .get(unmatchedId).count,
-    0
-  );
-  assert.equal(
-    core
-      .getDbInstance()
       .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_models")
       .get().count - beforeIdentityCount,
-    139
+    0
   );
   assert.ok(
     core
@@ -1989,7 +2280,7 @@ test("an incomplete official source blocks HF and web search", async () => {
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("incomplete-model").length, 0);
 });
 
-test("retained AA repair recomputes when another source is incomplete", async () => {
+test("incomplete feeds preserve prior AA rows without reparsing retained payloads", async () => {
   process.env.AA_API_KEY = "test-only-key";
   const aaRow = {
     slug: "incomplete-repair-model",
@@ -2039,20 +2330,17 @@ test("retained AA repair recomputes when another source is incomplete", async ()
   const repairedRows = searchDb
     .listModelBenchmarkSearchEvidence("incomplete-repair-model")
     .filter((row) => row.source === "artificial-analysis-free");
-  assert.equal(run.status, "review_required");
+  assert.equal(run.status, "source_error");
   assert.equal(run.sourceStatus.terminalBench21.status, "error");
-  assert.equal(repairedRows.length, 2);
-  assert.deepEqual(repairedRows.map((row) => row.metric).sort(), [
-    "artificial_analysis_coding_index",
-    "artificial_analysis_intelligence_index",
-  ]);
-  assert.ok(repairedRows.every((row) => row.value === null));
+  assert.equal(repairedRows.length, 1);
+  assert.equal(repairedRows[0].metric, "artificial_analysis_coding_index");
+  assert.equal(repairedRows[0].value, null);
   assert.equal(hfCalls, 0);
   assert.equal(searchCalls, 0);
   assert.equal(normalizationCalls, 0);
 });
 
-test("retained AA raw evidence repairs both metrics before returning its score", async () => {
+test("complete AA refresh replaces legacy rows with current observations", async () => {
   process.env.AA_API_KEY = "test-only-key";
   const urls: string[] = [];
   const aaRow = {
@@ -2130,7 +2418,6 @@ test("retained AA raw evidence repairs both metrics before returning its score",
       sourceDate: null,
       verificationStatus: "source_record_unreviewed",
       capturedAt: new Date(Date.UTC(2100, 0, 1, 0, 0, index)).toISOString(),
-      raw: { index },
     }))
   );
   const recentEvidence = searchDb.listModelBenchmarkSearchEvidence("new-model");
@@ -2145,11 +2432,9 @@ test("retained AA raw evidence repairs both metrics before returning its score",
     .listAllModelBenchmarkSearchEvidence()
     .filter((item) => item.modelId === "new-model")
     .filter((item) => item.source === "artificial-analysis-free");
-  assert.equal(aaEvidence.length, 4);
+  assert.equal(aaEvidence.length, 2);
   assert.deepEqual(aaEvidence.map((item) => [item.metric, item.value]).sort(), [
-    ["artificial_analysis_coding_index", 20],
     ["artificial_analysis_coding_index", 21],
-    ["artificial_analysis_intelligence_index", 30],
     ["artificial_analysis_intelligence_index", 31],
   ]);
 
@@ -2176,21 +2461,15 @@ test("retained AA raw evidence repairs both metrics before returning its score",
   assert.ok(firstModelFitness);
   assert.equal(firstModelFitness.generalFallback, false);
   assert.equal(typeof firstModelFitness.generalFamilyVotes["aa-intelligence"], "number");
-  const retainedRows = aaEvidence.filter(
-    (item) => JSON.stringify(item.raw) === JSON.stringify(aaRow)
-  );
-  assert.deepEqual(retainedRows.map((item) => item.metric).sort(), [
-    "artificial_analysis_coding_index",
-    "artificial_analysis_intelligence_index",
-  ]);
+  assert.ok(aaEvidence.every((item) => !("raw" in item)));
   assert.notEqual(aaEvidence[0].evidenceHash, aaEvidence[1].evidenceHash);
-  assert.equal(searchDb.saveModelBenchmarkSearchEvidence(aaEvidence), 0);
+  assert.equal(aaEvidence.length, 2);
   assert.equal(
     searchDb
       .listAllModelBenchmarkSearchEvidence()
       .filter((item) => item.modelId === "new-model")
       .filter((item) => item.source === "artificial-analysis-free").length,
-    4
+    2
   );
 
   core
@@ -2207,11 +2486,9 @@ test("retained AA raw evidence repairs both metrics before returning its score",
     .listAllModelBenchmarkSearchEvidence()
     .filter((item) => item.modelId === "new-model")
     .filter((item) => item.source === "artificial-analysis-free");
-  assert.equal(rerunAaEvidence.length, 4);
+  assert.equal(rerunAaEvidence.length, 2);
   assert.deepEqual(rerunAaEvidence.map((item) => [item.metric, item.value]).sort(), [
-    ["artificial_analysis_coding_index", 20],
     ["artificial_analysis_coding_index", 21],
-    ["artificial_analysis_intelligence_index", 30],
     ["artificial_analysis_intelligence_index", 31],
   ]);
   const secondFitness = await fitnessSync.recomputeModelBenchmarkFitness();

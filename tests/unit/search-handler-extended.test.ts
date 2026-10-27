@@ -787,31 +787,55 @@ test("handleSearch handles empty Ollama results array", async () => {
   }
 });
 
-test("handleSearch handles Ollama response with missing results field", async () => {
+test("handleSearch rejects malformed Ollama response containers and items", async () => {
   const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = async () => {
-    return new Response(JSON.stringify({ unrelated: "data" }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+  const originalSetTimeout = globalThis.setTimeout;
+  const validItem = {
+    title: "Ollama result",
+    url: "https://ollama.example.com",
+    content: "Test content",
   };
+  const malformedResponses = [
+    null,
+    { unrelated: "data" },
+    { results: null },
+    { results: [null] },
+    { results: [42] },
+    { results: [validItem, null] },
+    { results: [{ title: "Missing URL", content: "Test content" }] },
+    { results: [{ url: "https://ollama.example.com", content: "Test content" }] },
+  ];
+
+  globalThis.setTimeout = ((callback, delay, ...args) =>
+    originalSetTimeout(
+      callback,
+      delay && delay > 10_000 ? 0 : delay,
+      ...args
+    )) as typeof globalThis.setTimeout;
 
   try {
-    const result = await handleSearch({
-      query: "some query",
-      provider: "ollama-search",
-      maxResults: 5,
-      searchType: "web",
-      credentials: { apiKey: "ollama-key" },
-      log: null,
-    });
+    for (const [index, payload] of malformedResponses.entries()) {
+      globalThis.fetch = async () =>
+        new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
 
-    assert.equal(result.success, true);
-    assert.equal(result.data.results.length, 0);
-    assert.equal(result.data.metrics.total_results_available, 0);
+      const result = await handleSearch({
+        query: `malformed Ollama response ${index}`,
+        provider: "ollama-search",
+        maxResults: 5,
+        searchType: "web",
+        credentials: { apiKey: "ollama-key" },
+        log: null,
+      });
+
+      assert.equal(result.success, false);
+      assert.equal(result.status, 502);
+    }
   } finally {
     globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
   }
 });
 

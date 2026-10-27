@@ -1,34 +1,50 @@
 ## ADDED Requirements
 
-### Requirement: Queue new models.dev model identities durably
+### Requirement: Refresh current benchmarks after normal models.dev sync
 
-After an initial capability snapshot exists, each successful non-dry-run
-models.dev sync with capability sync enabled SHALL queue each newly observed
-exact model ID before replacing the previous capability snapshot. Repeated
-syncs SHALL NOT create duplicate queue records. The first sync establishes the
-baseline and SHALL NOT queue the entire catalog.
+After existing pricing and capability writes succeed, a normal non-dry-run sync
+with capability sync enabled SHALL start a background full-catalog refresh
+using that sync's fresh models.dev identities. Refresh failures SHALL NOT alter
+completed pricing or capability writes. Refresh calls SHALL serialize in
+invocation order and retain each call's catalog payload.
 
-#### Scenario: First models.dev sync establishes a baseline
+#### Scenario: First successful sync refreshes the complete catalog
 
 - **GIVEN** no prior `model_capabilities` rows exist
-- **WHEN** models.dev capability sync succeeds
-- **THEN** the capability snapshot is saved
-- **AND** no benchmark search records are queued
+- **WHEN** normal models.dev capability sync succeeds
+- **THEN** the pricing and capability snapshot is saved
+- **AND** the full-catalog refresh receives all fresh raw identities
+- **AND** no model is enqueued or queue drain started
 
-#### Scenario: A new model ID triggers one durable search
+#### Scenario: Repeated sync replaces current observations
 
-- **GIVEN** a prior capability snapshot contains `model-a`
-- **AND** the next successful sync contains `model-a` and `model-b`
-- **WHEN** that sync saves capabilities
-- **THEN** `model-b` is durably queued before the prior snapshot is replaced
-- **AND** one queued search starts in the background
-- **AND** repeated syncs do not add another queue row for `model-b`
+- **GIVEN** a normal sync starts refreshes with fresh canonical catalogs
+- **WHEN** the direct source refresh completes successfully
+- **THEN** each source/model current set is replaced from the complete result
+- **AND** the newest refresh runs after earlier invocations
+- **AND** no benchmark-search queue row is enqueued or drained by sync
 
-#### Scenario: Dry-run or capability-disabled sync does not enqueue
+#### Scenario: Dry-run or capability-disabled sync skips refresh
 
-- **GIVEN** models.dev contains an ID absent from the last capability snapshot
+- **GIVEN** models.dev returns a valid catalog
 - **WHEN** sync runs with `dryRun=true` or `syncCapabilities=false`
-- **THEN** no benchmark search row is created
+- **THEN** pricing/capability writes follow their existing gates
+- **AND** no full-catalog refresh starts
+- **AND** no benchmark-search queue operation starts
+
+### Requirement: Keep optional discovery queue separate from normal sync
+
+The existing benchmark discovery queue SHALL remain a separate workflow. Normal
+models.dev sync SHALL NOT enqueue identities or drain this queue. Valid manual
+HF or queued source updates SHALL replace only their exact model/source current
+set; errors and malformed responses SHALL preserve the last valid set.
+
+#### Scenario: Normal sync does not modify discovery queue state
+
+- **GIVEN** pending or completed benchmark-search queue rows exist
+- **WHEN** normal models.dev sync succeeds or its benchmark refresh fails
+- **THEN** queue claims, attempts, and statuses remain unchanged
+- **AND** existing pricing and capability sync results are preserved
 
 ### Requirement: Require complete exact misses before discovery search
 
@@ -84,11 +100,13 @@ scan SHALL remain a source error and SHALL NOT trigger discovery search.
 
 ### Requirement: Preserve evidence without publishing benchmark scores
 
-Search evidence SHALL retain source/version, exact matched model identity,
-benchmark/version, declared reasoning effort/config, metric/value, source URL,
-source date, verification status, capture time, and raw source data. Missing
-values SHALL remain null. Raw evidence SHALL be stored separately from the
-frozen production score map and SHALL NOT change it.
+Current benchmark evidence SHALL retain only formula inputs and source
+references required by existing readers: source/version, exact matched model
+identity, benchmark/version, declared reasoning effort/config, metric/value,
+source URL/date, verification status, and capture time. Missing values SHALL
+remain null. Raw JSON payloads and changed-value history SHALL NOT be stored.
+Unverified search results SHALL remain review-only and SHALL NOT change native
+fitness.
 
 #### Scenario: Missing effort or score stays unknown
 
@@ -107,21 +125,12 @@ frozen production score map and SHALL NOT change it.
 
 ### Requirement: Process free-web results through verified strict Structured Output
 
-After `/v1/search` returns results for a complete exact miss, the system SHALL
-process those results only with `xingchen-agi/xing4.0-29b-a4b:free` through its
-verified OpenRouter Phala endpoint. Before each inference, it SHALL verify one
-exact Phala endpoint, zero prompt/completion pricing, support for
-`response_format` and `structured_outputs`, and an active local OpenRouter
-connection whose synced catalog marks the exact model free. It SHALL pin that
-connection and send `json_schema` with `strict: true`, `provider.only: ["phala"]`,
-`provider.require_parameters: true`, and `provider.allow_fallbacks: false`.
-It SHALL clear session affinity for the one-shot request so a prior session pin
-cannot replace the verified connection. It SHALL NOT retry within one
-dispatch, rotate accounts, select another model/provider, or enter
-global/emergency fallback. Queue-level rate-limit recovery is defined by the
-source-work requirement below.
-Extracted records SHALL remain candidate-review-required and SHALL NOT update
-production scores.
+After a complete exact miss, the system SHALL process search results only with
+`xingchen-agi/xing4.0-29b-a4b:free` through a verified, zero-cost Phala endpoint
+and an active local free connection. Pin that connection and use strict
+Structured Output. The one-shot request SHALL not retry, rotate accounts, or
+select another model/provider or fallback. Extracted records remain
+candidate-review-required and do not update production scores.
 
 #### Scenario: Missing free endpoint or connection blocks inference
 
@@ -158,22 +167,10 @@ production scores.
 
 ### Requirement: Bound and deduplicate source work
 
-Each source request SHALL have a timeout and bounded retry behavior. AA
-pagination, HF results, web results, queue attempts, and evidence retention
-queries SHALL use explicit limits. Identical evidence SHALL be idempotent, and
-source errors SHALL record status and a bounded error string.
-Explicit `ollama-search` calls SHALL be spaced at least 15 seconds apart;
-actual free-SO calls SHALL be spaced at least five seconds apart. On HTTP 429
-from either provider, the queue SHALL persist `Retry-After` or
-`X-RateLimit-Reset`; if no header is available, it SHALL defer for 15 minutes.
-The exact `No credentials configured for search provider: ollama-search` error
-SHALL also defer for 15 minutes because provider connections may be cooling
-down. The queue SHALL pause all benchmark work until the retry time, then
-retry the same model with explicit `ollama-search` and the same pinned free
-SO connection. Waiting for a retry time SHALL NOT consume an attempt. Each
-actual HTTP 429 request SHALL consume the existing bounded attempt budget; the
-exact no-credentials error happens before an upstream request and SHALL NOT
-consume an attempt.
+Bound source requests, pagination, result counts, queue attempts, and persisted
+errors. Identical current observations SHALL be idempotent. Queue retries SHALL
+honor per-provider spacing and cooldowns, preserve the pinned free connection,
+and consume attempts only when the request reaches an upstream provider.
 
 #### Scenario: Rate-limited Ollama search is durably deferred
 
@@ -246,19 +243,11 @@ consume an attempt.
 
 ### Requirement: Keep benchmark search drains live and recover stale claims
 
-The queue SHALL claim no more than one model row before it starts processing
-that row. It SHALL persist the row's final status and source receipt before
-claiming the next row, while retaining the maximum of 20 rows per drain and
-sequential provider execution. Each strict-SO request SHALL have a five-minute
-deadline that aborts the pinned request; a timeout SHALL preserve collected
-search evidence as review-required and leave the model unrated. If a drain finds
-no eligible row but finds a fresh `running` row, it SHALL schedule a retry at
-the earliest row's 15-minute stale boundary, independently of the models.dev
-sync cadence.
-Before loading source snapshots, the drain SHALL terminalize exhausted pending,
-error, and stale-running rows. Claimable-row listing and queue eligibility SHALL
-use the same predicate, except that configured-AA-key recovery may reclaim a
-row whose recorded error is the missing-AA-key condition.
+The optional queue SHALL claim and finish one model at a time, persist each
+outcome before claiming another, and process at most 20 rows per drain. It SHALL
+recover fresh `running` rows at the existing 15-minute stale boundary and
+terminalize exhausted rows before loading source snapshots. Strict-SO requests
+remain bounded and pinned to the selected free connection.
 
 #### Scenario: Slow row does not preclaim the rest of the batch
 
@@ -293,47 +282,40 @@ row whose recorded error is the missing-AA-key condition.
 
 ### Requirement: Keep distinct benchmark metrics as distinct evidence
 
-The evidence fingerprint SHALL include the benchmark and metric identity in
-addition to the existing stable source fields. Two observations parsed from
-one raw source row SHALL persist separately when their benchmark or metric
-differs. A repeated observation with the same existing stable fields,
-benchmark, and metric SHALL remain idempotent. Fitness recomputation SHALL
-consume the separately persisted observations without changing its existing
-formula, thresholds, fallback, or effort profiles.
-On refresh, persistence SHALL repair legacy collisions caused by the former
-fingerprint, retaining one observation per stable identity, benchmark, and
-metric. Repeated refresh SHALL remain idempotent.
+The evidence fingerprint SHALL include benchmark and metric identity so
+distinct observations from one source row remain separate and repeat inputs
+remain idempotent. Full refresh SHALL recreate observations from current source
+rows and replace the current set without adding history. Migration SHALL use the
+existing formula-observation key and SHALL NOT replay stored raw payloads.
 
 #### Scenario: One AA payload row persists both published metrics
 
 - **GIVEN** an AA Free row includes both
   `artificial_analysis_coding_index` and
   `artificial_analysis_intelligence_index`
-- **WHEN** its `AA Coding` and `AA Intelligence` evidence is persisted
+- **WHEN** its current `AA Coding` and `AA Intelligence` observations are
+  materialized
 - **THEN** one row is retained for each benchmark and metric
-- **AND** each row retains its own source-reported value and the shared raw row
-- **AND** a retry deduplicates each metric independently
+- **AND** each row retains its own formula value and required source reference
+- **AND** raw payload data is not persisted
+- **AND** a repeated refresh replaces each metric independently
 - **AND** fitness recomputation sees both metric observations
 
 #### Scenario: Refresh repairs prior cross-metric collision idempotently
 
-- **GIVEN** retained raw AA evidence contains one source row whose metrics
-  collided under the former fingerprint
-- **WHEN** evidence refresh runs after the correction
+- **GIVEN** a legacy direct-source set lacks one of the two metrics
+- **AND** the current complete AA source row contains both metrics
+- **WHEN** a full-catalog refresh replaces that current source set
 - **THEN** both benchmark/metric observations persist
-- **AND** repeated refresh leaves exactly one observation per metric
+- **AND** repeated refresh leaves exactly one current observation per metric
 
 ### Requirement: Gate discovery search on active synced model identity
 
-After a complete exact miss in AA and every required official source, the
-system SHALL query Hugging Face and Ollama Search only if the queued model ID
-exactly matches an ID in the active OmniRoute synced provider catalogs after
-case folding. It SHALL use `getAllActiveSyncedModels` for this check. A missing
-match or empty catalog SHALL persist an auditable eligibility reason, keep the
-model unrated, and prevent HF, Ollama Search, and strict-SO requests. The
-catalog check SHALL NOT change client-request or provider-attempt counts.
-Unavailable models SHALL persist reason
-`model_not_in_active_synced_catalog` in source status.
+After a complete direct-source miss, query HF or Ollama Search only when the
+queued ID exactly matches an active synced provider ID after case folding. A
+missing ID SHALL remain unrated with reason
+`model_not_in_active_synced_catalog` and SHALL trigger no HF, search, or strict-SO
+request. This check SHALL NOT change client-request or provider-attempt counts.
 
 #### Scenario: Unavailable model cannot start discovery requests
 
@@ -355,106 +337,146 @@ Unavailable models SHALL persist reason
 - **AND** it preserves explicit zero-cost Ollama Search with no alternate
 - **AND** it makes no name, prefix, alias, or substring match
 
-### Requirement: Reprocess direct benchmark evidence without discovery search
+### Requirement: Load full canonical current benchmark snapshots
 
-The system SHALL provide an internal one-shot operation that accepts explicit
-model IDs, validates them against the active synced provider catalogs, loads
-the AA Free and required official source snapshot once, reparses retained AA
-raw evidence, and materializes direct benchmark evidence only for exact active
-IDs from the runtime catalogs, including IDs absent from the models.dev
-capability snapshot. It SHALL emit an auditable receipt for each requested ID,
-including matched/missing identity, each direct source's status and
-completeness, exact-match outcome (`matched`, `ambiguous`, `missing`, or
-`unverified`), and evidence write counts. It SHALL run the existing global
-benchmark fitness and effort-profile recomputation once and report observation
-and publication counts. It MAY persist identity-only rows for validated active
-runtime IDs to satisfy the evidence foreign key. New identity rows SHALL start
-nonclaimable as `unrated_no_evidence`; after recomputation, only newly inserted
-rows SHALL settle to `scored`, `review_required`, or `unrated_no_evidence`
-according to their direct evidence and computed score. Existing rows SHALL
-preserve status on conflict. All resulting statuses SHALL remain nonclaimable.
-It SHALL NOT create search
-run/job rows, claim queued work, or call queue drain, `refreshSearchRun`,
-Hugging Face, Ollama Search, or strict-SO. Evidence SHALL keep the actual
-runtime ID; matching SHALL use exact raw source IDs or unique exact names,
-without provider-prefix stripping. No public API endpoint SHALL be added for
-this operation. Its bundled entry SHALL run only
-when explicitly invoked by an operator; it SHALL not run during service
-startup. The release procedure SHALL prevent startup-triggered models.dev sync
-and queue drain from running during the maintenance restart.
+The normal models.dev hook and explicit operator SHALL share a refresh over
+every canonical raw model ID. Normal sync passes its fresh IDs after existing
+pricing/capability writes; the operator reads the complete persisted catalog.
+Validate all five sources before writes. Match exact IDs first, then unique
+exact names; leave ambiguous matches unmatched. Preserve existing formula and
+consumer behavior.
 
-#### Scenario: One-shot operation processes full active catalog without search
+#### Scenario: Full canonical catalog includes inactive identities
 
-- **GIVEN** the operator script supplies every active runtime model ID,
-  without a sample or first-page limit
-- **AND** all source fetches return complete supported payloads
-- **WHEN** the internal reprocessing operation runs
-- **THEN** it loads the direct source snapshot once
-- **AND** it records one receipt per requested ID with source completeness and
-  evidence writes
-- **AND** it recomputes existing global and effort-profile fitness once
-- **AND** it reports profile publication counts
-- **AND** it creates no search run/job rows and sends no HF, Ollama Search, or
-  strict-SO request
-- **AND** any new identity-only rows cannot be selected by a later queue drain
+- **GIVEN** `model_capabilities` contains a canonical ID absent from active
+  provider catalogs and from the search queue
+- **AND** all five direct sources return complete nonempty snapshots
+- **WHEN** the operator performs a current refresh
+- **THEN** the inactive canonical ID is considered for exact evidence matching
+- **AND** all canonical IDs are included in base and profile recomputation
+- **AND** no search queue row, search request, or inference request is created
 
-#### Scenario: Inactive or non-ID request remains auditable
+#### Scenario: Exact ID takes precedence over unique-name matching
 
-- **GIVEN** a requested identity is missing from all active synced catalogs
-- **WHEN** the internal reprocessing operation runs
-- **THEN** the identity receives a `missing` receipt
-- **AND** it has no direct evidence writes
-- **AND** it has no identity-only database row
-- **AND** it is not materialized by name, alias, prefix, or substring
+- **GIVEN** one source observation matches a raw canonical ID and its declared
+  name matches a different canonical model
+- **AND** another source observation has no canonical ID and matches one exact
+  canonical name
+- **AND** a third source name is duplicated across canonical IDs
+- **WHEN** the refresh materializes current evidence
+- **THEN** the exact ID row uses its exact canonical raw ID
+- **AND** the unmatched ID row uses the unique exact-name canonical raw ID
+- **AND** the duplicated name is unmatched as ambiguous
+- **AND** no provider prefix is added to the fitness key
 
-#### Scenario: Duplicate exact names are reported as ambiguous
+#### Scenario: A successful refresh replaces changed and deleted observations
 
-- **GIVEN** a complete direct source includes an exact model name shared by
-  multiple active runtime identities
-- **AND** it does not include an exact matching model ID
-- **WHEN** the internal reprocessing operation checks that source
-- **THEN** each affected receipt reports `identityMatch: ambiguous`
-- **AND** it writes no evidence from the ambiguous name
+- **GIVEN** a model/source set has multiple current effort and harness rows
+- **AND** the next complete source snapshot changes one value and omits an old row
+- **WHEN** the refresh publishes the new snapshot
+- **THEN** the changed value replaces the old value
+- **AND** the omitted row is deleted
+- **AND** every distinct current effort/harness row is retained
+- **AND** repeating the same snapshot does not increase evidence row count
 
-#### Scenario: Published evidence reaches the raw-ID free band consumer
+#### Scenario: Incomplete sources preserve evidence and scores
 
-- **GIVEN** the active `nvidia` provider catalog contains raw model ID
+- **GIVEN** current evidence and native scores exist
+- **AND** one source is empty, invalid, incomplete, or errors
+- **WHEN** the full-catalog refresh runs
+- **THEN** it returns an incomplete receipt and makes no evidence writes
+- **AND** it makes no base or profile score writes
+- **AND** current evidence and native scores remain unchanged
+
+### Requirement: Publish native fitness atomically
+
+A complete refresh SHALL replace all five direct source sets and the four owned
+native fitness sources in one transaction. Clear all benchmark evidence and
+owned fitness for removed catalog IDs; preserve current non-direct sets for
+IDs still present. Use raw canonical IDs and preserve overrides, arena, and
+unrelated sources. Keep formulas, filters, routing, capabilities, and defaults
+unchanged.
+
+#### Scenario: Native publication reaches the unchanged actual band consumer
+
+- **GIVEN** canonical raw ID `z-ai/glm-5.3` has a higher current score than a
+  free, tool-capable peer
+- **WHEN** the full refresh publishes fitness and the existing consumers build
+  `coding_high_tools:free` and `general_high_tools:free`
+- **THEN** both consumers look up `benchmark_fitness:high` using raw ID
   `z-ai/glm-5.3`
-- **AND** a second synced NVIDIA model is free, tool-capable, and has lower
-  direct benchmark scores
-- **AND** AA returns exact ID matches and an official source returns unique
-  exact-name matches for both models
-- **WHEN** direct reprocessing publishes fitness and the actual free-band
-  consumer evaluates `coding_high_tools:free` and `general_high_tools:free`
-- **THEN** both filters read the `benchmark_fitness:high` profile using raw
-  fitness key `z-ai/glm-5.3`
-- **AND** both filters admit `nvidia/z-ai/glm-5.3` and exclude the lower-scoring
-  free, tool-capable model
-- **AND** each filter sees direct benchmark fitness before static
-  `benchmark_consensus` or `models_dev_tier` fallback
 - **AND** route-facing `candidate.modelStr` remains `nvidia/z-ai/glm-5.3`
-- **AND** no provider prefix is added to or stripped from the stored fitness ID
-- **AND** fitness formula, profile precedence, and band ranges are unchanged
+- **AND** formula, profile precedence, and band ranges are unchanged
 
-#### Scenario: Partial direct source scan stays incomplete
+#### Scenario: Removed canonical identity loses all benchmark-owned current state
 
-- **GIVEN** one AA or official source response is incomplete or errors
-- **WHEN** the operation materializes evidence from the one source snapshot
-- **THEN** the affected source receipt remains incomplete with its error status
-- **AND** complete direct-source evidence remains persisted
-- **AND** global fitness recomputation runs once from persisted eligible evidence
-- **AND** no discovery search or normalization request occurs
+- **GIVEN** a removed model has direct, HF, and other benchmark evidence plus
+  owned base/profile fitness rows
+- **AND** a still-canonical model has a valid current HF set
+- **WHEN** a complete full-catalog refresh excludes the removed model
+- **THEN** every benchmark evidence scope and owned fitness key for the removed
+  model is deleted
+- **AND** the current HF set for the still-canonical model remains unchanged
+- **AND** `user_override`, arena, and unrelated native sources remain unchanged
+
+#### Scenario: Refresh calls preserve invocation order
+
+- **GIVEN** two refresh calls arrive with different complete catalogs
+- **WHEN** the first call is rejected or commits before the second
+- **THEN** the second call uses its own catalog payload and runs after the first
+- **AND** the failed first call does not poison the second
+
+### Requirement: Compact legacy evidence without payload history
+
+Migration 200 SHALL rename `model_benchmark_search_evidence`, compact by the
+exact existing formula-observation key, keep the latest `captured_at` row using
+the reader's tie order, and drop `raw_json` for every source. Preserve distinct
+keys. Do not infer missing source batches or empty outcomes, and do not publish
+scores during migration.
+
+#### Scenario: Legacy rename waits for a complete current refresh
+
+- **GIVEN** the old evidence table contains rows from multiple source captures
+- **WHEN** migration 200 runs or a source feed later fails validation
+- **THEN** migration renames the table and preserves existing rows
+- **AND** no score recomputation occurs
+- **WHEN** the first valid complete full-catalog refresh commits
+- **THEN** it replaces direct-source rows, compacts only duplicate exact
+  formula-observation keys to their latest capture, and clears every legacy
+  raw payload
+- **AND** evidence and base/profile scores commit atomically
+
+### Requirement: Replace optional source sets safely
+
+The separate HF and queue paths SHALL replace only validated exact
+model/source sets, including valid-empty sets, and recompute fitness atomically.
+Failures and malformed responses preserve the last valid set. Unverified
+search candidates remain review-only and outside formula inputs.
+
+#### Scenario: Valid empty non-direct update clears and republishes
+
+- **GIVEN** a model/source set has current HF or validated queue observations
+- **WHEN** a later successful source response contains no observations
+- **THEN** that exact source/model set is cleared
+- **AND** native fitness is recomputed in the same transaction
+- **WHEN** the response is malformed or fails
+- **THEN** the last valid set and published fitness remain unchanged
+
+#### Scenario: Successful HF updates replace the current source/model set
+
+- **GIVEN** a model has multiple current HF benchmark observations
+- **WHEN** a later successful HF response changes or removes those observations
+- **THEN** its HF source set is replaced, including a valid empty set
+- **AND** older changed-value rows are absent
+- **WHEN** the HF response errors or is invalid
+- **THEN** the last valid HF source set remains unchanged
 
 ### Requirement: Verify direct operator runtime dependencies in the final image
 
-The backend overlay build SHALL prove that the copied one-shot operator's
-complete runtime module graph resolves in the final image's dependency tree.
-The check SHALL load the same bundled module graph used by the explicit
-operator, then stop before reading active catalogs, fetching benchmark
-sources, writing to a database, changing queue state, calling search
-providers, or invoking a model. An unresolved runtime module SHALL fail image
-packaging. This check SHALL NOT change service startup or the upstream
-entrypoint.
+The backend overlay SHALL load the copied operator's complete runtime module
+graph in the final image dependency tree. An unresolved import SHALL fail
+packaging. The check SHALL stop before catalog/source reads, database writes,
+queue work, search, or inference; it SHALL not change startup or the entrypoint.
 
 #### Scenario: An unresolved package blocks the image build
 
