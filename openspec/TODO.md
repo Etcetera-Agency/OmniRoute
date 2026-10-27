@@ -155,14 +155,17 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       quotes spanning title and snippet. Targeted regressions pass 2/2, the full
       `modelBenchmarkSearch.test.ts` passes 41/41, Prettier passes, and
       independent Luna-high review found no remaining issue. This follow-up is
-      not committed, merged, or deployed. Still pending: its PR/deployment,
-      normalizer response from the already-due queue item, strict-SO output
-      receipt, and fresh queue progress. Do not manually trigger or redirect
-      another request while this route attempt is running.
-      A 06:31:17 UTC read-only snapshot still showed that queue row `running`
-      at attempt 3 (`attempts` counts queue claims, not provider calls); its
-      ordinary POST had selected `nvidia/z-ai/glm-5.3-flash` within the logged
-      `auto/general_high_so:free` request. No final route response was present.
+      committed as `78b751a266ed039c1f1cca4361a3c336ad874ac6` and pushed in
+      PR #38; it is not merged or deployed. On its due 06:27 UTC retry the
+      ordinary route selected `nvidia/z-ai/glm-5.3-flash`, which timed out, then
+      advanced to `openrouter/dots-studio/dots-3-note-preview:free`. That target
+      returned HTTP 200 with `finish_reason=length` and no content; Auto tried
+      further in-band targets, then ended at its normal 600-second timeout
+      (`06:37:05 UTC`) before a terminal response. No HTTP 429 occurred. The
+      queue persisted `retry_after_at=2026-10-27T06:52:05.799Z`. No normalizer
+      output was accepted. Queue attempts=3 is queue-claim count, not provider
+      attempt count. Strict-SO output receipt and fresh queue progress remain
+      open. Do not manually trigger or redirect the due retry.
       A 05:10 UTC pre-deployment read-only snapshot found a healthy container
       on source `dc240241f56b6919024d8be0ccec25fe46f78b9d`, with 199 applied
       migrations and queue counts 353 review-required, 1 running, 99 scored,
