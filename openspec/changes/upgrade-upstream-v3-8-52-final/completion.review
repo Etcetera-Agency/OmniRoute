@@ -1,0 +1,24 @@
+# Completion review: final OmniRoute v3.8.52 integration
+
+## Package and RED test — 2026-10-27
+
+- Verified canonical GitHub release `v3.8.52` at commit
+  `ad6f33f66bda34eba98645d3bfdabbde294bc843`; its annotated tag object is
+  `cac024bcf3999e46092a763a18eefced77e36acf`. Direct `git ls-remote` against
+  `cheaper-inference/OmniRoute` resolves the same tag and commit.
+- Confirmed the overlay target OCI index
+  `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
+  and ARM64 child
+  `sha256:fb7f91836fd95f382a5a04af740d859e2e9731804b5c0ba43f5d2e7f9ad64794`.
+- Wrote one selected rebase plan and exact migration map before source
+  implementation. Preserved deployed fork IDs 197–199, assign upstream IDs
+  200–215, and move the not-yet-deployed fork migration to 216.
+- Added an exact migration inventory and overlay pin regression. Expected RED
+  on the pre-upgrade source: both tests fail because the inventory ends with
+  fork migration 200 and both overlay pins still identify the previous digest.
+- Code Simplifier found no useful simplification in the focused test; its
+  explicit expected inventory and two pin assertions keep release identity
+  visible. `git diff --cached --check` passes for the package checkpoint.
+- Source rebase, conflict review, GREEN checks, independent review, and local
+  implementation commit remain pending. No image was pulled or built, no
+  runtime/database was touched, and nothing was pushed or merged.

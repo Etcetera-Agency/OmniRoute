@@ -4,7 +4,7 @@
        official OCI index/ARM64 digest from canonical sources.
 2. [x] Record one selected reconciliation, migration map, preserved fork
        invariants, release boundary, and database rollback path in this package.
-3. [ ] Add focused failing tests for the exact 197–216 migration inventory,
+3. [x] Add focused failing tests for the exact 197–216 migration inventory,
        mapped upstream order, absence of original upstream filenames, and both
        overlay base pins.
 4. [ ] Rebase the isolated branch from the merged benchmark fix onto exact
