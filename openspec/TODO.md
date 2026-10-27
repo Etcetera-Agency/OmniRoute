@@ -133,9 +133,10 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       now imports `parseBandId` from the pure band grammar module, avoiding a
       new static dependency on Radar database resolution. The dedicated normal
       Auto routing test passes 2/2, normalizer route/policy checks pass 3/3, and
-      the strict-SO timeout test passes alone; the full model-search file still
-      reports 40/41. The remaining free-verdict static Radar-boundary failure
-      also reproduces on clean `origin/main` through the pre-existing
+      the complete `modelBenchmarkSearch.test.ts` file passes 41/41 after its
+      test-only route wait was raised to 30 seconds; production spacing and
+      cooldown are unchanged. The remaining free-verdict static Radar-boundary
+      failure also reproduces on clean `origin/main` through the pre-existing
       `autoRouting.ts` → `suffixComposition.ts` → `bands/index.ts` path; track
       that baseline cleanup separately. The mocked 429 case verifies the
       existing in-band Auto failover; production cooldown behavior has not been
@@ -183,12 +184,12 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       the full run and alone (12/13 pass). `npm run test:unit` was interrupted
       after over 35 minutes and reported a failure in the unchanged
       `tests/unit/workflows-no-foreign-fork-publishers.test.ts`. The 2026-10-27
-      full `tests/unit/modelBenchmarkSearch.test.ts` run passed 40/41; its strict
-      timeout persistence case passes alone but failed after prior file tests
-      when no provider POST reached that test's mock. Diagnose test state / rate
-      spacing interaction. Do not lower or bypass the production 5-second
-      normalizer spacing to make the test pass. These suite issues are not fixed
-      in this change; rerun and diagnose in a suitable runtime.
+      first full `tests/unit/modelBenchmarkSearch.test.ts` run passed 40/41. The
+      2-second test wait was too short for the normal Auto route after earlier
+      file tests; the current branch passes 41/41 with a 30-second test-only
+      wait and timeout. Do not lower or bypass the production 5-second
+      normalizer spacing. Re-establish a green full-suite baseline in a suitable
+      runtime; the unrelated Vitest/unit-suite failures remain.
 
 ## GitHub overlay-image build
 
