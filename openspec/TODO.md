@@ -862,6 +862,20 @@ Deferred cross-repository and operations work:
       Release still requires the existing maintenance gate: prevent startup
       models.dev sync/queue drain, run the explicit operator once across all
       active raw IDs, and inspect receipts.
+- [x] Diagnose main image run `40504168756`: the resolver test copy passed,
+      but Node 26 resolved `undici` from the test's `/tmp` location instead of
+      `/app/node_modules`. Move the temporary test under
+      `/app/scripts/ops`; keep unresolved dependencies fatal. On the pinned
+      ARM64 runtime image, Node `v26.10.0` resolved `/app/node_modules/undici`,
+      the `/tmp` test reproduced the path error, the `/app` resolver passed
+      130 emitted files/31 external imports, and the actual bundle
+      `--check-runtime` passed. Both container runs used `--network=none`, a
+      read-only root, read-only smoke artifacts, and tmpfs `/tmp`; no production
+      data, env, keys, provider calls, or container changes were involved. Run
+      `40504168756` failed before publish/deploy.
+- [ ] After the resolver-location correction merges, rerun the existing main
+      workflow. Require final ARM64 build/runtime smoke, image verification,
+      publish, and immutable-digest deployment before maintenance acceptance.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.
