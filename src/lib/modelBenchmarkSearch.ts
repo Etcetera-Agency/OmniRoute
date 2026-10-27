@@ -17,11 +17,16 @@ import {
   getModelBenchmarkSearchStaleRetryDelay,
   hasEligibleModelBenchmarkSearch,
   isModelBenchmarkSearchNameUnique,
+  listAllModelBenchmarkSearchEvidence,
+  listAllModelBenchmarkSearchEvidenceForModel,
   listEligibleModelBenchmarkSearchRuns,
   saveModelBenchmarkSearchEvidence,
+  upsertModelBenchmarkSearchIdentities,
+  updateModelBenchmarkSearchIdentityStatuses,
   type ModelBenchmarkSearchEvidenceInput,
   type ModelBenchmarkSearchRun,
 } from "./db/modelBenchmarkSearch";
+import { getAllActiveSyncedModels } from "./db/models/activeSyncedCatalog";
 import { recomputeModelBenchmarkFitness } from "./modelBenchmarkFitnessSync";
 
 const AA_FREE_URL = "https://artificialanalysis.ai/api/v2/language/models/free";
@@ -82,6 +87,7 @@ interface SourceCheck {
 interface ModelSourceEvidence {
   checks: SourceCheck[];
   sourceStatus: Record<string, unknown>;
+  evidenceWrites: number;
 }
 
 interface SearchRunOutcome {
@@ -102,6 +108,34 @@ interface BenchmarkSourceSnapshot {
   aa: SourceSnapshot;
   official: Record<OfficialSourceName, SourceSnapshot>;
 }
+
+type ReprocessSourceReceipt = {
+  status: SourceStatus;
+  identityMatch: "matched" | "ambiguous" | "missing" | "unverified";
+  complete: boolean;
+  records: number;
+};
+
+type DirectProcessingStatus = "scored" | "review_required" | "unrated_no_evidence";
+
+type ReprocessReceipt = {
+  modelId: string;
+  identityStatus: "matched" | "missing";
+  evidenceStatus: "matched" | "missing";
+  sources: Record<string, ReprocessSourceReceipt>;
+  evidenceWrites: number;
+  processingStatus?: DirectProcessingStatus;
+};
+
+type ReprocessResult = {
+  receipts: ReprocessReceipt[];
+  evidenceWrites: number;
+  fitness: {
+    observationCount: number;
+    publishedCount: number;
+    profilePublishedCount: number;
+  };
+};
 
 let sharedSourceSnapshotCache: {
   fetchImpl: typeof fetch;
@@ -777,6 +811,8 @@ function toEvidenceRows(
       source: row.source,
       sourceVersion: row.sourceVersion,
       sourceUrl: row.sourceUrl,
+      benchmark: row.benchmark,
+      metric: row.metric,
       raw: row.raw,
     };
     return {
@@ -817,15 +853,197 @@ function materializeModelEvidence(
     ),
   ];
   const matches = checks.flatMap((source) => source.matches);
-  if (matches.length) saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, matches));
+  const evidenceWrites = matches.length
+    ? saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, matches))
+    : 0;
 
   return {
     checks,
+    evidenceWrites,
     sourceStatus: Object.fromEntries(
       ["artificialAnalysis", "sweBench", "terminalBench20", "terminalBench21", "deepSwe"].map(
         (key, index) => [key, sourceStatusForStorage(checks[index])]
       )
     ),
+  };
+}
+
+function reparseRetainedAaEvidence(
+  modelIds: ReadonlySet<string>,
+  currentAaRows: ParsedEvidence[],
+  evidenceRows: ReturnType<typeof listAllModelBenchmarkSearchEvidence>
+): ParsedEvidence[] {
+  const currentAaPayloads = new Set(
+    currentAaRows.map((row) => hash({ sourceVersion: row.sourceVersion, raw: row.raw }))
+  );
+  const retainedAaRows = new Map<string, ParsedEvidence[]>();
+  for (const row of evidenceRows) {
+    if (row.source !== "artificial-analysis-free" || !modelIds.has(folded(row.modelId) ?? "")) {
+      continue;
+    }
+    const raw = asRecord(row.raw);
+    const key = hash({ sourceVersion: row.sourceVersion, raw });
+    if (!folded(asString(raw.slug) ?? row.matchedModelId) || currentAaPayloads.has(key)) continue;
+    if (!retainedAaRows.has(key)) {
+      retainedAaRows.set(key, parseAAEvidence([raw], row.sourceVersion, row.sourceDate));
+    }
+  }
+  return [...retainedAaRows.values()].flat();
+}
+
+function sourceIdentityMatch(
+  model: ModelIdentity,
+  snapshot: SourceSnapshot,
+  check: SourceCheck
+): "matched" | "ambiguous" | "missing" | "unverified" {
+  if (check.matches.length > 0) return "matched";
+  if (
+    snapshot.allRows.some(
+      (row) => row.matchedModelName && folded(row.matchedModelName) === folded(model.name)
+    )
+  ) {
+    return "ambiguous";
+  }
+  if (snapshot.status === "found" || snapshot.status === "missing") return "missing";
+  return "unverified";
+}
+
+function directProcessingStatus(
+  receipt: ReprocessReceipt,
+  hasScore: boolean
+): DirectProcessingStatus {
+  if (hasScore) return "scored";
+  if (receipt.evidenceStatus === "matched") return "review_required";
+  return "unrated_no_evidence";
+}
+
+// AICODE-NOTE: Direct reprocessing never creates claimable search work.
+export async function reprocessModelBenchmarkSearchEvidence(
+  modelIds: string[]
+): Promise<ReprocessResult> {
+  if (modelIds.length === 0) {
+    throw new Error("At least one model ID is required");
+  }
+
+  const activeCatalogs = await getAllActiveSyncedModels();
+  const activeModels = new Map<string, ModelIdentity>();
+  for (const models of Object.values(activeCatalogs)) {
+    for (const model of models) {
+      if (model.id && !activeModels.has(model.id)) {
+        activeModels.set(model.id, { id: model.id, name: model.name });
+      }
+    }
+  }
+
+  const requestedModels = new Map<string, ModelIdentity | null>();
+  for (const id of modelIds) {
+    const model = activeModels.get(id);
+    requestedModels.set(id, model ?? null);
+  }
+  const matchedModels = [...requestedModels.values()].filter(
+    (model): model is ModelIdentity => model !== null
+  );
+  const newIdentityIds = new Set(upsertModelBenchmarkSearchIdentities(matchedModels));
+  const snapshot = await loadBenchmarkSourceSnapshot(fetch);
+  const requestedIds = new Set(matchedModels.map((model) => folded(model.id) ?? ""));
+  snapshot.aa.allRows.push(
+    ...reparseRetainedAaEvidence(
+      requestedIds,
+      snapshot.aa.allRows,
+      listAllModelBenchmarkSearchEvidence()
+    )
+  );
+
+  const sourceNames = [
+    "artificialAnalysis",
+    "sweBench",
+    "terminalBench20",
+    "terminalBench21",
+    "deepSwe",
+  ];
+  const sourceChecks = [snapshot.aa, ...Object.values(snapshot.official)];
+  const receipts: ReprocessReceipt[] = [...requestedModels.entries()].map(([modelId, model]) => {
+    if (!model) {
+      return {
+        modelId,
+        identityStatus: "missing",
+        evidenceStatus: "missing",
+        sources: Object.fromEntries(
+          sourceNames.map((name, index) => {
+            const source = sourceChecks[index];
+            return [
+              name,
+              {
+                status: source.status,
+                identityMatch: "missing",
+                complete: source.status === "found" || source.status === "missing",
+                records: 0,
+              },
+            ];
+          })
+        ),
+        evidenceWrites: 0,
+      };
+    }
+    const materialized = materializeModelEvidence(model, snapshot);
+    return {
+      modelId: model.id,
+      identityStatus: "matched",
+      evidenceStatus: materialized.checks.some((source) => source.matches.length > 0)
+        ? "matched"
+        : "missing",
+      sources: Object.fromEntries(
+        sourceNames.map((name, index) => {
+          const source = materialized.checks[index];
+          return [
+            name,
+            {
+              status: source.status,
+              identityMatch: sourceIdentityMatch(model, sourceChecks[index], source),
+              complete: source.status === "found" || source.status === "missing",
+              records: source.matches.length,
+            },
+          ];
+        })
+      ),
+      evidenceWrites: materialized.evidenceWrites,
+    };
+  });
+  const fitness = await recomputeModelBenchmarkFitness();
+  const scoredIds = new Set(
+    fitness.scores
+      .filter(
+        (score) =>
+          typeof score.codingFitness === "number" || typeof score.generalFitness === "number"
+      )
+      .map((score) => folded(score.modelId) ?? "")
+  );
+  const statusByNewIdentity = new Map<string, DirectProcessingStatus>();
+  for (const receipt of receipts) {
+    if (newIdentityIds.has(receipt.modelId)) {
+      statusByNewIdentity.set(
+        receipt.modelId,
+        directProcessingStatus(receipt, scoredIds.has(folded(receipt.modelId) ?? ""))
+      );
+    }
+  }
+  updateModelBenchmarkSearchIdentityStatuses(
+    [...statusByNewIdentity].map(([id, status]) => ({ id, status }))
+  );
+  const finalReceipts = receipts.map((receipt) => ({
+    ...receipt,
+    ...(statusByNewIdentity.has(receipt.modelId)
+      ? { processingStatus: statusByNewIdentity.get(receipt.modelId) }
+      : {}),
+  }));
+  return {
+    receipts: finalReceipts,
+    evidenceWrites: finalReceipts.reduce((total, receipt) => total + receipt.evidenceWrites, 0),
+    fitness: {
+      observationCount: fitness.observationCount,
+      publishedCount: fitness.publishedCount,
+      profilePublishedCount: fitness.profilePublishedCount,
+    },
   };
 }
 
@@ -839,6 +1057,15 @@ async function refreshSearchRun(
   const sourceStatus = { ...direct.sourceStatus };
   sourceStatus.fitness = directScore ?? null;
 
+  const retainedAaRows = reparseRetainedAaEvidence(
+    new Set([folded(model.id) ?? ""]),
+    direct.checks[0].matches,
+    listAllModelBenchmarkSearchEvidenceForModel(model.id)
+  );
+  const repairedAaEvidence =
+    retainedAaRows.length > 0 &&
+    saveModelBenchmarkSearchEvidence(toEvidenceRows(model.id, retainedAaRows)) > 0;
+
   if (
     typeof directScore?.codingFitness === "number" ||
     typeof directScore?.generalFitness === "number"
@@ -847,7 +1074,7 @@ async function refreshSearchRun(
       modelId: model.id,
       normalizationStatus: "not_needed",
       sourceStatus,
-      discoveredEvidence: false,
+      discoveredEvidence: repairedAaEvidence,
       lastError: null,
     };
   }
@@ -863,19 +1090,37 @@ async function refreshSearchRun(
       modelId: model.id,
       normalizationStatus: "not_started",
       sourceStatus,
-      discoveredEvidence: false,
+      discoveredEvidence: repairedAaEvidence,
       lastError: failed.length
         ? failed.map((source) => source.error || source.status).join("; ")
         : null,
     };
   }
-  // AICODE-NOTE: Spend discovery-search quota only after a complete exact miss.
+  // AICODE-NOTE: After complete exact misses, require a case-folded exact active catalog ID before any discovery search.
   if (direct.checks.some((source) => source.status === "found")) {
     return {
       modelId: model.id,
       normalizationStatus: "not_needed",
       sourceStatus,
       discoveredEvidence: true,
+      lastError: null,
+    };
+  }
+
+  const activeCatalogs = await getAllActiveSyncedModels();
+  const modelId = model.id.trim().toLowerCase();
+  const catalogEligible = Object.values(activeCatalogs).some((models) =>
+    models.some((catalogModel) => catalogModel.id.trim().toLowerCase() === modelId)
+  );
+  sourceStatus.catalogEligibility = catalogEligible
+    ? { status: "available" }
+    : { status: "unavailable", reason: "model_not_in_active_synced_catalog" };
+  if (!catalogEligible) {
+    return {
+      modelId: model.id,
+      normalizationStatus: "not_started",
+      sourceStatus,
+      discoveredEvidence: repairedAaEvidence,
       lastError: null,
     };
   }
@@ -896,7 +1141,7 @@ async function refreshSearchRun(
       modelId: model.id,
       normalizationStatus: "search_retry_deferred",
       sourceStatus,
-      discoveredEvidence: sourceEvidence.length > 0,
+      discoveredEvidence: repairedAaEvidence || sourceEvidence.length > 0,
       lastError: asString(web.receipt.error) ?? "Ollama Search temporarily unavailable",
       retryAfterAt: searchRetryAfterAt,
       consumeAttempt: asString(web.receipt.error) !== OLLAMA_SEARCH_NO_CREDENTIALS_ERROR,
@@ -955,7 +1200,7 @@ async function refreshSearchRun(
     modelId: model.id,
     normalizationStatus: processor.status,
     sourceStatus,
-    discoveredEvidence: discovered.length > 0,
+    discoveredEvidence: repairedAaEvidence || discovered.length > 0,
     lastError,
     ...(processor.retryAfterAt ? { retryAfterAt: processor.retryAfterAt } : {}),
   };
