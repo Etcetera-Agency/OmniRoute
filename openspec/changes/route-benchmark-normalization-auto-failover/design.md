@@ -75,6 +75,9 @@ process(model, searchResults):
 
 - Preserve the JSON Schema, injection guard, output identity checks, URL
   membership check, and literal quote check.
+- Tell the normalizer to copy `evidence_quote` as a contiguous verbatim excerpt
+  from one selected result title or snippet; omit unsupported candidates instead
+  of paraphrasing or combining source text.
 - Include the requested channel and actual response model/request ID in the
   processor receipt when the normal response exposes them. Do not fabricate a
   provider or connection receipt when it is unavailable.

@@ -96,7 +96,7 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       is deployed and healthy.
 
 - [ ] Owner-directed strict-SO route correction and benchmark-search live
-      acceptance remain open. Production is healthy on source
+      acceptance remain open. At the 2026-10-26 snapshot, production was healthy on source
       `32165ff7f223a31c5f83d764bd2ea9e593790be8`, image
       `ghcr.io/etcetera-agency/omniroute@sha256:267dcd1338693835f48524587c89a75c42f55ecd306e4d25cfbad40adfd699c3`.
       Read-only live database inspection on 2026-10-26 showed 4,095 queue rows:
@@ -141,8 +141,31 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       including the native-504 deferral. Prettier passes and the repo-wide core
       typecheck has no diagnostics in changed files. Independent Luna review
       confirmed retry eligibility after the stored delay and found no remaining
-      issue. Still pending: PR merge, deployment, ordinary free Auto live
-      receipt, and fresh scheduled queue receipts.
+      issue. PR #37 subsequently merged at
+      `281318c410320c2e1a3e604b1eec4e5d510eff7c` and deployed as image
+      `ghcr.io/etcetera-agency/omniroute@sha256:4ced97b3fc1920b1e70e4b85d9ae39b4707e733e39d4972a8393478b425bd166`.
+      Read-only inspection at 06:12 UTC found the ordinary normalizer request
+      had ended in Auto's HTTP 504 after four of ten targets, with an existing
+      retry due at 06:27:02 UTC. The queue began its due source search at
+      06:27:04 UTC; no normalizer response had appeared by the 06:27:05 UTC
+      snapshot. No request was manually triggered and no route, provider,
+      candidate-pool, cooldown, or queue state was changed. A local follow-up
+      on `fix/benchmark-normalizer-verbatim-evidence-20261027` now tells the
+      normalizer to quote exact title/snippet text and rejects paraphrases or
+      quotes spanning title and snippet. Targeted regressions pass 2/2, the full
+      `modelBenchmarkSearch.test.ts` passes 41/41, Prettier passes, and
+      independent Luna-high review found no remaining issue. This follow-up is
+      committed as `78b751a266ed039c1f1cca4361a3c336ad874ac6` and pushed in
+      PR #38; it is not merged or deployed. On its due 06:27 UTC retry the
+      ordinary route selected `nvidia/z-ai/glm-5.3-flash`, which timed out, then
+      advanced to `openrouter/dots-studio/dots-3-note-preview:free`. That target
+      returned HTTP 200 with `finish_reason=length` and no content; Auto tried
+      further in-band targets, then ended at its normal 600-second timeout
+      (`06:37:05 UTC`) before a terminal response. No HTTP 429 occurred. The
+      queue persisted `retry_after_at=2026-10-27T06:52:05.799Z`. No normalizer
+      output was accepted. Queue attempts=3 is queue-claim count, not provider
+      attempt count. Strict-SO output receipt and fresh queue progress remain
+      open. Do not manually trigger or redirect the due retry.
       A 05:10 UTC pre-deployment read-only snapshot found a healthy container
       on source `dc240241f56b6919024d8be0ccec25fe46f78b9d`, with 199 applied
       migrations and queue counts 353 review-required, 1 running, 99 scored,
