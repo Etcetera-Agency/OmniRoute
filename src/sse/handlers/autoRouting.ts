@@ -67,6 +67,12 @@ function classifyAutoModel(
   return { recognizedBuiltInAuto };
 }
 
+export function isExplicitFreeAutoChannel(model: string): boolean {
+  if (!model.startsWith("auto/")) return false;
+  const parsedSuffix = parseAutoSuffix(model.slice(5));
+  return parsedSuffix.valid && parsedSuffix.tier === "free";
+}
+
 async function applyAutoPrefix(
   model: string,
   state: Pick<AutoRoutingState, "variant" | "spec">,
@@ -129,7 +135,8 @@ export async function createVirtualAutoCombo(
   combo: any,
   apiKeyId?: string
 ): Promise<any | Response> {
-  if (!state.isAutoRouting || combo !== null) return combo;
+  if (!state.isAutoRouting) return combo;
+  if (combo !== null && !state.recognizedBuiltInAuto) return combo;
   if (!state.recognizedBuiltInAuto) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,

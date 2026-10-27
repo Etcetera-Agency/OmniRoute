@@ -1024,6 +1024,7 @@ export async function createVirtualAutoComboFromPrepared(
   // two overlays are mutually exclusive on the spec (family takes precedence when
   // both are somehow present, which callers never do in practice).
   const parsedBand = parseBandCategory(spec?.category);
+  const isExplicitFreeBand = spec?.tier === "free" && Boolean(parsedBand);
   if (parsedBand && isBandsEnabled()) {
     // AICODE-NOTE: Restore state before the synchronous quality predicate captures ranges.
     await initializeBandCalibration();
@@ -1049,6 +1050,7 @@ export async function createVirtualAutoComboFromPrepared(
     if (narrowed.length > 0) {
       effectivePool = narrowed;
     } else if (
+      !isExplicitFreeBand &&
       !spec?.family &&
       (process.env.OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL === "true" ||
         process.env.OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL === "1")

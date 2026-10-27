@@ -34,6 +34,7 @@ import { isCommonChatGptWebRetiredProviderId } from "@/shared/constants/chatgptW
 import { filterChatSelectableModels } from "../modelEndpointPolicy.ts";
 import { DEFAULT_INTENT_CONFIG, type IntentClassifierConfig } from "../intentClassifier.ts";
 import { getTaskFitness } from "../autoCombo/taskFitness.ts";
+import { parseBandCategory } from "../autoCombo/bands/index.ts";
 import {
   calculateFactors,
   calculateScore,
@@ -468,7 +469,8 @@ function sanitizeAutoCustomModels(rawModels: unknown): AutoCustomModel[] {
  */
 export async function expandAutoComboCandidatePool(
   eligibleTargets: ResolvedComboTarget[],
-  combo: { autoConfig?: unknown; config?: unknown } | null | undefined
+  combo:
+    { name?: string; models?: unknown; autoConfig?: unknown; config?: unknown } | null | undefined
 ): Promise<ResolvedComboTarget[]> {
   for (let index = eligibleTargets.length - 1; index >= 0; index -= 1) {
     const target = eligibleTargets[index];
@@ -484,6 +486,12 @@ export async function expandAutoComboCandidatePool(
       : null) ||
     (combo?.config as Record<string, unknown> | undefined) ||
     {};
+
+  const freeBand = combo?.name?.match(/^auto\/([^:]+):free$/);
+  if (freeBand && parseBandCategory(freeBand[1])) {
+    // AICODE-NOTE: new free-band targets are already policy-filtered; never expand them to the catalog.
+    return eligibleTargets;
+  }
 
   if (Array.isArray(localAutoConfig?.candidatePool) && localAutoConfig.candidatePool.length > 0)
     return eligibleTargets;
@@ -505,7 +513,7 @@ export async function expandAutoComboCandidatePool(
   // never approved. Only fall through to the full-catalog expansion
   // when the operator has not pre-populated a models[] (pure-auto
   // combos that want to score every model).
-  const explicitModels = (combo as Record<string, unknown> | null | undefined)?.models;
+  const explicitModels = combo?.models;
   if (Array.isArray(explicitModels) && explicitModels.length > 0) return eligibleTargets;
 
   try {

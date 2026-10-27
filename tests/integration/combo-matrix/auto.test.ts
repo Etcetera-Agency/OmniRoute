@@ -86,6 +86,23 @@ test("auto: LKGP record biases dispatch toward the seeded provider", async () =>
   );
 });
 
+test("auto: transient 429 advances to another provider in the selected pool", async () => {
+  await seedConnection("openai", { apiKey: "sk-openai-429" });
+  await seedConnection("claude", { apiKey: "sk-claude-429" });
+  await settingsDb.setLKGP("auto", "auto", "openai");
+
+  h.installRecordingFetch((call) =>
+    call.provider === "openai" ? h.failure(429, "rate limited") : undefined
+  );
+  const r = await handleChat(buildRequest({ body: body("auto") }));
+
+  assert.equal(r.status, 200, `Expected 200 after same-pool failover, got ${r.status}`);
+  const seen = h.providersSeen();
+  assert.equal(seen.at(-1), "claude", `Expected failover to claude, got: ${JSON.stringify(seen)}`);
+  assert.ok(seen.length > 2, "Expected ordinary OpenAI 429 retries before same-pool failover");
+  assert.ok(seen.slice(0, -1).every((provider) => provider === "openai"));
+});
+
 // ── Test 2: auto/coding resolves a virtual pool from seeded connections ──────
 //
 // "auto/coding" is a recognized variant (VALID_AUTO_VARIANTS has "coding").
