@@ -444,3 +444,33 @@ and queue drain from running during the maintenance restart.
 - **AND** complete direct-source evidence remains persisted
 - **AND** global fitness recomputation runs once from persisted eligible evidence
 - **AND** no discovery search or normalization request occurs
+
+### Requirement: Verify direct operator runtime dependencies in the final image
+
+The backend overlay build SHALL prove that the copied one-shot operator's
+complete runtime module graph resolves in the final image's dependency tree.
+The check SHALL load the same bundled module graph used by the explicit
+operator, then stop before reading active catalogs, fetching benchmark
+sources, writing to a database, changing queue state, calling search
+providers, or invoking a model. An unresolved runtime module SHALL fail image
+packaging. This check SHALL NOT change service startup or the upstream
+entrypoint.
+
+#### Scenario: An unresolved package blocks the image build
+
+- **GIVEN** the bundled operator imports a runtime package absent from the
+  final image dependency tree
+- **WHEN** the operator runtime packaging check runs after the bundle is copied
+- **THEN** the check fails with the unresolved module
+- **AND** the image is not accepted as package-complete
+- **AND** it performs no database, queue, source, search, or inference work
+
+#### Scenario: Resolved operator imports pass without operational side effects
+
+- **GIVEN** every runtime import used by the bundled operator resolves in the
+  final image dependency tree
+- **WHEN** image packaging runs the operator runtime check
+- **THEN** the check loads the bundle and exits before active-catalog reads or
+  source requests
+- **AND** it performs no database writes, queue work, search, or inference
+- **AND** normal service startup and its entrypoint remain unchanged
