@@ -18,15 +18,20 @@
   OpenSpec files, and `git diff --check` passes.
 - The prior live invalid response body was not retained, so its causal link to
   this prompt/parser mismatch remains unproven. At 06:27:04 UTC the already-due
-  production queue retry began its normal source search. At 06:27:05 UTC it
-  logged a POST through `auto/general_high_so:free` and selected
-  `nvidia/z-ai/glm-5.3-flash`. The 06:31:17 UTC read-only DB snapshot still
-  showed the row `running`, queue attempts=3, and no retry timestamp; queue
-  attempts are not provider-call counts. No final route response was present.
-  No request was manually triggered; Auto, provider settings, candidate pool,
-  cooldowns, and queue state were not changed. This follow-up is local on
-  `fix/benchmark-normalizer-verbatim-evidence-20261027`, not committed, merged,
-  or deployed; live acceptance remains open.
+  production queue retry began its normal source search and, at 06:27:05 UTC,
+  logged a POST through `auto/general_high_so:free`. The normal route timed out
+  after 600 seconds at 06:37:05 UTC: target 1 (`nvidia/z-ai/glm-5.3-flash`)
+  timed out and Auto tried the next target; target 2 (`dots-studio/dots-3-note-preview:free`
+  on OpenRouter) returned HTTP 200 but was rejected because
+  `finish_reason=length` left no content; Auto then tried further in-band
+  targets. No HTTP 429 occurred. A read-only DB check found the row
+  `review_required`, queue attempts=3, and `retry_after_at=06:52:05.799Z`;
+  queue attempts are not provider-call counts. No normalizer output was
+  accepted. No request was manually triggered; Auto, provider settings,
+  candidate pool, cooldowns, and queue state were not changed. Follow-up commit
+  `78b751a266ed039c1f1cca4361a3c336ad874ac6` is pushed on
+  `fix/benchmark-normalizer-verbatim-evidence-20261027` in open PR #38; it is not
+  merged or deployed. Live acceptance remains open.
 
 ## Benchmark search uses the normal free Auto route (2026-10-27)
 
