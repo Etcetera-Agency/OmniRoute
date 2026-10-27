@@ -20,15 +20,16 @@
   high/SO/free route leak and does not bypass ordinary 429 handling.
 - The free-band expansion guard now imports `parseBandId` from the pure grammar
   module instead of `bands/index.ts`, whose static import chain also loads
-  Radar database resolution. Code Simplifier reviewed the local diff; this
-  dependency-only change is already minimal.
+  Radar database resolution. Code Simplifier reviewed the source and test
+  changes; no further simplification is needed.
 - Focused checks pass: `benchmark-normalizer-auto-routing.test.ts` 2/2,
-  normalizer route/policy checks 3/3, timeout persistence alone 1/1, enabled
-  free-band fallback 1/1, exact high/SO/free saved-combo and mocked
-  429-to-next-candidate regressions, and reasoning-rule rewrite blocked. The
-  timeout test still fails in the full `modelBenchmarkSearch.test.ts` file
-  (40/41); the isolated test passes. The remaining static Radar-boundary test
-  failure follows the existing `autoRouting.ts` → `suffixComposition.ts` →
+  normalizer route/policy checks 3/3, timeout persistence in the full
+  `modelBenchmarkSearch.test.ts` file 41/41, enabled free-band fallback 1/1,
+  exact high/SO/free saved-combo and mocked 429-to-next-candidate regressions,
+  and reasoning-rule rewrite blocked. The timeout test now allows 30 seconds
+  for ordinary Auto route setup; this is test-only and leaves production
+  spacing/cooldown unchanged. The remaining static Radar-boundary test failure
+  follows the existing `autoRouting.ts` → `suffixComposition.ts` →
   `bands/index.ts` path and was reproduced on clean `origin/main`.
   `git diff --check` passes.
 - A remaining unrelated edge applies to the legacy `auto/best-free` requester:

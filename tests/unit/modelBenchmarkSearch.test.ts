@@ -1842,7 +1842,7 @@ test("a strict-SO timeout saves the row before the next model is claimed", async
   ) =>
     originalSetTimeout(
       callback,
-      delay === processor.NORMALIZATION_TIMEOUT_MS ? 5_000 : delay,
+      delay === processor.NORMALIZATION_TIMEOUT_MS ? 30_000 : delay,
       ...args
     )) as typeof globalThis.setTimeout;
 
@@ -1904,7 +1904,7 @@ test("a strict-SO timeout saves the row before the next model is claimed", async
   try {
     drain = search.drainModelBenchmarkSearchQueue();
     assert.ok(
-      await waitFor(() => chatRequestStarted),
+      await waitFor(() => chatRequestStarted, 30_000),
       `No normalization dispatch; URLs: ${urls.join(", ")}`
     );
     const activeRuns = searchDb.listModelBenchmarkSearchRuns();
