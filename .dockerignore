@@ -43,6 +43,14 @@ yarn-error.log*
 
 # Test suites
 tests
+# AICODE-NOTE: Keep only the final-image runtime-resolution smoke in Docker context.
+!tests/
+tests/*
+!tests/unit/
+tests/unit/*
+!tests/unit/build/
+tests/unit/build/*
+!tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs
 test-results
 playwright-report
 blob-report

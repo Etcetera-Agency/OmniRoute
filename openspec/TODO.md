@@ -853,7 +853,10 @@ Deferred cross-repository and operations work:
       binding, which was removed; follow-up review found no remaining issue.
       Code Simplifier found no simpler change that preserved the queue path.
       Dockerfile now runs both checks in the final runtime stage with network
-      disabled. The ARM64 image build was not run locally: this host is AMD64
+      disabled. A narrow `.dockerignore` whitelist includes only the resolver
+      smoke; a root-context BuildKit `FROM scratch`/`COPY tests` check exported
+      only that file and passed byte comparison. The ARM64 image build was not
+      run locally: this host is AMD64
       and lacks the required `backend_export` build input. After integration,
       build the authoritative ARM64 final image and retain its smoke receipt.
       Release still requires the existing maintenance gate: prevent startup

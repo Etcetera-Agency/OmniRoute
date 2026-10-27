@@ -199,3 +199,7 @@ awaited operation for the live stall is not proven from available logs.
 - Code Simplifier reviewed the test-only change; an unused fitness-sync import was removed, the candidates use the real active connection ID, and no formula, precedence, or range changes were needed.
 - Verification: `tests/unit/autoCombo/bands-quality-e2e.test.ts` passes 5/5 with the current worktree's `vitest.mcp.config.ts` and root, including the new regression; `git diff --check` passes. The existing native config-loader warning about `__dirname` remains.
 - Independent Luna-xhigh review initially found that target-only inclusion checks would not prove the quality filter excluded other candidates. The regression now checks direct high-profile scores for both models, verifies the peer scores lower while remaining free/tool-capable, and requires each actual band output to contain only the target. Follow-up review found no remaining actionable findings.
+
+## 2026-10-27 Docker build-context correction
+
+- The final runtime stage copied its resolver smoke from `tests/unit/build`, but root `.dockerignore` excludes `tests`. Added ordered exact-path exceptions that keep all other test content excluded. A minimal BuildKit build used this repository as the actual root context with `FROM scratch` and `COPY tests`; it exported only the resolver smoke, which matched the tracked file byte-for-byte. This proves context inclusion only; the authoritative ARM64 image build and final-stage smoke remain release gates.
