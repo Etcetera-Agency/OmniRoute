@@ -837,12 +837,6 @@ async function refreshSearchRun(
 ): Promise<SearchRunOutcome> {
   const model = { id: run.modelId, name: run.modelName };
   const sourceStatus = { ...direct.sourceStatus };
-  const previousNormalization = asRecord(run.sourceStatus.normalizationProcessor);
-  const pinnedConnectionId =
-    asString(previousNormalization.error) === "HTTP 429"
-      ? asString(previousNormalization.connectionId)
-      : null;
-  if (pinnedConnectionId) sourceStatus.normalizationProcessor = previousNormalization;
   sourceStatus.fitness = directScore ?? null;
 
   if (
@@ -916,11 +910,7 @@ async function refreshSearchRun(
       snippet: asString(raw.snippet) ?? undefined,
     };
   });
-  const processor = await processModelBenchmarkSearchResults(
-    model,
-    searchResults,
-    pinnedConnectionId ?? undefined
-  );
+  const processor = await processModelBenchmarkSearchResults(model, searchResults);
   const { evidence: normalizedCandidates, ...processorReceipt } = processor;
   const normalized = normalizedCandidates.map((item) =>
     evidence({
@@ -968,9 +958,6 @@ async function refreshSearchRun(
     discoveredEvidence: discovered.length > 0,
     lastError,
     ...(processor.retryAfterAt ? { retryAfterAt: processor.retryAfterAt } : {}),
-    ...(pinnedConnectionId && processor.status === "blocked_no_exact_free_connection"
-      ? { consumeAttempt: false }
-      : {}),
   };
 }
 

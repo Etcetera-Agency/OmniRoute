@@ -95,29 +95,60 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       `sha256:05a0c6c3ee78b9975c44996a12e3374d9c32fde77675c0d18b6eeb6a0c5d1860`
       is deployed and healthy.
 
-- [ ] Finish live acceptance for scheduled search. The deployed revision is
-      still `3529ee2e5d7d76c269d6064d0287c732f47aef65`, image
-      `sha256:02051b23b703729ac1e030f99acf5e195d0c99f7eb9ceff2699f874355802034`,
-      healthy; migration 199 is not applied. Read-only SQLite inspection at
-      21:40 UTC showed 708 source-error rows and 30 review-required rows with
-      Ollama Search HTTP 429, plus 941 source-error and 25 review-required rows
-      with no search credentials. Latest matching errors were at 21:40 UTC.
-      A further 2,058 source-error rows have other recorded errors, latest
-      16:58 UTC. Queue status counts: 2,020 source-error/no-search-candidates,
-      1,690 source-error/not-started, 91 review-required/no-search-candidates,
-      94 review-required/normalization-failed, 5 review-required/invalid
-      normalization response, 60 review-required/not-needed, 85 scored, and 50
-      unrated/no-evidence. The local fix adds serialized zero-cost search and
-      strict-SO pacing, durable Retry-After/reset cooldowns, bounded retry
-      attempts, preservation of review evidence, and the same exact-free
-      connection across strict-SO retries. Focused tests and independent review
-      pass, but this change is not committed, merged, or deployed. After PR/main
-      deployment, verify migration 199, queue recovery, current search quota,
-      and one controlled successful strict-SO response through the exact free
-      Phala model/connection with no paid or alternate route. Exact provider
-      quota remaining is still unknown; keep the full-catalog worker within the
-      registered zero-cost search path and do not claim successful live
-      acceptance until the controlled request succeeds.
+- [ ] Owner-directed strict-SO route correction and benchmark-search live
+      acceptance remain open. Production is healthy on source
+      `32165ff7f223a31c5f83d764bd2ea9e593790be8`, image
+      `ghcr.io/etcetera-agency/omniroute@sha256:267dcd1338693835f48524587c89a75c42f55ecd306e4d25cfbad40adfd699c3`.
+      Read-only live database inspection on 2026-10-26 showed 4,095 queue rows:
+      346 `review_required`, 99 `scored`, 3,600 `source_error`, and 50
+      `unrated_no_evidence`; latest run is `2026-10-26T22:06:51.785Z`. The
+      periodic models.dev sync is enabled and its startup log reports 10,004
+      pricing entries and 10,411 capability rows, but the benchmark queue has
+      not advanced since its latest run. The deployed normalizer still uses
+      `handleOneShotBenchmarkChat` with one exact model/connection; its live
+      Structured Output request returned HTTP 429.
+      Owner directed that the normalizer use OmniRoute's established Auto
+      failover instead of bypassing it. Read-only candidate GETs returned 10
+      targets for `general_high_so:free`, 5 for `general_mid_so:free`, and 17
+      for `general_low_so:free`. Change
+      `route-benchmark-normalization-auto-failover` replaces the pinned request
+      with `auto/general_high_so:free`; dispatch is blocked unless bands are
+      enabled and `freeAccessPolicy` is `strict`. No live model request, provider
+      setting change, or queue reset was made during this source correction.
+      Offline regressions prove the exact high/SO/free channel advances from a
+      mocked 429 to a second candidate in the same free band, never to the saved
+      paid combo or global fallback. They also prove a zero-candidate explicit
+      free band cannot widen through the legacy full-catalog expansion, even
+      when that fallback flag is enabled. Production 429/cooldown behavior has
+      not been exercised by a new request. After deployment, let the normal
+      queue and route honor any active cooldown; then capture a naturally
+      dispatched strict-SO result, actual model/request receipt, zero-cost route
+      proof, and scheduled queue progress with scored/unrated totals. Do not pin
+      a provider, manufacture a live 429, reset the queue, or send duplicate
+      requests while the normal route is cooling down.
+      Reasoning-routing overrides were found to be another pre-dispatch route
+      rewrite; a local guard now fails closed for an explicit free Auto channel,
+      with a regression proving no paid provider call is made. Exact live
+      cooldown and normalizer acceptance remain open. The candidate-pool guard
+      now imports `parseBandId` from the pure band grammar module, avoiding a
+      new static dependency on Radar database resolution. The dedicated normal
+      Auto routing test passes 2/2, normalizer route/policy checks pass 3/3, and
+      the complete `modelBenchmarkSearch.test.ts` file passes 41/41 after its
+      test-only route wait was raised to 30 seconds; production spacing and
+      cooldown are unchanged. The remaining free-verdict static Radar-boundary
+      failure also reproduces on clean `origin/main` through the pre-existing
+      `autoRouting.ts` → `suffixComposition.ts` → `bands/index.ts` path; track
+      that baseline cleanup separately. The mocked 429 case verifies the
+      existing in-band Auto failover; production cooldown behavior has not been
+      exercised and must be allowed to proceed naturally after deployment.
+      A separate legacy edge remains outside this new-band change: a reasoning
+      rule can rewrite `auto/best-free` before its free-tier filter. Decide in a
+      separate task whether that historical requester needs the same fail-closed
+      guarantee; it was not changed here.
+      Project type checks remain red: `typecheck:core` has broad diagnostics, and
+      `check:open-sse-typecheck` reports `open-sse/services/systemOne/schema.ts`
+      TS2353 plus `src/lib/proxySubscription/parse.ts` TS2345 (three instances).
+      These files are outside this diff; verify and resolve them separately.
 
 - [x] Local `add-model-benchmark-search` source-lookup slice: successful
       non-dry-run models.dev capability syncs detect exact new model IDs after
@@ -131,26 +162,18 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       and unrated. No frozen score-map write path exists. Focused RED/GREEN
       tests and core typecheck are recorded in `completion.review`.
 - [x] Add a separate strict-SO processor for candidates from explicit free
-      web search
-      candidates. It uses `xingchen-agi/xing4.0-29b-a4b:free`, requests only
-      OpenRouter endpoint `phala`, requires endpoint parameter support, disables
-      OpenRouter fallbacks, and sends strict JSON Schema. It proceeds only when
-      an active OpenRouter connection's synced catalog lists the exact model as
-      free and an internal API key is available. The connection is selected by
-      sorted ID and pinned for one `handleChat` dispatch; same-account retries,
-      prior session affinity, emergency model fallback, and global fallback are
-      bypassed. Output fields
-      must match an exact returned URL and quote from its title/snippet. Records
-      remain review-required and unrated; score-map is untouched. Before
-      selecting a connection, each run verifies the official OpenRouter
-      endpoint API returns exactly one matching Phala endpoint, zero prompt and
-      completion prices, and both `response_format` and `structured_outputs`.
+      web search candidates. The original implementation used a pinned
+      `xingchen-agi/xing4.0-29b-a4b:free` / Phala connection and is superseded
+      by `route-benchmark-normalization-auto-failover` above. The current path
+      uses ordinary `handleChat` with `auto/general_high_so:free`; output fields
+      still require an exact returned URL and quote from its title/snippet.
+      Records remain review-required and unrated; score-map is untouched.
 - [x] Read-only live gates and zero-cost Ollama search are verified. A
-      controlled search returned and persisted candidates. The pinned strict-SO
-      request returned HTTP 429, so successful output validation is still open.
-      It stayed on the exact free Phala route with no paid/alternate fallback
-      or cost. Complete the controlled successful SO receipt after the durable
-      429 cooldown fix; keep failed requests and invalid evidence unrated.
+      controlled search returned and persisted candidates. A previous pinned
+      strict-SO request returned HTTP 429; its successful output validation is
+      still open and the pin has since been removed. Complete live acceptance
+      only through the ordinary Auto route after any real cooldown expires; keep
+      failed requests and invalid evidence unrated.
 - [ ] Keep production ratings blocked until a reviewer confirms exact model
       identity, reasoning effort/config, benchmark/version, metric/value, source
       URL/date, and source verification status. Independently calibrate/review
@@ -160,8 +183,13 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       `tests/unit/autoCombo/bands-config.test.ts` mtime-retry case fails both in
       the full run and alone (12/13 pass). `npm run test:unit` was interrupted
       after over 35 minutes and reported a failure in the unchanged
-      `tests/unit/workflows-no-foreign-fork-publishers.test.ts`. Both failures
-      are outside this branch's diff; rerun and diagnose in a suitable runtime.
+      `tests/unit/workflows-no-foreign-fork-publishers.test.ts`. The 2026-10-27
+      first full `tests/unit/modelBenchmarkSearch.test.ts` run passed 40/41. The
+      2-second test wait was too short for the normal Auto route after earlier
+      file tests; the current branch passes 41/41 with a 30-second test-only
+      wait and timeout. Do not lower or bypass the production 5-second
+      normalizer spacing. Re-establish a green full-suite baseline in a suitable
+      runtime; the unrelated Vitest/unit-suite failures remain.
 
 ## GitHub overlay-image build
 

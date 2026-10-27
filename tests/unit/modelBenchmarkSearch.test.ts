@@ -14,6 +14,14 @@ const originalEnv = { ...process.env };
 const core = await import("../../src/lib/db/core.ts");
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
+const settingsDb = await import("../../src/lib/db/settings.ts");
+const modelIntelligenceDb = await import("../../src/lib/db/modelIntelligence.ts");
+const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
+const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
+const taskFitness = await import("../../open-sse/services/autoCombo/taskFitness.ts");
+const tierResolver = await import("../../open-sse/services/tierResolver.ts");
+const { buildAutoCandidateFilter } =
+  await import("../../open-sse/services/autoCombo/suffixComposition.ts");
 const searchDb = await import("../../src/lib/db/modelBenchmarkSearch.ts");
 const processor = await import("../../src/lib/modelBenchmarkSearchProcessor.ts");
 const search = await import("../../src/lib/modelBenchmarkSearch.ts");
@@ -38,23 +46,6 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { "content-type": "application/json", date: "Mon, 26 Oct 2026 00:00:00 GMT" },
   });
-}
-
-function openRouterEndpointMetadata() {
-  return {
-    data: {
-      id: processor.NORMALIZATION_MODEL,
-      endpoints: [
-        {
-          model_id: processor.NORMALIZATION_MODEL,
-          provider_name: "Phala",
-          tag: "phala",
-          pricing: { prompt: "0", completion: "0" },
-          supported_parameters: ["response_format", "structured_outputs"],
-        },
-      ],
-    },
-  };
 }
 
 function requestUrl(input: RequestInfo | URL): string {
@@ -597,253 +588,18 @@ test("fitness refresh failure preserves a deferred retry and its source receipt"
   }
 });
 
-test("normalization connection choice requires exact free model and is deterministic", () => {
-  const result = processor.selectFreeNormalizationConnection(
-    [
-      { id: "z-connection", models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }] },
-      { id: "a-paid-only", models: [{ id: processor.NORMALIZATION_MODEL, isFree: false }] },
-      { id: "different-model", models: [{ id: "different/model:free", isFree: true }] },
-    ],
-    processor.NORMALIZATION_MODEL
-  );
-
-  assert.equal(result, "z-connection");
-  assert.equal(
-    processor.selectFreeNormalizationConnection([], processor.NORMALIZATION_MODEL),
-    null
-  );
-
-  assert.equal(
-    processor.selectFreeNormalizationConnection(
-      [
-        { id: "a-new-connection", models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }] },
-        {
-          id: "z-original-connection",
-          models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }],
-        },
-      ],
-      processor.NORMALIZATION_MODEL,
-      "z-original-connection"
-    ),
-    "z-original-connection"
-  );
-  assert.equal(
-    processor.selectFreeNormalizationConnection(
-      [{ id: "a-new-connection", models: [{ id: processor.NORMALIZATION_MODEL, isFree: true }] }],
-      processor.NORMALIZATION_MODEL,
-      "z-original-connection"
-    ),
-    null
-  );
-});
-
-test("strict-SO 429 retry never switches to a different free connection", async () => {
-  process.env.AA_API_KEY = "test-only-key";
-  await providersDb.createProviderConnection({
-    provider: "ollama-cloud",
-    authType: "apikey",
-    name: "ollama-search-pinned-retry-test",
-    apiKey: "ollama-search-pinned-retry-key",
-    isActive: true,
-    testStatus: "active",
-    providerSpecificData: {},
-  });
-  const pinned = (await providersDb.createProviderConnection({
-    provider: "openrouter",
-    authType: "apikey",
-    name: "openrouter-original-free-pin",
-    apiKey: "openrouter-original-free-pin-key",
-    isActive: true,
-    testStatus: "active",
-    providerSpecificData: {},
-  })) as { id: string };
-  const db = core.getDbInstance();
-  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    "syncedAvailableModels",
-    `openrouter:${pinned.id}`,
-    JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
-  );
-  process.env.API_KEY_SECRET = "test-only-api-key-secret";
-  await apiKeysDb.createApiKey("benchmark-pinned-retry-test", "test-machine", ["manage"]);
-
-  let chatRequests = 0;
-  globalThis.fetch = async (input) => {
-    const url = requestUrl(input);
-    if (url === "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints") {
-      return jsonResponse(openRouterEndpointMetadata());
-    }
-    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
-      return jsonResponse({
-        tier: "free",
-        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
-        data: [],
-      });
-    }
-    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
-      return jsonResponse({ leaderboards: [] });
-    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
-      return jsonResponse({ rows: [] });
-    }
-    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
-    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
-    if (url === "https://ollama.com/api/web_search") {
-      return jsonResponse({
-        results: [{ title: "Pinned model benchmark report", url: "https://example.org/pinned" }],
-      });
-    }
-    if (url.includes("openrouter.ai/api/v1/chat/completions")) {
-      chatRequests += 1;
-      return new Response("{}", { status: 429, headers: { "retry-after": "0" } });
-    }
-    throw new Error(`Unexpected request: ${url}`);
-  };
-
-  try {
-    searchDb.enqueueModelBenchmarkSearches([
-      { id: "pinned-retry-model", name: "Pinned Retry Model" },
-    ]);
-    await search.drainModelBenchmarkSearchQueue();
-
-    const [first] = searchDb.listModelBenchmarkSearchRuns();
-    assert.equal(first.status, "review_required");
-    assert.equal(first.attempts, 1);
-    const firstNormalization = first.sourceStatus.normalizationProcessor as {
-      connectionId?: string;
-      retryAfterAt?: string;
-    };
-    assert.equal(firstNormalization.connectionId, pinned.id);
-    assert.ok(first.retryAfterAt);
-    assert.equal(first.retryAfterAt, firstNormalization.retryAfterAt);
-
-    const replacement = (await providersDb.createProviderConnection({
-      provider: "openrouter",
-      authType: "apikey",
-      name: "openrouter-replacement-free-pin",
-      apiKey: "openrouter-replacement-free-pin-key",
-      isActive: true,
-      testStatus: "active",
-      providerSpecificData: {},
-    })) as { id: string };
-    db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-      "syncedAvailableModels",
-      `openrouter:${replacement.id}`,
-      JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
-    );
-    await providersDb.updateProviderConnection(pinned.id, {
-      isActive: false,
-      testStatus: "active",
-      rateLimitedUntil: null,
-    });
-    db.prepare(
-      "UPDATE model_benchmark_search_models SET retry_after_at = ? WHERE model_id = ?"
-    ).run(new Date(Date.now() - 1_000).toISOString(), "pinned-retry-model");
-
-    await search.drainModelBenchmarkSearchQueue();
-
-    const [retry] = searchDb.listModelBenchmarkSearchRuns();
-    assert.equal(chatRequests, 1);
-    assert.equal(retry.attempts, 1);
-    assert.equal(retry.status, "review_required");
-    assert.equal(retry.normalizationStatus, "blocked_no_exact_free_connection");
-    assert.equal(
-      (retry.sourceStatus.normalizationProcessor as { status?: string }).status,
-      "blocked_no_exact_free_connection"
-    );
-    assert.ok(searchDb.listModelBenchmarkSearchEvidence("pinned-retry-model").length > 0);
-  } finally {
-    search.resetModelBenchmarkSearchStateForTests();
-  }
-});
-
-test("normalization selects active OpenRouter connection stored with apikey auth type", async () => {
-  const connectionId = "openrouter-free-test";
-  const db = core.getDbInstance();
-  db.prepare(
-    `INSERT INTO provider_connections
-     (id, provider, auth_type, name, is_active, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    connectionId,
-    "openrouter",
-    "apikey",
-    "OpenRouter test connection",
-    1,
-    "2026-10-26T00:00:00Z",
-    "2026-10-26T00:00:00Z"
-  );
-  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    "syncedAvailableModels",
-    `openrouter:${connectionId}`,
-    JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
-  );
-
-  const requests: string[] = [];
-  globalThis.fetch = async (input) => {
-    const url = requestUrl(input);
-    requests.push(url);
-    assert.equal(
-      url,
-      "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints"
-    );
-    return jsonResponse(openRouterEndpointMetadata());
-  };
-
-  const result = await processor.processModelBenchmarkSearchResults(
-    { id: "new-model", name: "New Model" },
-    [{ url: "https://example.org/benchmark" }]
-  );
-
-  assert.equal(result.status, "blocked_no_internal_api_key");
-  assert.equal(result.connectionId, connectionId);
-  assert.equal(result.endpointMetadataVerified, true);
-  assert.equal(result.attemptCount, 0);
-  assert.equal(requests.length, 1);
-});
-
-test("normalization requires one current zero-cost Phala strict-SO endpoint", () => {
-  const metadata = openRouterEndpointMetadata();
-  assert.equal(processor.isNormalizationEndpointVerified(metadata), true);
-  assert.equal(
-    processor.isNormalizationEndpointVerified({
-      data: {
-        ...metadata.data,
-        endpoints: [
-          {
-            ...metadata.data.endpoints[0],
-            pricing: { prompt: "0.000001", completion: "0" },
-          },
-        ],
-      },
-    }),
-    false
-  );
-  assert.equal(
-    processor.isNormalizationEndpointVerified({
-      data: {
-        ...metadata.data,
-        endpoints: [...metadata.data.endpoints, metadata.data.endpoints[0]],
-      },
-    }),
-    false
-  );
-});
-
-test("normalization request pins Phala with strict schema and forbids upstream fallback", () => {
+test("normalization request uses Auto channel with strict schema and high reasoning", () => {
   const searchResults = [{ url: "https://example.org/report", title: "New Model benchmark" }];
   const body = processor.buildNormalizationRequest("new-model", "New Model", searchResults);
 
-  assert.equal(body.model, processor.NORMALIZATION_ROUTED_MODEL);
+  assert.equal(body.model, processor.NORMALIZATION_MODEL);
   const messages = body.messages as Array<{ role: string; content: string }>;
   assert.deepEqual(JSON.parse(messages[1].content), {
     model_id: "new-model",
     model_name: "New Model",
     search_results: searchResults,
   });
-  assert.deepEqual(body.provider, {
-    only: ["phala"],
-    require_parameters: true,
-    allow_fallbacks: false,
-  });
+  assert.equal(body.reasoning_effort, "high");
   assert.deepEqual(body.response_format, {
     type: "json_schema",
     json_schema: {
@@ -853,6 +609,71 @@ test("normalization request pins Phala with strict schema and forbids upstream f
     },
   });
   assert.equal(body.stream, false);
+});
+
+test("strict-SO normalization uses high-band free Auto through ordinary chat", () => {
+  const body = processor.buildNormalizationRequest("new-model", "New Model", []);
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "src/lib/modelBenchmarkSearchProcessor.ts"),
+    "utf8"
+  );
+
+  assert.equal(body.model, "auto/general_high_so:free");
+  assert.equal(body.reasoning_effort, "high");
+  assert.equal(body.stream, false);
+  assert.deepEqual(body.response_format, {
+    type: "json_schema",
+    json_schema: {
+      name: "benchmark_evidence",
+      strict: true,
+      schema: processor.NORMALIZATION_SCHEMA,
+    },
+  });
+  const processorBody = source.slice(
+    source.indexOf("export async function processModelBenchmarkSearchResults")
+  );
+  assert.doesNotMatch(source, /handleOneShotBenchmarkChat|x-omniroute-connection/);
+  assert.match(source, /\bhandleChat\(request, null, body, "model-benchmark-search"\)/);
+  assert.equal([...processorBody.matchAll(/\bhandleChat\(/g)].length, 1);
+  assert.match(processorBody, /parseNormalizationRetryAfter\(response\.headers\)/);
+});
+
+test("normalization blocks before provider dispatch when Auto bands are disabled", async () => {
+  process.env.OMNIROUTE_AUTO_BANDS = "0";
+  await settingsDb.updateSettings({ freeAccessPolicy: "strict" });
+  let providerCalls = 0;
+  globalThis.fetch = async () => {
+    providerCalls += 1;
+    throw new Error("Provider call must not happen");
+  };
+
+  const result = await processor.processModelBenchmarkSearchResults(
+    { id: "model-a", name: "Model A" },
+    [{ url: "https://example.org/report", title: "Benchmark" }]
+  );
+
+  assert.equal(result.status, "blocked_strict_free_auto_route_unavailable");
+  assert.match(result.error ?? "", /Auto bands must be enabled/);
+  assert.equal(providerCalls, 0);
+});
+
+test("normalization blocks before provider dispatch unless free access policy is strict", async () => {
+  process.env.OMNIROUTE_AUTO_BANDS = "1";
+  await settingsDb.updateSettings({ freeAccessPolicy: "off" });
+  let providerCalls = 0;
+  globalThis.fetch = async () => {
+    providerCalls += 1;
+    throw new Error("Provider call must not happen");
+  };
+
+  const result = await processor.processModelBenchmarkSearchResults(
+    { id: "model-a", name: "Model A" },
+    [{ url: "https://example.org/report", title: "Benchmark" }]
+  );
+
+  assert.equal(result.status, "blocked_strict_free_auto_route_unavailable");
+  assert.match(result.error ?? "", /freeAccessPolicy must be strict/);
+  assert.equal(providerCalls, 0);
 });
 
 test("429 retry delay prefers Retry-After then reset header and falls back conservatively", () => {
@@ -988,11 +809,11 @@ test("long retry timers clamp each leg and recalculate the remaining cooldown", 
   }
 });
 
-test("normalization resolves to OpenRouter and preserves strict schema controls", async () => {
+test("normalization resolves to Auto and preserves strict schema controls", async () => {
   const request = processor.buildNormalizationRequest("new-model", "New Model", []);
   const route = await chatHelpers.resolveModelOrError(String(request.model), { stream: false });
-  assert.equal(route.provider, "openrouter");
-  assert.equal(route.model, processor.NORMALIZATION_MODEL);
+  assert.equal(route.provider, "auto");
+  assert.equal(route.model, "general_high_so:free");
 
   const transformed = new DefaultExecutor(route.provider).transformRequest(
     route.model,
@@ -1003,25 +824,7 @@ test("normalization resolves to OpenRouter and preserves strict schema controls"
 
   assert.deepEqual(transformed.response_format, request.response_format);
   assert.deepEqual(transformed.provider, request.provider);
-  assert.equal(transformed.model, processor.NORMALIZATION_MODEL);
-});
-
-test("internal benchmark chat pins one account and exits before global fallback", () => {
-  const chatSource = fs.readFileSync(path.join(process.cwd(), "src/sse/handlers/chat.ts"), "utf8");
-  const dispatch = chatSource.indexOf(
-    "const oneShotBenchmarkChat = oneShotBenchmarkChatRequests.get(request)"
-  );
-  const dispatchEnd = chatSource.indexOf("let managedLease", dispatch);
-  const globalFallback = chatSource.indexOf("Global Fallback Provider (#689)");
-  const oneShotDispatch = chatSource.slice(dispatch, dispatchEnd);
-
-  assert.ok(dispatch >= 0);
-  assert.ok(globalFallback > dispatchEnd);
-  assert.match(oneShotDispatch, /sessionId: null/);
-  assert.match(oneShotDispatch, /sessionAffinityKey: null/);
-  assert.match(oneShotDispatch, /forcedConnectionId: oneShotBenchmarkChat\.connectionId/);
-  assert.match(oneShotDispatch, /emergencyFallbackTried: true/);
-  assert.match(oneShotDispatch, /skipUpstreamRetry: true/);
+  assert.equal(transformed.model, "general_high_so:free");
 });
 
 test("normalization accepts only exact quoted fields and returned source URLs", () => {
@@ -1569,6 +1372,8 @@ test("display names cannot masquerade as exact model IDs during source matching"
 
 test("complete AA and official miss runs HF and explicit free search, then stays unrated", async () => {
   process.env.AA_API_KEY = "test-only-key";
+  process.env.OMNIROUTE_AUTO_BANDS = "1";
+  await settingsDb.updateSettings({ freeAccessPolicy: "strict" });
   await providersDb.createProviderConnection({
     provider: "ollama-cloud",
     authType: "apikey",
@@ -1582,9 +1387,6 @@ test("complete AA and official miss runs HF and explicit free search, then stays
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
     urls.push(url);
-    if (url === "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints") {
-      return jsonResponse(openRouterEndpointMetadata());
-    }
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
       assert.equal(new Headers(init?.headers).get("x-api-key"), "test-only-key");
       return jsonResponse({
@@ -1644,7 +1446,7 @@ test("complete AA and official miss runs HF and explicit free search, then stays
 
   const [run] = searchDb.listModelBenchmarkSearchRuns();
   assert.equal(run.status, "review_required");
-  assert.equal(run.normalizationStatus, "blocked_no_exact_free_connection");
+  assert.equal(run.normalizationStatus, "blocked_no_internal_api_key");
   assert.equal(run.sourceStatus.artificialAnalysis.status, "missing");
   assert.equal(run.sourceStatus.sweBench.status, "missing");
   assert.equal(run.sourceStatus.terminalBench20.status, "missing");
@@ -1652,11 +1454,9 @@ test("complete AA and official miss runs HF and explicit free search, then stays
   assert.equal(run.sourceStatus.deepSwe.status, "missing");
   assert.equal(run.sourceStatus.ollamaSearch.provider, "ollama-search");
   assert.equal(run.sourceStatus.ollamaSearch.searchCostUsd, 0);
-  assert.equal(run.sourceStatus.normalizationProcessor.status, "blocked_no_exact_free_connection");
+  assert.equal(run.sourceStatus.normalizationProcessor.status, "blocked_no_internal_api_key");
   assert.equal(run.sourceStatus.normalizationProcessor.candidateCount, 1);
-  assert.equal(run.sourceStatus.normalizationProcessor.endpointMetadataVerified, true);
-  assert.equal(typeof run.sourceStatus.normalizationProcessor.endpointMetadataCheckedAt, "string");
-  assert.equal(run.sourceStatus.normalizationProcessor.attemptCount, 0);
+  assert.equal(run.sourceStatus.normalizationProcessor.normalizerRequestCount, 0);
   assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 1);
   assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 1);
   assert.equal(
@@ -1930,8 +1730,10 @@ test("AA exact slug matches when display name includes a reasoning effort", asyn
   assert.equal(row.reasoningEffort, "high");
 });
 
-test("a timed-out strict-SO row is saved before the next model is claimed", async () => {
+test("a strict-SO timeout saves the row before the next model is claimed", async () => {
   process.env.AA_API_KEY = "test-only-key";
+  process.env.OMNIROUTE_AUTO_BANDS = "1";
+  await settingsDb.updateSettings({ freeAccessPolicy: "strict", modelsDevSyncEnabled: true });
   await providersDb.createProviderConnection({
     provider: "ollama-cloud",
     authType: "apikey",
@@ -1941,7 +1743,7 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
     testStatus: "active",
     providerSpecificData: {},
   });
-  await providersDb.createProviderConnection({
+  const normalizationConnection = (await providersDb.createProviderConnection({
     provider: "openrouter",
     authType: "apikey",
     name: "openrouter-normalization-timeout-test",
@@ -1949,42 +1751,104 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
     isActive: true,
     testStatus: "active",
     providerSpecificData: {},
-  });
+  })) as { id: string };
   const db = core.getDbInstance();
-  const connectionId = db
-    .prepare("SELECT id FROM provider_connections WHERE provider = 'openrouter' LIMIT 1")
-    .get() as { id: string };
   db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
     "syncedAvailableModels",
-    `openrouter:${connectionId.id}`,
-    JSON.stringify([{ id: processor.NORMALIZATION_MODEL, isFree: true }])
+    `openrouter:${normalizationConnection.id}`,
+    JSON.stringify([{ id: "normalizer-timeout-model:free", isFree: true }])
+  );
+  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+    "models_dev_zero_price",
+    "snapshot",
+    JSON.stringify({
+      fetchedAt: new Date().toISOString(),
+      modelsByProvider: { openrouter: ["normalizer-timeout-model:free"] },
+    })
+  );
+  modelsDevSync.upsertSyncedCapabilities("openrouter", {
+    "normalizer-timeout-model:free": {
+      tool_call: true,
+      reasoning: true,
+      attachment: null,
+      structured_output: true,
+      temperature: null,
+      modalities_input: JSON.stringify(["text"]),
+      modalities_output: JSON.stringify(["text"]),
+      knowledge_cutoff: null,
+      release_date: null,
+      last_updated: null,
+      status: null,
+      family: null,
+      open_weights: null,
+      limit_context: null,
+      limit_input: null,
+      limit_output: null,
+      interleaved_field: null,
+    },
+  });
+  modelIntelligenceDb.upsertModelIntelligence({
+    model: "normalizer-timeout-model:free",
+    source: "models_dev_tier",
+    category: "default",
+    score: 0.95,
+    eloRaw: null,
+    confidence: "high",
+    expiresAt: null,
+  });
+  taskFitness.invalidateFitnessCache();
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: "openrouter",
+      model: "normalizer-timeout-model:free",
+    }).structuredOutput,
+    true
+  );
+  assert.equal(
+    tierResolver.classifyTier("openrouter", "normalizer-timeout-model:free").tier,
+    "free"
+  );
+  assert.deepEqual(
+    taskFitness.getTaskFitnessWithSource("normalizer-timeout-model:free", "default", "high"),
+    {
+      score: 0.95,
+      source: "models_dev_tier",
+    }
+  );
+  const strictFreeBandCheck = buildAutoCandidateFilter("general_high_so", "free");
+  assert.equal(
+    strictFreeBandCheck?.({
+      provider: "openrouter",
+      model: "normalizer-timeout-model:free",
+      modelStr: "openrouter/normalizer-timeout-model:free",
+      costPer1MTokens: 0,
+    }),
+    true
   );
   process.env.API_KEY_SECRET = "test-only-api-key-secret";
-  await apiKeysDb.createApiKey("benchmark-timeout-test", "test-machine", ["manage"]);
+  await apiKeysDb.createApiKey("benchmark-timeout-test", "test-machine", ["manage"], {
+    allowedConnections: [normalizationConnection.id],
+  });
 
-  const originalSetTimeout = globalThis.setTimeout;
-  let fireNormalizationTimeout: (() => void) | null = null;
-  let releaseChatRequest: (() => void) | null = null;
   let chatRequestStarted = false;
+  let chatRequests = 0;
   const urls: string[] = [];
+  const unexpectedUrls: string[] = [];
+  const originalSetTimeout = globalThis.setTimeout;
   globalThis.setTimeout = ((
     callback: (...args: unknown[]) => void,
     delay?: number,
     ...args: unknown[]
-  ) => {
-    const timer = originalSetTimeout(callback, delay, ...args);
-    if (delay === processor.NORMALIZATION_TIMEOUT_MS) {
-      fireNormalizationTimeout = () => callback(...args);
-    }
-    return timer;
-  }) as typeof globalThis.setTimeout;
+  ) =>
+    originalSetTimeout(
+      callback,
+      delay === processor.NORMALIZATION_TIMEOUT_MS ? 30_000 : delay,
+      ...args
+    )) as typeof globalThis.setTimeout;
 
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
     urls.push(url);
-    if (url === "https://openrouter.ai/api/v1/models/xingchen-agi/xing4.0-29b-a4b:free/endpoints") {
-      return jsonResponse(openRouterEndpointMetadata());
-    }
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
       return jsonResponse({
         tier: "free",
@@ -2007,18 +1871,28 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
           : { results: [] }
       );
     }
+    if (url === "https://openrouter.ai/api/v1/key") {
+      return jsonResponse({ data: { label: "test account" } });
+    }
+    if (url === "https://openrouter.ai/api/v1/credits") {
+      return jsonResponse({ data: { total_credits: 1, total_usage: 0 } });
+    }
     if (url.includes("openrouter.ai/api/v1/chat/completions")) {
       chatRequestStarted = true;
-      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+      chatRequests += 1;
+      const request = input instanceof Request ? input : null;
+      assert.equal(
+        new Headers(request?.headers ?? init?.headers).has("x-omniroute-connection"),
+        false
+      );
+      const signal = request?.signal ?? init?.signal;
+      assert.ok(signal, "Expected normalization timeout to abort upstream request");
       return new Promise<Response>((_resolve, reject) => {
-        releaseChatRequest = () => reject(new DOMException("Test cleanup", "AbortError"));
-        if (signal?.aborted) {
-          reject(signal.reason);
-          return;
-        }
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+        if (signal.aborted) reject(signal.reason);
       });
     }
+    unexpectedUrls.push(url);
     throw new Error(`Unexpected request: ${url}`);
   };
 
@@ -2029,7 +1903,10 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
   let drain: Promise<void> | null = null;
   try {
     drain = search.drainModelBenchmarkSearchQueue();
-    assert.ok(await waitFor(() => chatRequestStarted));
+    assert.ok(
+      await waitFor(() => chatRequestStarted, 30_000),
+      `No normalization dispatch; URLs: ${urls.join(", ")}`
+    );
     const activeRuns = searchDb.listModelBenchmarkSearchRuns();
     const slow = activeRuns.find((run) => run.modelId === "a-slow-model");
     const next = activeRuns.find((run) => run.modelId === "z-next-model");
@@ -2038,8 +1915,6 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
     assert.equal(slow.status, "running");
     assert.equal(next.status, "pending");
 
-    if (fireNormalizationTimeout) fireNormalizationTimeout();
-    else if (releaseChatRequest) releaseChatRequest();
     await drain;
 
     const runs = searchDb.listModelBenchmarkSearchRuns();
@@ -2055,6 +1930,8 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
     const completedSlow = runs.find((run) => run.modelId === "a-slow-model");
     assert.ok(completedSlow);
     assert.equal(completedSlow.normalizationStatus, "normalization_timeout_unrated");
+    assert.match(completedSlow.lastError ?? "", /Strict-SO normalization timed out/);
+    assert.equal(completedSlow.sourceStatus.normalizationProcessor.normalizerRequestCount, 1);
     assert.equal(completedSlow.sourceStatus.ollamaSearch.provider, "ollama-search");
     assert.equal(completedSlow.sourceStatus.ollamaSearch.searchCostUsd, 0);
     assert.ok(
@@ -2062,10 +1939,10 @@ test("a timed-out strict-SO row is saved before the next model is claimed", asyn
         .listModelBenchmarkSearchEvidence("a-slow-model")
         .some((row) => row.source === "ollama-search")
     );
+    assert.equal(chatRequests, 1);
+    assert.deepEqual(unexpectedUrls, []);
     assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 2);
   } finally {
-    if (fireNormalizationTimeout) (fireNormalizationTimeout as () => void)();
-    else if (releaseChatRequest) releaseChatRequest();
     await drain?.catch(() => undefined);
     globalThis.setTimeout = originalSetTimeout;
   }
