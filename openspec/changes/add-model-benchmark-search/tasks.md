@@ -148,3 +148,7 @@
       remain auditable. Confirm source evidence reaches all currently available
       built-in-band candidate IDs; preserve existing user override precedence
       until override provenance is established separately.
+- [x] 4.12 Prove direct reprocessing feeds the actual free-band consumer using
+      raw catalog `model.id` for both `coding_high_tools:free` and
+      `general_high_tools:free`, while keeping `${providerId}/${modelId}` only
+      as the route-facing model string.

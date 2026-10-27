@@ -832,6 +832,9 @@ Deferred cross-repository and operations work:
 
 # Benchmark evidence integrity and direct reprocessing — 2026-10-27
 
+- [x] Verify the direct operator's raw active-catalog fitness key reaches both
+      actual free `coding_high_tools` and `general_high_tools` band filters;
+      keep `${providerId}/${modelId}` separate as the route-facing model string.
 - [x] Finish local independent review, regression proof, Code Simplifier, and
       commit for `add-model-benchmark-search`, including retained-AA repair
       when the same source ID has changed payload and repair across more than

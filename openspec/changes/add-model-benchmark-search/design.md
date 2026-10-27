@@ -344,6 +344,18 @@ reprocessBenchmarkEvidence(requestedIds):
   return { receipts, fitness observationCount, total/profile publication counts }
 ```
 
+The identity contract follows the existing band consumer. `getAllActiveSyncedModels`
+returns each provider catalog row's raw `model.id`; `virtualFactory` carries that
+value as `candidate.model` for quality-band lookup and keeps
+`${providerId}/${modelId}` separately as `candidate.modelStr` for routing. The
+operator SHALL persist and publish fitness under the raw `model.id`, without
+adding or removing a provider segment. The free band filter resolves
+`benchmark_fitness:{low|medium|high}` for that raw ID before its static
+`benchmark_consensus` and `models_dev_tier` fallbacks. Verify the path with the
+real free-band consumer for `coding_high_tools:free` and
+`general_high_tools:free`; assert the route-facing provider/model string stays
+separate from the fitness key. Do not change formula, precedence, or ranges.
+
 The operation may persist identity-only rows for validated active runtime IDs
 to satisfy the evidence table's foreign key. New identity rows SHALL start
 nonclaimable as `unrated_no_evidence`; an existing status SHALL be preserved on

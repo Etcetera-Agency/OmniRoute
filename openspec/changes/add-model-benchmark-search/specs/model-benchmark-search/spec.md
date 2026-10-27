@@ -416,6 +416,26 @@ and queue drain from running during the maintenance restart.
 - **THEN** each affected receipt reports `identityMatch: ambiguous`
 - **AND** it writes no evidence from the ambiguous name
 
+#### Scenario: Published evidence reaches the raw-ID free band consumer
+
+- **GIVEN** the active `nvidia` provider catalog contains raw model ID
+  `z-ai/glm-5.3`
+- **AND** a second synced NVIDIA model is free, tool-capable, and has lower
+  direct benchmark scores
+- **AND** AA returns exact ID matches and an official source returns unique
+  exact-name matches for both models
+- **WHEN** direct reprocessing publishes fitness and the actual free-band
+  consumer evaluates `coding_high_tools:free` and `general_high_tools:free`
+- **THEN** both filters read the `benchmark_fitness:high` profile using raw
+  fitness key `z-ai/glm-5.3`
+- **AND** both filters admit `nvidia/z-ai/glm-5.3` and exclude the lower-scoring
+  free, tool-capable model
+- **AND** each filter sees direct benchmark fitness before static
+  `benchmark_consensus` or `models_dev_tier` fallback
+- **AND** route-facing `candidate.modelStr` remains `nvidia/z-ai/glm-5.3`
+- **AND** no provider prefix is added to or stripped from the stored fitness ID
+- **AND** fitness formula, profile precedence, and band ranges are unchanged
+
 #### Scenario: Partial direct source scan stays incomplete
 
 - **GIVEN** one AA or official source response is incomplete or errors
