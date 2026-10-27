@@ -179,6 +179,7 @@ export async function recomputeModelBenchmarkFitness(): Promise<{
   scores: ModelBenchmarkFitness[];
   observationCount: number;
   publishedCount: number;
+  profilePublishedCount: number;
 }> {
   const models = listModelBenchmarkSearchCatalogModels();
   const evidence = listAllModelBenchmarkSearchEvidence();
@@ -201,14 +202,15 @@ export async function recomputeModelBenchmarkFitness(): Promise<{
     (profile) => `${MODEL_BENCHMARK_FITNESS_SOURCE}:${profile}`
   );
   const profileReplacement = replaceModelIntelligenceSources(profileSources, profileEntries);
+  const profilePublishedCount = profileReplacement.publishedCount;
   const publishedCount =
     bulkUpsertModelIntelligence(
       toModelIntelligenceEntries(scores, MODEL_BENCHMARK_FITNESS_SOURCE)
-    ) + profileReplacement.publishedCount;
+    ) + profilePublishedCount;
   if (publishedCount > 0 || profileReplacement.deletedCount > 0) {
     const { invalidateFitnessCache } =
       await import("@omniroute/open-sse/services/autoCombo/taskFitness");
     invalidateFitnessCache();
   }
-  return { scores, observationCount: observations.length, publishedCount };
+  return { scores, observationCount: observations.length, publishedCount, profilePublishedCount };
 }

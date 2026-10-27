@@ -238,3 +238,131 @@ drainQueue():
 - A controlled live request is still required to establish that the current
   server accepts the exact pinned free connection and returns valid strict-SO
   output. Static source and mocked tests do not prove live provider execution.
+
+## 2026-10-27 defect correction
+
+### Evidence fingerprint
+
+`parseAAEvidence` emits Coding and Intelligence records from the same raw AA
+row. Their raw JSON is intentionally identical; their benchmark and metric
+identify distinct observations. Add both fields to the existing deterministic
+fingerprint before `INSERT OR IGNORE`:
+
+```text
+fingerprint(evidence):
+  stableContent = existingStableContent(evidence)
+  stableContent.benchmark = evidence.benchmark
+  stableContent.metric = evidence.metric
+  return SHA256(JSON.stringify(stableContent))
+```
+
+Do not change any other fingerprint input, source matching, value handling,
+normalization, deduplication, fitness formula, thresholds, fallback, or effort
+profile. Repeated copies of the same source/benchmark/metric remain one row;
+different benchmark or metric records from one raw row remain separate.
+Refresh retained raw AA payloads with this same fingerprint to repair legacy
+cross-metric collisions. Keep one observation per prior stable identity plus
+benchmark/metric; repeated refresh is idempotent.
+
+### Active-catalog discovery gate
+
+Run this only after all direct sources completed and returned exact misses, but
+before either HF or Ollama Search:
+
+```text
+discover(model):
+  activeByProvider = await getAllActiveSyncedModels()
+  activeIds = set(
+    lowercase(model.id)
+    for each catalogModel in flatten(values(activeByProvider))
+  )
+  if lowercase(model.id) not in activeIds:
+    persist sourceStatus.catalogEligibility = {
+      status: "unavailable",
+      reason: "model_not_in_active_synced_catalog"
+    }
+    finish model as unrated_no_evidence with no HF, Ollama, or normalizer call
+    return
+  preserve existing HF -> explicit zero-cost Ollama Search -> strict-SO flow
+```
+
+`getAllActiveSyncedModels` already limits the catalog to active provider
+connections and excludes search-only providers; lookup errors return an empty
+catalog and therefore fail closed. Match model IDs exactly after case folding;
+do not match names, prefixes, aliases, or substrings. The guard makes no
+provider request, so client search requests and provider attempts remain
+separate and unchanged.
+
+### One-shot direct evidence reprocessing
+
+Provide one internal operation that the bundled operator script can call. The
+script reads every currently active OmniRoute model ID from active provider
+catalogs and passes the complete set; it does not cap the list to a sample or
+batch prefix and does not use only models.dev IDs. The operation revalidates
+IDs against the active catalogs, so stale or non-ID inputs receive explicit
+`missing` receipts and never get materialized. Retained AA raw payloads are
+reparsed before the current direct snapshot is materialized, allowing rows no
+longer present in the source feed to recover the lost metric too.
+
+```text
+reprocessBenchmarkEvidence(requestedIds):
+  activeByProvider = await getAllActiveSyncedModels()
+  activeModels = flatten(values(activeByProvider))
+  matches = exactCaseFoldedIdMatches(requestedIds, activeModels)
+  newIds = persist identity-only rows for matched runtime IDs with nonclaimable
+    status "unrated_no_evidence"; preserve existing status on conflict
+  snapshot = await getBenchmarkSourceSnapshot(fetch)  # one AA + official load
+  retainedAa = reparseRetainedAaEvidence(matchedRuntimeIds, snapshot.aa.allRows)
+  snapshot.aa.allRows.push(...retainedAa)
+  receipts = []
+  for each requestedId:
+    if no active ID match:
+      receipts.push({
+        modelId: requestedId,
+        identityStatus: "missing",
+        evidenceStatus: "missing",
+        sources: each source's status/completeness, identityMatch: "missing",
+          and records: 0
+      })
+      continue
+    model = matched active catalog record
+    direct = materializeModelEvidence(model, snapshot)  # no queue/refresh path
+    receipts.push({
+      modelId: model.id,
+      identityStatus: "matched",
+      evidenceStatus: "matched" if any direct check has records, else "missing",
+      sources: each direct check's status, completeness, record count, and
+        identityMatch (matched, ambiguous, missing, or unverified),
+      evidenceWrites: direct evidence writes, including repaired AA rows
+    })
+  fitness = await recomputeModelBenchmarkFitness()  # one global/profile pass
+  for each id in newIds:
+    status = scored if global fitness has coding/general score for id
+      else review_required if its receipt has direct matches
+      else unrated_no_evidence
+    persist status  # all outcomes remain nonclaimable
+  return { receipts, fitness observationCount, total/profile publication counts }
+```
+
+The operation may persist identity-only rows for validated active runtime IDs
+to satisfy the evidence table's foreign key. New identity rows SHALL start
+nonclaimable as `unrated_no_evidence`; an existing status SHALL be preserved on
+conflict. After recomputation, only newly inserted rows SHALL settle to
+`scored`, `review_required`, or `unrated_no_evidence` from their direct evidence
+and computed score; these outcomes remain nonclaimable. The operation SHALL not create search run/job rows, claim queued
+work, or call queue drain, `refreshSearchRun`, Hugging Face, Ollama Search, or
+strict-SO. Evidence SHALL retain the actual runtime ID;
+source matching SHALL use exact raw source IDs or unique exact names only,
+without provider-prefix stripping. Direct source incompleteness stays visible
+in each receipt; it does not become a negative match. Global recomputation is
+deliberate: existing base and effort profile entries must all reflect the
+repaired evidence. The script prints the returned JSON receipt and exits
+nonzero if source loading or fitness recomputation cannot complete.
+
+Bundle the script entry with esbuild during the backend-builder stage, bundle
+local application code, leave runtime packages external, and copy the output
+into the final official-image overlay. Keep the upstream standalone entrypoint
+and command unchanged. Run the bundle only through an explicit `node` operator
+command with `/app/data` as `DATA_DIR`; never attach it to service startup. The
+release runbook must pause startup-triggered models.dev sync/queue drain before
+the maintenance restart, then execute the one-shot bundle once.

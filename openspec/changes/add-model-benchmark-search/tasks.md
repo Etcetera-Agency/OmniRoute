@@ -88,8 +88,12 @@
       remaining findings.
 - [ ] 3.4a Verify live endpoint metadata, exact free connection, internal-key
       availability, and search quota through read-only checks before inference.
-- [ ] 3.5 Commit after Code Simplifier; then use the owner-authorized PR/main
-      deployment path. Do not build a separate local image.
+- [x] 3.5 Apply Code Simplifier, update `completion.review` and
+      `openspec/TODO.md`, then commit this local package. Do not build a separate
+      local image.
+- [ ] 3.5a After owner-approved integration, follow the authorized PR/main
+      deployment path; no PR, merge, deployment, or runtime action is part of
+      this local implementation package.
 - [ ] 3.6 After deployment, run one controlled search-plus-strict-SO request.
       Record client requests and provider attempts separately, exact model and
       connection, output validation, route, zero cost, and absence of fallback.
@@ -100,3 +104,47 @@
 - [ ] 3.9 Verify live rate-limit reset handling and one successful strict-SO
       response through the same free model/connection, with zero paid or
       out-of-band attempts.
+
+## 4. Proven evidence identity and catalog eligibility correction
+
+- [x] 4.1 Add RED regressions using the verified AA payload shape: persist both
+      `AA Coding` and `AA Intelligence` from one row, retain both metric values,
+      and prove fitness recomputation sees both observations.
+- [x] 4.2 Add RED regressions proving a complete direct-source miss skips both
+      HF and Ollama Search when no active synced provider model ID matches after
+      case folding; exact case-folded catalog match preserves the current HF
+      route and provider selection.
+- [x] 4.3 Include `benchmark` and `metric` in the existing evidence fingerprint
+      and fail closed on a model ID absent from `getAllActiveSyncedModels`,
+      persisting an auditable unrated eligibility reason.
+- [x] 4.4 Run focused benchmark-search and fitness-recompute tests, review the
+      diff with Code Simplifier, and update this review plus `openspec/TODO.md`.
+- [ ] 4.5 After owner integration, reprocess existing AA raw evidence that
+      collided under the old fingerprint; verify both metrics persist and
+      recompute before closing the live acceptance gates.
+- [x] 4.6 Make refresh repair old cross-metric collisions from retained raw AA
+      evidence and prove repeated refresh is idempotent.
+- [ ] 4.7 Record local package review, approved integration/release, live
+      acceptance, and legacy-evidence reprocessing receipts before closure.
+- [x] 4.8 Add an internal direct-evidence reprocessing operation: validate
+      explicit exact catalog IDs, repair retained AA payloads, load one AA plus
+      official source snapshot, persist nonclaimable identity-only rows for
+      matched IDs while preserving existing status on conflict, materialize
+      evidence under actual runtime IDs, and recompute global fitness and
+      effort profiles once.
+- [x] 4.9 Add one bundled operator script that supplies every active OmniRoute
+      provider-catalog model ID, including identities absent from the models.dev
+      snapshot, without a sample limit; print per-ID/source/write/publication
+      receipts and copy into the final overlay without changing startup or
+      adding a public endpoint.
+- [x] 4.10 Add tests for no search-run/job, search, or normalizer calls; exact
+      identity receipts; incomplete-source reporting; evidence persistence
+      under runtime IDs; nonclaimable identity status and drain exclusion; and
+      global profile publication. Include more than 108 active IDs to catch
+      truncation.
+- [ ] 4.11 Before the later release reprocessing, prevent startup-triggered
+      models.dev sync and queue drain during the maintenance restart; run the
+      bundle across all active IDs and verify missing IDs and source failures
+      remain auditable. Confirm source evidence reaches all currently available
+      built-in-band candidate IDs; preserve existing user override precedence
+      until override provenance is established separately.

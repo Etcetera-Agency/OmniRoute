@@ -208,6 +208,47 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       source failures, partial scans, and missing effort/value stay unverified
       and unrated. No frozen score-map write path exists. Focused RED/GREEN
       tests and core typecheck are recorded in `completion.review`.
+- [ ] `add-model-benchmark-search` 2026-10-27 correction remains open: the
+      internal direct-only reprocessor and bundled operator entry are locally
+      implemented; after review and commit, obtain owner-approved
+      integration/release and complete live acceptance.
+      Fingerprint includes benchmark and metric; refresh repairs prior AA
+      cross-metric collisions idempotently from retained raw evidence. The later
+      release run must prevent startup-triggered models.dev sync and queue drain,
+      reprocess every active OmniRoute catalog model ID (including IDs absent
+      from the models.dev snapshot) without a 108-row cap, and verify per-ID
+      missing/ambiguous/source-failure receipts plus both metrics and global
+      effort-profile recomputation before closing this package. TL304 found 31
+      actual strict-zero-cost built-in-band candidates with no
+      `benchmark_fitness*` rows: 29 have `user_override` rows and two lack exact
+      models.dev identity matches. TL304 provenance trace found 152
+      assistant-generated synthetic overrides across 76 models, all written at
+      `2026-10-25 17:32:06`, each matching the exact tier-default pair; no later
+      override timestamp exists. After direct evidence is ready, back up and
+      remove only that exact key/value/timestamp whitelist with a
+      concurrent-change guard, then verify unchanged code-level override
+      precedence and recalculated fitness. The prepared whitelist is
+      `/tmp/tl304-user-override-whitelist-20261027.json` with SHA-256
+      `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`;
+      it contains 152 rows across 76 exact coding/default pairs (58 `.92/.85`,
+      5 `.85/.78`, 13 `.65/.55`). Verify its hash and all row preconditions
+      before the later authorized cleanup; no cleanup or DB backup has run.
+      Verify direct evidence reaches every available candidate ID and receipt
+      unmatched IDs.
+      Identity-only runtime model records may be inserted to satisfy evidence
+      storage foreign keys, but new rows must be nonclaimable
+      `unrated_no_evidence` before materialization; after recompute, only new
+      rows settle to nonclaimable scored/review-required/unrated outcomes, and
+      conflicts preserve status. Do not create search
+      run/job rows or use provider-prefix stripping as source matching. TL304's
+      read-only map found full-ID equality to models.dev for 1/31 candidates;
+      removing exactly the first provider segment yields catalog identities for
+      31/31. Keep that mapping as receipt context only; store and score the
+      actual runtime IDs. `groq/allam-2-7b` has both exact and stripped catalog
+      rows, so do not silently rewrite it. The two candidates without existing
+      intelligence/override rows are `nvidia/minimaxai/minimax-m3.1-flash` and
+      `openrouter/recursive/flint-v1.0:free`; both have canonical catalog rows.
+      Gate startup auto-sync off before deployment/reprocessing.
 - [x] Add a separate strict-SO processor for candidates from explicit free
       web search candidates. The original implementation used a pinned
       `xingchen-agi/xing4.0-29b-a4b:free` / Phala connection and is superseded
@@ -788,3 +829,27 @@ Deferred cross-repository and operations work:
 - [ ] Do not deploy or run model inference until the live strict zero-cost
       route is verified against the changed source. No paid or out-of-band
       fallback is permitted.
+
+# Benchmark evidence integrity and direct reprocessing — 2026-10-27
+
+- [x] Finish local independent review, regression proof, Code Simplifier, and
+      commit for `add-model-benchmark-search`, including retained-AA repair
+      when the same source ID has changed payload and repair across more than
+      100 stored evidence rows.
+- [ ] After approved integration, prevent startup models.dev sync and queue
+      drain during maintenance restart; run the bundled direct-only reprocessor
+      across every active synced runtime identity. Confirm source match,
+      missing, ambiguity, incomplete-source, persistence, and fitness-profile
+      publication receipts. Keep actual runtime IDs as publication keys; do not
+      infer provider-prefix mappings.
+- [ ] Run strict OpenSpec validation when the CLI is available; `openspec`
+      is not installed in this worktree, so package validation remains pending.
+- [ ] Confirm direct benchmark evidence reaches every currently available
+      built-in-band candidate identity. Before cleanup, verify whitelist hash
+      `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`, take
+      a private DB backup, and remove only exact generated override key/value/
+      timestamp matches under a concurrent-change guard. Preserve unrelated
+      overrides and current precedence logic.
+- [ ] Run approved live acceptance only after release: verify new evidence and
+      recomputed profiles against the actual runtime catalog, then record the
+      exact source/image and receipts before closing this package.

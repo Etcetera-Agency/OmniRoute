@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { createHash } from "node:crypto";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-model-benchmark-search-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -18,6 +19,8 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const modelIntelligenceDb = await import("../../src/lib/db/modelIntelligence.ts");
 const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
+const modelsDb = await import("../../src/lib/db/models.ts");
+const fitnessSync = await import("../../src/lib/modelBenchmarkFitnessSync.ts");
 const taskFitness = await import("../../open-sse/services/autoCombo/taskFitness.ts");
 const tierResolver = await import("../../open-sse/services/tierResolver.ts");
 const { buildAutoCandidateFilter } =
@@ -67,6 +70,62 @@ async function waitFor(predicate: () => unknown, timeoutMs = 2_000) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   return null;
+}
+
+async function addActiveCatalogModels(models: Array<{ id: string; name: string }>) {
+  const connection = (await providersDb.createProviderConnection({
+    provider: "openai",
+    authType: "apikey",
+    name: "benchmark-active-catalog-test",
+    apiKey: "benchmark-active-catalog-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  })) as { id: string };
+  await modelsDb.replaceSyncedAvailableModelsForConnection("openai", connection.id, models);
+}
+
+function insertLegacyAaCodingEvidence(
+  modelId: string,
+  raw: Record<string, unknown>,
+  value: number | null
+) {
+  const sourceVersion = "Artificial Analysis Free index v4.1";
+  const sourceUrl = "https://artificialanalysis.ai/api/v2/language/models/free";
+  const modelName = typeof raw.name === "string" ? raw.name : null;
+  const sourceDate = typeof raw.release_date === "string" ? raw.release_date : null;
+  const evidenceHash = createHash("sha256")
+    .update(
+      JSON.stringify({ modelId, source: "artificial-analysis-free", sourceVersion, sourceUrl, raw })
+    )
+    .digest("hex");
+  core
+    .getDbInstance()
+    .prepare(
+      `INSERT INTO model_benchmark_search_evidence (
+        evidence_hash, model_id, source, source_version, matched_model_id,
+        matched_model_name, benchmark, benchmark_version, reasoning_effort,
+        metric, value, source_url, source_date, verification_status, captured_at, raw_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      evidenceHash,
+      modelId,
+      "artificial-analysis-free",
+      sourceVersion,
+      modelId,
+      modelName,
+      "AA Coding",
+      sourceVersion,
+      "high",
+      "artificial_analysis_coding_index",
+      value,
+      sourceUrl,
+      sourceDate,
+      "source_verified",
+      new Date().toISOString(),
+      JSON.stringify(raw)
+    );
 }
 
 test.beforeEach(() => {
@@ -204,6 +263,7 @@ test("web search stops before calling Ollama when registry cost is nonzero", asy
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([{ id: "cost-change-model", name: "Cost Change Model" }]);
   const provider = searchRegistry.getSearchProvider("ollama-search");
   assert.ok(provider);
   const originalCost = provider.costPerQuery;
@@ -262,6 +322,7 @@ test("queued search failure records an error without storing results or calling 
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([{ id: "search-error-model", name: "Search Error Model" }]);
   const urls: string[] = [];
   const unexpectedUrls: string[] = [];
   globalThis.fetch = async (input) => {
@@ -313,6 +374,10 @@ test("Ollama Search 429 defers whole queue before strict-SO dispatch", async () 
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([
+    { id: "a-search-rate-limited", name: "Search Rate Limited" },
+    { id: "z-search-peer", name: "Search Peer" },
+  ]);
   const urls: string[] = [];
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
@@ -370,6 +435,7 @@ test("Ollama Search 429 defers whole queue before strict-SO dispatch", async () 
 
 test("exact Ollama Search no-credentials error defers without trying another route", async () => {
   process.env.AA_API_KEY = "test-only-key";
+  await addActiveCatalogModels([{ id: "search-no-credentials", name: "Search No Credentials" }]);
   const urls: string[] = [];
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
@@ -421,6 +487,7 @@ test("repeated Ollama Search 429s stop at the attempt limit and keep candidates 
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([{ id: "repeated-429-model", name: "Repeated 429 Model" }]);
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
   let searchCalls = 0;
@@ -502,6 +569,10 @@ test("fitness refresh failure preserves a deferred retry and its source receipt"
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([
+    { id: "fitness-seed-model", name: "Fitness Seed Model" },
+    { id: "fitness-failure-model", name: "Fitness Failure Model" },
+  ]);
   searchDb.enqueueModelBenchmarkSearches([
     { id: "fitness-seed-model", name: "Fitness Seed Model" },
     { id: "fitness-failure-model", name: "Fitness Failure Model" },
@@ -1295,6 +1366,7 @@ test("full-catalog batch materializes sources only for models it claims", async 
     id: `bounded-model-${index}`,
     name: `Bounded Model ${index}`,
   }));
+  await addActiveCatalogModels(models);
   searchDb.enqueueModelBenchmarkSearches(models);
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
@@ -1326,7 +1398,7 @@ test("full-catalog batch materializes sources only for models it claims", async 
   await search.drainModelBenchmarkSearchQueue();
 
   const firstBatchEvidence = searchDb.listAllModelBenchmarkSearchEvidence();
-  assert.equal(firstBatchEvidence.length, 20);
+  assert.equal(firstBatchEvidence.length, 40);
   assert.equal(new Set(firstBatchEvidence.map((row) => row.modelId)).size, 20);
   assert.equal(
     searchDb.listModelBenchmarkSearchRuns(100).filter((run) => run.status === "pending").length,
@@ -1338,7 +1410,7 @@ test("full-catalog batch materializes sources only for models it claims", async 
   );
 
   await search.drainModelBenchmarkSearchQueue();
-  assert.equal(searchDb.listAllModelBenchmarkSearchEvidence().length, 21);
+  assert.equal(searchDb.listAllModelBenchmarkSearchEvidence().length, 42);
 });
 
 test("display names cannot masquerade as exact model IDs during source matching", async () => {
@@ -1352,6 +1424,10 @@ test("display names cannot masquerade as exact model IDs during source matching"
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([
+    { id: "vendor/model-a", name: "Shared Model" },
+    { id: "vendor/model-b", name: "Shared Model" },
+  ]);
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
@@ -1401,7 +1477,7 @@ test("display names cannot masquerade as exact model IDs during source matching"
 
   await search.drainModelBenchmarkSearchQueue();
 
-  assert.equal(searchDb.listModelBenchmarkSearchEvidence("vendor/model-a").length, 1);
+  assert.equal(searchDb.listModelBenchmarkSearchEvidence("vendor/model-a").length, 2);
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("vendor/model-b").length, 0);
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("Shared Model").length, 0);
 });
@@ -1419,6 +1495,7 @@ test("complete AA and official miss runs HF and explicit free search, then stays
     testStatus: "active",
     providerSpecificData: {},
   });
+  await addActiveCatalogModels([{ id: "NEW-MODEL", name: "Other Catalog Label" }]);
   const urls: string[] = [];
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
@@ -1527,6 +1604,339 @@ test("complete AA and official miss runs HF and explicit free search, then stays
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("new-model").length, 2);
 });
 
+test("complete direct miss stays unrated when model ID is absent from active synced catalogs", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-catalog-gate-test",
+    apiKey: "ollama-search-catalog-gate-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  await addActiveCatalogModels([{ id: "provider/outside-model", name: "Unavailable Model" }]);
+
+  let hfCalls = 0;
+  let searchCalls = 0;
+  const urls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) {
+      hfCalls += 1;
+      return jsonResponse([]);
+    }
+    if (url === "https://ollama.com/api/web_search") {
+      searchCalls += 1;
+      return jsonResponse({ results: [] });
+    }
+    throw new Error(`Unexpected catalog eligibility request: ${url}`);
+  };
+
+  searchDb.enqueueModelBenchmarkSearches([{ id: "outside-model", name: "Unavailable Model" }]);
+  await search.drainModelBenchmarkSearchQueue();
+
+  assert.equal(hfCalls, 0);
+  assert.equal(searchCalls, 0);
+  assert.equal(
+    urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+    false
+  );
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  assert.equal(run.status, "unrated_no_evidence");
+  assert.equal(run.normalizationStatus, "not_started");
+  assert.deepEqual(run.sourceStatus.catalogEligibility, {
+    status: "unavailable",
+    reason: "model_not_in_active_synced_catalog",
+  });
+});
+
+test("operator reprocess validates and covers every active catalog ID without queue or search work", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  const providerPrefixedIds = [
+    "nvidia/deepseek-ai/deepseek-v4.1-flash",
+    "nvidia/google/diffusiongemma-26b-a4b-it",
+    "nvidia/meta/llama-3.2-11b-vision-instruct",
+    "nvidia/meta/llama-3.2-90b-vision-instruct",
+    "nvidia/meta/muse-glimmer-30b",
+    "nvidia/minimaxai/minimax-m3.1-flash",
+    "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia/nvidia/nemotron-3.5-super-vl-120b-a12b",
+    "nvidia/poolside/laguna-xs-2.1",
+    "nvidia/stepfun-ai/step-5-preview",
+    "nvidia/z-ai/glm-5.3",
+    "nvidia/z-ai/glm-5.3-flash",
+    "openrouter/recursive/flint-v1.0:free",
+    "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+    "openrouter/nvidia/nemotron-3.5-super-vl:free",
+    "openrouter/dots-studio/dots-3-note-preview:free",
+    "openrouter/nvidia/nemotron-3.5-lightning:free",
+    "openrouter/thinkingmachines/inkling-small:free",
+    "openrouter/poolside/laguna-s-2.1:free",
+    "openrouter/thinkingmachines/inkling:free",
+    "openrouter/poolside/laguna-xs-2.1:free",
+    "openrouter/cohere/north-mini-code:free",
+    "openrouter/nvidia/nemotron-3.5-content-safety:free",
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "openrouter/google/gemma-4-26b-a4b-it:free",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/google/lyria-3-pro-preview",
+    "openrouter/google/lyria-3-clip-preview",
+    "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+    "groq/allam-2-7b",
+  ];
+  const models = [
+    ...Array.from({ length: 109 }, (_, index) => ({
+      id: index === 0 ? "Catalog-000" : `catalog-${String(index).padStart(3, "0")}`,
+      name:
+        index === 4 || index === 5
+          ? "Ambiguous Catalog Name"
+          : `Catalog Model ${String(index).padStart(3, "0")}`,
+    })),
+    ...providerPrefixedIds.map((id) => ({ id, name: id })),
+  ];
+  await addActiveCatalogModels(models);
+  core
+    .getDbInstance()
+    .prepare(
+      `INSERT INTO model_benchmark_search_models (model_id, model_name, status)
+       VALUES (?, ?, 'scored')`
+    )
+    .run(models[3].id, models[3].name);
+  const beforeIdentityCount = core
+    .getDbInstance()
+    .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_models")
+    .get().count;
+  core.getDbInstance().exec(`
+    CREATE TABLE profile_publication_audit (count INTEGER NOT NULL);
+    INSERT INTO profile_publication_audit VALUES (0);
+    CREATE TRIGGER count_profile_publications
+    AFTER INSERT ON model_intelligence
+    WHEN NEW.source LIKE 'benchmark_fitness:%'
+    BEGIN
+      UPDATE profile_publication_audit SET count = count + 1;
+    END;
+  `);
+  const retainedAaRow = {
+    slug: models[3].id,
+    name: `${models[3].name} (high)`,
+    release_date: "2026-10-01",
+    evaluations: {
+      artificial_analysis_coding_index: 12,
+      artificial_analysis_intelligence_index: 24,
+    },
+  };
+  insertLegacyAaCodingEvidence(models[3].id, retainedAaRow, 12);
+
+  const urls: string[] = [];
+  let newIdentitiesStartedUnrated = false;
+  globalThis.fetch = async (input, init) => {
+    const url = requestUrl(input);
+    urls.push(url);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      newIdentitiesStartedUnrated =
+        core
+          .getDbInstance()
+          .prepare(
+            `SELECT COUNT(*) AS count FROM model_benchmark_search_models
+             WHERE status != 'unrated_no_evidence' AND model_id != ?`
+          )
+          .get(models[3].id).count === 0;
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [
+          {
+            slug: models[0].id,
+            name: `${models[0].name} (high)`,
+            evaluations: {
+              artificial_analysis_coding_index: 20,
+              artificial_analysis_intelligence_index: 30,
+            },
+          },
+          {
+            slug: models[1].id,
+            name: `${models[1].name} (high)`,
+            evaluations: {
+              artificial_analysis_coding_index: 10,
+              artificial_analysis_intelligence_index: 15,
+            },
+          },
+          {
+            name: "Ambiguous Catalog Name",
+            evaluations: {
+              artificial_analysis_coding_index: 8,
+              artificial_analysis_intelligence_index: 12,
+            },
+          },
+          {
+            slug: providerPrefixedIds[0],
+            name: `${providerPrefixedIds[0]} (high)`,
+            evaluations: {
+              artificial_analysis_coding_index: 20,
+              artificial_analysis_intelligence_index: 30,
+            },
+          },
+        ],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({
+        leaderboards: [
+          { name: "Verified", results: [{ model_display: models[2].name, resolved: 5 }] },
+        ],
+      });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      const requestBody = JSON.parse(String(init?.body ?? "{}"));
+      if (requestBody.name === "main") return jsonResponse({ rows: null });
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    throw new Error(`Unexpected operator reprocess request: ${url}`);
+  };
+
+  const unmatchedId = "inactive-probe";
+  const result = await search.reprocessModelBenchmarkSearchEvidence([
+    ...models.map((model) => model.id),
+    unmatchedId,
+  ]);
+  assert.equal(result.receipts.length, 141);
+  assert.equal(result.receipts[0].modelId, models[0].id);
+  assert.equal(result.receipts[0].identityStatus, "matched");
+  assert.equal(result.receipts[0].evidenceStatus, "matched");
+  assert.equal(result.receipts[0].sources.artificialAnalysis.records, 2);
+  assert.equal(result.receipts[2].sources.sweBench.records, 1);
+  assert.equal(result.receipts[3].sources.artificialAnalysis.records, 2);
+  assert.equal(result.receipts[4].sources.artificialAnalysis.identityMatch, "ambiguous");
+  assert.equal(result.receipts[4].sources.artificialAnalysis.records, 0);
+  assert.equal(result.receipts[109].evidenceStatus, "matched");
+  assert.equal(result.receipts[109].sources.artificialAnalysis.records, 2);
+  assert.equal(result.receipts[108].evidenceStatus, "missing");
+  assert.equal(result.receipts[108].sources.terminalBench21.status, "error");
+  assert.equal(result.receipts[108].sources.terminalBench21.complete, false);
+  assert.deepEqual(
+    result.receipts.slice(109, 140).map((receipt) => receipt.modelId),
+    providerPrefixedIds
+  );
+  assert.ok(
+    result.receipts.slice(109, 140).every((receipt) => receipt.identityStatus === "matched")
+  );
+  assert.ok(
+    result.receipts.slice(110, 140).every((receipt) => receipt.evidenceStatus === "missing")
+  );
+  const unmatchedReceipt = result.receipts[140];
+  assert.equal(unmatchedReceipt.modelId, unmatchedId);
+  assert.equal(unmatchedReceipt.identityStatus, "missing");
+  assert.equal(unmatchedReceipt.evidenceStatus, "missing");
+  assert.ok(Object.values(unmatchedReceipt.sources).every((source) => source.records === 0));
+  assert.equal(unmatchedReceipt.sources.terminalBench21.status, "error");
+  assert.equal(unmatchedReceipt.sources.terminalBench21.complete, false);
+  assert.equal(newIdentitiesStartedUnrated, true);
+  assert.equal(result.evidenceWrites, 9);
+  assert.ok(result.fitness.observationCount >= 9);
+  assert.ok(result.fitness.profilePublishedCount > 0);
+  assert.ok(result.fitness.publishedCount >= result.fitness.profilePublishedCount);
+  assert.equal(
+    core.getDbInstance().prepare("SELECT count FROM profile_publication_audit").get().count,
+    result.fitness.profilePublishedCount
+  );
+  assert.equal(urls.length, 5);
+  assert.equal(
+    urls.some((url) => url.includes("huggingface.co")),
+    false
+  );
+  assert.equal(
+    urls.some((url) => url.includes("ollama.com/api/web_search")),
+    false
+  );
+  assert.equal(
+    urls.some((url) => url.includes("openrouter.ai/api/v1/chat/completions")),
+    false
+  );
+
+  const identityRows = core
+    .getDbInstance()
+    .prepare(
+      `SELECT model_id, status, attempts, last_run_at FROM model_benchmark_search_models
+       ORDER BY model_id`
+    )
+    .all();
+  assert.equal(identityRows.length, 140);
+  assert.equal(identityRows.find((row) => row.model_id === models[3].id).status, "scored");
+  assert.equal(identityRows.find((row) => row.model_id === models[0].id).status, "scored");
+  assert.equal(
+    identityRows.find((row) => row.model_id === providerPrefixedIds[0]).status,
+    "scored"
+  );
+  assert.ok(
+    identityRows.every((row) =>
+      ["scored", "review_required", "unrated_no_evidence"].includes(row.status)
+    )
+  );
+  assert.ok(
+    result.receipts
+      .slice(110, 140)
+      .every((receipt) => receipt.processingStatus === "unrated_no_evidence")
+  );
+  assert.equal(result.receipts[109].processingStatus, "scored");
+  assert.ok(identityRows.every((row) => row.attempts === 0 && row.last_run_at === null));
+  assert.equal(searchDb.hasEligibleModelBenchmarkSearch(), false);
+  assert.equal(searchDb.claimModelBenchmarkSearch(), null);
+  const runtimeEvidence = searchDb.listModelBenchmarkSearchEvidence(providerPrefixedIds[0]);
+  assert.equal(runtimeEvidence.length, 2);
+  assert.ok(runtimeEvidence.every((row) => row.modelId === providerPrefixedIds[0]));
+  assert.equal(
+    searchDb.listModelBenchmarkSearchEvidence("deepseek-ai/deepseek-v4.1-flash").length,
+    0
+  );
+  assert.equal(
+    core
+      .getDbInstance()
+      .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_models WHERE model_id = ?")
+      .get(unmatchedId).count,
+    0
+  );
+  assert.equal(
+    core
+      .getDbInstance()
+      .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_evidence WHERE model_id = ?")
+      .get(unmatchedId).count,
+    0
+  );
+  assert.equal(
+    core
+      .getDbInstance()
+      .prepare("SELECT COUNT(*) AS count FROM model_benchmark_search_models")
+      .get().count - beforeIdentityCount,
+    139
+  );
+  assert.ok(
+    core
+      .getDbInstance()
+      .prepare(
+        `SELECT COUNT(*) AS count FROM model_intelligence
+                WHERE source IN ('benchmark_fitness:low', 'benchmark_fitness:medium', 'benchmark_fitness:high')`
+      )
+      .get().count > 0
+  );
+});
+
 test("an incomplete official source blocks HF and web search", async () => {
   process.env.AA_API_KEY = "test-only-key";
   let hfCalls = 0;
@@ -1579,9 +1989,81 @@ test("an incomplete official source blocks HF and web search", async () => {
   assert.equal(searchDb.listModelBenchmarkSearchEvidence("incomplete-model").length, 0);
 });
 
-test("direct AA scores avoid search while retaining an exact official SWE row", async () => {
+test("retained AA repair recomputes when another source is incomplete", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  const aaRow = {
+    slug: "incomplete-repair-model",
+    name: "Incomplete Repair Model (high)",
+    evaluations: {},
+  };
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "incomplete-repair-model", name: "Incomplete Repair Model" },
+  ]);
+  insertLegacyAaCodingEvidence("incomplete-repair-model", aaRow, null);
+  let hfCalls = 0;
+  let searchCalls = 0;
+  let normalizationCalls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        intelligence_index_version: 4.1,
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/")) {
+      return jsonResponse({ leaderboards: [] });
+    }
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      if (body.name === "main") return jsonResponse({ error: "temporarily unavailable" }, 503);
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) {
+      hfCalls += 1;
+      return jsonResponse([]);
+    }
+    if (url === "https://ollama.com/api/web_search") {
+      searchCalls += 1;
+      return jsonResponse({ results: [] });
+    }
+    if (url.includes("openrouter.ai/api/v1/chat/completions")) normalizationCalls += 1;
+    throw new Error(`Unexpected request while repairing retained AA evidence: ${url}`);
+  };
+
+  await search.drainModelBenchmarkSearchQueue();
+
+  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  const repairedRows = searchDb
+    .listModelBenchmarkSearchEvidence("incomplete-repair-model")
+    .filter((row) => row.source === "artificial-analysis-free");
+  assert.equal(run.status, "review_required");
+  assert.equal(run.sourceStatus.terminalBench21.status, "error");
+  assert.equal(repairedRows.length, 2);
+  assert.deepEqual(repairedRows.map((row) => row.metric).sort(), [
+    "artificial_analysis_coding_index",
+    "artificial_analysis_intelligence_index",
+  ]);
+  assert.ok(repairedRows.every((row) => row.value === null));
+  assert.equal(hfCalls, 0);
+  assert.equal(searchCalls, 0);
+  assert.equal(normalizationCalls, 0);
+});
+
+test("retained AA raw evidence repairs both metrics before returning its score", async () => {
   process.env.AA_API_KEY = "test-only-key";
   const urls: string[] = [];
+  const aaRow = {
+    slug: "new-model",
+    name: "New Model (high)",
+    release_date: "2026-10-01",
+    evaluations: {
+      artificial_analysis_coding_index: 20,
+      artificial_analysis_intelligence_index: 30,
+    },
+  };
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
     urls.push(url);
@@ -1591,21 +2073,21 @@ test("direct AA scores avoid search while retaining an exact official SWE row", 
         pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
         data: [
           {
-            slug: "new-model",
-            name: "New Model (high)",
-            release_date: "2026-10-01",
-            evaluations: {
-              artificial_analysis_coding_index: 20,
-              artificial_analysis_intelligence_index: 30,
-            },
-          },
-          {
             slug: "peer-model",
             name: "Peer Model (high)",
             release_date: "2026-10-01",
             evaluations: {
               artificial_analysis_coding_index: 10,
               artificial_analysis_intelligence_index: 15,
+            },
+          },
+          {
+            slug: "new-model",
+            name: "New Model (high)",
+            release_date: "2026-10-02",
+            evaluations: {
+              artificial_analysis_coding_index: 21,
+              artificial_analysis_intelligence_index: 31,
             },
           },
         ],
@@ -1629,14 +2111,116 @@ test("direct AA scores avoid search while retaining an exact official SWE row", 
     { id: "new-model", name: "New Model" },
     { id: "peer-model", name: "Peer Model" },
   ]);
+  insertLegacyAaCodingEvidence("new-model", aaRow, 20);
+  searchDb.saveModelBenchmarkSearchEvidence(
+    Array.from({ length: 100 }, (_, index) => ({
+      evidenceHash: `retained-aa-test-noise-${index}`,
+      modelId: "new-model",
+      source: "unrelated-test-fixture",
+      sourceVersion: null,
+      matchedModelId: null,
+      matchedModelName: null,
+      benchmark: null,
+      benchmarkVersion: null,
+      reasoningEffort: null,
+      reasoningConfig: null,
+      metric: null,
+      value: null,
+      sourceUrl: "https://example.test/evidence",
+      sourceDate: null,
+      verificationStatus: "source_record_unreviewed",
+      capturedAt: new Date(Date.UTC(2100, 0, 1, 0, 0, index)).toISOString(),
+      raw: { index },
+    }))
+  );
+  const recentEvidence = searchDb.listModelBenchmarkSearchEvidence("new-model");
+  assert.equal(recentEvidence.length, 100);
+  assert.equal(
+    recentEvidence.some((item) => item.source === "artificial-analysis-free"),
+    false
+  );
   await search.drainModelBenchmarkSearchQueue();
+
+  const aaEvidence = searchDb
+    .listAllModelBenchmarkSearchEvidence()
+    .filter((item) => item.modelId === "new-model")
+    .filter((item) => item.source === "artificial-analysis-free");
+  assert.equal(aaEvidence.length, 4);
+  assert.deepEqual(aaEvidence.map((item) => [item.metric, item.value]).sort(), [
+    ["artificial_analysis_coding_index", 20],
+    ["artificial_analysis_coding_index", 21],
+    ["artificial_analysis_intelligence_index", 30],
+    ["artificial_analysis_intelligence_index", 31],
+  ]);
 
   const [run] = searchDb.listModelBenchmarkSearchRuns();
   assert.equal(run.status, "scored");
   assert.equal(run.sourceStatus.artificialAnalysis.status, "found");
   assert.equal(run.sourceStatus.sweBench.status, "found");
+  assert.equal(typeof run.sourceStatus.fitness.codingFitness, "number");
+  assert.equal(typeof run.sourceStatus.fitness.generalFitness, "number");
+  assert.equal(run.sourceStatus.fitness.generalFallback, false);
+  assert.equal(typeof run.sourceStatus.fitness.generalFamilyVotes["aa-intelligence"], "number");
+  const persistedProfileFitness = core
+    .getDbInstance()
+    .prepare(
+      `SELECT score, confidence FROM model_intelligence
+       WHERE model = ? AND source = 'benchmark_fitness:high' AND category = 'default'`
+    )
+    .get("new-model");
+  assert.ok(persistedProfileFitness);
+  assert.equal(typeof persistedProfileFitness.score, "number");
+  assert.equal(persistedProfileFitness.confidence.includes("reciprocal_task_fallback"), false);
+  const firstFitness = await fitnessSync.recomputeModelBenchmarkFitness();
+  const firstModelFitness = firstFitness.scores.find((item) => item.modelId === "new-model");
+  assert.ok(firstModelFitness);
+  assert.equal(firstModelFitness.generalFallback, false);
+  assert.equal(typeof firstModelFitness.generalFamilyVotes["aa-intelligence"], "number");
+  const retainedRows = aaEvidence.filter(
+    (item) => JSON.stringify(item.raw) === JSON.stringify(aaRow)
+  );
+  assert.deepEqual(retainedRows.map((item) => item.metric).sort(), [
+    "artificial_analysis_coding_index",
+    "artificial_analysis_intelligence_index",
+  ]);
+  assert.notEqual(aaEvidence[0].evidenceHash, aaEvidence[1].evidenceHash);
+  assert.equal(searchDb.saveModelBenchmarkSearchEvidence(aaEvidence), 0);
+  assert.equal(
+    searchDb
+      .listAllModelBenchmarkSearchEvidence()
+      .filter((item) => item.modelId === "new-model")
+      .filter((item) => item.source === "artificial-analysis-free").length,
+    4
+  );
+
+  core
+    .getDbInstance()
+    .prepare(
+      `UPDATE model_benchmark_search_models
+       SET status = 'pending', last_run_at = NULL, retry_after_at = NULL
+       WHERE model_id = ?`
+    )
+    .run("new-model");
+  await search.drainModelBenchmarkSearchQueue();
+
+  const rerunAaEvidence = searchDb
+    .listAllModelBenchmarkSearchEvidence()
+    .filter((item) => item.modelId === "new-model")
+    .filter((item) => item.source === "artificial-analysis-free");
+  assert.equal(rerunAaEvidence.length, 4);
+  assert.deepEqual(rerunAaEvidence.map((item) => [item.metric, item.value]).sort(), [
+    ["artificial_analysis_coding_index", 20],
+    ["artificial_analysis_coding_index", 21],
+    ["artificial_analysis_intelligence_index", 30],
+    ["artificial_analysis_intelligence_index", 31],
+  ]);
+  const secondFitness = await fitnessSync.recomputeModelBenchmarkFitness();
+  const secondModelFitness = secondFitness.scores.find((item) => item.modelId === "new-model");
+  assert.ok(secondModelFitness);
+  assert.deepEqual(secondModelFitness, firstModelFitness);
   const row = searchDb
-    .listModelBenchmarkSearchEvidence("new-model")
+    .listAllModelBenchmarkSearchEvidence()
+    .filter((item) => item.modelId === "new-model")
     .find((item) => item.source === "swe-bench");
   assert.ok(row);
   assert.equal(row.source, "swe-bench");
@@ -1865,6 +2449,10 @@ test("a strict-SO Auto 504 defers the queue before another model is claimed", as
   await apiKeysDb.createApiKey("benchmark-timeout-test", "test-machine", ["manage"], {
     allowedConnections: [normalizationConnection.id],
   });
+  await addActiveCatalogModels([
+    { id: "a-slow-model", name: "Slow Model" },
+    { id: "z-next-model", name: "Next Model" },
+  ]);
 
   let chatRequestStarted = false;
   let chatRequests = 0;
