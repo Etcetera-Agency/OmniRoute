@@ -1116,3 +1116,49 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   not installed in this Linux environment. No baseline was changed. Source
   changes remain local: not committed, pushed, merged, or deployed. Live queue
   remains blocked by absent `AA_API_KEY` as recorded above.
+
+## Normal Auto scorer deadline — 2026-10-27
+
+- Live requests used the ordinary `auto/general_high_so:free` path and reached
+  the scorer's five-minute timeout while OmniRoute was still performing its
+  native response-start retry. No provider, candidate pool, or cooldown was
+  changed. The scorer timeout had no retry timestamp, so queue processing could
+  move on instead of honoring the normal route's completion boundary.
+- Changed the scorer deadline to twenty minutes and the stale-row lease to
+  twenty-five minutes. A timeout now stores the existing fifteen-minute retry
+  timestamp; the existing queue loop stops at that timestamp. No manual retry,
+  provider pin, pool narrowing, cooldown reset, or paid fallback was added.
+- Independent Luna-xhigh review found that Auto's native ten-minute safety
+  response can arrive before the scorer deadline. The first regression failed
+  because the queue claimed the next model after that 504. The processor now
+  stores the existing fallback retry for HTTP 504 as well as its own timeout;
+  Auto's safety limit and target selection remain unchanged. Review confirmed
+  that a 504 requires search evidence, produces `review_required`, and that
+  `review_required` rows with `retry_after_at` become eligible after the delay;
+  the follow-up concern was retracted and no concrete findings remain.
+- Final focused route, Auto-504 deferral, and stale-lease tests pass 3/3. They
+  assert one normalization request, the next model remains pending, and stale
+  recovery begins after the twenty-minute request window. The logged test
+  request is a mocked local fixture, not a live inference receipt.
+- Code Simplifier review found no simpler equivalent that preserves the retry
+  timestamp and conditional timeout behavior. Prettier check passes for every
+  changed TypeScript and OpenSpec file. `npm run typecheck:core` still exits 2
+  on repository-wide diagnostics; a captured scan shows no diagnostic in the
+  changed processor, DB, or test files.
+- PR, merge, deployment, and live queue receipts remain pending. No push or
+  deployment was performed for this timeout change.
+
+## Predeployment live snapshot — 2026-10-27 05:10 UTC
+
+- `omniroute` is healthy on image
+  `sha256:673045e1f6eb3fcdc8b137d8ec690c7a5ba37e81f002a4f5169771f4e5f326ff`,
+  source revision `dc240241f56b6919024d8be0ccec25fe46f78b9d`. The active database
+  has 199 rows in `_omniroute_migrations`; this patch adds no migration.
+- Queue snapshot: 353 `review_required`, 1 `running`, 99 `scored`, 3,592
+  `source_error`, and 50 `unrated_no_evidence`. The running row is
+  `openai-gpt-6-astra-pro`, started at 05:08:30 UTC; no duplicate request was
+  started. The three earlier normalizer failures remain `review_required`
+  without `retry_after_at`; they were not reset or manually requeued.
+- This snapshot predates the new image. Wait for the active row to finish before
+  cutover, then verify fresh scheduled receipts. Reprocessing the three prior
+  rows is a separate queue action and is not part of this patch.

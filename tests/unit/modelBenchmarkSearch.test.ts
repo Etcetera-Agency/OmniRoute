@@ -619,6 +619,7 @@ test("strict-SO normalization uses high-band free Auto through ordinary chat", (
   );
 
   assert.equal(body.model, "auto/general_high_so:free");
+  assert.equal(processor.NORMALIZATION_TIMEOUT_MS, 20 * 60 * 1000);
   assert.equal(body.reasoning_effort, "high");
   assert.equal(body.stream, false);
   assert.deepEqual(body.response_format, {
@@ -636,6 +637,7 @@ test("strict-SO normalization uses high-band free Auto through ordinary chat", (
   assert.match(source, /\bhandleChat\(request, null, body, "model-benchmark-search"\)/);
   assert.equal([...processorBody.matchAll(/\bhandleChat\(/g)].length, 1);
   assert.match(processorBody, /parseNormalizationRetryAfter\(response\.headers\)/);
+  assert.match(processorBody, /response\.status === 429 \|\| response\.status === 504/);
 });
 
 test("normalization blocks before provider dispatch when Auto bands are disabled", async () => {
@@ -1730,7 +1732,7 @@ test("AA exact slug matches when display name includes a reasoning effort", asyn
   assert.equal(row.reasoningEffort, "high");
 });
 
-test("a strict-SO timeout saves the row before the next model is claimed", async () => {
+test("a strict-SO Auto 504 defers the queue before another model is claimed", async () => {
   process.env.AA_API_KEY = "test-only-key";
   process.env.OMNIROUTE_AUTO_BANDS = "1";
   await settingsDb.updateSettings({ freeAccessPolicy: "strict", modelsDevSyncEnabled: true });
@@ -1839,12 +1841,12 @@ test("a strict-SO timeout saves the row before the next model is claimed", async
     callback: (...args: unknown[]) => void,
     delay?: number,
     ...args: unknown[]
-  ) =>
-    originalSetTimeout(
-      callback,
-      delay === processor.NORMALIZATION_TIMEOUT_MS ? 30_000 : delay,
-      ...args
-    )) as typeof globalThis.setTimeout;
+  ) => {
+    let scaledDelay = delay;
+    if (delay === processor.NORMALIZATION_TIMEOUT_MS) scaledDelay = 20_000;
+    else if (delay === 10 * 60 * 1000) scaledDelay = 8_000;
+    return originalSetTimeout(callback, scaledDelay, ...args);
+  }) as typeof globalThis.setTimeout;
 
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
@@ -1924,13 +1926,14 @@ test("a strict-SO timeout saves the row before the next model is claimed", async
         .sort(([left], [right]) => left.localeCompare(right)),
       [
         ["a-slow-model", "review_required"],
-        ["z-next-model", "unrated_no_evidence"],
+        ["z-next-model", "pending"],
       ]
     );
     const completedSlow = runs.find((run) => run.modelId === "a-slow-model");
     assert.ok(completedSlow);
-    assert.equal(completedSlow.normalizationStatus, "normalization_timeout_unrated");
-    assert.match(completedSlow.lastError ?? "", /Strict-SO normalization timed out/);
+    assert.equal(completedSlow.normalizationStatus, "normalization_request_failed_unrated");
+    assert.equal(completedSlow.sourceStatus.normalizationProcessor.error, "HTTP 504");
+    assert.ok(completedSlow.retryAfterAt && Date.parse(completedSlow.retryAfterAt) > Date.now());
     assert.equal(completedSlow.sourceStatus.normalizationProcessor.normalizerRequestCount, 1);
     assert.equal(completedSlow.sourceStatus.ollamaSearch.provider, "ollama-search");
     assert.equal(completedSlow.sourceStatus.ollamaSearch.searchCostUsd, 0);
@@ -1941,7 +1944,12 @@ test("a strict-SO timeout saves the row before the next model is claimed", async
     );
     assert.equal(chatRequests, 1);
     assert.deepEqual(unexpectedUrls, []);
-    assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 2);
+    assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 1);
+    core
+      .getDbInstance()
+      .prepare("UPDATE model_benchmark_search_models SET retry_after_at = ? WHERE model_id = ?")
+      .run(new Date(Date.now() - 1_000).toISOString(), "a-slow-model");
+    assert.equal(searchDb.claimModelBenchmarkSearch()?.modelId, "a-slow-model");
   } finally {
     await drain?.catch(() => undefined);
     globalThis.setTimeout = originalSetTimeout;
@@ -1984,12 +1992,12 @@ test("a fresh running row schedules recovery at its stale boundary", async () =>
   try {
     await search.drainModelBenchmarkSearchQueue();
     assert.ok(recoveryTimer);
-    assert.ok((recoveryTimer as { delay: number }).delay > 0);
-    assert.ok((recoveryTimer as { delay: number }).delay <= 15 * 60 * 1000);
+    assert.ok((recoveryTimer as { delay: number }).delay > processor.NORMALIZATION_TIMEOUT_MS);
+    assert.ok((recoveryTimer as { delay: number }).delay <= 25 * 60 * 1000);
     assert.equal(searchDb.listModelBenchmarkSearchRuns()[0].status, "running");
 
     db.prepare("UPDATE model_benchmark_search_models SET last_run_at = ? WHERE model_id = ?").run(
-      new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+      new Date(Date.now() - 26 * 60 * 1000).toISOString(),
       "stale-model"
     );
     (recoveryTimer as { callback: () => void }).callback();
