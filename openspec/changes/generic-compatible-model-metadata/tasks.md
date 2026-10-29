@@ -57,3 +57,23 @@
       actionable findings.
 - [x] 3.5 Commit locally only. Keep GitHub build/release, deployment, and live
       compatible-provider acceptance in `openspec/TODO.md`.
+
+## 4. Merged-runtime import regression
+
+- [x] 4.1 Add a source import-graph regression for the cycle observed on main
+      `0c316b9`; prove it fails before the helper boundary change.
+- [x] 4.2 Move pure endpoint and compatible URL normalization helpers below
+      provider validation/runtime modules; update callers without a compatibility
+      shim and preserve exact URL behavior.
+- [x] 4.3 Keep `--check-runtime` evaluating the emitted operator module. Run the
+      focused source import regression and the existing compatible, pricing,
+      capability, and benchmark suite; do not build the operator locally.
+- [x] 4.4 Trace the remaining import-time DB path after the cycle is removed.
+      Record its pre-existing source edge in root/package reviews and keep
+      runtime-check semantics unchanged.
+- [x] 4.5 Run focused compiler/static checks and strict OpenSpec validation;
+      compare repository-wide typecheck diagnostics with the clean base if red.
+      Apply Code Simplifier to the complete correction before review.
+- [x] 4.6 Obtain fresh independent review, resolve actionable findings, and
+      commit locally. Keep the generated-artifact GitHub check and live provider
+      acceptance open in `openspec/TODO.md`.

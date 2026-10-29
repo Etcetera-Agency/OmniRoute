@@ -13,12 +13,8 @@ import {
   isBedrockNativeApiError,
   isBedrockNativeAuthError,
 } from "@omniroute/open-sse/services/bedrock.ts";
-import {
-  addModelsSuffix,
-  buildCompatibleModelsUrl,
-  normalizeBaseUrl,
-  resolveChatUrl,
-} from "./urlHelpers";
+import { buildCompatibleModelsUrl } from "@/shared/utils/compatibleProviderUrls";
+import { addModelsSuffix, normalizeBaseUrl, resolveChatUrl } from "./urlHelpers";
 import { applyCustomUserAgent, buildBearerHeaders } from "./headers";
 import { toValidationErrorResult, validationRead, validationWrite } from "./transport";
 import { validateDirectChatProvider } from "./directChatProbe";

@@ -1,5 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import {
+  stripAnthropicMessagesSuffix,
+  stripClaudeCodeCompatibleEndpointSuffix,
+} from "@/shared/utils/compatibleProviderUrls";
 import { getStainlessTimeoutSeconds } from "@/shared/utils/runtimeTimeouts";
 import { ANTHROPIC_VERSION_HEADER } from "../config/anthropicHeaders.ts";
 import {
@@ -102,24 +106,6 @@ export function isClaudeCodeCompatibleProvider(provider: string | null | undefin
     // while keeping their own registry baseUrl + auth (#6056).
     usesCcWireImage(provider)
   );
-}
-
-export function stripAnthropicMessagesSuffix(baseUrl: string | null | undefined): string {
-  const normalized = String(baseUrl || "")
-    .trim()
-    .replace(/\/$/, "");
-  if (!normalized) return "";
-  return normalized.split("?")[0].replace(/\/messages$/i, "");
-}
-
-export function stripClaudeCodeCompatibleEndpointSuffix(
-  baseUrl: string | null | undefined
-): string {
-  const normalized = String(baseUrl || "")
-    .trim()
-    .replace(/\/$/, "");
-  if (!normalized) return "";
-  return normalized.split("?")[0].replace(/\/(?:v\d+\/)?messages$/i, "");
 }
 
 function joinNormalizedBaseUrlAndPath(baseUrl: string, path: string): string {

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 const {
   CLAUDE_CODE_COMPATIBLE_DEFAULT_MAX_TOKENS,
-  stripClaudeCodeCompatibleEndpointSuffix,
   joinBaseUrlAndPath,
   joinClaudeCodeCompatibleUrl,
   resolveClaudeCodeCompatibleSessionId,
@@ -11,6 +10,8 @@ const {
   resolveClaudeCodeCompatibleMaxTokens,
   buildClaudeCodeCompatibleRequest,
 } = await import("../../open-sse/services/claudeCodeCompatible.ts");
+const { stripClaudeCodeCompatibleEndpointSuffix } =
+  await import("../../src/shared/utils/compatibleProviderUrls.ts");
 const { getModelsByProviderId, supportsXHighEffort } =
   await import("../../open-sse/config/providerModels.ts");
 

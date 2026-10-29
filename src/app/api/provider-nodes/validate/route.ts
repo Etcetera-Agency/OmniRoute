@@ -12,7 +12,7 @@ import { getProviderValidationGuard } from "@/shared/network/outboundUrlGuardPol
 import { isCcCompatibleProviderEnabled } from "@/shared/utils/featureFlags";
 import { providerNodeValidateSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { buildCompatibleModelsUrl } from "@/lib/providers/validation/urlHelpers";
+import { buildCompatibleModelsUrl } from "@/shared/utils/compatibleProviderUrls";
 
 // Matches a base URL whose host is localhost / 127.0.0.1 (with an optional port).
 const LOCALHOST_BASE_URL_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:[/?#]|$)/i;

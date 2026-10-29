@@ -3,10 +3,10 @@ import test from "node:test";
 
 import {
   applyCompatibleCapabilityOverrides,
-  buildCompatibleModelsUrl,
   compatibleCapabilityMap,
   fetchCompatibleModelCatalog,
 } from "@/lib/providers/compatibleModelDiscovery";
+import { buildCompatibleModelsUrl } from "@/shared/utils/compatibleProviderUrls";
 
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

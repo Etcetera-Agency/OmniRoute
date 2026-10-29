@@ -78,3 +78,55 @@
   separate open gates in `openspec/TODO.md`. This change does not archive or
   claim release acceptance. No runtime state or credentials were changed or
   exposed.
+
+## Merged-runtime import correction — 2026-10-29
+
+- GitHub ARM64 run `40954554580` failed its actual emitted-module check with
+  Node exit 13 and unsettled top-level await while importing
+  `modelBenchmarkSearch-Y5TC2YLC.mjs`. The source graph on main `0c316b9`
+  showed a new cycle from `modelsDevSync` through compatible discovery,
+  validation URL helpers, Claude runtime/context management, and capability
+  resolution back to `modelsDevSync`.
+- Moved the pure compatible endpoint and suffix helpers into
+  `src/shared/utils/compatibleProviderUrls.ts`. Validation and discovery use
+  that module directly; Claude service and its callers use the same helper.
+  No compatibility exports remain. `--check-runtime`, its operator, and
+  Dockerfile are unchanged.
+- `tests/unit/compatibleModelImportGraph.test.mjs` traverses static TypeScript
+  imports with the repository resolver. It passes on this source and fails on
+  clean base `0c316b9` because `src/lib/providers/validation/urlHelpers.ts`
+  is reachable from compatible discovery. The test verifies that the operator
+  source's `--check-runtime` branch follows the awaited benchmark-module import
+  and exits only after that import. It does not prove generated-artifact
+  behavior; the GitHub runtime check remains authoritative.
+- Focused compatible metadata, discovery, capability, endpoint-schema,
+  models.dev pricing, Claude helper/request, and benchmark-hook suite: **109/109
+  passed**. The import graph test passes **2/2**. Compatible provider requests
+  use mocks; the pre-existing models.dev test makes its public catalog GET.
+- Code Simplifier reviewed the moved helper boundary and regression. It sorted
+  the changed import groups and reduced the graph test to TypeScript's existing
+  module resolver/preprocessor; no further safe simplification remained.
+- Core TypeScript check remains red with **720 diagnostics**. A clean worktree
+  at base `0c316b9`, using the same dependencies and command, has the identical
+  720 diagnostics: **0 added, 0 removed**, and no diagnostics in changed source
+  modules. Focused ESLint passes for changed production files and the graph
+  test. Including two existing Claude test files reports 29 `no-explicit-any`
+  errors at untouched lines. Prettier and `git diff --check` pass; strict
+  OpenSpec validation reports this change valid.
+- A separate pre-existing source path reaches usage migrations:
+  `src/lib/modelBenchmarkSearch.ts` → `src/lib/search/executeWebSearch.ts` →
+  `open-sse/handlers/search.ts` → `src/lib/usageDb.ts` →
+  `src/lib/usage/migrations.ts`. The last module invokes migration/archive
+  work at import time under its existing disk-persistence condition. GitHub
+  logs show SQLite initialization but do not isolate which call opens it. This
+  path was unchanged; this correction does not claim `--check-runtime` is
+  side-effect-free.
+- Fresh independent review found a P2 because the first operator assertion
+  only matched an awaited import and overstated emitted-artifact coverage. The
+  final test checks the flag, import-before-branch ordering, and success exit
+  after import; documentation now leaves artifact proof to GitHub. The reviewer
+  rechecked and confirmed resolution with no remaining actionable findings.
+- No local app/image/bundle build or provider request was made. The generated
+  ARM64 artifact check remains open and requires a separately authorized
+  GitHub run. Deployment, provider acceptance, and native free-only completion
+  remain open; do not archive this package.
