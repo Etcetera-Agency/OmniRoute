@@ -22,9 +22,29 @@
  */
 
 import { getDbInstance } from "./db/core";
+import { looksEncrypted } from "./db/encryption";
+import { getProviderConnectionById } from "./db/providers";
+import { resolveProxyForConnection } from "./db/settings";
 import { invalidateDbCache, getModelCatalogCacheVersion } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
 import { preserveStoredModalitySets } from "./db/models/capabilityModalities";
+import { fetchCompatibleModelCatalog } from "./providers/compatibleModelDiscovery";
+import { persistCompatibleDiscoveredModels } from "./providerModels/modelDiscovery";
+import {
+  SAFE_OUTBOUND_FETCH_PRESETS,
+  safeOutboundFetch,
+} from "../shared/network/safeOutboundFetch";
+import {
+  getProviderOutboundGuard,
+  getProviderValidationGuard,
+} from "../shared/network/outboundUrlGuardPolicy";
+import {
+  COMPATIBLE_METADATA_MAX_AGE_MS,
+  composeCompatibleMetadataPrices,
+  readCurrentCompatibleEligibleConnections,
+  readCompatibleMetadataSnapshots,
+  type CompatibleMetadataPrices,
+} from "./providerModels/compatibleMetadata";
 
 import {
   extractModelsDevZeroPriceModels,
@@ -40,17 +60,6 @@ import type {
   ModelsDevData,
 } from "./modelsDevSync/transform";
 import { extractModelsDevModelIdentities } from "./modelsDevSync/modelIdentity";
-import {
-  APINEX_PUBLIC_MODELS_URL,
-  bindApinexZeroPriceModels,
-  composeFreshZeroPriceEvidence,
-  extractApinexZeroPriceModelIds,
-  isApinexCatalogNode,
-  parseApinexZeroPriceEvidence,
-  restrictApinexModelsToCurrentNodes,
-  type ApinexCatalogNode,
-  type ApinexZeroPriceEvidence,
-} from "./modelsDevSync/apinex";
 
 // Re-export the pure transform layer (moved to ./modelsDevSync/transform)
 // so this module's public API is unchanged.
@@ -218,115 +227,122 @@ function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
-function getConfiguredApinexCatalogNodes(): ApinexCatalogNode[] {
-  const db = getDbInstance();
-  const nodes = db
-    .prepare("SELECT id, type, base_url FROM provider_nodes WHERE type = 'openai-compatible'")
+interface CompatibleConnection {
+  providerId: string;
+  connectionId: string;
+  type: "openai-compatible" | "anthropic-compatible";
+  baseUrl: string | null;
+  modelsPath?: string;
+}
+
+function getConfiguredCompatibleConnections(): CompatibleConnection[] {
+  const rows = getDbInstance()
+    .prepare(
+      `SELECT n.id AS provider_id, n.type, n.base_url, n.models_path, c.id AS connection_id
+       FROM provider_nodes n
+       JOIN provider_connections c ON c.provider = n.id AND c.is_active = 1
+       WHERE n.type IN ('openai-compatible', 'anthropic-compatible')
+       ORDER BY n.id, c.id`
+    )
     .all();
-  const configuredNodes = nodes.flatMap((row) => {
-    const node = toRecord(row);
-    const id = node.id;
-    const type = node.type;
-    const baseUrl = node.base_url;
-    if (typeof id !== "string" || !id || typeof type !== "string" || typeof baseUrl !== "string") {
+  return rows.flatMap((row) => {
+    const value = toRecord(row);
+    if (
+      typeof value.provider_id !== "string" ||
+      typeof value.connection_id !== "string" ||
+      (value.type !== "openai-compatible" && value.type !== "anthropic-compatible") ||
+      (value.base_url !== null && typeof value.base_url !== "string")
+    ) {
       return [];
     }
-    const candidate = { id, type, baseUrl, availableModelIds: [] };
-    return isApinexCatalogNode(candidate) ? [candidate] : [];
+    return [
+      {
+        providerId: value.provider_id,
+        connectionId: value.connection_id,
+        type: value.type,
+        baseUrl: typeof value.base_url === "string" ? value.base_url : null,
+        ...(typeof value.models_path === "string" && value.models_path.length > 0
+          ? { modelsPath: value.models_path }
+          : {}),
+      },
+    ];
   });
-  if (configuredNodes.length === 0) return [];
+}
 
-  const result: ApinexCatalogNode[] = [];
+function getCompatibleMetadataPrices(): CompatibleMetadataPrices {
+  return composeCompatibleMetadataPrices(
+    readCompatibleMetadataSnapshots(),
+    readCurrentCompatibleEligibleConnections()
+  );
+}
 
-  for (const node of configuredNodes) {
-    const { id, type, baseUrl } = node;
-    const prefix = `${id}:`;
-    const syncedModels = db
-      .prepare(
-        "SELECT key, value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ?"
-      )
-      .all(`${prefix}%`);
-    const availableModelIds = new Set<string>();
-    let malformedModels = false;
-    for (const syncedRow of syncedModels) {
-      const record = toRecord(syncedRow);
-      const key = record.key;
-      if (typeof key !== "string" || !key.startsWith(prefix) || key.length === prefix.length) {
+function parseProviderSpecificData(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+async function refreshCompatibleModelMetadata(signal?: AbortSignal): Promise<void> {
+  for (const node of getConfiguredCompatibleConnections()) {
+    if (signal?.aborted) return;
+    try {
+      const connection = await getProviderConnectionById(node.connectionId);
+      if (
+        !connection ||
+        connection.credentialDecryptFailed === true ||
+        looksEncrypted(connection.apiKey) ||
+        looksEncrypted(connection.accessToken)
+      ) {
         continue;
       }
-      if (typeof record.value !== "string") {
-        malformedModels = true;
-        break;
-      }
-      try {
-        const models: unknown = JSON.parse(record.value);
-        if (!Array.isArray(models)) {
-          malformedModels = true;
-          break;
-        }
-        for (const value of models) {
-          const model = toRecord(value);
-          const modelId = model.id;
-          if (typeof modelId !== "string" || modelId.length === 0 || modelId.trim() !== modelId) {
-            malformedModels = true;
-            break;
-          }
-          availableModelIds.add(modelId);
-        }
-      } catch {
-        malformedModels = true;
-      }
-      if (malformedModels) break;
+      const providerSpecificData = parseProviderSpecificData(connection.providerSpecificData);
+      const baseUrl = nonEmptyString(providerSpecificData.baseUrl) ?? node.baseUrl;
+      if (!baseUrl) continue;
+      const proxy = await resolveProxyForConnection(node.connectionId, undefined, node.providerId);
+      const openAI = node.type === "openai-compatible";
+      const catalog = await fetchCompatibleModelCatalog({
+        type: node.type,
+        baseUrl,
+        modelsPath: nonEmptyString(providerSpecificData.modelsPath) ?? node.modelsPath,
+        apiKey: typeof connection.apiKey === "string" ? connection.apiKey : "",
+        accessToken: typeof connection.accessToken === "string" ? connection.accessToken : "",
+        providerSpecificData,
+        fetchImpl: (input, init) =>
+          safeOutboundFetch(input, {
+            ...(openAI
+              ? SAFE_OUTBOUND_FETCH_PRESETS.modelsProbe
+              : SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery),
+            guard: openAI ? getProviderValidationGuard() : getProviderOutboundGuard(),
+            proxyConfig: proxy?.proxy,
+            ...init,
+            ...(signal ? { signal } : {}),
+          }),
+      });
+      await persistCompatibleDiscoveredModels(
+        node.providerId,
+        node.connectionId,
+        catalog.sourceUrl,
+        catalog.models
+      );
+    } catch {
+      // A failed compatible connection keeps its last source snapshot and cannot block models.dev.
     }
-    if (!malformedModels)
-      result.push({ id, type, baseUrl, availableModelIds: [...availableModelIds] });
   }
-  return result;
-}
-
-function currentApinexModelIds(
-  nodes = getConfiguredApinexCatalogNodes()
-): Record<string, Set<string>> {
-  return Object.fromEntries(nodes.map((node) => [node.id, new Set(node.availableModelIds)]));
-}
-
-// AICODE-NOTE: Keep APInex provenance separate; reads recompose fresh sources without writes or network.
-function readApinexZeroPriceEvidence(): ApinexZeroPriceEvidence | null {
-  const row = getDbInstance()
-    .prepare(
-      "SELECT value FROM key_value WHERE namespace = 'apinex_zero_price' AND key = 'snapshot'"
-    )
-    .get();
-  const rawValue = toRecord(row).value;
-  if (typeof rawValue !== "string") return null;
-  try {
-    return parseApinexZeroPriceEvidence(JSON.parse(rawValue));
-  } catch {
-    return null;
-  }
-}
-
-async function fetchApinexZeroPriceEvidence(
-  signal?: AbortSignal
-): Promise<ApinexZeroPriceEvidence | null> {
-  const nodes = getConfiguredApinexCatalogNodes();
-  if (nodes.length === 0) return null;
-
-  const response = await globalThis.fetch(
-    APINEX_PUBLIC_MODELS_URL,
-    signal ? { signal } : undefined
-  );
-  if (!response.ok) {
-    throw new Error(
-      `APInex public catalog fetch failed [${response.status}]: ${response.statusText}`
-    );
-  }
-  const zeroPriceModelIds = extractApinexZeroPriceModelIds(await response.json());
-  return {
-    sourceUrl: APINEX_PUBLIC_MODELS_URL,
-    fetchedAt: new Date().toISOString(),
-    modelsByProvider: bindApinexZeroPriceModels(zeroPriceModelIds, nodes),
-  };
 }
 
 function parseReasoningEfforts(value: unknown): string[] | null {
@@ -406,7 +422,7 @@ export function getModelsDevPricing(): PricingByProvider {
     const rawValue = typeof record.value === "string" ? record.value : null;
     if (!key || rawValue === null) continue;
     try {
-      synced[key] = JSON.parse(rawValue) as PricingModels;
+      defineEnumerableDataProperty(synced, key, JSON.parse(rawValue) as PricingModels);
     } catch {
       console.warn(`[MODELS_DEV] Corrupted pricing data for provider "${key}", skipping`);
     }
@@ -416,32 +432,32 @@ export function getModelsDevPricing(): PricingByProvider {
   return synced;
 }
 
+function isFreshEvidence(fetchedAt: string, now: number): boolean {
+  const timestamp = Date.parse(fetchedAt);
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp <= now &&
+    now - timestamp <= COMPATIBLE_METADATA_MAX_AGE_MS
+  );
+}
+
+function hasModelIds(modelsByProvider: ModelsDevZeroPriceModels): boolean {
+  return Object.values(modelsByProvider).some((models) => models.length > 0);
+}
+
 /** Save normalized pricing and the successful sync's raw zero-price evidence atomically. */
 export function saveModelsDevPricing(
   data: PricingByProvider,
-  zeroPriceEvidence?: ModelsDevZeroPriceEvidence,
-  apinexEvidence?: ApinexZeroPriceEvidence | null
+  zeroPriceEvidence?: ModelsDevZeroPriceEvidence
 ): void {
   const db = getDbInstance();
-  const currentNodes = getConfiguredApinexCatalogNodes();
-  const currentModels = currentApinexModelIds(currentNodes);
-  const storedApinexEvidence = readApinexZeroPriceEvidence();
-  const newApinexEvidence = parseApinexZeroPriceEvidence(apinexEvidence);
-  const nextApinexEvidence = newApinexEvidence ?? storedApinexEvidence;
-  const freshApinexEvidence = composeFreshZeroPriceEvidence(
-    null,
-    nextApinexEvidence,
-    currentModels,
-    Date.now()
-  );
   const mergedPricing: PricingByProvider = Object.fromEntries(
     Object.entries(data).map(([provider, models]) => [provider, { ...models }])
   );
-  for (const [provider, models] of Object.entries(freshApinexEvidence?.modelsByProvider ?? {})) {
-    mergedPricing[provider] = {
-      ...(mergedPricing[provider] ?? {}),
-      ...Object.fromEntries(models.map((model) => [model, { input: 0, output: 0 }])),
-    };
+  const compatiblePrices = getCompatibleMetadataPrices();
+  for (const [provider, models] of Object.entries(compatiblePrices.pricingByProvider)) {
+    const existing = Object.hasOwn(mergedPricing, provider) ? mergedPricing[provider] : {};
+    defineEnumerableDataProperty(mergedPricing, provider, { ...existing, ...models });
   }
 
   const del = db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'");
@@ -451,26 +467,12 @@ export function saveModelsDevPricing(
   const saveZeroPriceEvidence = db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('models_dev_zero_price', 'snapshot', ?)"
   );
-  const saveApinexZeroPriceEvidence = db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('apinex_zero_price', 'snapshot', ?)"
-  );
   const tx = db.transaction(() => {
     del.run();
     for (const [provider, models] of Object.entries(mergedPricing)) {
       insert.run(provider, JSON.stringify(models));
     }
     if (zeroPriceEvidence) saveZeroPriceEvidence.run(JSON.stringify(zeroPriceEvidence));
-    if (newApinexEvidence) {
-      saveApinexZeroPriceEvidence.run(
-        JSON.stringify({
-          ...newApinexEvidence,
-          modelsByProvider: restrictApinexModelsToCurrentNodes(
-            newApinexEvidence.modelsByProvider,
-            currentModels
-          ),
-        })
-      );
-    }
   });
   tx();
   backupDbFile("pre-write");
@@ -507,14 +509,41 @@ export function getModelsDevZeroPriceEvidence(): ModelsDevZeroPriceEvidence | nu
       }
     }
   } catch {
-    // A malformed models.dev snapshot must not suppress an independent APInex source.
+    // A malformed models.dev snapshot must not suppress compatible connection evidence.
   }
-  return composeFreshZeroPriceEvidence(
-    modelsDevEvidence,
-    readApinexZeroPriceEvidence(),
-    currentApinexModelIds(),
-    Date.now()
-  );
+  const now = Date.now();
+  const sources: ModelsDevZeroPriceEvidence[] = [];
+  if (
+    modelsDevEvidence &&
+    isFreshEvidence(modelsDevEvidence.fetchedAt, now) &&
+    hasModelIds(modelsDevEvidence.modelsByProvider)
+  ) {
+    sources.push(modelsDevEvidence);
+  }
+  const compatiblePrices = getCompatibleMetadataPrices();
+  if (compatiblePrices.zeroFetchedAt && hasModelIds(compatiblePrices.zeroPriceModelsByProvider)) {
+    sources.push({
+      fetchedAt: compatiblePrices.zeroFetchedAt,
+      modelsByProvider: compatiblePrices.zeroPriceModelsByProvider,
+    });
+  }
+  if (sources.length === 0) return null;
+
+  const modelsByProvider: ModelsDevZeroPriceModels = {};
+  for (const source of sources) {
+    for (const [provider, models] of Object.entries(source.modelsByProvider)) {
+      const existing = Object.hasOwn(modelsByProvider, provider) ? modelsByProvider[provider] : [];
+      defineEnumerableDataProperty(
+        modelsByProvider,
+        provider,
+        Array.from(new Set([...existing, ...models]))
+      );
+    }
+  }
+  const fetchedAt = sources
+    .map((source) => Date.parse(source.fetchedAt))
+    .reduce((oldest, timestamp) => Math.min(oldest, timestamp), Number.POSITIVE_INFINITY);
+  return { fetchedAt: new Date(fetchedAt).toISOString(), modelsByProvider };
 }
 
 /**
@@ -525,7 +554,6 @@ export function clearModelsDevPricing(): void {
   const clear = db.transaction(() => {
     db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
     db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_zero_price'").run();
-    db.prepare("DELETE FROM key_value WHERE namespace = 'apinex_zero_price'").run();
   });
   clear();
   backupDbFile("pre-write");
@@ -942,23 +970,10 @@ export async function syncModelsDev(opts?: {
       }
 
       if (!dryRun) {
-        let apinexEvidence: ApinexZeroPriceEvidence | null = null;
-        try {
-          apinexEvidence = await fetchApinexZeroPriceEvidence(signal);
-        } catch (error) {
-          if (signal?.aborted) return createAbortedSyncResult(dryRun);
-          console.warn(
-            "[APINEX] Public pricing refresh failed:",
-            error instanceof Error ? error.message : String(error)
-          );
-        }
+        await refreshCompatibleModelMetadata(signal);
         if (signal?.aborted) return createAbortedSyncResult(dryRun);
 
-        saveModelsDevPricing(
-          pricing,
-          { fetchedAt, modelsByProvider: zeroPriceModels },
-          apinexEvidence
-        );
+        saveModelsDevPricing(pricing, { fetchedAt, modelsByProvider: zeroPriceModels });
         if (syncCapabilities) {
           ensureCapabilitiesTable();
           saveModelsDevCapabilities(capabilities);

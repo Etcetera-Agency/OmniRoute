@@ -1,5 +1,10 @@
 # Change: Select APInex's configured native node type
 
+> **Superseded before release by `generic-compatible-model-metadata` on
+> 2026-10-29.** This proposal records the earlier local correction only; the
+> exact provider-specific selector is no longer normative. Keep its completion
+> receipt as history and do not archive this package as released work.
+
 ## Why
 
 The deployed APInex node is stored with `type = "openai-compatible"`, while

@@ -13,7 +13,12 @@ import {
   isBedrockNativeApiError,
   isBedrockNativeAuthError,
 } from "@omniroute/open-sse/services/bedrock.ts";
-import { addModelsSuffix, normalizeBaseUrl, resolveChatUrl } from "./urlHelpers";
+import {
+  addModelsSuffix,
+  buildCompatibleModelsUrl,
+  normalizeBaseUrl,
+  resolveChatUrl,
+} from "./urlHelpers";
 import { applyCustomUserAgent, buildBearerHeaders } from "./headers";
 import { toValidationErrorResult, validationRead, validationWrite } from "./transport";
 import { validateDirectChatProvider } from "./directChatProbe";
@@ -489,11 +494,20 @@ export async function validateOpenAICompatibleProvider({
     typeof providerSpecificData?.validationModelId === "string"
       ? providerSpecificData.validationModelId.trim()
       : "";
+  let modelsUrl: string;
+  try {
+    modelsUrl = buildCompatibleModelsUrl(baseUrl, providerSpecificData?.modelsPath || "/models");
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : "Invalid models endpoint",
+    };
+  }
 
   // Step 1: Try GET /models
   let modelsReachable = false;
   try {
-    const modelsRes = await validationRead(`${baseUrl}/models`, {
+    const modelsRes = await validationRead(modelsUrl, {
       method: "GET",
       headers: buildBearerHeaders(apiKey, providerSpecificData),
     });

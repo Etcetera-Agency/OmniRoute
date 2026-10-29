@@ -964,26 +964,28 @@ Deferred cross-repository and operations work:
       `auto/coding_high_tools:free` attempt passed strict preflight, selected
       `nvidia/deepseek-ai/deepseek-v4.1-flash`, then timed out after 302,271 ms
       with HTTP 504. Usage was 0/0 and no cost-ledger row exists, so this is not
-      successful free acceptance. The APInex-only inspector has zero eligible
-      candidates; diagnose its eligibility and retain exact native
+      successful free acceptance. The prior APInex-only inspector had zero
+      eligible candidates; diagnose its eligibility and retain exact native
       `request_exhaustion` / generic availability subreasons without changing
       filters based on the timeout. Owner notes that existing canonical free,
       capability, reasoning, and fitness data may be reusable across provider
       routes. TL320 proved the exact data-binding gap from read-only runtime
       state. TL322's local exact-canonical identity binding is implemented on
       its feature branch; a fresh independent review of source commit
-      `d987b44f7759295b619a3da20f5780a12ee63631` found no findings. Integration
-      with TL324's current APInex zero-price evidence and native pricing
-      binding is locally complete. Deployed-source acceptance remains open.
+      `d987b44f7759295b619a3da20f5780a12ee63631` found no findings. Historical
+      TL324 integration with provider-specific pricing was locally complete,
+      then superseded by the owner-selected shared adapter. Deployed-source
+      acceptance remains open.
       The scoped typecheck fails with the same seven diagnostics on parent source
       `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322; all seven are in
       unchanged files, while the frozen baseline marks four counts uncovered.
       This is not a passing typecheck and no baseline change was made. A
       successful native free-only tool call must prove actual model, route,
       usage, and cost, with no paid or
-      out-of-band fallback. Keep APInex-only state until owner steering; restore
-      other providers only on that steering. Clean this task's redundant
-      artifacts while retaining one DB/image rollback pair. Do not archive this
+      out-of-band fallback. Keep recorded provider runtime state unchanged;
+      this source package does not activate providers or restore prior state.
+      Clean this task's redundant artifacts while retaining one DB/image
+      rollback pair. Do not archive this
       package before this gate closes.
 - [x] TL324: integrate official APInex free-entitlement pricing through the
       source-aware reader/merge path. The official APInex model pages list 44
@@ -997,21 +999,35 @@ Deferred cross-repository and operations work:
       remain open. The earlier APInex `/v1/models` 401 used encrypted
       SQLite credentials directly and does not establish that saved credentials
       are invalid; make no provider request as part of TL322.
-- [ ] Correct and release the TL324 APInex node selector. Read-only deployed
+- [x] Supersede the TL324 provider-specific selector after the owner chose one
+      provider-agnostic adapter for stored `openai-compatible` and
+      `anthropic-compatible` node types. Keep the TL324 completion receipt as
+      historical evidence; its old OpenAI-only endpoint selection is no longer
+      normative. Do not archive either prior package as released work.
+- [x] Complete local `generic-compatible-model-metadata` implementation and
+      fresh independent review. The reviewer found no actionable findings.
+      Focused compatible metadata, discovery, capability, endpoint-schema,
+      models.dev pricing, and benchmark-hook tests pass 89/89. Strict OpenSpec,
+      focused lint, and `git diff --check` pass. Prettier passes changed files
+      except `src/app/api/provider-nodes/[id]/route.ts`, whose clean-base source
+      also fails formatting; unrelated existing formatting was left untouched.
+      Core typecheck still has 720 diagnostics exactly matching the clean base;
+      none is in a changed production module. The existing models.dev live-API
+      test made a public catalog GET; compatible endpoints used fixtures. No
+      local app/image build,
+      provider request/completion, runtime mutation, or credential access was
+      performed for this local slice.
+- [ ] After local implementation review, run separately authorized GitHub
+      build/release and live acceptance. Read-only deployed
       inspection on image `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b`
       found the configured native node has type `openai-compatible`, exact
       endpoint `https://api.apinex.bond/v1`, and 44 synced raw IDs. The adapter
-      selected only `openai-compatible-chat`, so it selected no node before
-      fetch. The public catalog was independently reachable (HTTP 200, 44
-      rows, 21 numeric zero/zero records). Source inspection confirmed
-      `openai-compatible-chat-` is a generated provider ID prefix from
-      `apiType = "chat"`, not a stored node type. The local correction in
-      `fix-apinex-native-node-type` selects stored type `openai-compatible` for
-      all schema-valid API formats, with the exact endpoint/full-node/raw-ID
-      binding unchanged. Integrate and deploy it, then verify source evidence
-      uses the full node ID and only synced exact raw IDs enter pricing. Keep
-      `anthropic-compatible` outside this adapter until a matching APInex
-      endpoint contract is established.
+      and current source receipt did not prove deployed generic metadata
+      behavior. Verify both native node types using non-secret, redacted
+      metadata/source receipts; require no cross-origin credential forwarding,
+      complete pagination, exact current source URLs/timestamps, and no
+      account-level price leakage. Do not mutate provider runtime state during
+      this local package.
 - [ ] Native free-only acceptance remains open after TL320 hid the built-in
       no-auth `uncloseai` model found in TL326's default-pool inspection. TL320
       then observed an empty normal pool and 12 APInex candidates only in the

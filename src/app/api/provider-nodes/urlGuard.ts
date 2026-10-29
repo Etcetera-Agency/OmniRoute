@@ -6,6 +6,7 @@ import {
   parseOutboundUrl,
 } from "@/shared/network/outboundUrlGuard";
 import { getProviderValidationGuard } from "@/shared/network/outboundUrlGuardPolicy";
+import { buildCompatibleModelsUrl } from "@/lib/providers/validation/urlHelpers";
 
 function guardProviderNodeBaseUrl(baseUrl: string): void {
   const guard = getProviderValidationGuard();
@@ -36,6 +37,28 @@ export function validateProviderNodeBaseUrl(baseUrl: string): NextResponse | nul
         error: {
           message: "Invalid request",
           details: [{ field: "baseUrl", message }],
+        },
+      },
+      { status: 400 }
+    );
+  }
+}
+
+export function validateProviderNodeModelsPath(
+  baseUrl: string,
+  modelsPath?: string
+): NextResponse | null {
+  // AICODE-NOTE: Saved modelsPath values use discovery's origin and traversal checks.
+  try {
+    buildCompatibleModelsUrl(baseUrl, modelsPath || "/models");
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid models endpoint";
+    return NextResponse.json(
+      {
+        error: {
+          message: "Invalid request",
+          details: [{ field: "modelsPath", message }],
         },
       },
       { status: 400 }

@@ -1,5 +1,10 @@
 # Design: APInex native provider-node selection
 
+> **Superseded before release by `generic-compatible-model-metadata` on
+> 2026-10-29.** The following design is historical context, not an active
+> implementation contract. Preserve its completion receipt; shared compatible
+> metadata requirements now live in the replacement change.
+
 ## Verified identity contract
 
 The canonical provider-node schema stores `type = "openai-compatible"` for

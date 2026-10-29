@@ -28,6 +28,12 @@ import {
   loadAllSyncedCapabilitiesUncached,
   type CapabilitiesByProvider,
 } from "@/lib/modelsDevSync";
+import {
+  readCompatibleMetadataSnapshots,
+  readCurrentCompatibleEligibleConnections,
+  type CompatibleEligibleConnection,
+  type CompatibleMetadataSnapshot,
+} from "@/lib/providerModels/compatibleMetadata";
 
 /** Nested provider → model → numeric override map (collision-free). */
 export type NestedOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>;
@@ -53,6 +59,9 @@ export interface ModelCapabilityResolutionSnapshot {
   readonly compatVisionOverrides: ModelCompatVisionOverrideMap;
   /** #14081: positive-only vision verdicts from synced custom-node model rows. */
   readonly syncedAvailableModelVision: SyncedAvailableModelVisionMap;
+  // AICODE-NOTE: Keep compatible source rows and their current eligibility together.
+  readonly compatibleMetadataSnapshots?: CompatibleMetadataSnapshot[];
+  readonly compatibleEligibleConnections?: CompatibleEligibleConnection[];
 }
 
 export interface ModelCapabilityResolutionSnapshotOptions {
@@ -121,5 +130,7 @@ export function createModelCapabilityResolutionSnapshot(
     customModelsByProvider,
     compatVisionOverrides: listModelCompatVisionOverrides(),
     syncedAvailableModelVision: listSyncedAvailableModelVision(),
+    compatibleMetadataSnapshots: readCompatibleMetadataSnapshots(),
+    compatibleEligibleConnections: readCurrentCompatibleEligibleConnections(),
   };
 }

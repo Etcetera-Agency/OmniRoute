@@ -11,7 +11,7 @@ import { generateId } from "@/shared/utils";
 import { isCcCompatibleProviderEnabled } from "@/shared/utils/featureFlags";
 import { createProviderNodeSchema, paginationSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { validateProviderNodeBaseUrl } from "./urlGuard";
+import { validateProviderNodeBaseUrl, validateProviderNodeModelsPath } from "./urlGuard";
 
 const OPENAI_COMPATIBLE_DEFAULTS = {
   baseUrl: "https://api.openai.com/v1",
@@ -160,6 +160,8 @@ export async function POST(request) {
       const sanitizedBaseUrl = sanitizeVibeProxyBaseUrl(baseUrl as string);
       const baseUrlError = validateProviderNodeBaseUrl(sanitizedBaseUrl);
       if (baseUrlError) return baseUrlError;
+      const modelsPathError = validateProviderNodeModelsPath(sanitizedBaseUrl, modelsPath);
+      if (modelsPathError) return modelsPathError;
 
       const node = await createProviderNode({
         id: `${OPENAI_COMPATIBLE_PREFIX}${VIBEPROXY_OPENAI_DEFAULTS.apiType}-${generateId()}`,
@@ -189,6 +191,8 @@ export async function POST(request) {
       const resolvedBaseUrl = (baseUrl || OPENAI_COMPATIBLE_DEFAULTS.baseUrl).trim();
       const baseUrlError = validateProviderNodeBaseUrl(resolvedBaseUrl);
       if (baseUrlError) return baseUrlError;
+      const modelsPathError = validateProviderNodeModelsPath(resolvedBaseUrl, modelsPath);
+      if (modelsPathError) return modelsPathError;
 
       const node = await createProviderNode({
         id: `${OPENAI_COMPATIBLE_PREFIX}${apiType}-${idSuffix}`,
@@ -221,6 +225,10 @@ export async function POST(request) {
           : sanitizeAnthropicBaseUrl(rawBaseUrl);
       const baseUrlError = validateProviderNodeBaseUrl(sanitizedBaseUrl);
       if (baseUrlError) return baseUrlError;
+      if (compatMode !== "cc") {
+        const modelsPathError = validateProviderNodeModelsPath(sanitizedBaseUrl, modelsPath);
+        if (modelsPathError) return modelsPathError;
+      }
 
       const node = await createProviderNode({
         id:

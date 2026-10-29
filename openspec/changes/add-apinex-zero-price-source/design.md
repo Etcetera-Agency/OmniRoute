@@ -1,5 +1,10 @@
 # Design: APInex zero-price source adapter
 
+> **Superseded before release by `generic-compatible-model-metadata` on
+> 2026-10-29.** The following design is historical context, not an active
+> implementation contract. Preserve the old completion receipt; shared
+> compatible metadata requirements now live in the replacement change.
+
 ## Data contract
 
 Official source: `GET https://apinex.bond/api/public/models`.

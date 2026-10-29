@@ -11,6 +11,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const taskFitness = await import("../../open-sse/services/autoCombo/taskFitness.ts");
+const compatibleMetadata = await import("../../src/lib/providerModels/compatibleMetadata.ts");
 
 const modulePath = path.join(process.cwd(), "src/lib/modelsDevSync.ts");
 const originalFetch = globalThis.fetch;
@@ -116,6 +117,33 @@ async function waitFor(predicate, timeoutMs = 200) {
   return null;
 }
 
+function insertCompatibleNode(
+  id: string,
+  connectionId: string,
+  isActive = 1,
+  apiKey = "",
+  providerSpecificData?: Record<string, unknown>,
+  baseUrl = "https://gateway.example/v1"
+) {
+  const db = core.getDbInstance();
+  const now = new Date().toISOString();
+  db.prepare(
+    "INSERT INTO provider_nodes (id, type, name, prefix, api_type, base_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, "openai-compatible", "Gateway", "gateway", "chat", baseUrl, now, now);
+  db.prepare(
+    "INSERT INTO provider_connections (id, provider, name, is_active, api_key, provider_specific_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(
+    connectionId,
+    id,
+    "Gateway connection",
+    isActive,
+    apiKey,
+    providerSpecificData ? JSON.stringify(providerSpecificData) : null,
+    now,
+    now
+  );
+}
+
 function mockFetchWith(body, status = 200, statusText = "OK") {
   globalThis.fetch = async () =>
     new Response(typeof body === "string" ? body : JSON.stringify(body), {
@@ -179,7 +207,9 @@ test.describe("modelsDevSync-extended", { concurrency: 1 }, async () => {
     assert.equal(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), null);
 
     mockFetchWith(MOCK_MODELS_DEV_DATA);
-    const dryRun = await (await importFresh("capability-cache-dry-run")).syncModelsDev({
+    const dryRun = await (
+      await importFresh("capability-cache-dry-run")
+    ).syncModelsDev({
       dryRun: true,
       maxRetries: 0,
     });
@@ -187,14 +217,18 @@ test.describe("modelsDevSync-extended", { concurrency: 1 }, async () => {
     assert.equal(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), null);
 
     mockFetchWith({ error: "unavailable" }, 503, "Service Unavailable");
-    const failed = await (await importFresh("capability-cache-failed")).syncModelsDev({
+    const failed = await (
+      await importFresh("capability-cache-failed")
+    ).syncModelsDev({
       maxRetries: 0,
     });
     assert.equal(failed.success, false);
     assert.equal(taskFitness.getModelsDevTierFitnessWithSource(modelId, "coding"), null);
 
     mockFetchWith(MOCK_MODELS_DEV_DATA);
-    const synced = await (await importFresh("capability-cache-success")).syncModelsDev({
+    const synced = await (
+      await importFresh("capability-cache-success")
+    ).syncModelsDev({
       maxRetries: 0,
     });
     assert.equal(synced.success, true);
@@ -291,6 +325,53 @@ test.describe("modelsDevSync-extended", { concurrency: 1 }, async () => {
 
     modelsDev.clearModelsDevPricing();
     assert.deepEqual(modelsDev.getModelsDevPricing(), {});
+  });
+
+  test("clearing models.dev pricing preserves compatible price and capability snapshots", async () => {
+    const modelsDev = await importFresh("pricing-clear-compatible");
+    const db = core.getDbInstance();
+    db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+      "models_dev_pricing",
+      "snapshot",
+      "{}"
+    );
+    db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+      "models_dev_zero_price",
+      "snapshot",
+      "{}"
+    );
+    const compatibleSnapshot = await compatibleMetadata.saveCompatibleMetadataSnapshot(
+      "compatible-pricing-clear",
+      "connection-clear",
+      "https://gateway.example/v1/models",
+      [
+        {
+          id: "vendor/free",
+          dollarsPer1M: 0,
+          outputDollarsPer1M: 0,
+          supportsVision: false,
+        },
+      ],
+      "2026-10-29T12:00:00.000Z"
+    );
+
+    modelsDev.clearModelsDevPricing();
+
+    assert.equal(
+      db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM key_value WHERE namespace IN ('models_dev_pricing', 'models_dev_zero_price')"
+        )
+        .get().count,
+      0
+    );
+    assert.deepEqual(
+      await compatibleMetadata.readCompatibleMetadataSnapshot(
+        "compatible-pricing-clear",
+        "connection-clear"
+      ),
+      compatibleSnapshot
+    );
   });
 
   test("getModelsDevPricing memoizes until save/clear (#9685)", async () => {
@@ -531,6 +612,217 @@ test.describe("modelsDevSync-extended", { concurrency: 1 }, async () => {
     const failed = await failing.syncModelsDev();
     assert.equal(failed.success, false);
     assert.match(failed.error, /network down/);
+  });
+
+  test("models.dev sync refreshes active compatible connections and skips inactive ones", async () => {
+    process.env.STORAGE_ENCRYPTION_KEY = "compatible-refresh-test-encryption-key";
+    process.env.OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS = "true";
+    const encryption = await import("../../src/lib/db/encryption.ts");
+    insertCompatibleNode(
+      "compatible-node",
+      "connection-active",
+      1,
+      encryption.encrypt("compatible-refresh-test-api-key") as string,
+      { baseUrl: "https://gateway.example/v1" },
+      "https://node.example/v1"
+    );
+    assert.match(
+      core
+        .getDbInstance()
+        .prepare("SELECT api_key FROM provider_connections WHERE id = ?")
+        .get("connection-active").api_key,
+      /^enc:v1:/
+    );
+    insertCompatibleNode("compatible-node-disabled", "connection-disabled", 0);
+    process.env.MODELS_DEV_SYNC_ENABLED = "true";
+    const modelsDev = await importFresh("compatible-refresh");
+    const calls: string[] = [];
+    let authorizationMatched = false;
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      calls.push(url);
+      if (url === "https://models.dev/api.json") {
+        return new Response(JSON.stringify(MOCK_MODELS_DEV_DATA), { status: 200 });
+      }
+      if (url === "https://gateway.example/v1/models") {
+        authorizationMatched =
+          new Headers(init?.headers).get("authorization") ===
+          "Bearer compatible-refresh-test-api-key";
+        return new Response(
+          JSON.stringify({
+            data: [{ id: "vendor/model:free", dollarsPer1M: 0, outputDollarsPer1M: 0 }],
+          }),
+          { status: 200 }
+        );
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    };
+
+    const result = await modelsDev.syncModelsDev({ maxRetries: 0 });
+    assert.equal(result.success, true);
+    assert.equal(calls.filter((url) => url === "https://gateway.example/v1/models").length, 1);
+    assert.equal(authorizationMatched, true);
+    assert.deepEqual(
+      (
+        await compatibleMetadata.readCompatibleMetadataSnapshot(
+          "compatible-node",
+          "connection-active"
+        )
+      )?.modelsById,
+      {
+        "vendor/model:free": {
+          id: "vendor/model:free",
+          inputDollarsPer1M: 0,
+          outputDollarsPer1M: 0,
+        },
+      }
+    );
+    assert.equal(
+      await compatibleMetadata.readCompatibleMetadataSnapshot(
+        "compatible-node-disabled",
+        "connection-disabled"
+      ),
+      null
+    );
+    const evidence = modelsDev.getModelsDevZeroPriceEvidence();
+    assert.deepEqual(evidence?.modelsByProvider["compatible-node"], ["vendor/model:free"]);
+    assert.equal(evidence?.modelsByProvider.openai, undefined);
+    assert.deepEqual(modelsDev.getModelsDevPricing()["compatible-node"]?.["vendor/model:free"], {
+      input: 0,
+      output: 0,
+    });
+  });
+
+  test("compatible refresh never sends credentials that remain encrypted", async () => {
+    process.env.STORAGE_ENCRYPTION_KEY = "compatible-refresh-test-encryption-key";
+    insertCompatibleNode(
+      "compatible-encrypted-node",
+      "connection-encrypted",
+      1,
+      "enc:v1:invalid-ciphertext"
+    );
+    process.env.MODELS_DEV_SYNC_ENABLED = "true";
+    const modelsDev = await importFresh("compatible-encrypted");
+    const calls: string[] = [];
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      calls.push(url);
+      if (url === "https://models.dev/api.json") {
+        return new Response(JSON.stringify(MOCK_MODELS_DEV_DATA), { status: 200 });
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    };
+
+    const result = await modelsDev.syncModelsDev({ maxRetries: 0 });
+    assert.equal(result.success, true);
+    assert.deepEqual(calls, ["https://models.dev/api.json"]);
+    assert.equal(
+      await compatibleMetadata.readCompatibleMetadataSnapshot(
+        "compatible-encrypted-node",
+        "connection-encrypted"
+      ),
+      null
+    );
+  });
+
+  test("failed compatible refresh preserves source age and models.dev pricing save", async () => {
+    process.env.OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS = "true";
+    insertCompatibleNode("compatible-preserve-node", "connection-preserve", 1);
+    process.env.MODELS_DEV_SYNC_ENABLED = "true";
+    const modelsDev = await importFresh("compatible-preserve");
+    const oldFetchedAt = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString();
+    await compatibleMetadata.saveCompatibleMetadataSnapshot(
+      "compatible-preserve-node",
+      "connection-preserve",
+      "https://gateway.example/v1/models",
+      [
+        { id: "vendor/persisted", dollarsPer1M: 0.25, outputDollarsPer1M: 0.75 },
+        { id: "vendor/free", dollarsPer1M: 0, outputDollarsPer1M: 0 },
+      ],
+      oldFetchedAt
+    );
+    core
+      .getDbInstance()
+      .prepare(
+        "INSERT INTO key_value (namespace, key, value) VALUES ('syncedAvailableModels', ?, ?)"
+      )
+      .run(
+        "compatible-preserve-node:connection-preserve",
+        JSON.stringify([
+          { id: "vendor/persisted", name: "vendor/persisted", source: "imported" },
+          { id: "vendor/free", name: "vendor/free", source: "imported" },
+        ])
+      );
+
+    let compatibleCalls = 0;
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url === "https://models.dev/api.json") {
+        return new Response(JSON.stringify(MOCK_MODELS_DEV_DATA), { status: 200 });
+      }
+      if (url === "https://gateway.example/v1/models") {
+        compatibleCalls += 1;
+        throw new Error("compatible endpoint unavailable");
+      }
+      throw new Error(`unexpected URL: ${url}`);
+    };
+
+    const result = await modelsDev.syncModelsDev({ maxRetries: 0 });
+    assert.equal(result.success, true);
+    assert.ok(compatibleCalls > 0);
+    assert.equal(
+      (
+        await compatibleMetadata.readCompatibleMetadataSnapshot(
+          "compatible-preserve-node",
+          "connection-preserve"
+        )
+      )?.fetchedAt,
+      oldFetchedAt
+    );
+    assert.deepEqual(
+      modelsDev.getModelsDevPricing()["compatible-preserve-node"]?.["vendor/persisted"],
+      { input: 0.25, output: 0.75 }
+    );
+    assert.equal(modelsDev.getModelsDevZeroPriceEvidence()?.fetchedAt, oldFetchedAt);
+    assert.deepEqual(
+      modelsDev.getModelsDevZeroPriceEvidence()?.modelsByProvider["compatible-preserve-node"],
+      ["vendor/free"]
+    );
+  });
+
+  test("outbound guard blocks compatible refresh before endpoint fetch", async () => {
+    process.env.OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS = "false";
+    process.env.OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS = "false";
+    insertCompatibleNode(
+      "compatible-guard-node",
+      "connection-guard",
+      1,
+      "",
+      undefined,
+      "http://127.0.0.1/v1"
+    );
+    process.env.MODELS_DEV_SYNC_ENABLED = "true";
+    const modelsDev = await importFresh("compatible-guard");
+    const providerCalls: string[] = [];
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url === "https://models.dev/api.json") {
+        return new Response(JSON.stringify(MOCK_MODELS_DEV_DATA), { status: 200 });
+      }
+      providerCalls.push(url);
+      return new Response(JSON.stringify({ data: [{ id: "should-not-fetch" }] }), { status: 200 });
+    };
+
+    const result = await modelsDev.syncModelsDev({ maxRetries: 0 });
+    assert.equal(result.success, true);
+    assert.deepEqual(providerCalls, []);
+    assert.equal(
+      await compatibleMetadata.readCompatibleMetadataSnapshot(
+        "compatible-guard-node",
+        "connection-guard"
+      ),
+      null
+    );
   });
 
   test("syncModelsDev string failures are normalized into an error payload", async () => {

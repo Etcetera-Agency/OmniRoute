@@ -1,5 +1,53 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## Shared compatible metadata adapter (TL329, 2026-10-29)
+
+- Replaced the personal APInex collector with one current metadata adapter for
+  the real stored node types `openai-compatible` and `anthropic-compatible`.
+  It uses the native decrypted connection getter, protocol auth roles, outbound
+  guards/proxy resolution, shared model normalization, and current per-source
+  persistence. The old hook and namespace are removed without a compatibility
+  reader.
+- One URL builder serves validation and discovery for existing relative paths
+  and same-origin absolute `modelsPath` values; provider-node create/update
+  schemas and validation use the same builder. Configured endpoint failure does
+  not probe another URL. Anthropic pagination must complete before a snapshot
+  replacement. Snapshots retain exact raw IDs, sanitized source URL, timestamp,
+  normalized name/limits/selected capabilities, and explicit finite
+  non-negative per-million prices only.
+- Integrated review findings were resolved: duplicate raw IDs are omitted so
+  prior metadata/prices cannot survive an ambiguous complete response, and the
+  design no longer claims catalog and source-snapshot writes are atomic. Source
+  audit also extended the existing create/update schemas and validation route
+  to accept same-origin absolute endpoints through the shared builder. A stale
+  duplicate APInex freshness SHALL was removed from the superseded spec.
+- Pricing and strict-zero evidence require fresh, unanimous exact prices across
+  currently active connections that expose the raw ID. Unknown, conflicting,
+  stale, future, duplicate-ID, and excluded-connection data fail closed.
+  Current explicit false capability evidence takes precedence over canonical
+  defaults while existing operator/provider overrides retain priority.
+- Primary Anthropic docs verification found `image_input.supported` and
+  `server_tools` in the documented nested shape, with no `tool_use` field.
+  Removed the unsupported `tool_use` inference; `server_tools` remains unknown
+  for caller tool-call support. See the package's
+  [`completion.review`](openspec/changes/generic-compatible-model-metadata/completion.review)
+  for detailed evidence and fixture sources.
+- Focused compatible metadata/discovery/capability/endpoint-schema/models.dev/
+  benchmark suite: **89/89 passed**. The existing models.dev live-API test
+  performs a public catalog GET; compatible provider fetches are mocked.
+  Focused changed-module lint, `git diff --check`, and strict validation for the
+  new and superseded packages pass. Prettier passes on changed code and OpenSpec
+  except `src/app/api/provider-nodes/[id]/route.ts`, whose clean-base source also
+  fails formatting; unrelated existing formatting remains untouched. Full
+  changed-file lint reports 11 pre-existing errors in unchanged route/test
+  lines. Core typecheck remains nonzero with 720 diagnostics exactly matching
+  clean base; no changed production module has a diagnostic.
+- Code Simplifier was applied after implementation fixes. Fresh integrated
+  independent review returned no actionable findings; the reviewer ran no
+  tests or builds. The local commit contains this review. This package includes
+  no GitHub build/release, deployment, provider request/completion, credential
+  change, or runtime mutation; those gates remain open in `openspec/TODO.md`.
+
 ## APInex native node type selection correction (2026-10-29)
 
 - Deployed read-only inspection found the configured APInex node uses stored
