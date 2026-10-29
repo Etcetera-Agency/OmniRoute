@@ -997,6 +997,27 @@ Deferred cross-repository and operations work:
       remain open. The earlier APInex `/v1/models` 401 used encrypted
       SQLite credentials directly and does not establish that saved credentials
       are invalid; make no provider request as part of TL322.
+- [ ] Correct and release the TL324 APInex node selector. Read-only deployed
+      inspection on image `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b`
+      found the configured native node has type `openai-compatible`, exact
+      endpoint `https://api.apinex.bond/v1`, and 44 synced raw IDs. The adapter
+      selected only `openai-compatible-chat`, so it selected no node before
+      fetch. The public catalog was independently reachable (HTTP 200, 44
+      rows, 21 numeric zero/zero records). Source inspection confirmed
+      `openai-compatible-chat-` is a generated provider ID prefix from
+      `apiType = "chat"`, not a stored node type. The local correction in
+      `fix-apinex-native-node-type` selects stored type `openai-compatible` for
+      all schema-valid API formats, with the exact endpoint/full-node/raw-ID
+      binding unchanged. Integrate and deploy it, then verify source evidence
+      uses the full node ID and only synced exact raw IDs enter pricing. Keep
+      `anthropic-compatible` outside this adapter until a matching APInex
+      endpoint contract is established.
+- [ ] Native free-only acceptance remains open after TL320 hid the built-in
+      no-auth `uncloseai` model found in TL326's default-pool inspection. TL320
+      then observed an empty normal pool and 12 APInex candidates only in the
+      diagnostic view; this does not establish an eligible native APInex route
+      or successful completion. Keep this source correction data-only and
+      prove the final request cannot fall back outside the requested free band.
 - [ ] Before the separately authorized generated-override cleanup, verify
       whitelist hash
       `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`,

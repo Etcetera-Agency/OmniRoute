@@ -46,10 +46,11 @@ No historical snapshots or raw catalog payloads are retained.
 
 ## Provider binding
 
-An APInex node matches only when its configured node type is the existing
-OpenAI-compatible chat type and its configured base URL is HTTPS at
-`api.apinex.bond` with path `/v1` (trailing slash may be normalized). Display
-name and provider prefix do not participate. The raw provider key is the
+An APInex node matches only when its stored node type is exactly
+`openai-compatible` and its configured base URL is HTTPS at
+`api.apinex.bond` with path `/v1` (trailing slash may be normalized). API type
+and generated ID prefix are separate and do not participate. Display name
+and public provider prefix do not participate. The raw provider key is the
 configured node ID.
 
 During source refresh, intersect exact APInex catalog `id` values with the

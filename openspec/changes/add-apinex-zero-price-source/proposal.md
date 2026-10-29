@@ -19,11 +19,12 @@ provider labels, names, and ID prefixes do not establish price.
 ## Selected design
 
 Fetch the public catalog during a successful, non-dry-run models.dev sync in a
-separate failure boundary. Identify configured APInex nodes by the existing
-OpenAI-compatible chat node type and the exact APInex API endpoint. Intersect
-catalog IDs with raw models already synced as available for each matching
-node. Store the current APInex zero-price identities and their own fetch time
-and source URL in a separate `key_value` snapshot.
+separate failure boundary. Identify configured APInex nodes by the exact
+stored type `openai-compatible` and APInex API endpoint. The API type affects
+request format and generated ID prefix but not stored type. Intersect catalog
+IDs with raw models already synced as available for each matching node. Store
+the current APInex zero-price identities and their own fetch time and source
+URL in a separate `key_value` snapshot.
 
 Write APInex zero rows into the existing `models_dev_pricing` shape under the
 exact configured node ID. Preserve that merge when the normal models.dev

@@ -8,6 +8,7 @@ import {
   extractModelsDevZeroPriceModels,
   type ModelsDevData,
 } from "../../src/lib/modelsDevSync/transform.ts";
+import { createProviderNodeSchema } from "../../src/shared/validation/schemas/provider.ts";
 import {
   APINEX_PUBLIC_MODELS_URL,
   bindApinexZeroPriceModels,
@@ -15,6 +16,8 @@ import {
   extractApinexZeroPriceModelIds,
   type ApinexZeroPriceEvidence,
 } from "../../src/lib/modelsDevSync/apinex.ts";
+import { filterStrictZeroCostCandidates } from "../../open-sse/services/autoCombo/strictZeroCostFilter.ts";
+import { OPENAI_COMPATIBLE_PREFIX } from "../../src/shared/constants/providers.ts";
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-zero-price-"));
 process.env.DATA_DIR = DATA_DIR;
@@ -93,7 +96,70 @@ test("extracts only explicit zero/zero prices with exact raw provider and model 
 });
 
 const APINEX_NOW = Date.parse("2026-10-29T12:00:00.000Z");
-const APINEX_NODE = "openai-compatible-chat-apinex-test";
+const APINEX_NODE = "openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1";
+const APINEX_CONNECTION = "9565fb26-817c-42b4-baa0-b76733a951c4";
+const OPENAI_API_TYPES = [
+  "chat",
+  "responses",
+  "embeddings",
+  "audio-transcriptions",
+  "audio-speech",
+  "images-generations",
+] as const;
+const APINEX_OTHER_API_FORMATS = OPENAI_API_TYPES.filter((apiType) => apiType !== "chat").map(
+  (apiType) => ({
+    apiType,
+    id: `${OPENAI_COMPATIBLE_PREFIX}${apiType}-tl324-test`,
+    connectionId: `tl324-${apiType}-connection`,
+  })
+);
+// Official APInex public catalog IDs and prices captured 2026-10-29; sync tests mock the fetch.
+const APINEX_PUBLIC_CATALOG = [
+  { id: "free/gemini-3.8-flash", input: 0, output: 0 },
+  { id: "free/qwen-3.8-max", input: 0, output: 0 },
+  { id: "free/kimi-k3", input: 0, output: 0 },
+  { id: "free/deepseek-v4.1-flash", input: 0, output: 0 },
+  { id: "free/glm-5.3-flash", input: 0, output: 0 },
+  { id: "free/muse-spark-1.3", input: 0, output: 0 },
+  { id: "gemini-4-argon", input: 0.6, output: 0.6 },
+  { id: "claude-sonnet-5.5", input: 0.4, output: 0.4 },
+  { id: "claude-opus-5.5", input: 0.5, output: 0.5 },
+  { id: "claude-fable-5.1", input: 2, output: 2 },
+  { id: "gpt-6.1-terra", input: 0.17, output: 0.17 },
+  { id: "gpt-6.1-sol", input: 0.3, output: 0.3 },
+  { id: "gpt-6-astra", input: 0.5, output: 0.5 },
+  { id: "deepseek-v4.1-flash", input: 0.06, output: 0.06 },
+  { id: "grok-4.7", input: 0.3, output: 0.3 },
+  { id: "gemini-3.8-flash", input: 0.1, output: 0.1 },
+  { id: "deepseek-v4-flash", input: 0.05, output: 0.05 },
+  { id: "deepseek-v4-pro", input: 0.07, output: 0.07 },
+  { id: "gemini-3.1-pro", input: 0.15, output: 0.15 },
+  { id: "gpt-6-luna", input: 0.075, output: 0.075 },
+  { id: "free/minimax-m3.1-flash", input: 0, output: 0 },
+  { id: "free/glm-5.3", input: 0, output: 0 },
+  { id: "free/deepseek-v4-pro-0813", input: 0, output: 0 },
+  { id: "free/gpt-6-luna", input: 0, output: 0 },
+  { id: "free/glm-5.3-flashx", input: 0, output: 0 },
+  { id: "free/jev-1.13", input: 0, output: 0 },
+  { id: "free/mimo-v2.6-pro", input: 0, output: 0 },
+  { id: "free/minimax-m3", input: 0, output: 0 },
+  { id: "free/deepseek-v4-flash-0731", input: 0, output: 0 },
+  { id: "free/mimo-v2.6-flash", input: 0, output: 0 },
+  { id: "free/claude-sonnet-4.6", input: 0, output: 0 },
+  { id: "free/hy4", input: 0, output: 0 },
+  { id: "free/claude-opus-4.6", input: 0, output: 0 },
+  { id: "free/gemini-3.1-pro", input: 0, output: 0 },
+  { id: "free/kimi-k2.8", input: 0, output: 0 },
+  { id: "glm-5.3-flash", input: 0.05, output: 0.05 },
+  { id: "glm-5.3", input: 0.15, output: 0.15 },
+  { id: "kimi-k3.1-pro", input: 0.3, output: 0.4 },
+  { id: "drex-v2.0", input: 0.04, output: 0 },
+  { id: "jev-1.13", input: 0.042, output: 0 },
+  { id: "subq-snap-preview", input: 0.05, output: 0 },
+  { id: "gpt-6-luna-decisions", input: 0.1, output: 0 },
+  { id: "muse-spark-1.3", input: 0.3, output: 0.3 },
+  { id: "hy4-preview", input: 0.3, output: 0.3 },
+];
 
 function apinexRecord(id: string, input = 0, output = 0, extra: Record<string, unknown> = {}) {
   return {
@@ -105,6 +171,34 @@ function apinexRecord(id: string, input = 0, output = 0, extra: Record<string, u
     ...extra,
   };
 }
+
+test("provider-node schema stores the compatible type separately from each API format", () => {
+  for (const apiType of OPENAI_API_TYPES) {
+    const parsed = createProviderNodeSchema.safeParse({
+      name: "APInex",
+      prefix: "apinex",
+      apiType,
+      type: "openai-compatible",
+      baseUrl: "https://api.apinex.bond/v1",
+    });
+
+    assert.equal(parsed.success, true, apiType);
+    assert.equal(parsed.data.type, "openai-compatible");
+    assert.equal(parsed.data.apiType, apiType);
+  }
+
+  assert.equal(APINEX_NODE.startsWith(`${OPENAI_COMPATIBLE_PREFIX}chat-`), true);
+  assert.equal(
+    createProviderNodeSchema.safeParse({
+      name: "APInex",
+      prefix: "apinex",
+      apiType: "chat",
+      type: "openai-compatible-chat",
+      baseUrl: "https://api.apinex.bond/v1",
+    }).success,
+    false
+  );
+});
 
 test("parses official APInex prices by exact numeric price fields only", () => {
   const payload = {
@@ -137,20 +231,32 @@ test("rejects incomplete or ambiguous APInex catalog responses", () => {
   }
 });
 
-test("binds APInex zero IDs only to exact configured endpoint and synced raw IDs", () => {
+test("binds exact raw IDs only for openai-compatible nodes at the exact APInex endpoint", () => {
   const bound = bindApinexZeroPriceModels(
-    ["free/exact", "free/unavailable"],
+    ["free/exact", "free/responses-exact", "free/unavailable"],
     [
       {
         id: APINEX_NODE,
-        type: "openai-compatible-chat",
+        type: "openai-compatible",
         baseUrl: "https://api.apinex.bond/v1",
         availableModelIds: ["free/exact", "free/other"],
       },
       {
-        id: "openai-compatible-chat-other-host",
-        type: "openai-compatible-chat",
+        id: `${OPENAI_COMPATIBLE_PREFIX}responses-tl324-test`,
+        type: "openai-compatible",
+        baseUrl: "https://api.apinex.bond/v1",
+        availableModelIds: ["free/responses-exact", "free/responses-other"],
+      },
+      {
+        id: "openai-compatible-wrong-endpoint",
+        type: "openai-compatible",
         baseUrl: "https://other.example/v1",
+        availableModelIds: ["free/exact"],
+      },
+      {
+        id: "anthropic-compatible-apinex-host",
+        type: "anthropic-compatible",
+        baseUrl: "https://api.apinex.bond/v1",
         availableModelIds: ["free/exact"],
       },
       {
@@ -162,7 +268,10 @@ test("binds APInex zero IDs only to exact configured endpoint and synced raw IDs
     ]
   );
 
-  assert.deepEqual(bound, { [APINEX_NODE]: ["free/exact"] });
+  assert.deepEqual(bound, {
+    [APINEX_NODE]: ["free/exact"],
+    [`${OPENAI_COMPATIBLE_PREFIX}responses-tl324-test`]: ["free/responses-exact"],
+  });
 });
 
 test("composes both fresh sources in either order with oldest timestamp", () => {
@@ -237,23 +346,38 @@ test("drops stale and future source independently and preserves exact 36-hour bo
   assert.equal(future, null);
 });
 
+function sanitizedApinexRuntimeModels(): Array<{
+  id: string;
+  name: string;
+  source: "imported";
+}> {
+  return APINEX_PUBLIC_CATALOG.map(({ id }) => ({
+    id,
+    name: id,
+    source: "imported",
+  }));
+}
+
 async function createApinexTestNode(
   id: string,
   baseUrl: string,
-  models: Array<{ id: string; visibility?: "hide" | "list" }>
+  models: Array<{ id: string; visibility?: "hide" | "list" }>,
+  apiType = "chat",
+  connectionId = id === APINEX_NODE ? APINEX_CONNECTION : "tl324-connection"
 ) {
   const { createProviderNode } = await import("../../src/lib/db/providers/nodes.ts");
   const { getDbInstance } = await import("../../src/lib/db/core.ts");
   await createProviderNode({
     id,
-    type: "openai-compatible-chat",
+    type: "openai-compatible",
+    apiType,
     name: "Display name is not identity",
-    prefix: "display-prefix",
+    prefix: "apinex",
     baseUrl,
   });
   getDbInstance()
     .prepare("INSERT INTO key_value (namespace, key, value) VALUES ('syncedAvailableModels', ?, ?)")
-    .run(`${id}:tl324-connection`, JSON.stringify(models));
+    .run(`${id}:${connectionId}`, JSON.stringify(models));
   return getDbInstance();
 }
 
@@ -270,13 +394,52 @@ const modelsDevPayload = {
   },
 };
 
-test("syncs only exact APInex zero IDs already synced under configured node", async () => {
+test("syncs exact APInex zero IDs for every configured OpenAI API format", async () => {
   delete process.env.MODELS_DEV_SYNC_ENABLED;
-  const db = await createApinexTestNode(APINEX_NODE, "https://api.apinex.bond/v1", [
-    { id: "free/exact-zero", visibility: "hide" },
-    { id: "free/other" },
-    { id: "free/mixed" },
-  ]);
+  const syncedModels = sanitizedApinexRuntimeModels();
+  const hiddenModelId = "free/deepseek-v4.1-flash";
+  const chatSyncedModels = syncedModels.filter(({ id }) => id === hiddenModelId);
+  const { getHiddenModelsByProvider, setModelIsHidden } =
+    await import("../../src/lib/db/models.ts");
+  const db = await createApinexTestNode(APINEX_NODE, "https://api.apinex.bond/v1", syncedModels);
+  for (const { id, apiType, connectionId } of APINEX_OTHER_API_FORMATS) {
+    await createApinexTestNode(
+      id,
+      "https://api.apinex.bond/v1",
+      chatSyncedModels,
+      apiType,
+      connectionId
+    );
+  }
+  assert.deepEqual(
+    db
+      .prepare("SELECT id, type, prefix, api_type, base_url FROM provider_nodes WHERE id = ?")
+      .get(APINEX_NODE),
+    {
+      id: APINEX_NODE,
+      type: "openai-compatible",
+      prefix: "apinex",
+      api_type: "chat",
+      base_url: "https://api.apinex.bond/v1",
+    }
+  );
+  for (const { id, apiType } of APINEX_OTHER_API_FORMATS) {
+    assert.deepEqual(
+      db
+        .prepare("SELECT id, type, prefix, api_type, base_url FROM provider_nodes WHERE id = ?")
+        .get(id),
+      {
+        id,
+        type: "openai-compatible",
+        prefix: "apinex",
+        api_type: apiType,
+        base_url: "https://api.apinex.bond/v1",
+      }
+    );
+  }
+  setModelIsHidden(APINEX_NODE, hiddenModelId, true);
+  const hiddenModelsBeforeSync = getHiddenModelsByProvider();
+  assert.equal(hiddenModelsBeforeSync.get(APINEX_NODE)?.has(hiddenModelId), true);
   db.prepare(
     "DELETE FROM key_value WHERE namespace IN ('models_dev_pricing', 'models_dev_zero_price', 'apinex_zero_price')"
   ).run();
@@ -290,11 +453,9 @@ test("syncs only exact APInex zero IDs already synced under configured node", as
     if (url === APINEX_PUBLIC_MODELS_URL) {
       return new Response(
         JSON.stringify({
-          models: [
-            apinexRecord("free/exact-zero"),
-            apinexRecord("free/not-synced"),
-            apinexRecord("free/mixed", 0, 0.01),
-          ],
+          models: APINEX_PUBLIC_CATALOG.map(({ id, input, output }) =>
+            apinexRecord(id, input, output)
+          ),
           healthCheckedAt: "ignored for pricing provenance",
         }),
         { status: 200 }
@@ -315,35 +476,90 @@ test("syncs only exact APInex zero IDs already synced under configured node", as
     .get() as { value: string };
   const source = JSON.parse(sourceRow.value) as ApinexZeroPriceEvidence;
   assert.equal(source.sourceUrl, APINEX_PUBLIC_MODELS_URL);
-  assert.deepEqual(source.modelsByProvider, { [APINEX_NODE]: ["free/exact-zero"] });
+  assert.equal(syncedModels.length, 44);
+  const expectedZeroPriceIds = APINEX_PUBLIC_CATALOG.filter(
+    ({ input, output }) => input === 0 && output === 0
+  ).map(({ id }) => id);
+  assert.equal(expectedZeroPriceIds.length, 21);
+  assert.equal(syncedModels.length - expectedZeroPriceIds.length, 23);
+  assert.deepEqual(source.modelsByProvider[APINEX_NODE], expectedZeroPriceIds);
+  for (const { id } of APINEX_OTHER_API_FORMATS) {
+    assert.deepEqual(source.modelsByProvider[id], [hiddenModelId]);
+  }
+  assert.equal(source.modelsByProvider.apinex, undefined);
 
   const pricingRow = db
     .prepare("SELECT value FROM key_value WHERE namespace = 'models_dev_pricing' AND key = ?")
     .get(APINEX_NODE) as { value: string };
-  assert.deepEqual(JSON.parse(pricingRow.value), { "free/exact-zero": { input: 0, output: 0 } });
-  assert.deepEqual(modelsDev.getModelsDevZeroPriceEvidence().modelsByProvider[APINEX_NODE], [
-    "free/exact-zero",
-  ]);
+  const pricing = JSON.parse(pricingRow.value) as Record<string, { input: number; output: number }>;
+  const expectedPricing = Object.fromEntries(
+    expectedZeroPriceIds.map((id) => [id, { input: 0, output: 0 }])
+  );
+  assert.deepEqual(pricing, expectedPricing);
+  for (const { id } of APINEX_OTHER_API_FORMATS) {
+    const pricingRow = db
+      .prepare("SELECT value FROM key_value WHERE namespace = 'models_dev_pricing' AND key = ?")
+      .get(id) as { value: string };
+    assert.deepEqual(JSON.parse(pricingRow.value), { [hiddenModelId]: { input: 0, output: 0 } });
+  }
+  const evidence = modelsDev.getModelsDevZeroPriceEvidence();
+  assert.deepEqual(evidence.modelsByProvider[APINEX_NODE], expectedZeroPriceIds);
+  for (const { id } of APINEX_OTHER_API_FORMATS) {
+    assert.deepEqual(evidence.modelsByProvider[id], [hiddenModelId]);
+  }
+  assert.equal(evidence.modelsByProvider.apinex, undefined);
+
+  const exactCandidate = {
+    provider: APINEX_NODE,
+    model: hiddenModelId,
+    connectionId: APINEX_CONNECTION,
+  };
+  const formatCandidates = APINEX_OTHER_API_FORMATS.map(({ id, connectionId }) => ({
+    provider: id,
+    model: hiddenModelId,
+    connectionId,
+  }));
+  const prefixCandidate = { ...exactCandidate, provider: "apinex" };
+  assert.deepEqual(
+    filterStrictZeroCostCandidates([exactCandidate, ...formatCandidates, prefixCandidate], {
+      enabled: true,
+      catalog: [],
+      resolveFreeAccessState: () => undefined,
+      minRemainingAllowance: 0,
+      maxStateAgeMs: 60_000,
+      modelsDevZeroPriceEvidence: evidence,
+    }),
+    [exactCandidate, ...formatCandidates]
+  );
 
   db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_zero_price'").run();
   assert.deepEqual(modelsDev.getModelsDevZeroPriceEvidence(), {
     fetchedAt: source.fetchedAt,
-    modelsByProvider: { [APINEX_NODE]: ["free/exact-zero"] },
+    modelsByProvider: {
+      [APINEX_NODE]: expectedZeroPriceIds,
+      ...Object.fromEntries(APINEX_OTHER_API_FORMATS.map(({ id }) => [id, [hiddenModelId]])),
+    },
   });
 
   const storedModels = db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
-    .get(`${APINEX_NODE}:tl324-connection`) as { value: string };
-  assert.deepEqual(JSON.parse(storedModels.value), [
-    { id: "free/exact-zero", visibility: "hide" },
-    { id: "free/other" },
-    { id: "free/mixed" },
-  ]);
+    .get(`${APINEX_NODE}:${APINEX_CONNECTION}`) as { value: string };
+  assert.deepEqual(JSON.parse(storedModels.value), syncedModels);
+  for (const { id, connectionId } of APINEX_OTHER_API_FORMATS) {
+    const storedModels = db
+      .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
+      .get(`${id}:${connectionId}`) as { value: string };
+    assert.deepEqual(JSON.parse(storedModels.value), chatSyncedModels);
+  }
+  assert.deepEqual(getHiddenModelsByProvider(), hiddenModelsBeforeSync);
 
   db.prepare("UPDATE provider_nodes SET base_url = 'https://other.example/v1' WHERE id = ?").run(
     APINEX_NODE
   );
-  assert.equal(modelsDev.getModelsDevZeroPriceEvidence(), null);
+  assert.deepEqual(
+    modelsDev.getModelsDevZeroPriceEvidence().modelsByProvider,
+    Object.fromEntries(APINEX_OTHER_API_FORMATS.map(({ id }) => [id, [hiddenModelId]]))
+  );
 });
 
 test("models.dev save survives APInex failure without refreshing source time", async () => {

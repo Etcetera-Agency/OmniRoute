@@ -1,0 +1,76 @@
+# Completion review — fix-apinex-native-node-type
+
+**Status:** Local source correction and fresh independent review are complete.
+Release, deployed-source verification, and native free-only acceptance remain
+open in `openspec/TODO.md`; keep this change unarchived until the parent closes
+those gates.
+
+## Cause and verified identity
+
+TL326's read-only check of deployed image
+`1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b` found the
+configured APInex node at `https://api.apinex.bond/v1` with stored type
+`openai-compatible` and 44 synced raw model IDs. The adapter at base
+`e5be44c4080f228bc022ac9f821e073faddf80a8` selected only
+`openai-compatible-chat`, so it found no configured node before the APInex
+catalog fetch. The separate public catalog returned 44 structured rows with
+21 numeric zero/zero prices.
+
+The native creation schema accepts type `openai-compatible`. The provider-node
+route generates IDs using the selected API type (`chat`), then stores
+`type = "openai-compatible"`; SQLite stores ID, type, prefix, and base URL in
+separate columns. Auto candidates retain the provider-connection provider ID,
+and the strict zero-cost reader joins exact provider and raw model IDs. The
+public prefix `apinex` is not the provider evidence key.
+
+## Correction
+
+- The creation schema stores `type = "openai-compatible"`; `apiType =
+"chat"` is a separate request-format field. The route constructs IDs with
+  `openai-compatible-<apiType>-...`, so `openai-compatible-chat-` is an ID
+  prefix, not a stored type. The parent explained this distinction to the
+  owner; the owner accepted the correction. `anthropic-compatible` remains a
+  separate family with no established APInex endpoint contract.
+- The full stored node ID remains the pricing/evidence key. Exact source IDs
+  still intersect only with raw IDs already synced for that node.
+- The selector and predicate require stored type `openai-compatible` and the
+  exact APInex endpoint. All schema-valid API formats remain eligible only for
+  raw IDs already synced under their full node ID.
+- Pricing parsing, independent source freshness, model availability,
+  hidden/excluded state, candidate construction, the strict filter, and routing
+  are unchanged.
+
+## Regression and verification
+
+- RED on the sanitized native row and exact 44 raw IDs against deployed base
+  `e5be44c`: the sync requested models.dev but did not request the APInex
+  public catalog. The final regression validates that live chat node and every
+  other schema-valid API format while stored type remains
+  `openai-compatible`.
+- The regression uses all 44 official catalog IDs and input/output prices,
+  persists 21 exact zero-price identities and excludes 23 paid identities,
+  and binds each additional API-format row only to its exact synced raw ID.
+  Full provider IDs match the strict guard while the public prefix does not;
+  all synced records and a separate hidden override remain unchanged.
+- Focused command covering
+  `modelsDevZeroCostEvidence.test.ts`, `modelsDevSync-extended.test.ts`, and
+  `modelsDevSyncBenchmarkHook.test.ts`: **34/34 passed**. This includes the
+  existing models.dev pricing/capability path and benchmark hook.
+- TypeScript compiler API syntax and semantic diagnostics passed for the two
+  changed production modules and the changed test module.
+- Strict OpenSpec validation passed for `fix-apinex-native-node-type` and
+  `add-apinex-zero-price-source`. Prettier passed for changed TypeScript and
+  OpenSpec Markdown files; `git diff --check` passed. The root
+  `completion.review` check reports one unchanged wrapping difference also
+  present at base `e5be44c4080f228bc022ac9f821e073faddf80a8`.
+- Code Simplifier reviewed the final source/test diff. Production keeps the
+  exact `openai-compatible` stored-type check; the test derives all six valid
+  API formats and their node ID prefixes from the schema and shared prefix.
+- Fresh independent review first found stale dual-type wording after the
+  source clarification. That wording was corrected and the reviewer confirmed
+  no remaining findings.
+
+One unauthenticated GET to `https://apinex.bond/api/public/models` supplied the
+public test fixture. No `/v1` provider request, key access, completion,
+provider-state write, local app/image/bundle build, push, merge, or deployment
+occurred. The source correction is not yet deployed or live-verified.
