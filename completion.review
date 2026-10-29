@@ -1,5 +1,48 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## APInex exact free-prefix identity binding (2026-10-29)
+
+- APInex custom-provider model inventory keeps raw IDs such as
+  `free/muse-spark-1.3`, while existing capability and score evidence is keyed
+  by exact canonical ID `muse-spark-1.3`. Added strict exact registry anchoring
+  for the literal leading `free/` path and reused existing fitness inheritance
+  without changing scores, priorities, profile selection, or expiry rules.
+- Capability inheritance is exact-ID only. The raw provider/model pair remains
+  the dispatch and candidate identity; raw synced values and provider-scoped
+  overrides retain precedence. Canonical synced/static/registry evidence is
+  eligible only after the exact registry anchor. Duplicate registry fields
+  must agree, and conflicts remain unknown.
+- Source review found generic synced-leaf and effort-suffix fallbacks plus the
+  vision-family heuristic could resolve unanchored paths. Regressions
+  reproduced a nested path inheriting a synced leaf, an unanchored `-high`
+  variant inheriting its sibling base, and a nested `pixtral` name gaining
+  vision heuristically. Free-prefix lookup now uses exact raw/base IDs and
+  skips shared heuristic fallback without an exact anchor.
+- TDD regressions pass for exact APInex IDs, prefix-only/nested unknown IDs,
+  `free/kimi` exact-ID precedence, capability consensus, provider false/vision
+  overrides, unanchored nested/effort/vision-family identities, expired Arena
+  scores, user/Arena/benchmark priorities, low/mid/high profiles, raw hidden
+  keys, per-connection exclusions, and unchanged native band pool membership.
+  Focused command across five test files passes 26/26.
+- Strict OpenSpec validation, Prettier, and `git diff --check` pass. Scoped
+- Read-only EX322 independent review of source commit
+  `d987b44f7759295b619a3da20f5780a12ee63631` returned no findings. It verified
+  raw hidden/exclusion coverage and made no test or build runs.
+- `npm run check:open-sse-typecheck` reports seven diagnostics at both the
+  parent source `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322. The same
+  unchanged files/codes appear in both runs: `open-sse/services/systemOne/schema.ts`
+  TS2353, `src/lib/modelBenchmarkSearch.ts` TS2322 and TS2339 (two), and
+  `src/lib/proxySubscription/parse.ts` TS2345 (three). The script still fails
+  because its frozen diagnostic baseline marks four counts as uncovered; this
+  is not reported as a passing typecheck. No diagnostic is in the TL322 diff.
+- Code Simplifier reviewed the changed source and tests. No local app/image
+  build, provider request, provider-state mutation, push, merge, or deploy
+  occurred.
+- No local app/image build, provider request, provider-state mutation, push,
+  merge, or deploy occurred. Fresh independent review and deployed-source/live
+  acceptance remain open. TL324 separately owns official APInex free pricing;
+  the `free/` prefix is not entitlement evidence.
+
 ## ARM64 duplicate import regression (2026-10-29)
 
 - Removed duplicate imports from `open-sse/services/combo/resolveAutoStrategy.ts`
@@ -1218,3 +1261,42 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - This snapshot predates the new image. Wait for the active row to finish before
   cutover, then verify fresh scheduled receipts. Reprocessing the three prior
   rows is a separate queue action and is not part of this patch.
+
+## APInex TL322/TL324 local integration — 2026-10-29
+
+- Merged TL322 commit `6e1eadfcc1222c288dbf54ccea5cee06f49c4340` by fast-forward,
+  then TL324 commit `0a7ce6d565f1c23cd3809c82e139cace9e85fa03` with a normal
+  two-parent merge. Resolved the sole `openspec/TODO.md` conflict by retaining
+  TL320/TL322 review and typecheck evidence plus TL324 pricing-boundary notes;
+  marked local integration complete while leaving native live acceptance open.
+- TL322 focused suite passed **26/26** across exact canonical capabilities and
+  fitness, raw hidden/exclusion behavior, native raw route identity, and
+  unchanged pool membership. TL324 focused suite passed **33/33** across
+  APInex zero-price producer parsing/binding, source freshness/composition and
+  persistence, models.dev-save independence, and `modelsDevSync` hook behavior.
+  The benchmark hook regression `direct full-catalog refresh publishes
+  evidence without search or inference work` passed.
+- Combined suite evidence verifies the existing producer-to-native consumer
+  boundary without changing strict filters, score formulas, band predicates,
+  candidate pool/capabilities ingestion, dispatch IDs, or provider state.
+  Static TypeScript transpile/import syntax check passed for all five changed
+  production modules. Both OpenSpec packages pass strict validation; diff
+  check passes. No app compile, bundle/image build, provider request, DB or
+  inference action, push, publish, or deploy occurred.
+- Code Simplifier review of the merged source found package reviews already
+  record simplification for both source slices; integration adds no code, so no
+  further simplification was applicable. Combined release and native live
+  acceptance remain open; keep packages unarchived.
+
+## Final combined review follow-up — 2026-10-29
+
+- Fresh independent review of the combined diff first found the score resolver
+  header omitted the new fourth `free-prefix` tier. A second pass found the
+  initial wording overclaimed that nested IDs always stay unresolved. Two
+  comment-only commits now document the exact rule: a full registry-anchored
+  remainder resolves; otherwise the raw ID stays unchanged.
+- Re-review of final commit `c00eda16a6c5ed629a3b48f12bd2a21c755c8777` found no
+  remaining findings. Behavior did not change, so focused suites were not
+  rerun after the comment edits; commit hooks passed both edits.
+- Combined deployed-source and native free-only live acceptance remains open
+  and tracked in `openspec/TODO.md`.

@@ -13,9 +13,11 @@ let _models: Record<string, RegistryModel[]> | null = null;
 // array per call, which made auto/* scoring O(candidates x registry). Cleared whenever the
 // registry is mutated through the Proxy (set / deleteProperty) and by resetRegistryLookupCache().
 const _modelByIdMemo = new Map<string, RegistryModel | undefined>();
+const _exactModelsByIdMemo = new Map<string, readonly RegistryModel[]>();
 const _scoresAsMemo = new Map<string, string | undefined>();
 export function resetRegistryLookupCache(): void {
   _modelByIdMemo.clear();
+  _exactModelsByIdMemo.clear();
   _scoresAsMemo.clear();
 }
 function initModels(): Record<string, RegistryModel[]> {
@@ -178,6 +180,25 @@ export function findRegistryModelById(modelId: string): RegistryModel | undefine
   const found = scanRegistryModelById(modelId);
   _modelByIdMemo.set(modelId, found);
   return found;
+}
+
+/** Exact-ID provider copies only; no basename, alias, or prefix matching. */
+export function findRegistryModelsByExactId(modelId: string): readonly RegistryModel[] {
+  if (typeof modelId !== "string" || modelId.length === 0) return [];
+  const cached = _exactModelsByIdMemo.get(modelId);
+  if (cached) return cached;
+  const exact = Object.values(PROVIDER_MODELS).flatMap((models) =>
+    models.filter((model) => model.id === modelId)
+  );
+  _exactModelsByIdMemo.set(modelId, exact);
+  return exact;
+}
+
+/** Bind only a leading free/ namespace whose complete remainder is a catalog ID. */
+export function resolveFreePrefixBase(modelId: string): string | null {
+  if (typeof modelId !== "string" || !modelId.startsWith("free/")) return null;
+  const base = modelId.slice("free/".length);
+  return base && findRegistryModelsByExactId(base).length > 0 ? base : null;
 }
 
 function scanRegistryModelById(modelId: string): RegistryModel | undefined {
