@@ -914,24 +914,20 @@ Deferred cross-repository and operations work:
       retain nonconflicting entries from both sides. Focused conflict-area
       checks, core regressions, strict OpenSpec validation, and Code Simplifier
       results are recorded in the release package `completion.review`.
-- [ ] Before pushing this feature branch, TL316 supplies a read-only receipt
-      confirming production source `5c9266982d5b330628eac4233d46faba8ad4c091`
-      and a migration ledger at or below 199. This verifies the upstream files
-      remapped to 200–215 were not applied under the old names. Do not mutate
-      runtime state or the database for this receipt.
-- [ ] TL316 must review and install the repository-verified host-helper update
-      at `/usr/local/libexec/omniroute-deploy.py` so its accepted
-      `org.opencontainers.image.base.digest` matches official OCI index
-      `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
-      The installed helper was not read or changed. No deployment before this
-      gate.
-- [ ] TL313 rehearses ordered migrations 200–216 against a consistent,
-      isolated production DB clone; verifies schema, FTS5, credentials,
-      benchmark outputs, foreign keys and DB integrity; and restores the
-      pre-migration snapshot with the prior image to prove rollback. Only after
-      that gate and the owner's separate grant may the disabled workflow build
-      one authoritative ARM64 image. Preserve immutable build and smoke
-      receipts before any deployment.
+- [x] Production release gate completed. Deployed source is
+      `df19cd81e3031621148e13b8b4ee4b0bea52126e`, with migration journal at
+      216; upstream 197–212 map to 200–215 and fork current-set migration is 216. GitHub run `40879166447` published and deployed ARM64 image
+      `sha256:3239130242ccc9d6a15fb535b01bcce361379c42927c2c132a070dc83af68a35`
+      against official OCI index
+      `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
+      (ARM64 child
+      `sha256:fb7f91836fd95f382a5a04af740d859e2e9731804b5c0ba43f5d2e7f9ad64794`).
+      Isolated clone rehearsal passed integrity and foreign-key checks, kept
+      327 benchmark observations and score projections, and rolled back its
+      synthetic FTS check to a savepoint. Production evidence table has no
+      `raw_json`; legacy table is absent. Failed run `40871049172` stopped
+      before publish/deploy. Workflow `373883666` remains manually disabled;
+      future image builds stay GitHub-only.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.
@@ -939,25 +935,56 @@ Deferred cross-repository and operations work:
       OpenSpec validation, and local commit for `add-model-benchmark-search`.
       The first complete current-source refresh replaces legacy direct rows
       without replaying archived payloads. Merge and release remain separate.
-- [ ] After approved integration, prevent startup models.dev sync and queue
-      work during maintenance restart; run the bundled full-catalog refresh
-      across every canonical raw identity. Confirm source match,
-      missing, ambiguity, incomplete-source, persistence, and fitness-profile
-      publication receipts. Keep actual runtime IDs as publication keys; do not
-      infer provider-prefix mappings.
+- [x] After deployment, ordinary models.dev sync completed with 9,812 pricing
+      rows, 236 provider rows, and 10,216 capability rows. Current direct
+      receipt: AA 416 rows / 208 raw IDs / 199 canonical IDs; DeepSWE 73 rows /
+      31 raw IDs / 28 canonical IDs; SWE-bench 38 rows / 7 canonical IDs;
+      Terminal-Bench 2.0 24 rows / 10 canonical IDs; Terminal-Bench 2.1 2 rows /
+      1 canonical ID. Existing HF evidence remains 1,419 rows / 123 IDs from
+      the 2026-10-26 capture; no new HF fetch is claimed. Native sources
+      `benchmark_fitness`, `benchmark_fitness:low`,
+      `benchmark_fitness:medium`, and `benchmark_fitness:high` were republished
+      at 2026-10-29 13:49:27 UTC.
 - [x] Validate `add-model-benchmark-search` with strict OpenSpec CLI validation
       after the integrated spec and completion record are current.
-- [ ] Confirm direct benchmark evidence reaches every currently available
-      built-in-band candidate identity. Before cleanup, verify whitelist hash
-      `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`, take
-      a private DB backup, and remove only exact generated override key/value/
-      timestamp matches under a concurrent-change guard. Preserve unrelated
-      overrides and current precedence logic.
-- [ ] Run approved live acceptance only after release: verify new evidence and
-      recomputed profiles against the actual runtime catalog, then record the
-      exact source/image and receipts before closing this package.
+- [x] Confirm native reader and free-band lookups use raw canonical IDs.
+      `claude-3.5-sonnet` resolves base `0.5` and low/medium/high
+      `benchmark_fitness` profiles `0.35714285714285715`; before provider
+      isolation, free-band candidates were coding low/mid/high `10/5/2` and
+      general `13/3/1`. Generic Auto uses the base score; explicit bands use
+      matching profiles. Existing `benchmark_consensus` and `models_dev_tier`
+      remain valid fallbacks where a benchmark profile is absent; no score or
+      filter change is proposed.
+- [ ] Finish native free-only live acceptance. The three client completions
+      produced one provider attempt: public correlation
+      `741de1ea-289b-4c1e-bf5c-a17ebfc15743` stopped at Traefik 403; restricted
+      key correlation `5dcd66b1-c32b-40ed-9271-a4dbe0b3c9ed` was blocked with
+      `ALL_TARGETS_SKIPPED` before provider dispatch; the corrected temporary
+      key was deleted and is absent from the DB. The actual
+      `auto/coding_high_tools:free` attempt passed strict preflight, selected
+      `nvidia/deepseek-ai/deepseek-v4.1-flash`, then timed out after 302,271 ms
+      with HTTP 504. Usage was 0/0 and no cost-ledger row exists, so this is not
+      successful free acceptance. The APInex-only inspector has zero eligible
+      candidates; diagnose its eligibility and retain exact native
+      `request_exhaustion` / generic availability subreasons without changing
+      filters based on the timeout. Owner notes that existing canonical free,
+      capability, reasoning, and fitness data may be reusable across provider
+      routes. TL320 owns proving the exact data-binding gap; no fix has been
+      selected. Treat APInex metadata coverage and cross-provider binding as
+      unverified until that receipt. One successful native free-only tool call
+      must prove actual model, route, usage, and cost, with no paid or
+      out-of-band fallback. Keep APInex-only state until owner steering; restore
+      other providers only on that steering. Clean this task's redundant
+      artifacts while retaining one DB/image rollback pair. Do not archive this
+      package before this gate closes.
+- [ ] Before the separately authorized generated-override cleanup, verify
+      whitelist hash
+      `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`,
+      take a private DB backup, and remove only exact generated key/value/time
+      matches under a concurrent-change guard. Preserve unrelated overrides
+      and current precedence logic.
 
-## Current benchmark snapshot — 2026-10-27
+## Current benchmark snapshot — 2026-10-29
 
 - [x] Implement normal-sync background refresh over the full fresh canonical
       models.dev catalog. Preserve pricing/capability writes; do not enqueue or
@@ -985,11 +1012,12 @@ Deferred cross-repository and operations work:
 - [x] Complete focused integrated regressions, malformed-response coverage,
       independent review, Code Simplifier, and local OpenSpec validation. The
       completion review records exact commands and any local build limits.
-- [ ] Before production release, run isolated migration rehearsal on a
-      consistent database clone and verify the migration-specific schema/data
-      invariants and database rollback path; then build the authoritative ARM64
-      image and retain artifact receipts.
-- [ ] After approved deployment, run one complete current refresh against the
-      actual canonical catalog and retain immutable image/source and current-set
-      receipts. Do not run discovery, search, or inference as part of this
-      direct refresh. Keep the pre-migration DB snapshot until acceptance closes.
+- [x] Complete isolated migration 200–216 rehearsal and authoritative ARM64
+      build/deployment through GitHub run `40879166447`. Migration, image, and
+      benchmark receipts are recorded above and in both canonical completion
+      reviews. The current DB/image rollback pair remains protected; rollback
+      always restores both, never the image alone.
+- [x] Complete normal current-catalog refresh after deployment with direct
+      source, canonical-ID, and native-profile receipts above. The refresh made
+      no discovery, search, or inference calls. Preserve the pre-migration DB
+      snapshot until the remaining native free-only acceptance closes.

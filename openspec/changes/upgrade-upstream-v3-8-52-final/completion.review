@@ -213,6 +213,49 @@
   --strict`. `git diff --check` and `git diff --cached --check` passed after
   trimming trailing whitespace on two upstream translation lines.
   No full repository test sweep was run.
-- TL316's read-only source/migration-ledger receipt is still required before
-  push. TL316 host-helper review/install and TL313 clone migration/rollback
-  rehearsal remain release gates.
+- The previous source/ledger, deployment-helper, and clone-rehearsal gates are
+  superseded by the 2026-10-29 production receipt below. Native strict-free
+  tool-call acceptance remains open in
+  `../add-model-benchmark-search/completion.review` and `openspec/TODO.md`.
+
+## ARM64 deployment and migration acceptance — 2026-10-29
+
+- Integration ancestry: PR #42 merged benchmark fix at
+  `7bb10048702966cccaa0eebe62bb83bfad040265`; PR #43 integrated final upstream
+  v3.8.52 tag `ad6f33f66bda34eba98645d3bfdabbde294bc843` at main
+  `c204f2aba69c282e582697f43ca5ca6e2cf474f2`; PR #44 corrected duplicate
+  build imports at main `df19cd81e3031621148e13b8b4ee4b0bea52126e`.
+- Final migration map preserves fork migrations 197–199, maps upstream
+  197–212 to 200–215, and maps the fork current-set migration to 216. The
+  consistent isolated production DB clone rehearsal passed integrity and
+  foreign-key checks, preserved 327 benchmark observations and score
+  projections, and rolled back its synthetic FTS check to a savepoint. The
+  production migration journal is 216; legacy `raw_json` and the old evidence
+  table are absent.
+- GitHub Actions run `40871049172` failed before publication or deployment.
+  Run `40879166447` succeeded for main source
+  `df19cd81e3031621148e13b8b4ee4b0bea52126e`, completing ARM64 build, parity,
+  publication, and deployment. Deployed image is
+  `sha256:3239130242ccc9d6a15fb535b01bcce361379c42927c2c132a070dc83af68a35`
+  with image ID
+  `ae300d0556b1c16fe0ed809357b96ef8da194afed4b1a85daf94918c475cdc2d`;
+  official base index is
+  `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
+  and ARM64 child is
+  `sha256:fb7f91836fd95f382a5a04af740d859e2e9731804b5c0ba43f5d2e7f9ad64794`.
+  The runtime is healthy. Temporary sync suppression was removed, ordinary
+  sync resumed on the pinned image, the app alone was recreated, and Redis was
+  unchanged.
+- Workflow `373883666` (`.github/workflows/omni-overlay-image.yml`) remains
+  `disabled_manually`. Keep it disabled. The earlier local build ended by
+  SIGTERM and is inconclusive; all future image builds must run through GitHub.
+  The docs-only PR for this record does not require another image build.
+- Full models.dev refresh and native fitness publication are recorded in the
+  benchmark package review. Its remaining strict-free tool call did not succeed:
+  the sole actual provider attempt timed out with HTTP 504 and has no cost-ledger
+  row. APInex-only eligibility diagnosis and one successful native free-only
+  tool receipt remain required before closing the benchmark acceptance. Owner
+  notes that existing canonical free/capability/reasoning/fitness data may be
+  reusable across provider routes; TL320 owns proving the binding gap, and no
+  fix has been selected. This release package remains unarchived until the
+  shared TODO gates are resolved.
