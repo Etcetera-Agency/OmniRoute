@@ -2,6 +2,17 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+## ARM64 source-compilation regression
+
+- [x] Remove the duplicate TypeScript imports reported by workflow run
+      `40871049172` in `resolveAutoStrategy.ts` and `opencodeHeaders.ts`; focused
+      compiler regression and source/import-graph syntax checks pass. See change
+      `fix-arm64-build-duplicate-declarations` and `completion.review`.
+- [ ] After the reviewed source fix is integrated, run the normal ARM64 workflow
+      and retain its compiler/publish receipts before considering deploy. This
+      local source check did not dispatch a workflow, build an image, publish,
+      or deploy.
+
 ## Strict zero-cost models.dev evidence
 
 - [x] The strict filter currently relied on `FREE_MODEL_BUDGETS` and rejected

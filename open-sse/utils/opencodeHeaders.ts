@@ -1,7 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { setUserAgentHeader } from "../executors/base/headers.ts";
 import { generateSessionId } from "../services/sessionManager.ts";
-import { getCachedOpencodeCliVersion, refreshOpencodeCliVersion } from "./opencodeCliVersion.ts";
 import {
   getCachedOpencodeCliVersion,
   OPENCODE_CLI_V2_VERSION_FALLBACK,
