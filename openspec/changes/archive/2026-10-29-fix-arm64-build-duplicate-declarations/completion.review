@@ -33,9 +33,16 @@ root `openspec/TODO.md`.
 - OpenSpec strict validation passed:
   `/tmp/tl315-openspec-cli/node_modules/.bin/openspec validate fix-arm64-build-duplicate-declarations --strict --no-interactive`.
 
-The checkout had no application `node_modules`; a full Next.js/webpack
-compilation was not run. The focused TypeScript binder test proves the two
-reported duplicate-binding failures are gone. esbuild bundle checks cover
-syntax in the resolved local import graphs, not complete Next.js webpack
-behavior or ARM64 image acceptance. No workflow dispatch, image build, publish,
-or deploy occurred.
+An isolated `npm ci` installed dependencies in the task worktree with
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`; generated dependencies and build
+artifacts were removed afterward. `npm run build:contributor` reached Next.js
+16.3.8 webpack compilation in backend-only mode, then exited with SIGTERM after
+about 15 minutes before reporting a result. No duplicate-binding diagnostic
+appeared before termination, but this is inconclusive, not a passing build.
+`npm run check:open-sse-typecheck` reported seven diagnostics in unchanged
+files; none were TS2300 diagnostics in the repaired modules. The focused
+TypeScript binder test proves the two reported duplicate-binding failures are
+gone. esbuild bundle checks cover syntax in the resolved local import graphs,
+not complete Next.js webpack behavior or ARM64 image acceptance. No task-owned
+app build process remains; do not retry local builds under the current host
+rule. No workflow dispatch, image build, publish, or deploy occurred.

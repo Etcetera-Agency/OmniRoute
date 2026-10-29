@@ -10,8 +10,12 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       `fix-arm64-build-duplicate-declarations` and `completion.review`.
 - [ ] After the reviewed source fix is integrated, run the normal ARM64 workflow
       and retain its compiler/publish receipts before considering deploy. This
-      local source check did not dispatch a workflow, build an image, publish,
-      or deploy.
+      is the remaining compile acceptance: an earlier isolated local
+      `npm run build:contributor` reached Next.js webpack but exited with
+      SIGTERM after about 15 minutes before a result, so it is inconclusive.
+      Current host rules forbid repeating local app/image builds; the normal
+      GitHub workflow remains the acceptance path. No image was published or
+      deployed by the local source correction.
 
 ## Strict zero-cost models.dev evidence
 
