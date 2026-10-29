@@ -10,6 +10,7 @@ import { randomUUID } from "crypto";
  *   duckduckgo-free, x-search (Grok / SuperGrok X Search — explicit or search_type "x")
  *   and xquik-search (direct X API search — explicit or credentialed fallback)
  *   and anysearch-search (free public web search — fallback-only)
+ *   and parallel-search (Parallel Search API — web only)
  *
  * Request format:
  * {
@@ -22,7 +23,7 @@ import { randomUUID } from "crypto";
 
 export { resolveSearchBaseUrl, SearchBaseUrlOverrideError } from "./search/baseUrl.ts";
 import { resolveSearchBaseUrl } from "./search/baseUrl.ts";
-
+import type { SearchUsage } from "./search/reportedCost.ts";
 import {
   getSearchProvider,
   isUnconfiguredLoopbackSearchProvider,
@@ -36,6 +37,7 @@ import { buildJinaSearchRequest, extractJinaSearchItems } from "./search/jinaSea
 import * as xSearch from "./search/xSearch.ts";
 import * as xquikSearch from "./search/xquikSearch.ts";
 import * as anysearchSearch from "./search/anysearchSearch.ts";
+import * as parallelSearch from "./search/parallelSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -50,6 +52,12 @@ import {
   waitForOllamaSearchSlot,
 } from "./search/searchProxy.ts";
 import { formatSearchProviderFailure } from "./search/providerFailure.ts";
+import {
+  compactProviderRaw,
+  resolveExaPassthrough,
+  resolveTavilyPassthrough,
+  tavilyTopic,
+} from "./search/providerOptionsPassthrough.ts";
 
 export interface SearchResult {
   title: string;
@@ -80,7 +88,7 @@ export interface SearchResponse {
   query: string;
   results: SearchResult[];
   answer: { source: string; text: string | null; model: string | null } | null;
-  usage: { queries_used: number; search_cost_usd: number; llm_tokens?: number };
+  usage: SearchUsage;
   metrics: {
     response_time_ms: number;
     upstream_latency_ms: number;
@@ -125,11 +133,34 @@ interface SearchHandlerOptions {
   /** Connection ID (proxy resolution + call-log attribution) and API key ID (per-key proxy). */
   connectionId?: string;
   apiKeyId?: string;
+  /**
+   * Whole-request budget in ms. Replaces the 15s constant when set, and is
+   * also the ceiling for a provider's own timeout. Unset keeps both as they
+   * are, so a deployment that never touches it behaves exactly as before.
+   */
+  timeoutMs?: number;
+  /** Per-provider timeout overrides in ms, keyed by provider id. */
+  providerTimeoutsMs?: Record<string, number>;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────
 
-const GLOBAL_TIMEOUT_MS = 15_000;
+const DEFAULT_GLOBAL_TIMEOUT_MS = 15_000;
+const MIN_SEARCH_TIMEOUT_MS = 1_000;
+const MAX_SEARCH_TIMEOUT_MS = 120_000;
+
+function clampSearchTimeoutMs(
+  override: number | undefined,
+  fallback: number,
+  floor: number
+): number {
+  if (typeof override !== "number" || !Number.isFinite(override)) return fallback;
+  return Math.min(MAX_SEARCH_TIMEOUT_MS, Math.max(floor, Math.floor(override)));
+}
+
+function resolveGlobalTimeoutMs(override?: number): number {
+  return clampSearchTimeoutMs(override, DEFAULT_GLOBAL_TIMEOUT_MS, MIN_SEARCH_TIMEOUT_MS);
+}
 
 // Non-retriable HTTP status codes — fail immediately, don't try alternate
 const NON_RETRIABLE = new Set([400, 401, 403, 404]);
@@ -166,6 +197,7 @@ function makeResult(
     image_url?: string;
     full_text?: string;
     text_format?: string;
+    provider_raw?: Record<string, unknown> | null;
   },
   idx: number,
   now: string
@@ -190,7 +222,7 @@ function makeResult(
       image_url: item.image_url || null,
     },
     citation: { provider: providerId, retrieved_at: now, rank: idx + 1 },
-    provider_raw: null,
+    provider_raw: item.provider_raw ?? null,
   };
 }
 
@@ -420,13 +452,17 @@ function buildExaRequest(
   params: SearchRequestParams
 ): { url: string; init: RequestInit } {
   const { includes, excludes } = parseDomainFilter(params.domainFilter);
+  // provider_options.exa: allow-listed + Zod-validated (see providerOptionsPassthrough.ts).
+  const exa = resolveExaPassthrough(params.providerOptions, params.timeRange);
   const body: Record<string, unknown> = {
+    type: "auto",
+    ...exa.fields,
     query: params.query,
     numResults: params.maxResults,
-    type: "auto",
     contents: {
       text: true,
       highlights: true,
+      ...exa.contents,
     },
   };
   if (includes.length) body.includeDomains = includes;
@@ -451,9 +487,11 @@ function buildTavilyRequest(
 ): { url: string; init: RequestInit } {
   const { includes, excludes } = parseDomainFilter(params.domainFilter);
   const body: Record<string, unknown> = {
+    // provider_options.tavily: allow-listed + Zod-validated; generic fields below win.
+    ...resolveTavilyPassthrough(params.providerOptions, params.timeRange),
     query: params.query,
     max_results: params.maxResults,
-    topic: params.searchType === "news" ? "news" : "general",
+    topic: tavilyTopic(params.searchType),
   };
   if (includes.length) body.include_domains = includes;
   if (excludes.length) body.exclude_domains = excludes;
@@ -744,6 +782,7 @@ const requestBuilders: Record<string, SearchRequestBuilder> = {
   "x-search": xSearch.buildXSearchRequest,
   "xquik-search": xquikSearch.buildXquikSearchRequest,
   "anysearch-search": anysearchSearch.buildAnysearchSearchRequest,
+  "parallel-search": parallelSearch.buildParallelSearchRequest,
 };
 
 function buildRequest(
@@ -819,6 +858,14 @@ function normalizeExaResponse(
         image_url: item.image,
         full_text: item.text,
         text_format: "text",
+        provider_raw: compactProviderRaw({
+          id: item.id,
+          highlight_scores: item.highlightScores,
+          summary: item.summary,
+          subpages: item.subpages,
+          entities: item.entities,
+          extras: item.extras,
+        }),
       },
       idx,
       now
@@ -847,6 +894,7 @@ function normalizeTavilyResponse(
         published_at: item.published_date,
         full_text: item.raw_content,
         text_format: "text",
+        provider_raw: compactProviderRaw({ images: item.images, favicon: item.favicon }),
       },
       idx,
       now
@@ -1278,11 +1326,12 @@ async function tryZaiMCPProvider(
   providerSpecificData: Record<string, unknown> | undefined,
   startTime: number,
   globalStartTime: number,
+  globalTimeoutMs: number,
   log?: any
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
 
-  const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
+  const remainingGlobal = globalTimeoutMs - (Date.now() - globalStartTime);
   const timeout = Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -1383,6 +1432,7 @@ const responseNormalizers: Record<string, SearchResponseNormalizer> = {
   "x-search": normalizeXSearchResponse,
   "xquik-search": (data) => xquikSearch.normalizeXquikSearchResponse(data, makeResult),
   "anysearch-search": (data) => anysearchSearch.normalizeAnysearchSearchResponse(data, makeResult),
+  "parallel-search": (data) => parallelSearch.normalizeParallelSearchResponse(data, makeResult),
 };
 
 function normalizeResponse(
@@ -1463,8 +1513,12 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     log,
     connectionId,
     apiKeyId,
+    timeoutMs,
+    providerTimeoutsMs,
   } = options;
   const startTime = Date.now();
+  const globalTimeoutMs = resolveGlobalTimeoutMs(timeoutMs);
+  const providerTimeoutOverride = clampSearchTimeoutMs(providerTimeoutsMs?.[providerId], 0, 1);
 
   // 1. Sanitize input
   const { clean: cleanQuery, error: sanitizeError } = sanitizeQuery(query);
@@ -1473,13 +1527,16 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 2. Use resolved provider from route (no re-resolution)
-  const primaryConfig = getSearchProvider(providerId);
+  let primaryConfig = getSearchProvider(providerId);
   if (!primaryConfig) {
     return {
       success: false,
       status: 400,
       error: `Unknown search provider: ${providerId}`,
     };
+  }
+  if (providerTimeoutOverride > 0) {
+    primaryConfig = { ...primaryConfig, timeoutMs: providerTimeoutOverride };
   }
   if (primaryConfig.disabled) {
     return {
@@ -1555,7 +1612,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
         startTime,
         log,
         alternateCredentials?.connectionId,
-        apiKeyId
+        apiKeyId,
+        globalTimeoutMs
       );
     }
     return {
@@ -1573,7 +1631,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     startTime,
     log,
     connectionId,
-    apiKeyId
+    apiKeyId,
+    globalTimeoutMs
   );
 
   if (result.success) return result;
@@ -1583,7 +1642,7 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     alternateConfig &&
     alternateCredentials &&
     !NON_RETRIABLE.has(result.status || 0) &&
-    Date.now() - startTime < GLOBAL_TIMEOUT_MS
+    Date.now() - startTime < globalTimeoutMs
   ) {
     if (log) {
       log.warn(
@@ -1600,7 +1659,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       startTime,
       log,
       alternateCredentials?.connectionId,
-      apiKeyId
+      apiKeyId,
+      globalTimeoutMs
     );
 
     if (fallbackResult.success) return fallbackResult;
@@ -1619,13 +1679,14 @@ async function tryDuckDuckGoFreeProvider(
   params: Omit<SearchRequestParams, "token">,
   startTime: number,
   globalStartTime: number,
+  globalTimeoutMs: number,
   log?: {
     info?: (tag: string, message: string) => void;
     error?: (tag: string, message: string) => void;
   } | null
 ): Promise<SearchHandlerResult> {
   const { query, searchType, maxResults } = params;
-  const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
+  const remainingGlobal = globalTimeoutMs - (Date.now() - globalStartTime);
   const timeout = Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
 
   if (log) {
@@ -1715,7 +1776,8 @@ async function tryProvider(
   globalStartTime: number,
   log?: any,
   connectionId?: string,
-  apiKeyId?: string
+  apiKeyId?: string,
+  globalTimeoutMs: number = DEFAULT_GLOBAL_TIMEOUT_MS
 ): Promise<SearchHandlerResult> {
   const startTime = Date.now();
   const providerSpecificData =
@@ -1735,7 +1797,14 @@ async function tryProvider(
   const { query, searchType, maxResults } = params;
 
   if (config.id === "duckduckgo-free") {
-    return tryDuckDuckGoFreeProvider(config, params, startTime, globalStartTime, log);
+    return tryDuckDuckGoFreeProvider(
+      config,
+      params,
+      startTime,
+      globalStartTime,
+      globalTimeoutMs,
+      log
+    );
   }
 
   if (config.id === "zai-search" && token) {
@@ -1746,6 +1815,7 @@ async function tryProvider(
       providerSpecificData,
       startTime,
       globalStartTime,
+      globalTimeoutMs,
       log
     );
   }
@@ -1768,7 +1838,7 @@ async function tryProvider(
 
   // Start the Ollama Search provider timeout only after its spacing wait.
   await waitForOllamaSearchSlot(config.id);
-  const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
+  const remainingGlobal = globalTimeoutMs - (Date.now() - globalStartTime);
   const timeout =
     config.id === "ollama-search"
       ? config.timeoutMs
@@ -1780,8 +1850,7 @@ async function tryProvider(
     log.info("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
   }
 
-  // Delegate the fetch + response handling (proxy fetch, call-log, sanitized
-  // proxy event, result shaping) to the shared chokepoint in searchProxy.ts.
+  // Fetch, call-log, proxy event, result shaping and cost live in searchProxy.ts.
   return executeProviderFetch({
     config,
     url,
@@ -1796,6 +1865,7 @@ async function tryProvider(
     proxy,
     proxyLevel,
     log,
+    costContext: { apiKeyId, providerSpecificData },
     normalize: normalizeResponse,
   });
 }

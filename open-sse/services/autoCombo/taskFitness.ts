@@ -55,6 +55,10 @@ import {
 } from "../../../src/lib/db/modelIntelligence.ts";
 import { readFileSync } from "node:fs";
 import { resolveScoresAs } from "./scoresAs.ts";
+import {
+  clearIntelligenceLookupCache,
+  lookupIntelligenceCached,
+} from "./intelligenceLookupCache.ts";
 import { isVendorRetiredId } from "../modelLifecycle.ts";
 
 // #11508 — vendor lifecycle snapshot (#11507). An id the vendor has retired
@@ -207,24 +211,14 @@ const TIER_TASK_FITNESS: Record<string, Record<string, number>> = {
 };
 // ─── DB access helpers ──────────────────────────────────────────────────
 
-const _intelligenceCache = new Map<string, number | null>();
-
 function queryModelIntelligence(model: string, category: string, source: string): number | null {
-  const cacheKey = `${model}:${category}:${source}`;
-  if (_intelligenceCache.has(cacheKey)) {
-    return _intelligenceCache.get(cacheKey)!;
-  }
-
-  try {
-    const entry = getModelIntelligenceBySource(model, source, category);
-    if (entry) {
-      _intelligenceCache.set(cacheKey, entry.score);
-      return entry.score;
+  return lookupIntelligenceCached(`${model}:${category}:${source}`, () => {
+    try {
+      return getModelIntelligenceBySource(model, source, category)?.score ?? null;
+    } catch {
+      return null;
     }
-    return null;
-  } catch {
-    return null;
-  }
+  });
 }
 
 // ─── Models.dev capability → tier → fitness resolution ──────────────────
@@ -630,5 +624,5 @@ export function getTaskTypes(): string[] {
 
 export function invalidateFitnessCache(): void {
   _capabilitiesCache = null;
-  _intelligenceCache.clear();
+  clearIntelligenceLookupCache();
 }

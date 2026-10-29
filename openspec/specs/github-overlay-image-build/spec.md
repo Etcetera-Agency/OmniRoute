@@ -130,7 +130,7 @@ Repository settings SHALL keep routine checks disabled. If a task requires one, 
 
 ### Requirement: Build once from the pinned official UI base on a native ARM64 runner
 
-The image workflow SHALL use native `ubuntu-24.04-arm` and `docker/official-backend-overlay.Dockerfile` with base `ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96`. It SHALL compile backend routes once, preserve the official dashboard and runtime, and load one `linux/arm64` candidate.
+The image workflow SHALL use native `ubuntu-24.04-arm` and `docker/official-backend-overlay.Dockerfile` with base `ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`. It SHALL compile backend routes once, preserve the official dashboard and runtime, and load one `linux/arm64` candidate.
 
 #### Scenario: Main candidate build
 

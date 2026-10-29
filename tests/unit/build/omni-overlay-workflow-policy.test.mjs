@@ -100,7 +100,7 @@ test("fork overlay image workflow runs only on canonical main or manual dispatch
   assert.ok(/org\.opencontainers\.image\.base\.digest/.test(build.with.labels));
   assert.ok(
     dockerfile.includes(
-      "ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96"
+      "ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c"
     ),
     "backend overlay must remain based on the verified official image digest"
   );
@@ -175,9 +175,13 @@ test("backend builder compiles once without running unit tests", () => {
 
   const dockerignore = fs.readFileSync(path.join(root, ".dockerignore"), "utf8");
   assert.match(dockerignore, /^tests$/m, "the Docker context excludes unit tests");
-  assert.doesNotMatch(
-    dockerignore,
-    /^!tests\//m,
-    "no test files are re-included in the build context"
-  );
+  const testReincludes = dockerignore
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("!tests"));
+  assert.deepEqual(testReincludes, [
+    "!tests/",
+    "!tests/unit/",
+    "!tests/unit/build/",
+    "!tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs",
+  ]);
 });

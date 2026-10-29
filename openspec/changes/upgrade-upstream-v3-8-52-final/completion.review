@@ -1,0 +1,218 @@
+# Completion review: final OmniRoute v3.8.52 integration
+
+## Package and RED test — 2026-10-27
+
+- Verified canonical GitHub release `v3.8.52` at commit
+  `ad6f33f66bda34eba98645d3bfdabbde294bc843`; its annotated tag object is
+  `cac024bcf3999e46092a763a18eefced77e36acf`. Direct `git ls-remote` against
+  `cheaper-inference/OmniRoute` resolves the same tag and commit.
+- Confirmed the overlay target OCI index
+  `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
+  and ARM64 child
+  `sha256:fb7f91836fd95f382a5a04af740d859e2e9731804b5c0ba43f5d2e7f9ad64794`.
+- Wrote one selected rebase plan and exact migration map before source
+  implementation. Preserved deployed fork IDs 197–199, assign upstream IDs
+  200–215, and move the not-yet-deployed fork migration to 216.
+- Added an exact migration inventory and overlay pin regression. Expected RED
+  on the pre-upgrade source: both tests fail because the inventory ends with
+  fork migration 200 and both overlay pins still identify the previous digest.
+- Code Simplifier found no useful simplification in the focused test; its
+  explicit expected inventory and two pin assertions keep release identity
+  visible. `git diff --cached --check` passes for the package checkpoint.
+- Source rebase, conflict review, GREEN checks, independent review, and local
+  implementation commit remain pending. No image was pulled or built, no
+  runtime/database was touched, and nothing was pushed or merged.
+
+## Isolated implementation — 2026-10-29
+
+- Confirmed this branch is based on exact official source commit
+  `ad6f33f66bda34eba98645d3bfdabbde294bc843`; did not redo the lead's rebase.
+- Kept fork migrations 197–199 byte-identical and moved the pending fork
+  migration to 216. SHA-256 before/after: `197_model_benchmark_search.sql`
+  `b2ca733179d9efc86b6240efe1bb5a347e147d9cfd1bab4c4d44fc9a397e8a40`,
+  `198_model_benchmark_catalog_backfill.sql`
+  `6271e873c1e755ad29d5fdc59eebe878d00e606bb38322f56f6910d04c8f0917`,
+  `199_model_benchmark_search_retry_after.sql`
+  `371c34b9a3d44cd4df20208ef8c18f9df9fe3fb064b051e1d0d24fc619eecd90`,
+  and `216_model_benchmark_evidence_current_set.sql`
+  `42e1372061dfdf45dc4643f80adc8f2f54512c3c7654de4a019f0d2372f3c005`.
+- Compared every mapped official migration's bytes with `git show` from the
+  pinned v3.8.52 commit; all 16 match. This includes drop-index migration
+  204, FTS rebuild 206, credential migration 208, and index recreation 214.
+  Updated runner hook for fork migration 216, provider-cost schema guard 215,
+  and `OPTIONAL_FTS5_MIGRATION_VERSIONS` plus its test for local migration 206.
+- Updated migration tests/fixtures/docs and both overlay pins to the reviewed
+  OCI index. Extended the full-catalog refresh regression to reject search,
+  chat, completion, inference, and Auto requests; it retains assertions that
+  no search run is claimable and every identity has zero attempts.
+- `node --test tests/unit/build/upstream-v3852-release-layout.test.mjs` passes
+  2/2. Combined overlay/layout tests pass 18/19; the pre-existing
+  `omni-overlay-workflow-policy.test.mjs` case fails because `.dockerignore`
+  contains its existing `!tests/` runtime-smoke exception, which the assertion
+  rejects. `.dockerignore` is unchanged here.
+- Focused TypeScript migration/benchmark tests could not start: shared
+  `/srv/projects/hermes/OmniRoute/node_modules` contains macOS ARM64 esbuild;
+  this Linux host requires Linux x64. Worktree has no local `node_modules`.
+  Did not install or mutate shared dependencies. No full suite or OpenSpec
+  validator result is claimed.
+- Code Simplifier review found only a long regression assertion to format;
+  no further behavior-preserving simplification was needed. `git diff --check`
+  passed. Changes remain uncommitted for lead review; no push, merge, workflow
+  enablement, build, deployment, or DB operation was performed.
+- Next gates: run focused TypeScript suites with correct Linux dependencies,
+  complete fresh independent review, and let lead own any commit. After merge,
+  TL313 must complete isolated production-clone migration and rollback
+  rehearsal before any ARM64 image build.
+
+## Review follow-up and Linux validation — 2026-10-29
+
+- Fixed three review findings: updated the repository deployment verifier's
+  base-label pin and active image-build spec; corrected artifact-index fixture
+  cutoff/expectations to selector 211 and index 212; changed overlay policy
+  test to pin the exact required `.dockerignore` runtime-smoke allowlist. The
+  installed host helper `/usr/local/libexec/omniroute-deploy.py` was not read
+  or modified; TL316 host update is recorded in repo `openspec/TODO.md`.
+- `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`
+  focused migration/benchmark/capability command passed 87/87. Artifact-index
+  upgrade test passed 2/2. Deploy-helper tests passed 58/58. Combined overlay,
+  layout, and verifier tests passed 20/20 after correcting the stale assertion.
+- The overlay policy finding was a test-contract defect: `.dockerignore`
+  intentionally unignores only `tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs`
+  plus its required parent directories; Dockerfile copies that one smoke into
+  the candidate. The test now asserts exactly those four negations.
+- The repo deploy verifier compares both candidate and prior-image
+  `org.opencontainers.image.base.digest` labels to its constant, confirming
+  the repository value must track the new OCI index. The installed host helper
+  still requires TL316 review/install before deployment; no deployment action
+  was performed.
+- Code Simplifier review found the explicit allowlist comparison and release
+  pin assertions clear and bounded; no further simplification needed. No full
+  suite or strict OpenSpec CLI validation was run. Independent review, baseline
+  comparison, host-helper update, local commit, and TL313 migration rehearsal
+  remain open.
+
+## Final focused validation and independent review — 2026-10-29
+
+- Fresh independent review found no must-fix issues. It rechecked all 16
+  upstream SQL files against the exact tag, fork migration hashes, migration
+  hooks, the overlay/spec/repository verifier pin, direct no-search/no-inference
+  catalog refresh, and the remaining host-helper and DB-rehearsal gates.
+- Focused migration, benchmark, capability, Auto-band, and integration suites
+  passed 87/87 using an isolated Linux esbuild binary. Command used:
+  `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1`
+  with:
+  `tests/unit/modelsDevSyncBenchmarkHook.test.ts`,
+  `tests/unit/modelBenchmarkCurrentSnapshot.test.ts`,
+  `tests/unit/modelBenchmarkSearch.test.ts`,
+  `tests/unit/db/migration-203-provider-health-matrix-cover.test.ts`,
+  `tests/unit/db/migration-204-drop-unused-turn-node-indexes.test.ts`,
+  `tests/unit/db/migration-214-recreate-turn-nodes-content-hash-index.test.ts`,
+  `tests/unit/db/migration-212-call-logs-artifact-relpath-index.test.ts`,
+  `tests/unit/memory-fts-migration-206-15707.test.ts`,
+  `tests/unit/migration-210-remove-opencode-free-provider.test.ts`,
+  `tests/unit/migration-210-legacy-provider-connections.test.ts`,
+  `tests/integration/api-key-codex-service-mode.test.ts`, and
+  `tests/unit/db-migrationrunner-constants-split.test.ts`. The artifact-index
+  upgrade test `tests/unit/db/migration-212-artifact-index-upgrade.test.ts`
+  passed 2/2 with the same command prefix. `python3 scripts/deploy/test_omniroute_deploy.py`
+  passed 58/58; `node --test tests/unit/build/upstream-v3852-release-layout.test.mjs tests/unit/build/omni-overlay-workflow-policy.test.mjs tests/unit/build/verify-official-overlay-image.test.mjs`
+  passed 20/20. A
+  separate run of the direct benchmark/full-catalog, current snapshot, layout,
+  and FTS constants tests passed 17/17. `git diff --check` passed.
+- Code Simplifier ran again after review-driven changes and found no further
+  simplification. Installed OpenSpec CLI 1.15.0 under isolated
+  `/tmp/tl315-openspec-cli`; strict validation passed for both
+  `upgrade-upstream-v3-8-52-final` and `github-overlay-image-build`. The
+  commands were `openspec validate upgrade-upstream-v3-8-52-final --strict`
+  and `openspec validate github-overlay-image-build --strict`. The
+  release-sensitive pre-change invariants were compared and focused suites
+  passed; no full repository test sweep was run.
+- No installed host helper, production database, image build, workflow,
+  deployment, push, or merge was touched. TL316 must review/install the host
+  helper update; TL313 must complete the isolated migration and rollback
+  rehearsal before any image build or deployment.
+
+## Normal merge of latest main — 2026-10-29
+
+- Merged `origin/main` normally into `feat/upstream-v3852-final-20261027`.
+  The eventual merge commit has parents feature `8439e210fca55b42707273be52a26982e67e1839`
+  and main `7bb10048702966cccaa0eebe62bb83bfad040265`; merge base is
+  `fc5e2bccd4f70fecf5aab94dfb8136c74ab5a21b`. PR #42 ancestry and fix
+  `ed6dbc5d16` remain in history.
+- Kept main's provider/session security changes, local-only route guard,
+  rerank settings API, generated translations and docs, and CI/quality/nightly
+  workflow definitions. No workflow was dispatched or build run. Release
+  source, benchmark/current-set logic, native reader, strict free-only Auto
+  behavior, models.dev capabilities, overlay policy and b08 pins remain intact.
+- Main also carried
+  `200_model_benchmark_evidence_current_set.sql`; its SHA-256 exactly matched
+  the reviewed branch file at migration 216
+  (`42e1372061dfdf45dc4643f80adc8f2f54512c3c7654de4a019f0d2372f3c005`).
+  Removed the duplicate main path, kept official migration 200 and fork
+  migration 216, and preserved the unique 197–199 / 200–215 / 216 map. No
+  migration 217 was allocated.
+- Focused runs exposed three merge artifacts: repeated Ollama limiter
+  declarations in `searchProxy.ts`, a repeated thrifty-rung block in
+  `virtualFactory.ts`, and a duplicate rerank dispatch helper. Removed the
+  duplicate code. The remaining rerank helper uses main's `getDatabaseSettings`
+  and keeps the branch caller-connection scope and combo-target gate.
+- Core release regression command from the previous section, using isolated
+  Linux esbuild at
+  `/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`,
+  was rerun after the fixes and passed 87/87. The tests cover direct full-catalog
+  refresh without search/inference, current-snapshot replacement, formula and
+  native reader behavior, migration order/SQL, free-only Auto normalization,
+  and provider capabilities.
+- Conflict-area command used prefix
+  `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`
+  `DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm`
+  `--import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts`
+  `--test --test-force-exit --test-concurrency=1` with these paths:
+  `tests/unit/authz/route-guard-providers-spawn-local-only.test.ts`,
+  `tests/unit/build/heavy-build-queue.test.ts`,
+  `tests/unit/rerank-remote-provider-nodes.test.ts`,
+  `tests/unit/rerank-null-document.test.ts`,
+  `tests/unit/rerank-openrouter-6574.test.ts`,
+  `tests/unit/rerank-object-documents-response-path.test.ts`,
+  `tests/unit/rerank-provider-listings.test.ts`,
+  `tests/unit/rerank-providers-5332.test.ts`,
+  `tests/unit/rerank-local-node-shapes.test.ts`,
+  `tests/unit/rerank-providers-route.test.ts`,
+  `tests/unit/rerank-proxy-pinning-7350.test.ts`,
+  `tests/unit/rerank-voyage-7809.test.ts`,
+  `tests/unit/alibaba-embedding-rerank-endpoints-13030.test.ts`,
+  `tests/unit/stream-failure-after-output-no-model-lockout.test.ts`,
+  `tests/unit/stream-onfailure-callback-logging.test.ts`,
+  `tests/unit/stream-aborted-partial-usage.test.ts`,
+  `tests/unit/chatcore-non-streaming-response-parse.test.ts`,
+  `tests/unit/chatcore-nonstreaming-response-headers.test.ts`,
+  `tests/unit/chatcore-streaming-cost.test.ts`,
+  `tests/unit/chat-empty-stream-recovery.test.ts`,
+  `tests/unit/virtual-auto-combo.test.ts`,
+  `tests/unit/combo-resolve-auto-strategy-split.test.ts`,
+  `tests/unit/auto-combos-enhanced-4235.test.ts`,
+  `tests/unit/search-proxy-upstream-status.test.ts`,
+  `tests/unit/search-baseurl-ssrf-guard.test.ts`,
+  `tests/unit/opencode-cli-headers-synthesis-5997.test.ts`,
+  `tests/unit/opencode-background-identity-headers.test.ts`,
+  `tests/unit/opencode-native-session-identity.test.ts`,
+  `tests/unit/opencode-session-fingerprint-headers-10571.test.ts`,
+  `tests/unit/refactor-opencodeHeaders.test.ts`. It passed 259/259 after
+  fixing the duplicate declarations.
+- `tests/unit/db/migration-212-artifact-index-upgrade.test.ts` passed 2/2.
+  `tests/unit/build/upstream-v3852-release-layout.test.mjs`
+  `tests/unit/build/omni-overlay-workflow-policy.test.mjs` and
+  `tests/unit/build/verify-official-overlay-image.test.mjs` passed 20/20.
+  `python3 scripts/deploy/test_omniroute_deploy.py` passed 58/58; this was the
+  local verifier unit suite only, with no deployment or host access.
+- Code Simplifier review before the merge commit removed only duplicated merge
+  blocks; no other behavior-preserving simplification was useful. Isolated
+  OpenSpec CLI 1.15.0 strict validation passed for both
+  `upgrade-upstream-v3-8-52-final` and `github-overlay-image-build` using
+  `node /tmp/tl315-openspec-cli/node_modules/.bin/openspec validate <change>
+  --strict`. `git diff --check` and `git diff --cached --check` passed after
+  trimming trailing whitespace on two upstream translation lines.
+  No full repository test sweep was run.
+- TL316's read-only source/migration-ledger receipt is still required before
+  push. TL316 host-helper review/install and TL313 clone migration/rollback
+  rehearsal remain release gates.

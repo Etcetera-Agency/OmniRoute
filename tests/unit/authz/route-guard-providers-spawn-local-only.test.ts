@@ -51,6 +51,40 @@ test("isLocalOnlyPath: /api/providers/{id}/models stays reachable (S-01 design)"
   assert.equal(isLocalOnlyPath("/api/providers/models"), false);
 });
 
+// ─── The devin spawn hop is guarded at its dispatch sites ────────────────
+
+test("S-01: validate/import/bulk dispatch allowLocalSpawn from the trusted peer-locality header", async () => {
+  // Source-level regression guard (same shape as the cursor test below): each of the
+  // three routes that can reach the devin CLI-spawn fallback via validateProviderApiKey()
+  // must thread allowLocalSpawn from getRequestPeerLocality(request), so a remote peer
+  // can never trigger the spawn. Fails if someone drops the flag or reorders it away.
+  const fs = await import("node:fs");
+  const routes = [
+    "../../../src/app/api/providers/validate/route.ts",
+    "../../../src/app/api/providers/import/route.ts",
+    "../../../src/app/api/providers/bulk/route.ts",
+  ];
+  for (const route of routes) {
+    const source = fs.readFileSync(new URL(route, import.meta.url), "utf8");
+    assert.ok(
+      source.includes("getRequestPeerLocality"),
+      `${route} must derive allowLocalSpawn from getRequestPeerLocality`
+    );
+    assert.ok(
+      /getRequestPeerLocality\(request\)\s*!==\s*"remote"/.test(source),
+      `${route} must gate spawns on the trusted peer-locality header (non-remote peers only)`
+    );
+    assert.ok(
+      source.includes("allowLocalSpawn"),
+      `${route} must thread allowLocalSpawn into validateProviderApiKey`
+    );
+    assert.ok(
+      source.includes("validateProviderApiKey("),
+      `${route} must still dispatch validation`
+    );
+  }
+});
+
 // ─── The cursor-agent spawn hop is guarded at its call site ─────────────
 
 test("S-01: the cursor-agent spawn call site requires a loopback peer", async () => {
@@ -91,4 +125,25 @@ test("isLocalOnlyPath: non-spawn /api/providers/ routes stay remote-reachable (S
   assert.equal(isLocalOnlyPath("/api/providers/validate-batch"), false);
   assert.equal(isLocalOnlyPath("/api/providers/bulk-status"), false);
   assert.equal(isLocalOnlyPath("/api/providers/validate/x"), false);
+});
+
+// ─── UI never masks a pipeline rejection as a bare "Invalid" again ───────
+
+test("validationErrorMessage: surfaces {code,message} envelopes (403 LOCAL_ONLY class)", async () => {
+  // A reverse-proxied dashboard used to show only the red "Invalid" badge because the
+  // modal ignored object-shaped error bodies. The helper must extract the reason.
+  const { validationErrorMessage } =
+    await import("../../../src/app/(dashboard)/dashboard/providers/[id]/providerPageHelpers.ts");
+  assert.equal(validationErrorMessage("Invalid API key"), "Invalid API key");
+  assert.equal(
+    validationErrorMessage({
+      code: "LOCAL_ONLY",
+      message: "This endpoint requires localhost access",
+    }),
+    "This endpoint requires localhost access"
+  );
+  assert.equal(validationErrorMessage({ code: "AUTH_001" }), "AUTH_001");
+  assert.equal(validationErrorMessage(null), null);
+  assert.equal(validationErrorMessage(""), null);
+  assert.equal(validationErrorMessage({}), null);
 });

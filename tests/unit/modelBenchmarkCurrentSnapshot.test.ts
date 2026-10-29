@@ -177,7 +177,7 @@ test("migration preserves formula observations and removes raw payloads", async 
     )
     .all();
   const migration = fs.readFileSync(
-    path.resolve("src/lib/db/migrations/200_model_benchmark_evidence_current_set.sql"),
+    path.resolve("src/lib/db/migrations/216_model_benchmark_evidence_current_set.sql"),
     "utf8"
   );
   db.transaction(() => {

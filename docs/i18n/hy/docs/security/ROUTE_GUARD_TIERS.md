@@ -153,7 +153,7 @@ Tunnel, Tailscale, Ngrok), loopback-ի ստուգումը շարունակում
 
 ### Մակարդակ 2 — ALWAYS_PROTECTED
 
-**Կիրառվում է՝** `isAlwaysProtectedPath(path)` → բաց թողնել `requireLogin=false` շրջանցումը  
+**Կիրառվում է՝** `isAlwaysProtectedPath(path)` → բաց թողնել `requireLogin=false` շրջանցումը
 **Շրջանցում՝** չկա, երբ `requireLogin=false` է․ JWT-ն միշտ պարտադիր է
 
 Այս երթուղիները կործանարար են կամ անդառնալի։ «Առանց գաղտնաբառի»
