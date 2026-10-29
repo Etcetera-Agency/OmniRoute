@@ -62,6 +62,12 @@ FROM backend-dependencies AS operator-builder
 COPY . ./
 RUN node scripts/build/bundle-model-benchmark-search-reprocess.mjs
 
+# AICODE-TODO: Remove after TL329 inspects the emitted ARM64 operator bundle; see openspec/TODO.md.
+FROM scratch AS operator-diagnostics
+COPY --from=operator-builder /app/dist/ops/*.mjs /diagnostics/
+COPY --from=operator-builder /app/dist/ops/chunks/ /diagnostics/chunks/
+COPY --from=operator-builder /app/dist/ops/reprocess-model-benchmark-search.meta.json /diagnostics/
+
 # Adapter for a separately compiled backend export. This stage is selected
 # only when BACKEND_ARTIFACT_STAGE=prebuilt-backend; BuildKit prunes the
 # backend-builder stage, so packaging does not compile a second time.

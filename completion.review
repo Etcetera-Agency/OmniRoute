@@ -1433,3 +1433,34 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - No local app/image/bundle build, provider request, new GitHub build, push, or
   deployment was performed. The actual emitted ARM64 runtime check and live
   acceptance remain separate open gates in `openspec/TODO.md`.
+
+## TL316 emitted operator-bundle diagnostic capture — 2026-10-29
+
+- Read-only GitHub logs confirm run `40954554580` used source `0c316b9` and
+  failed actual `--check-runtime` with exit 13 while importing
+  `chunks/modelBenchmarkSearch-Y5TC2YLC.mjs`. Run `40960960503` used source
+  `410cc6ee8c5c3201bca5790f1df1fed875ea8f7d` and failed the same check on
+  `chunks/modelBenchmarkSearch-L3DR26C5.mjs`. The preceding resolver test
+  reported 148 and 151 emitted files, respectively, with 34 external imports;
+  neither run retained its bundle.
+- The existing builder clears `/app/dist/ops`, emits the root operator entry,
+  split `.mjs` modules under `chunks/`, and writes
+  `reprocess-model-benchmark-search.meta.json`. Added a temporary `scratch`
+  target that exports every root `.mjs`, the full chunks directory, and that
+  metafile. No bundler/packaging-script change was needed. The ordinary runtime
+  resolver test and `--check-runtime` stage are unchanged.
+- Added a temporary manual-only workflow restricted to this repository's
+  `main`, using a native ARM64 runner and the `operator-diagnostics` target.
+  It writes only the allowlisted code/metafile files to a one-day Actions
+  artifact accessible under repository read scope. Workflow grants only
+  `contents: read`; no GHCR push, image
+  load/tag, deploy secrets, DB, environment, runtime config, or provider call
+  is included. Artifact removal and workflow/target cleanup remain required.
+- Code Simplifier removed the redundant job permission block and unused build
+  SHA argument. `git diff --check` passes. No tests, local builds, diagnostic
+  run, push, merge, provider operation, or production mutation has occurred.
+  Independent review and parent-authorized dispatch remain pending; cleanup is
+  tracked in `openspec/TODO.md`.
+- Independent read-only review found the artifact visibility description
+  overstated privacy. It now correctly states that access follows repository
+  read scope; review found no other source, workflow, or security issue.
