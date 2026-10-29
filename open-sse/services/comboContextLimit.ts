@@ -1,6 +1,6 @@
-// Combo context-limit resolution. Extracted from contextManager.ts (which is
-// under a frozen file-size ratchet) so the precedence rules below have a single
-// home; contextManager re-exports it for existing importers.
+// Combo context-limit resolution. Kept separate from contextManager.ts (which is
+// under a frozen file-size ratchet) so the precedence rules below have a single home.
+// AICODE-NOTE: Keep dependency one-way; contextManager re-export deadlocks async init.
 import { resolveTokenLimit } from "./contextManager.ts";
 
 export type ComboContextLimitSource = "combo-explicit" | "target" | "combo-min" | "fallback";

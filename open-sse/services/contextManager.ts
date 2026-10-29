@@ -534,11 +534,6 @@ export function resolveTokenLimit(
   return { limit: DEFAULT_LIMITS.default, specific: false };
 }
 
-// Combo context-limit resolution lives in ./comboContextLimit.ts; re-exported
-// here so existing importers keep working.
-export { resolveComboContextLimit } from "./comboContextLimit.ts";
-export type { ComboContextLimitSource } from "./comboContextLimit.ts";
-
 /**
  * Apply context compression to request body.
  * Operates in layers of increasing aggressiveness:

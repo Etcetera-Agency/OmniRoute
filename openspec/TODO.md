@@ -1028,22 +1028,31 @@ Deferred cross-repository and operations work:
       complete pagination, exact current source URLs/timestamps, and no
       account-level price leakage. Do not mutate provider runtime state during
       this local package.
-- [ ] Re-run the GitHub ARM64 runtime check after the local import-cycle
-      correction. Failed run `40954554580` (source `main` `0c316b9`) exited 13
-      when `--check-runtime` evaluated the emitted benchmark operator. The
-      source cycle through provider validation and Claude runtime was removed
-      by moving pure URL helpers to `src/shared/utils/compatibleProviderUrls.ts`;
-      no local bundle was built. Verify the actual emitted import on GitHub
-      before release; keep `--check-runtime` evaluating the module.
-- [ ] TL316 temporary bundle diagnostic: merge the reviewed manual-only
-      `operator-diagnostics` target/workflow, then use one separately granted
-      GitHub ARM64 run to export all generated root `.mjs` files, `chunks/`,
-      and the esbuild metafile from source `410cc6ee8c5c3201bca5790f1df1fed875ea8f7d`.
-      Give the one-day artifact to TL329 for diagnosis. Keep the normal
-      `--check-runtime` stage unchanged; this targeted capture does not rerun
-      that check. After TL329 inspects it, delete the artifact and remove the
-      temporary workflow/target in a reviewed cleanup PR before closing this
-      item.
+- [ ] Re-run the normal GitHub ARM64 runtime check after TL329's reviewed
+      import-cycle correction is merged. Runs `40954554580` (source `0c316b9`)
+      and `40960960503` (source `410cc6e`) both exited 13 in the actual
+      `--check-runtime` import. TL329 traced the emitted async-init deadlock to
+      the awaited SCC `contextManager` → `comboContextLimit` → `contextManager`;
+      the earlier pure URL helper move did not remove this SCC. The minimal
+      source correction is local, passed 30/30 focused import-graph and
+      context-limit/Auto-combo tests, strict OpenSpec, focused ESLint/Prettier,
+      and fresh independent review with no findings. Targeted run `40965497429`
+      exported the generated bundle but did not rerun `--check-runtime`. Keep
+      the standard runtime stage unchanged and require its normal GitHub build
+      to pass before release.
+- [x] TL316 one-time GitHub ARM64 bundle diagnostic: run `40965497429` on
+      source `ea46cc92b53d211b4830df3b903ccfe5d1e80192` exported all 499 emitted
+      `.mjs` files and esbuild metafile `reprocess-model-benchmark-search.meta.json`.
+      Artifact `12938431477` digest was
+      `sha256:eb3c0b0e90465d3373b5370ef70f95b457da6f56a28c5bfb55361a569d8962fd`
+      (3,700,936 bytes); TL329 inspected the exact bundle and found the SCC
+      above. The artifact was deleted after inspection; the local code/metafile
+      copy remains at `/tmp/tl316-omni-operator-diagnostics-40965497429` until
+      normal runtime verification passes. Buildx also emitted an unintended
+      `.dockerbuild` record, artifact `12937922420`; it was deleted and its API
+      now returns 404. The temporary workflow is disabled and its workflow and
+      scratch target are removed in TL329's source-fix branch. Existing image,
+      CI, and Quality workflows remain disabled.
 - [x] Local import-boundary correction passed independent review. The source
       graph regression passes on the corrected tree and fails on clean base
       `0c316b9`; focused adapter, capability, endpoint, pricing, Claude, and

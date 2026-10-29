@@ -281,8 +281,8 @@ import {
   estimateTokens,
   getTokenLimit,
   getComboTargetTokenLimit,
-  resolveComboContextLimit,
 } from "../services/contextManager.ts";
+import { resolveComboContextLimit } from "../services/comboContextLimit.ts";
 import { resolveBackgroundTaskRedirect } from "./chatCore/backgroundRedirect.ts";
 import { resolveCopilotAuto } from "./chatCore/copilotAutoModel.ts";
 import { emitThinkingSignatureDiagnostics } from "./chatCore/thinkingSignatureDiagnostics.ts";

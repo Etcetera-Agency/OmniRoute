@@ -1389,7 +1389,7 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - Combined deployed-source and native free-only live acceptance remains open
   and tracked in `openspec/TODO.md`.
 
-## TL329 runtime import-cycle correction — 2026-10-29
+## TL329 source import-boundary correction — 2026-10-29
 
 - GitHub ARM64 run `40954554580` failed `--check-runtime` with Node exit 13 and
   unsettled top-level await while importing emitted
@@ -1405,8 +1405,9 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   resolution. It fails against clean base `0c316b9` because validation
   `urlHelpers` is reachable from compatible discovery. The final source check
   asserts `--check-runtime` flag handling, awaited benchmark import ordering,
-  and success exit after that import. It does not claim generated-artifact
-  acceptance.
+  and success exit after that import. This source-level result did not prove
+  that the emitted runtime cycle was gone; run `40960960503` still failed, as
+  documented below.
 - Final focused compatible metadata, capability, endpoint schema, pricing,
   Claude helper/request, models.dev, and benchmark-hook suite passes **109/109**;
   the dedicated source-import test passes **2/2**. Compatible provider requests
@@ -1443,24 +1444,45 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   `chunks/modelBenchmarkSearch-L3DR26C5.mjs`. The preceding resolver test
   reported 148 and 151 emitted files, respectively, with 34 external imports;
   neither run retained its bundle.
-- The existing builder clears `/app/dist/ops`, emits the root operator entry,
-  split `.mjs` modules under `chunks/`, and writes
-  `reprocess-model-benchmark-search.meta.json`. Added a temporary `scratch`
-  target that exports every root `.mjs`, the full chunks directory, and that
-  metafile. No bundler/packaging-script change was needed. The ordinary runtime
-  resolver test and `--check-runtime` stage are unchanged.
-- Added a temporary manual-only workflow restricted to this repository's
-  `main`, using a native ARM64 runner and the `operator-diagnostics` target.
-  It writes only the allowlisted code/metafile files to a one-day Actions
-  artifact accessible under repository read scope. Workflow grants only
-  `contents: read`; no GHCR push, image
-  load/tag, deploy secrets, DB, environment, runtime config, or provider call
-  is included. Artifact removal and workflow/target cleanup remain required.
-- Code Simplifier removed the redundant job permission block and unused build
-  SHA argument. `git diff --check` passes. No tests, local builds, diagnostic
-  run, push, merge, provider operation, or production mutation has occurred.
-  Independent review and parent-authorized dispatch remain pending; cleanup is
-  tracked in `openspec/TODO.md`.
-- Independent read-only review found the artifact visibility description
-  overstated privacy. It now correctly states that access follows repository
-  read scope; review found no other source, workflow, or security issue.
+- The existing bundler clears `/app/dist/ops`, emits the operator entry and
+  split `.mjs` files under `chunks/`, and writes
+  `reprocess-model-benchmark-search.meta.json`. No packaging-script change was
+  needed. One temporary, manual-only workflow on main built only the scratch
+  export target with `contents: read`, no package-write or deploy secrets, and
+  uploaded only root `.mjs`, `chunks/`, and the metafile.
+- GitHub run `40965497429` succeeded on source
+  `ea46cc92b53d211b4830df3b903ccfe5d1e80192`. Artifact `12938431477`,
+  `omni-operator-diagnostics-ea46cc92b53d211b4830df3b903ccfe5d1e80192-40965497429`,
+  had SHA-256
+  `sha256:eb3c0b0e90465d3373b5370ef70f95b457da6f56a28c5bfb55361a569d8962fd`
+  and size 3,700,936 bytes. It contained the root entry, 498 chunk modules,
+  and metafile with 499 output keys; the extracted module set matched all keys
+  exactly and had no extra files. TL329 inspected this exact emitted bundle.
+- TL329 traced the awaited async-initialization deadlock to the SCC
+  `contextManager` → `comboContextLimit` → `contextManager`. The earlier pure
+  URL-helper move did not remove this emitted cycle. TL329's minimal
+  import-boundary correction is local on `codex/tl329-runtimecheck-async-init-fix`;
+  import-graph and context-limit/Auto-combo regressions pass 30/30, focused
+  ESLint/Prettier and strict OpenSpec pass, and fresh integrated review found
+  no findings. No scoring formula, filter, routing guard, or provider behavior
+  changed.
+- Buildx also created an unintended `.dockerbuild` artifact
+  `12937922420` (90-day retention). It was deleted; API GET returned 404. The
+  intended bundle artifact was deleted after TL329's inspection. One verified
+  local copy remains at
+  `/tmp/tl316-omni-operator-diagnostics-40965497429` until the next normal
+  GitHub runtime check passes. The temporary workflow was disabled and its
+  workflow file and scratch target are removed in TL329's source-fix branch.
+- Existing image workflow `373883666`, CI, and Quality remain
+  `disabled_manually`. The targeted run did not execute `--check-runtime`; the
+  normal gate remains unchanged and open. Only the target-only scratch export
+  ran; no runtime image was built or published. No deploy, provider operation,
+  or production mutation occurred. Commit hooks passed
+  docs-sync, T11 any-budget, tracked-artifacts, and attribution checks. The
+  diagnostic-plan review found no CI/security issue after correcting artifact
+  visibility wording to repository read scope. TL329's fresh source/cleanup
+  review also found no actionable findings. The normal emitted-artifact runtime
+  check and production/live acceptance remain open.
+- Markdown formatting differs at two pre-existing lines outside this section;
+  the formatter made no changes to this receipt, and unrelated historical
+  text was left untouched.

@@ -36,6 +36,9 @@ discovery persistence.
 - Keep the shared compatible discovery import graph below validation and
   provider-runtime modules so the emitted benchmark operator can load it without
   a new cyclic module path.
+- Break the emitted `contextManager`/`comboContextLimit` initializer cycle by
+  removing the reverse import edge while keeping context-limit calculation and
+  routing behavior unchanged.
 
 ## Impact
 

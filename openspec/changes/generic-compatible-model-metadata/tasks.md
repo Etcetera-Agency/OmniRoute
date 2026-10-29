@@ -77,3 +77,21 @@
 - [x] 4.6 Obtain fresh independent review, resolve actionable findings, and
       commit locally. Keep the generated-artifact GitHub check and live provider
       acceptance open in `openspec/TODO.md`.
+
+## 5. Confirmed emitted initializer deadlock
+
+- [x] 5.1 Add a source import-graph regression that fails on the current source
+      because `contextManager` directly re-exports `comboContextLimit`; keep the one-way
+      `comboContextLimit` dependency on `contextManager.resolveTokenLimit`.
+- [x] 5.2 Remove the reverse module edge by deleting the `contextManager`
+      re-export and updating production/test consumers to import
+      `resolveComboContextLimit` directly from `comboContextLimit`. Add no
+      compatibility export and change no context-limit calculation.
+- [x] 5.3 Run the graph regression and existing combo/context-limit tests,
+      focused lint/compiler checks, strict OpenSpec validation, and
+      `git diff --check`. Do not build/transpile the application or operator
+      locally; retain GitHub `--check-runtime` as the emitted-bundle gate.
+- [x] 5.4 Apply Code Simplifier, update completion/TODO records, obtain fresh
+      independent review, and commit locally. Keep generated-bundle runtime,
+      deployment, provider acceptance, and free-only acceptance open until their
+      separate authorized gates pass.
