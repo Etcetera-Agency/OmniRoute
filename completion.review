@@ -1,5 +1,28 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## ARM64 duplicate import regression (2026-10-29)
+
+- Removed duplicate imports from `open-sse/services/combo/resolveAutoStrategy.ts`
+  and consolidated required CLI-version imports in
+  `open-sse/utils/opencodeHeaders.ts`. No behavior changed.
+- TypeScript compiler regression was RED on clean main `c204f2aba69c282e582697f43ca5ca6e2cf474f2`
+  with 12 TS2300 duplicate-identifier diagnostics; same test passed 1/1 after
+  repair. esbuild syntax and local import-graph bundle checks passed for both
+  modules. Strict OpenSpec validation passed.
+- An isolated `npm ci` installed the app dependencies in this task worktree
+  with `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`; generated dependencies and build
+  artifacts were removed afterward. `npm run build:contributor` reached
+  Next.js 16.3.8 webpack compilation in backend-only mode, then exited with
+  SIGTERM after about 15 minutes before reporting a result. No duplicate
+  binding diagnostic appeared before termination, but this is inconclusive,
+  not a passing build. `npm run check:open-sse-typecheck` reported seven
+  diagnostics in unchanged files; none were TS2300 diagnostics in the repaired
+  modules.
+- No task-owned app build process remains. Under the current host rule, do not
+  retry a local app or image build. Normal ARM64 workflow acceptance remains
+  open in root `openspec/TODO.md`. No image build, workflow dispatch, publish,
+  or deploy occurred.
+
 ## Normalizer evidence-quote contract follow-up (2026-10-27)
 
 - The normalizer prompt now requires `evidence_quote` to be an exact,

@@ -1,0 +1,48 @@
+# Completion review: ARM64 duplicate import regression
+
+## Scope and result
+
+Fixed only the duplicate imports reported in workflow run `40871049172`:
+
+- `resolveAutoStrategy.ts`: removed the second identical `../autoCombo/bands`
+  import; retained all four imported bindings.
+- `opencodeHeaders.ts`: consolidated imports from `./opencodeCliVersion.ts`;
+  retained the cached version helper, refresh helper, and v2 fallback constant.
+
+No routing, provider, model, migration, image, workflow, or runtime behavior
+changed. Added a TypeScript compiler regression test over only these two source
+files. The package records the remaining normal ARM64 workflow acceptance in
+root `openspec/TODO.md`.
+
+## TDD and verification
+
+- RED on clean base `c204f2aba69c282e582697f43ca5ca6e2cf474f2`:
+  `NODE_PATH=/tmp/tl315-ts-6.0.3/node_modules node --test tests/unit/build/duplicate-import-bindings.test.mjs`
+  failed with 12 TypeScript TS2300 duplicate-identifier diagnostics across both
+  modules, including `BAND_THRIFTY_RUNG_ORDER` and
+  `getCachedOpencodeCliVersion`.
+- GREEN after source repair: same command passed, 1/1 test.
+- Code Simplifier review kept the source change to the two proven import
+  cleanups; test and documentation remain limited to the regression and its
+  explicit acceptance boundary.
+- esbuild syntax checks passed for both affected modules with the isolated
+  binary at `/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`.
+- esbuild bundle checks passed for both affected modules and their local import
+  graphs with `--bundle --platform=node --format=esm --packages=external
+  --external:@/*`.
+- OpenSpec strict validation passed:
+  `/tmp/tl315-openspec-cli/node_modules/.bin/openspec validate fix-arm64-build-duplicate-declarations --strict --no-interactive`.
+
+An isolated `npm ci` installed dependencies in the task worktree with
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`; generated dependencies and build
+artifacts were removed afterward. `npm run build:contributor` reached Next.js
+16.3.8 webpack compilation in backend-only mode, then exited with SIGTERM after
+about 15 minutes before reporting a result. No duplicate-binding diagnostic
+appeared before termination, but this is inconclusive, not a passing build.
+`npm run check:open-sse-typecheck` reported seven diagnostics in unchanged
+files; none were TS2300 diagnostics in the repaired modules. The focused
+TypeScript binder test proves the two reported duplicate-binding failures are
+gone. esbuild bundle checks cover syntax in the resolved local import graphs,
+not complete Next.js webpack behavior or ARM64 image acceptance. No task-owned
+app build process remains; do not retry local builds under the current host
+rule. No workflow dispatch, image build, publish, or deploy occurred.

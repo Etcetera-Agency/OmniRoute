@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-29
+goal: Restore TypeScript binding validity in two OpenSSE modules without
+  behavior changes
