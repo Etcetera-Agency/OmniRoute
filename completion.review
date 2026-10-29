@@ -20,16 +20,24 @@
   skips shared heuristic fallback without an exact anchor.
 - TDD regressions pass for exact APInex IDs, prefix-only/nested unknown IDs,
   `free/kimi` exact-ID precedence, capability consensus, provider false/vision
-  overrides, unanchored nested/effort/vision-family identities, expired Arena scores,
-  user/Arena/benchmark priorities, low/mid/high profiles, raw hidden keys,
-  per-connection exclusions, and unchanged native band pool membership.
-  Focused combined tests pass 26/26.
+  overrides, unanchored nested/effort/vision-family identities, expired Arena
+  scores, user/Arena/benchmark priorities, low/mid/high profiles, raw hidden
+  keys, per-connection exclusions, and unchanged native band pool membership.
+  Focused command across five test files passes 26/26.
 - Strict OpenSpec validation, Prettier, and `git diff --check` pass. Scoped
-  typecheck remains red with seven repository diagnostics, including four
-  outside this diff in `open-sse/services/systemOne/schema.ts`,
-  `src/lib/modelBenchmarkSearch.ts`, and `src/lib/proxySubscription/parse.ts`;
-  no diagnostic points to a TL322-changed file. Code Simplifier reviewed the
-  changed source and tests.
+- Read-only EX322 independent review of source commit
+  `d987b44f7759295b619a3da20f5780a12ee63631` returned no findings. It verified
+  raw hidden/exclusion coverage and made no test or build runs.
+- `npm run check:open-sse-typecheck` reports seven diagnostics at both the
+  parent source `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322. The same
+  unchanged files/codes appear in both runs: `open-sse/services/systemOne/schema.ts`
+  TS2353, `src/lib/modelBenchmarkSearch.ts` TS2322 and TS2339 (two), and
+  `src/lib/proxySubscription/parse.ts` TS2345 (three). The script still fails
+  because its frozen diagnostic baseline marks four counts as uncovered; this
+  is not reported as a passing typecheck. No diagnostic is in the TL322 diff.
+- Code Simplifier reviewed the changed source and tests. No local app/image
+  build, provider request, provider-state mutation, push, merge, or deploy
+  occurred.
 - No local app/image build, provider request, provider-state mutation, push,
   merge, or deploy occurred. Fresh independent review and deployed-source/live
   acceptance remain open. TL324 separately owns official APInex free pricing;

@@ -35,13 +35,22 @@
   overrides, global/profile `coding` and `general` score priority, expired
   Arena evidence, hidden raw keys, raw/base connection exclusions, unchanged
   dispatch IDs, and unchanged band pool membership.
+- Exact files in the combined run: `apinex-free-canonical-binding.test.ts`,
+  `task-fitness-scores-as-11489.test.ts`,
+  `model-capabilities-registry.test.ts`,
+  `model-capabilities-path-shaped-vision-8032.test.ts`, and
+  `auto-combo-credentialed-model-pool.test.ts`.
 - Strict OpenSpec validation passed. Prettier checks and `git diff --check`
-  passed. The final scoped `check:open-sse-typecheck` still reports seven
-  diagnostics, including four diagnostics outside this diff:
-  `open-sse/services/systemOne/schema.ts` TS2353,
-  `src/lib/modelBenchmarkSearch.ts` TS2322/TS2339, and
-  `src/lib/proxySubscription/parse.ts` TS2345 (three occurrences). It reports
-  no diagnostic in a TL322-changed file.
+- Passed a fresh read-only EX322 review of commit
+  `d987b44f7759295b619a3da20f5780a12ee63631`; it found no findings and did not
+  run tests or builds.
+- `npm run check:open-sse-typecheck` reports the same seven diagnostics on the
+  parent source `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322: TS2353 in
+  `open-sse/services/systemOne/schema.ts`, TS2322 and two TS2339 in
+  `src/lib/modelBenchmarkSearch.ts`, and three TS2345 in
+  `src/lib/proxySubscription/parse.ts`. Its frozen baseline still flags four
+  counts as uncovered, so the script fails; do not call this a passing
+  typecheck. No diagnostic points to a TL322-changed file.
 - Code Simplifier reviewed the source and tests. No local app/image build,
   provider request, provider-state mutation, push, merge, or deploy occurred.
 

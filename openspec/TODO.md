@@ -971,10 +971,15 @@ Deferred cross-repository and operations work:
       capability, reasoning, and fitness data may be reusable across provider
       routes. TL320 proved the exact data-binding gap from read-only runtime
       state. TL322's local exact-canonical identity binding is implemented on
-      its feature branch; fresh review, integration, and deployed-source
-      acceptance remain open. One
-      successful native free-only tool call
-      must prove actual model, route, usage, and cost, with no paid or
+      its feature branch; a fresh independent review of source commit
+      `d987b44f7759295b619a3da20f5780a12ee63631` found no findings. Integration
+      and deployed-source acceptance remain open. The scoped typecheck fails
+      with the same seven diagnostics on parent source
+      `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322; all seven are in
+      unchanged files, while the frozen baseline marks four counts uncovered.
+      This is not a passing typecheck and no baseline change was made. A
+      successful native free-only tool call must prove actual model, route,
+      usage, and cost, with no paid or
       out-of-band fallback. Keep APInex-only state until owner steering; restore
       other providers only on that steering. Clean this task's redundant
       artifacts while retaining one DB/image rollback pair. Do not archive this
