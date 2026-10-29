@@ -1028,6 +1028,26 @@ Deferred cross-repository and operations work:
       complete pagination, exact current source URLs/timestamps, and no
       account-level price leakage. Do not mutate provider runtime state during
       this local package.
+- [ ] Re-run the GitHub ARM64 runtime check after the local import-cycle
+      correction. Failed run `40954554580` (source `main` `0c316b9`) exited 13
+      when `--check-runtime` evaluated the emitted benchmark operator. The
+      source cycle through provider validation and Claude runtime was removed
+      by moving pure URL helpers to `src/shared/utils/compatibleProviderUrls.ts`;
+      no local bundle was built. Verify the actual emitted import on GitHub
+      before release; keep `--check-runtime` evaluating the module.
+- [x] Local import-boundary correction passed independent review. The source
+      graph regression passes on the corrected tree and fails on clean base
+      `0c316b9`; focused adapter, capability, endpoint, pricing, Claude, and
+      benchmark tests pass 109/109. Typecheck has the same 720 diagnostics as
+      base. This is source-level evidence only; emitted-artifact verification
+      remains open above.
+- [x] Trace and record the separate pre-existing import-time usage migration
+      path: `modelBenchmarkSearch.ts` → `executeWebSearch.ts` →
+      `open-sse/handlers/search.ts` → `usageDb.ts` → `usage/migrations.ts`.
+      The last module invokes migration/archive work on import under its existing
+      disk-persistence condition. GitHub logs show SQLite initialization but do
+      not isolate which call opens it. This local correction does not change
+      that behavior or claim the runtime check is side-effect-free.
 - [ ] Native free-only acceptance remains open after TL320 hid the built-in
       no-auth `uncloseai` model found in TL326's default-pool inspection. TL320
       then observed an empty normal pool and 12 APInex candidates only in the

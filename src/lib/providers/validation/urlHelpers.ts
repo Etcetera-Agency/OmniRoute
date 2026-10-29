@@ -1,10 +1,6 @@
 // URL/format normalizers for provider key validation. Pure string helpers extracted from
 // validation.ts (god-file decomposition): no I/O, no side effects — they only shape base URLs
 // and chat endpoints per provider format. Behavior is byte-identical to the original inline defs.
-import {
-  stripAnthropicMessagesSuffix,
-  stripClaudeCodeCompatibleEndpointSuffix,
-} from "@omniroute/open-sse/services/claudeCodeCompatible.ts";
 import { isOpenAICompatibleProvider } from "@/shared/constants/providers";
 
 export const OPENAI_LIKE_FORMATS = new Set(["openai", "openai-responses"]);
@@ -17,43 +13,6 @@ export function normalizeBaseUrl(baseUrl: string) {
   // (e.g. saved as object from a UI bug) would otherwise crash mid-validation.
   const value = typeof baseUrl === "string" ? baseUrl : "";
   return value.trim().replace(/\/$/, "");
-}
-
-export function buildCompatibleModelsUrl(baseUrl: string, modelsPath?: string) {
-  const base = new URL(baseUrl);
-  const path = modelsPath?.trim() || "models";
-  const rawPath = path.replace(/^https?:\/\/[^/?#]*/i, "").split(/[?#]/, 1)[0];
-  for (const segment of rawPath.split("/")) {
-    let decoded = segment;
-    for (let pass = 0; pass < 2; pass++) {
-      try {
-        decoded = decodeURIComponent(decoded);
-      } catch {
-        break;
-      }
-    }
-    if (decoded === "." || decoded === "..") {
-      throw new Error("Compatible models endpoint cannot contain dot-segment traversal");
-    }
-  }
-  let target: URL;
-  if (/^https?:\/\//i.test(path)) {
-    target = new URL(path);
-  } else {
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    const version = base.pathname.match(/(\/v\d+)$/i)?.[1];
-    const joinedPath =
-      version && normalizedPath.toLowerCase().startsWith(`${version.toLowerCase()}/`)
-        ? `${base.pathname}${normalizedPath.slice(version.length)}`
-        : `${base.pathname.replace(/\/$/, "")}${normalizedPath}`;
-    target = new URL(joinedPath, base.origin);
-  }
-  if (target.username || target.password)
-    throw new Error("Compatible models endpoint cannot include credentials");
-  if (target.origin !== base.origin) {
-    throw new Error("Compatible models endpoint must use the base URL origin");
-  }
-  return target.toString();
 }
 
 /**
@@ -75,14 +34,6 @@ export function normalizeAzureOpenAIBaseUrl(baseUrl: string) {
   return normalizeBaseUrl(baseUrl)
     .replace(/\/openai$/i, "")
     .replace(/\/openai\/deployments\/[^/]+\/chat\/completions.*$/i, "");
-}
-
-export function normalizeAnthropicBaseUrl(baseUrl: string) {
-  return stripAnthropicMessagesSuffix(baseUrl || "");
-}
-
-export function normalizeClaudeCodeCompatibleBaseUrl(baseUrl: string) {
-  return stripClaudeCodeCompatibleEndpointSuffix(baseUrl || "");
 }
 
 export function addModelsSuffix(baseUrl: string) {

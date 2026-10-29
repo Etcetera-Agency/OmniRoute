@@ -125,3 +125,63 @@ implementation evidence. Their active spec deltas are replaced with a
 supersession notice; their completion receipts remain historical. The
 provider-agnostic free-ID binding and all benchmark/routing behavior remain
 outside this change.
+
+## Runtime import regression found on merged source
+
+GitHub ARM64 run `40954554580` evaluated the emitted benchmark operator with
+`--check-runtime`. Node exited 13 with an unsettled top-level await while the
+operator dynamically imported `modelBenchmarkSearch-Y5TC2YLC.mjs`. The log also
+shows SQLite initialization before the import stalled. No bundle or metafile
+survived the failed ephemeral runner.
+
+The source import graph on main `0c316b924437fb6bd17e4384059896de556d6e61`
+shows the new cycle introduced by the compatible discovery dependency:
+
+```text
+modelsDevSync
+  -> compatibleModelDiscovery
+  -> providers/validation/urlHelpers
+  -> open-sse/services/claudeCodeCompatible
+  -> open-sse/services/contextManager
+  -> modelCapabilities
+  -> modelCapabilityResolutionSnapshot
+  -> modelsDevSync
+```
+
+`compatibleModelDiscovery` needs only pure URL/path normalizers, but imports
+them from `urlHelpers`; that module imports the high-level Claude runtime
+service for its string helpers. The shared metadata adapter therefore closes a
+runtime import loop through model capability resolution. Move those pure URL
+helpers to a dependency-light module and import it directly from discovery and
+the existing callers. Keep protocol fetch/auth code and the benchmark
+operator's actual emitted-module evaluation unchanged.
+
+```text
+test source dependency graph from compatibleModelDiscovery
+assert graph does not reach modelCapabilities or modelsDevSync
+assert existing callers retain identical URL normalization results
+run focused compatible metadata and benchmark import regressions
+assert operator source awaits benchmark import before runtime-check exit
+keep Dockerfile --check-runtime evaluating the emitted operator module
+trace remaining import-time effects and record their exact source edge
+```
+
+After the cycle is removed, a separate pre-existing source path still reaches
+usage migrations:
+
+```text
+src/lib/modelBenchmarkSearch.ts
+  -> src/lib/search/executeWebSearch.ts
+  -> open-sse/handlers/search.ts
+  -> src/lib/usageDb.ts
+  -> src/lib/usage/migrations.ts
+```
+
+`usageDb.ts` imports migrations on module load. `migrations.ts` calls
+`migrateLegacyUsageFiles()` at module load and, when `shouldPersistToDisk` is
+true, awaits `archiveLegacyRequestLogs()` and calls
+`migrateUsageJsonToSqlite()`. This path predates TL329 and is outside this
+correction. GitHub logs show SQLite initialization but do not identify which
+call opened it in that build stage. Do not claim `--check-runtime` is
+side-effect-free or change its emitted-module evaluation. A separately
+authorized GitHub ARM64 build remains authoritative for the generated module.

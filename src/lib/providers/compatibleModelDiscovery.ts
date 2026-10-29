@@ -1,12 +1,10 @@
+import { isForbiddenCustomHeaderName } from "@/shared/constants/upstreamHeaders";
 import {
   buildCompatibleModelsUrl,
   normalizeAnthropicBaseUrl,
-} from "@/lib/providers/validation/urlHelpers";
-import { isForbiddenCustomHeaderName } from "@/shared/constants/upstreamHeaders";
+} from "@/shared/utils/compatibleProviderUrls";
 
 // AICODE-NOTE: Explicit endpoints never fall back, and Anthropic pages must finish before persistence.
-export { buildCompatibleModelsUrl };
-
 export function applyCompatibleCapabilityOverrides(
   models: unknown[],
   modelsById: Record<string, { supportsVision?: boolean; supportsTools?: boolean }>

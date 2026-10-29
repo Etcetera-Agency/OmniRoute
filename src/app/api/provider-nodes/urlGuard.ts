@@ -6,7 +6,7 @@ import {
   parseOutboundUrl,
 } from "@/shared/network/outboundUrlGuard";
 import { getProviderValidationGuard } from "@/shared/network/outboundUrlGuardPolicy";
-import { buildCompatibleModelsUrl } from "@/lib/providers/validation/urlHelpers";
+import { buildCompatibleModelsUrl } from "@/shared/utils/compatibleProviderUrls";
 
 function guardProviderNodeBaseUrl(baseUrl: string): void {
   const guard = getProviderValidationGuard();

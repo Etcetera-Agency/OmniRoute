@@ -9,8 +9,6 @@ const {
   CLAUDE_CODE_COMPATIBLE_REDACT_THINKING_BETA,
   CLAUDE_CODE_COMPATIBLE_STAINLESS_TIMEOUT_SECONDS,
   isClaudeCodeCompatibleProvider,
-  stripAnthropicMessagesSuffix,
-  stripClaudeCodeCompatibleEndpointSuffix,
   joinBaseUrlAndPath,
   joinClaudeCodeCompatibleUrl,
   buildClaudeCodeCompatibleHeaders,
@@ -18,6 +16,8 @@ const {
   resolveClaudeCodeCompatibleAnthropicBeta,
   resolveClaudeCodeCompatibleSessionId,
 } = await import("../../open-sse/services/claudeCodeCompatible.ts");
+const { stripAnthropicMessagesSuffix, stripClaudeCodeCompatibleEndpointSuffix } =
+  await import("../../src/shared/utils/compatibleProviderUrls.ts");
 
 const { isClaudeCodeCompatible } = await import("../../open-sse/services/provider.ts");
 

@@ -10,13 +10,13 @@ import {
   joinBaseUrlAndPath,
 } from "@omniroute/open-sse/services/claudeCodeCompatible.ts";
 import { getDefaultExecutor } from "@omniroute/open-sse/executors/defaultResolver.ts";
+import { isForbiddenCustomHeaderName } from "@/shared/constants/upstreamHeaders";
 import {
-  addModelsSuffix,
   buildCompatibleModelsUrl,
   normalizeAnthropicBaseUrl,
   normalizeClaudeCodeCompatibleBaseUrl,
-} from "./urlHelpers";
-import { isForbiddenCustomHeaderName } from "@/shared/constants/upstreamHeaders";
+} from "@/shared/utils/compatibleProviderUrls";
+import { addModelsSuffix } from "./urlHelpers";
 import { applyCustomUserAgent } from "./headers";
 import { toValidationErrorResult, validationRead, validationWrite } from "./transport";
 

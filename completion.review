@@ -1388,3 +1388,48 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   rerun after the comment edits; commit hooks passed both edits.
 - Combined deployed-source and native free-only live acceptance remains open
   and tracked in `openspec/TODO.md`.
+
+## TL329 runtime import-cycle correction — 2026-10-29
+
+- GitHub ARM64 run `40954554580` failed `--check-runtime` with Node exit 13 and
+  unsettled top-level await while importing emitted
+  `modelBenchmarkSearch-Y5TC2YLC.mjs`. On main `0c316b9`, source analysis found
+  the introduced cycle: `modelsDevSync` → `compatibleModelDiscovery` →
+  validation `urlHelpers` → Claude runtime/context management → capability
+  resolution → `modelsDevSync`.
+- Moved pure compatible URL helpers to
+  `src/shared/utils/compatibleProviderUrls.ts`; validation, discovery, and
+  Claude callers use the new module. The old exports were removed with no
+  compatibility shim. Operator and Dockerfile remain unchanged.
+- The import graph test traverses TypeScript imports with repository
+  resolution. It fails against clean base `0c316b9` because validation
+  `urlHelpers` is reachable from compatible discovery. The final source check
+  asserts `--check-runtime` flag handling, awaited benchmark import ordering,
+  and success exit after that import. It does not claim generated-artifact
+  acceptance.
+- Final focused compatible metadata, capability, endpoint schema, pricing,
+  Claude helper/request, models.dev, and benchmark-hook suite passes **109/109**;
+  the dedicated source-import test passes **2/2**. Compatible provider requests
+  were mocked; the pre-existing models.dev test performs its public catalog
+  GET. Focused ESLint, Prettier, `git diff --check`, and strict OpenSpec pass.
+- `tsc --pretty false -p tsconfig.typecheck-core.json` remains red with 720
+  diagnostics. A clean base worktree using the same dependencies and command
+  has the identical diagnostic set: zero added, zero removed, and no changed
+  source-module diagnostics. ESLint on two existing Claude tests reports 29
+  `no-explicit-any` errors on unchanged lines; changed production files and the
+  new graph test pass focused ESLint.
+- The separate, pre-existing usage migration path remains:
+  `src/lib/modelBenchmarkSearch.ts` → `src/lib/search/executeWebSearch.ts` →
+  `open-sse/handlers/search.ts` → `src/lib/usageDb.ts` →
+  `src/lib/usage/migrations.ts`. Import-time migration/archive work is
+  unchanged. GitHub logs show SQLite initialization but do not isolate which
+  call opened it; this correction does not claim `--check-runtime` is
+  side-effect-free.
+- Fresh independent review found one P2: an earlier source test only matched
+  an awaited import and overstated emitted-artifact coverage. The test now
+  verifies the `--check-runtime` flag, import-before-branch ordering, and
+  success exit after import. The reviewer rechecked and confirmed the finding
+  resolved with no remaining actionable findings.
+- No local app/image/bundle build, provider request, new GitHub build, push, or
+  deployment was performed. The actual emitted ARM64 runtime check and live
+  acceptance remain separate open gates in `openspec/TODO.md`.

@@ -33,6 +33,9 @@ discovery persistence.
   state, and per-connection exclusions.
 - Mark the earlier provider-specific proposals superseded by this owner
   decision while retaining their historical completion receipts.
+- Keep the shared compatible discovery import graph below validation and
+  provider-runtime modules so the emitted benchmark operator can load it without
+  a new cyclic module path.
 
 ## Impact
 
