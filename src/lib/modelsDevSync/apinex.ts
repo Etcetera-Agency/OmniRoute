@@ -86,7 +86,7 @@ function isApinexBaseUrl(baseUrl: string): boolean {
   return baseUrl === APINEX_BASE_URL || baseUrl === `${APINEX_BASE_URL}/`;
 }
 
-// AICODE-NOTE: The stored type is `openai-compatible`; generated node IDs may include `chat`.
+// AICODE-NOTE: Stored compatible type stays separate from API-format ID prefixes.
 export function isApinexCatalogNode(node: Pick<ApinexCatalogNode, "type" | "baseUrl">): boolean {
   return node.type === "openai-compatible" && isApinexBaseUrl(node.baseUrl);
 }

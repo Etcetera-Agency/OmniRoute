@@ -2,12 +2,15 @@
 
 ## Verified identity contract
 
-The canonical provider-node creation schema accepts the exact type
-`openai-compatible`. The `provider_nodes` table stores `id`, `type`, `prefix`,
-and `base_url` in separate columns; the current create helper writes each field
-without deriving one from another. A configured node can therefore have a
-generated ID beginning `openai-compatible-chat-`, a stored type of
-`openai-compatible`, and a public prefix of `apinex` at the same time.
+The canonical provider-node schema stores `type = "openai-compatible"` for
+OpenAI-compatible nodes and stores `apiType` separately. Its API-format values
+are `chat`, `responses`, `embeddings`, `audio-transcriptions`, `audio-speech`,
+and `images-generations`. The creation route builds the node ID from the
+`openai-compatible-` prefix plus `apiType`; therefore
+`openai-compatible-chat-<suffix>` is an ID prefix, not a stored type. The table
+stores `id`, `type`, `api_type`, `prefix`, and `base_url` in separate columns.
+A node can have the generated chat ID prefix, stored type
+`openai-compatible`, and public prefix `apinex` at the same time.
 
 The strict-zero candidate key is the internal provider ID. Candidate
 construction groups on the provider ID, and `strictZeroCostFilter` performs an
@@ -17,15 +20,15 @@ replace it with the public prefix or infer its type from the ID.
 
 ## Chosen selector
 
-Use one exact native type and one exact endpoint. Keep the selector, node
-predicate, and ID binding aligned:
+Use the single accepted OpenAI-compatible stored type and exact APInex
+endpoint. Do not use the generated ID prefix or API format as a type check:
 
 ```text
 nodes = SELECT id, type, base_url
         FROM provider_nodes
         WHERE type = "openai-compatible"
 
-configured = nodes whose type is exactly "openai-compatible"
+configured = nodes whose stored type is exactly "openai-compatible"
             and base_url is exactly "https://api.apinex.bond/v1"
             (a single trailing slash remains accepted)
 
@@ -43,10 +46,11 @@ for each node:
 ```
 
 Keep the APInex source URL, parser, timestamp, and source-isolated persistence
-unchanged. Do not add another type branch or derive type from an ID prefix.
-The normal models.dev save continues to merge this current-source snapshot
-through the existing exact pricing namespace; the synchronous reader keeps its
-existing independent freshness composition.
+unchanged. Do not infer `type` from `apiType` or an ID prefix. The normal
+models.dev save continues to
+merge this current-source snapshot through the existing exact pricing
+namespace; the synchronous reader keeps its existing independent freshness
+composition.
 
 ## Regression shape
 
@@ -61,21 +65,25 @@ connection key prefix = id + ":9565fb26-817c-42b4-baa0-b76733a951c4"
 synced raw model count = 44
 ```
 
-Stub the existing catalog response in the test. Give 21 of the 44 exact raw
-IDs numeric zero input and output prices, and give the remaining 23 a nonzero
-price. The normal sync must fetch the APInex catalog, persist exactly the 21
-matches under the full node ID, and leave all 44 synced records unchanged.
-Seed one hidden override for an exact raw ID under native
-`modelCompatOverrides` state and verify it remains unchanged after sync. The
-public prefix must have no evidence entry; an exact strict-zero candidate
-lookup must pass for the full node ID and fail for the prefix. Also reject the
-same endpoint under `openai-compatible-chat`, another compatible type, or a
-different endpoint.
+Also create exact-endpoint rows for each other schema-valid `apiType`, with
+stored type `openai-compatible`, generated IDs using that format's prefix, and
+one synced raw model ID from the same catalog. Stub the existing catalog
+response. The normal sync must fetch the APInex catalog, persist the 21
+zero-price matches for the 44-model deployed node and the synced exact match
+for each other API format, and leave all synced records unchanged. Seed one
+hidden override for an exact raw ID under native `modelCompatOverrides` state
+and verify it remains unchanged after sync. The public prefix must have no
+evidence entry; strict-zero candidate lookups must pass for each full node ID
+and fail for the public prefix. Reject `anthropic-compatible` and any node at
+a different endpoint.
 
 ## Unchanged boundaries
 
 No edits to `strictZeroCostFilter.ts`, candidate generation, provider
 availability, hidden/excluded state, band membership, capability or fitness
 resolution, the APInex source parser, source freshness, or models.dev save
-semantics. Existing independent failure behavior remains covered by the
-source-package regressions.
+semantics. The provider-node creation schema remains unchanged. The adapter
+does not treat `openai-compatible-chat` or other generated format prefixes as
+stored types, and does not bind Anthropic-compatible nodes without a specific
+APInex endpoint contract. Existing independent failure behavior remains
+covered by the source-package regressions.

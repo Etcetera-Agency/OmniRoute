@@ -20,9 +20,9 @@ do not create price evidence.
 
 ## Change
 
-- Fetch APInex only when an exact configured node of stored type
-  `openai-compatible` uses
-  `https://api.apinex.bond/v1`.
+- Fetch APInex only when an exact configured node has stored type
+  `openai-compatible` and base URL `https://api.apinex.bond/v1`. The API type
+  and generated ID prefix do not change the stored type.
 - Require a complete nonempty catalog, unique raw IDs, and finite non-negative
   numeric price fields. Only records with numeric zero for input, output, and
   every additional published per-token price field qualify.

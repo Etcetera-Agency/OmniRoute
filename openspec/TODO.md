@@ -1003,18 +1003,21 @@ Deferred cross-repository and operations work:
       endpoint `https://api.apinex.bond/v1`, and 44 synced raw IDs. The adapter
       selected only `openai-compatible-chat`, so it selected no node before
       fetch. The public catalog was independently reachable (HTTP 200, 44
-      rows, 21 numeric zero/zero records). A local correction is specified in
-      `fix-apinex-native-node-type`; integrate and deploy it, then verify source
-      evidence is keyed by the full node ID and only synced exact raw IDs enter
-      pricing. Do not add a fallback for the wrong node type or alter candidate
-      filters.
-- [ ] Native free-only acceptance also depends on runtime isolation. TL326's
-      read-only Auto materialization found a built-in no-auth `uncloseai`
-      candidate in the default pool while 41 of 42 provider connections were
-      inactive; it has no matching provider connection or node. TL320 owns the
-      native visibility and provider-disable configuration path. Keep this
-      source correction data-only and prove the final request cannot fall back
-      outside the requested free band.
+      rows, 21 numeric zero/zero records). Source inspection confirmed
+      `openai-compatible-chat-` is a generated provider ID prefix from
+      `apiType = "chat"`, not a stored node type. The local correction in
+      `fix-apinex-native-node-type` selects stored type `openai-compatible` for
+      all schema-valid API formats, with the exact endpoint/full-node/raw-ID
+      binding unchanged. Integrate and deploy it, then verify source evidence
+      uses the full node ID and only synced exact raw IDs enter pricing. Keep
+      `anthropic-compatible` outside this adapter until a matching APInex
+      endpoint contract is established.
+- [ ] Native free-only acceptance remains open after TL320 hid the built-in
+      no-auth `uncloseai` model found in TL326's default-pool inspection. TL320
+      then observed an empty normal pool and 12 APInex candidates only in the
+      diagnostic view; this does not establish an eligible native APInex route
+      or successful completion. Keep this source correction data-only and
+      prove the final request cannot fall back outside the requested free band.
 - [ ] Before the separately authorized generated-override cleanup, verify
       whitelist hash
       `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`,
