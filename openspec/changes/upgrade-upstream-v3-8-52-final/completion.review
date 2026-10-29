@@ -100,15 +100,33 @@
 - Focused migration, benchmark, capability, Auto-band, and integration suites
   passed 87/87 using an isolated Linux esbuild binary. Command used:
   `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1`
-  with the 12 file paths listed in the implementation receipt. Artifact-index
-  upgrade passed 2/2 with the same command prefix; Python deploy-helper tests
-  passed 58/58; overlay, layout, and verifier tests passed 20/20. The direct
-  benchmark/full-catalog regression also passed in a separate focused 17/17
-  run. `git diff --check` passed.
+  with:
+  `tests/unit/modelsDevSyncBenchmarkHook.test.ts`,
+  `tests/unit/modelBenchmarkCurrentSnapshot.test.ts`,
+  `tests/unit/modelBenchmarkSearch.test.ts`,
+  `tests/unit/db/migration-203-provider-health-matrix-cover.test.ts`,
+  `tests/unit/db/migration-204-drop-unused-turn-node-indexes.test.ts`,
+  `tests/unit/db/migration-214-recreate-turn-nodes-content-hash-index.test.ts`,
+  `tests/unit/db/migration-212-call-logs-artifact-relpath-index.test.ts`,
+  `tests/unit/memory-fts-migration-206-15707.test.ts`,
+  `tests/unit/migration-210-remove-opencode-free-provider.test.ts`,
+  `tests/unit/migration-210-legacy-provider-connections.test.ts`,
+  `tests/integration/api-key-codex-service-mode.test.ts`, and
+  `tests/unit/db-migrationrunner-constants-split.test.ts`. The artifact-index
+  upgrade test `tests/unit/db/migration-212-artifact-index-upgrade.test.ts`
+  passed 2/2 with the same command prefix. `python3 scripts/deploy/test_omniroute_deploy.py`
+  passed 58/58; `node --test tests/unit/build/upstream-v3852-release-layout.test.mjs tests/unit/build/omni-overlay-workflow-policy.test.mjs tests/unit/build/verify-official-overlay-image.test.mjs`
+  passed 20/20. A
+  separate run of the direct benchmark/full-catalog, current snapshot, layout,
+  and FTS constants tests passed 17/17. `git diff --check` passed.
 - Code Simplifier ran again after review-driven changes and found no further
-  simplification. The strict OpenSpec CLI validator was unavailable locally;
-  no full repository baseline comparison was run. Those limits are explicit
-  in `tasks.md` and `openspec/TODO.md`.
+  simplification. Installed OpenSpec CLI 1.15.0 under isolated
+  `/tmp/tl315-openspec-cli`; strict validation passed for both
+  `upgrade-upstream-v3-8-52-final` and `github-overlay-image-build`. The
+  commands were `openspec validate upgrade-upstream-v3-8-52-final --strict`
+  and `openspec validate github-overlay-image-build --strict`. The
+  release-sensitive pre-change invariants were compared and focused suites
+  passed; no full repository test sweep was run.
 - No installed host helper, production database, image build, workflow,
   deployment, push, or merge was touched. TL316 must review/install the host
   helper update; TL313 must complete the isolated migration and rollback

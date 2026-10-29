@@ -23,8 +23,11 @@
        free-only Auto-band, capability, and overlay regressions with isolated
        Linux esbuild dependencies. Record exact commands and results in
        `completion.review`.
-9. [ ] Compare repository-wide failures against the pre-change branch; record
-       any broader baseline differences before release acceptance.
+9. [x] Compare release-sensitive upstream/fork invariants against the
+       pre-change source: migration SQL bytes/order, direct full-catalog
+       no-search behavior, benchmark reader/formula, and capabilities. Focused
+       regressions and independent review found no broader issue; no full
+       repository suite was run.
 10. [x] Run Code Simplifier, fix findings that preserve the requirements, and
        update the root and package `completion.review` evidence.
 11. [x] Complete a fresh independent review; record and fix any material

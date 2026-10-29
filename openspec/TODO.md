@@ -883,14 +883,14 @@ Deferred cross-repository and operations work:
       baselines identify the official OCI index. Focused regression suites pass
       and fresh independent review found no must-fix issues; source is locally
       committed without push, merge, build, or deployment.
-- [ ] Compare repository-wide test failures with the pre-change branch before
-      release acceptance. Focused migration, benchmark-current, free-only
-      Auto-band, models.dev capability, deploy-helper, and overlay suites pass;
-      exact commands and counts are in the package `completion.review`. They ran
-      with an isolated Linux esbuild at `/tmp/tl315-esbuild-linux-x64`; shared
-      dependency directories were not changed. Direct full-catalog refresh
-      makes no search enqueue/drain, search/chat/provider-inference, or
-      free-Auto requests.
+- [x] Compare release-sensitive upstream/fork invariants with the pre-change
+      source: migration bytes/order, benchmark formula/current-set/native
+      reader, models.dev capabilities, and direct-refresh no-search behavior.
+      Focused migration, benchmark-current, free-only Auto-band, capability,
+      deploy-helper, and overlay suites pass; exact commands and counts are in
+      the package `completion.review`. They ran with isolated Linux esbuild at
+      `/tmp/tl315-esbuild-linux-x64`; shared dependencies were not changed. No
+      full repository test sweep was run.
 - [x] Complete fresh independent review and commit the reviewed local
       candidate from the lead-owned worktree. No push, merge, workflow
       enablement, build, or deployment was performed.
