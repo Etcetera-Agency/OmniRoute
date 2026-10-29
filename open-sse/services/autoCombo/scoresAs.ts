@@ -9,8 +9,8 @@
  *
  * This module is the single seam that closes that gap. Four tiers, in order:
  *
- *   1. `free-prefix`   — an exact `free/<base>` registry identity. Unanchored
- *                        or nested free paths stay unresolved.
+ *   1. `free-prefix`   — only an exact registry-anchored base resolves;
+ *                        otherwise the raw ID stays unchanged.
  *   2. `explicit`      — the registry entry declares `scoresAs`. For relations
  *                        suffix-stripping cannot express: forward vendor aliases
  *                        (`gpt-5.6` IS an alias of `gpt-5.6-sol`, per OpenAI's
