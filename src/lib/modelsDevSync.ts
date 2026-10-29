@@ -221,7 +221,7 @@ function toRecord(value: unknown): Record<string, unknown> {
 function getConfiguredApinexCatalogNodes(): ApinexCatalogNode[] {
   const db = getDbInstance();
   const nodes = db
-    .prepare("SELECT id, type, base_url FROM provider_nodes WHERE type = 'openai-compatible-chat'")
+    .prepare("SELECT id, type, base_url FROM provider_nodes WHERE type = 'openai-compatible'")
     .all();
   const configuredNodes = nodes.flatMap((row) => {
     const node = toRecord(row);

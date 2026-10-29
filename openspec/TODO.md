@@ -997,6 +997,24 @@ Deferred cross-repository and operations work:
       remain open. The earlier APInex `/v1/models` 401 used encrypted
       SQLite credentials directly and does not establish that saved credentials
       are invalid; make no provider request as part of TL322.
+- [ ] Correct and release the TL324 APInex node selector. Read-only deployed
+      inspection on image `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b`
+      found the configured native node has type `openai-compatible`, exact
+      endpoint `https://api.apinex.bond/v1`, and 44 synced raw IDs. The adapter
+      selected only `openai-compatible-chat`, so it selected no node before
+      fetch. The public catalog was independently reachable (HTTP 200, 44
+      rows, 21 numeric zero/zero records). A local correction is specified in
+      `fix-apinex-native-node-type`; integrate and deploy it, then verify source
+      evidence is keyed by the full node ID and only synced exact raw IDs enter
+      pricing. Do not add a fallback for the wrong node type or alter candidate
+      filters.
+- [ ] Native free-only acceptance also depends on runtime isolation. TL326's
+      read-only Auto materialization found a built-in no-auth `uncloseai`
+      candidate in the default pool while 41 of 42 provider connections were
+      inactive; it has no matching provider connection or node. TL320 owns the
+      native visibility and provider-disable configuration path. Keep this
+      source correction data-only and prove the final request cannot fall back
+      outside the requested free band.
 - [ ] Before the separately authorized generated-override cleanup, verify
       whitelist hash
       `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`,

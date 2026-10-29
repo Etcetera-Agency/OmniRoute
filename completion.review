@@ -1,5 +1,38 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## APInex native node type selection correction (2026-10-29)
+
+- Deployed read-only inspection found the configured APInex node uses stored
+  type `openai-compatible`, endpoint `https://api.apinex.bond/v1`, and 44
+  synced raw model IDs. The adapter selected only `openai-compatible-chat`,
+  which prevented any APInex fetch. The official public catalog returned 44
+  structured rows with 21 numeric zero/zero records.
+- The native creation schema accepts `openai-compatible`; `apiType: "chat"`
+  controls the generated ID segment separately from the stored node type.
+  Provider ID and public prefix are also separate: strict zero-cost evidence
+  joins on the full provider-node ID and exact raw model ID.
+- Corrected only the source selector and predicate to require exact stored
+  type `openai-compatible` with the existing endpoint. No compatibility branch
+  for `openai-compatible-chat` was added. The strict filter and candidate,
+  visibility, freshness, pricing, and routing paths remain unchanged.
+- TDD reproduced the deployed failure with the exact native node and 44 exact
+  source model IDs: the sync fetched models.dev but skipped APInex. Focused
+  verification passes **34/34**, including the benchmark hook, capabilities
+  and pricing suites, exact 21/23 price binding, full-ID versus public-prefix
+  strict-filter join, and hidden-override preservation. Changed-module
+  TypeScript diagnostics pass.
+- Strict OpenSpec validation and `git diff --check` pass. Prettier passes for
+  changed TypeScript and OpenSpec Markdown files. The root `completion.review`
+  check reports one unchanged wrapping difference also present at base
+  `e5be44c4080f228bc022ac9f821e073faddf80a8`. Code Simplifier was applied, and
+  fresh independent review returned no findings.
+- One unauthenticated read of the public APInex catalog grounded the test
+  fixture. No `/v1` provider request, key access, completion, runtime write,
+  local app/image build, push, merge, or deployment occurred. Release,
+  deployed-source verification, and native free-only acceptance remain open
+  in `openspec/TODO.md`; TL320 owns the separate `uncloseai` route-isolation
+  dependency.
+
 ## APInex exact free-prefix identity binding (2026-10-29)
 
 - APInex custom-provider model inventory keeps raw IDs such as

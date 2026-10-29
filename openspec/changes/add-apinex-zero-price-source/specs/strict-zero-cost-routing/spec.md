@@ -30,20 +30,23 @@ APInex snapshot.
 
 ### Requirement: Bind APInex prices to existing configured models
 
-The sync SHALL bind exact raw IDs only to a node of type
-`openai-compatible-chat` with HTTPS base URL `https://api.apinex.bond/v1`, and
-only when that raw ID already exists in the node's synced available-model list.
-It SHALL store zero prices under the full node ID and raw model ID in the
-existing `models_dev_pricing` shape. It SHALL NOT modify availability,
-visibility, connections, exclusions, candidates, or routing.
+The sync SHALL bind exact raw IDs only to a node whose stored type is
+`openai-compatible` and whose HTTPS base URL is `https://api.apinex.bond/v1`.
+The ID SHALL already exist in that node's synced available-model list. The
+sync SHALL store prices under the full node ID and raw model ID, without
+modifying availability, visibility, connections, exclusions, candidates, or
+routing.
 
 #### Scenario: Exact configured and available model
 
-- **GIVEN** the node has the exact APInex endpoint and an available model ID
-  matches an explicit APInex zero-price raw ID
+- **GIVEN** the node has stored type `openai-compatible`, the exact APInex
+  endpoint, and an available model ID that matches an explicit APInex
+  zero-price raw ID
 - **WHEN** APInex pricing is saved
 - **THEN** the node ID and exact raw ID receive numeric zero input/output
   pricing and source evidence
+- **AND** the full stored node ID remains the provider key regardless of its
+  public prefix or generated ID segments
 
 #### Scenario: Unconfigured or unavailable identity
 

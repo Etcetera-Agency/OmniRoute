@@ -20,7 +20,8 @@ do not create price evidence.
 
 ## Change
 
-- Fetch APInex only when an exact configured OpenAI-compatible chat node uses
+- Fetch APInex only when an exact configured node of stored type
+  `openai-compatible` uses
   `https://api.apinex.bond/v1`.
 - Require a complete nonempty catalog, unique raw IDs, and finite non-negative
   numeric price fields. Only records with numeric zero for input, output, and
