@@ -1261,3 +1261,29 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - This snapshot predates the new image. Wait for the active row to finish before
   cutover, then verify fresh scheduled receipts. Reprocessing the three prior
   rows is a separate queue action and is not part of this patch.
+
+## APInex TL322/TL324 local integration — 2026-10-29
+
+- Merged TL322 commit `6e1eadfcc1222c288dbf54ccea5cee06f49c4340` by fast-forward,
+  then TL324 commit `0a7ce6d565f1c23cd3809c82e139cace9e85fa03` with a normal
+  two-parent merge. Resolved the sole `openspec/TODO.md` conflict by retaining
+  TL320/TL322 review and typecheck evidence plus TL324 pricing-boundary notes;
+  marked local integration complete while leaving native live acceptance open.
+- TL322 focused suite passed **26/26** across exact canonical capabilities and
+  fitness, raw hidden/exclusion behavior, native raw route identity, and
+  unchanged pool membership. TL324 focused suite passed **33/33** across
+  APInex zero-price producer parsing/binding, source freshness/composition and
+  persistence, models.dev-save independence, and `modelsDevSync` hook behavior.
+  The benchmark hook regression `direct full-catalog refresh publishes
+  evidence without search or inference work` passed.
+- Combined suite evidence verifies the existing producer-to-native consumer
+  boundary without changing strict filters, score formulas, band predicates,
+  candidate pool/capabilities ingestion, dispatch IDs, or provider state.
+  Static TypeScript transpile/import syntax check passed for all five changed
+  production modules. Both OpenSpec packages pass strict validation; diff
+  check passes. No app compile, bundle/image build, provider request, DB or
+  inference action, push, publish, or deploy occurred.
+- Code Simplifier review of the merged source found package reviews already
+  record simplification for both source slices; integration adds no code, so no
+  further simplification was applicable. Combined release and native live
+  acceptance remain open; keep packages unarchived.

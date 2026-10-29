@@ -973,8 +973,9 @@ Deferred cross-repository and operations work:
       state. TL322's local exact-canonical identity binding is implemented on
       its feature branch; a fresh independent review of source commit
       `d987b44f7759295b619a3da20f5780a12ee63631` found no findings. Integration
-      and deployed-source acceptance remain open. The scoped typecheck fails
-      with the same seven diagnostics on parent source
+      with TL324's current APInex zero-price evidence and native pricing
+      binding is locally complete. Deployed-source acceptance remains open.
+      The scoped typecheck fails with the same seven diagnostics on parent source
       `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322; all seven are in
       unchanged files, while the frozen baseline marks four counts uncovered.
       This is not a passing typecheck and no baseline change was made. A
@@ -984,16 +985,16 @@ Deferred cross-repository and operations work:
       other providers only on that steering. Clean this task's redundant
       artifacts while retaining one DB/image rollback pair. Do not archive this
       package before this gate closes.
-- [ ] TL324: integrate official APInex free-entitlement pricing through the
+- [x] TL324: integrate official APInex free-entitlement pricing through the
       source-aware reader/merge path. The official APInex model pages list 44
       models, including 21 free models with exact zero input/output prices;
       the synced custom-node model rows carry only ID, name, and source. The
       native zero-cost guard needs a fresh exact-zero pricing snapshot, while
       band tiering reads `models_dev_pricing[provider][rawModel]`. Do not infer
       entitlement from `free/` or zero-cost appearance, hand-write pricing rows,
-      or change the strict zero-cost guard. TL324 owns this separate data
-      boundary; after integration, rerun native eligibility and complete the
-      live acceptance above. The earlier APInex `/v1/models` 401 used encrypted
+      or change the strict zero-cost guard. Local TL324 source package is
+      integrated with TL322; native eligibility and live acceptance above
+      remain open. The earlier APInex `/v1/models` 401 used encrypted
       SQLite credentials directly and does not establish that saved credentials
       are invalid; make no provider request as part of TL322.
 - [ ] Before the separately authorized generated-override cleanup, verify
