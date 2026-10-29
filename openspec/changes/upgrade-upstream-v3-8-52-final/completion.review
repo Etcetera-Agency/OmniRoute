@@ -131,3 +131,88 @@
   deployment, push, or merge was touched. TL316 must review/install the host
   helper update; TL313 must complete the isolated migration and rollback
   rehearsal before any image build or deployment.
+
+## Normal merge of latest main — 2026-10-29
+
+- Merged `origin/main` normally into `feat/upstream-v3852-final-20261027`.
+  The eventual merge commit has parents feature `8439e210fca55b42707273be52a26982e67e1839`
+  and main `7bb10048702966cccaa0eebe62bb83bfad040265`; merge base is
+  `fc5e2bccd4f70fecf5aab94dfb8136c74ab5a21b`. PR #42 ancestry and fix
+  `ed6dbc5d16` remain in history.
+- Kept main's provider/session security changes, local-only route guard,
+  rerank settings API, generated translations and docs, and CI/quality/nightly
+  workflow definitions. No workflow was dispatched or build run. Release
+  source, benchmark/current-set logic, native reader, strict free-only Auto
+  behavior, models.dev capabilities, overlay policy and b08 pins remain intact.
+- Main also carried
+  `200_model_benchmark_evidence_current_set.sql`; its SHA-256 exactly matched
+  the reviewed branch file at migration 216
+  (`42e1372061dfdf45dc4643f80adc8f2f54512c3c7654de4a019f0d2372f3c005`).
+  Removed the duplicate main path, kept official migration 200 and fork
+  migration 216, and preserved the unique 197–199 / 200–215 / 216 map. No
+  migration 217 was allocated.
+- Focused runs exposed three merge artifacts: repeated Ollama limiter
+  declarations in `searchProxy.ts`, a repeated thrifty-rung block in
+  `virtualFactory.ts`, and a duplicate rerank dispatch helper. Removed the
+  duplicate code. The remaining rerank helper uses main's `getDatabaseSettings`
+  and keeps the branch caller-connection scope and combo-target gate.
+- Core release regression command from the previous section, using isolated
+  Linux esbuild at
+  `/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`,
+  was rerun after the fixes and passed 87/87. The tests cover direct full-catalog
+  refresh without search/inference, current-snapshot replacement, formula and
+  native reader behavior, migration order/SQL, free-only Auto normalization,
+  and provider capabilities.
+- Conflict-area command used prefix
+  `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`
+  `DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm`
+  `--import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts`
+  `--test --test-force-exit --test-concurrency=1` with these paths:
+  `tests/unit/authz/route-guard-providers-spawn-local-only.test.ts`,
+  `tests/unit/build/heavy-build-queue.test.ts`,
+  `tests/unit/rerank-remote-provider-nodes.test.ts`,
+  `tests/unit/rerank-null-document.test.ts`,
+  `tests/unit/rerank-openrouter-6574.test.ts`,
+  `tests/unit/rerank-object-documents-response-path.test.ts`,
+  `tests/unit/rerank-provider-listings.test.ts`,
+  `tests/unit/rerank-providers-5332.test.ts`,
+  `tests/unit/rerank-local-node-shapes.test.ts`,
+  `tests/unit/rerank-providers-route.test.ts`,
+  `tests/unit/rerank-proxy-pinning-7350.test.ts`,
+  `tests/unit/rerank-voyage-7809.test.ts`,
+  `tests/unit/alibaba-embedding-rerank-endpoints-13030.test.ts`,
+  `tests/unit/stream-failure-after-output-no-model-lockout.test.ts`,
+  `tests/unit/stream-onfailure-callback-logging.test.ts`,
+  `tests/unit/stream-aborted-partial-usage.test.ts`,
+  `tests/unit/chatcore-non-streaming-response-parse.test.ts`,
+  `tests/unit/chatcore-nonstreaming-response-headers.test.ts`,
+  `tests/unit/chatcore-streaming-cost.test.ts`,
+  `tests/unit/chat-empty-stream-recovery.test.ts`,
+  `tests/unit/virtual-auto-combo.test.ts`,
+  `tests/unit/combo-resolve-auto-strategy-split.test.ts`,
+  `tests/unit/auto-combos-enhanced-4235.test.ts`,
+  `tests/unit/search-proxy-upstream-status.test.ts`,
+  `tests/unit/search-baseurl-ssrf-guard.test.ts`,
+  `tests/unit/opencode-cli-headers-synthesis-5997.test.ts`,
+  `tests/unit/opencode-background-identity-headers.test.ts`,
+  `tests/unit/opencode-native-session-identity.test.ts`,
+  `tests/unit/opencode-session-fingerprint-headers-10571.test.ts`,
+  `tests/unit/refactor-opencodeHeaders.test.ts`. It passed 259/259 after
+  fixing the duplicate declarations.
+- `tests/unit/db/migration-212-artifact-index-upgrade.test.ts` passed 2/2.
+  `tests/unit/build/upstream-v3852-release-layout.test.mjs`
+  `tests/unit/build/omni-overlay-workflow-policy.test.mjs` and
+  `tests/unit/build/verify-official-overlay-image.test.mjs` passed 20/20.
+  `python3 scripts/deploy/test_omniroute_deploy.py` passed 58/58; this was the
+  local verifier unit suite only, with no deployment or host access.
+- Code Simplifier review before the merge commit removed only duplicated merge
+  blocks; no other behavior-preserving simplification was useful. Isolated
+  OpenSpec CLI 1.15.0 strict validation passed for both
+  `upgrade-upstream-v3-8-52-final` and `github-overlay-image-build` using
+  `node /tmp/tl315-openspec-cli/node_modules/.bin/openspec validate <change>
+  --strict`. `git diff --check` and `git diff --cached --check` passed after
+  trimming trailing whitespace on two upstream translation lines.
+  No full repository test sweep was run.
+- TL316's read-only source/migration-ledger receipt is still required before
+  push. TL316 host-helper review/install and TL313 clone migration/rollback
+  rehearsal remain release gates.

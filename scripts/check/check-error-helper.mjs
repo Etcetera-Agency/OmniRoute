@@ -379,6 +379,18 @@ function sanitizingLocalBuilders(source) {
 // internal helper that merely formats an error message gets flagged.
 const MCP_RESULT_FIELD = /(?<![.\w])(?:message|error|text)\s*:/;
 
+// G-11 (#15159): MCP tool results are `{ content: [{ type: "text", text }], isError: true }`
+// — the client-facing sink for MCP tools, NOT an HTTP Response builder. A raw error
+// (direct or via a tainted alias) interpolated into a result field of a returned MCP
+// tool result is a Hard Rule #12 leak just like a `new Response(` body. Scoped to
+// open-sse/mcp-server/ so the executors/handlers/API-route scan stays byte-identical
+// to its pre-G-11 behavior (their surfaces are covered by RESPONSE_LINE above).
+//
+// The `(?<![.\w])` guard is load-bearing: without it the ternary tail
+// `err.message : String(err)` reads as an object field named `message`, and every
+// internal helper that merely formats an error message gets flagged.
+const MCP_RESULT_FIELD = /(?<![.\w])(?:message|error|text)\s*:/;
+
 // `const|let <id> = <expr containing a raw caught-error>` — a tainted local holding a
 // raw, unsanitized error string. Captures the variable name for downstream tracking.
 const TAINT_DECL = new RegExp(
@@ -612,6 +624,7 @@ export function findErrorHelperViolations(files, allowlist) {
   const violations = [];
   for (const { path: rel, source } of files) {
     if (allowlist.has(rel)) continue;
+    if (ERROR_HELPER_IMPORT.test(source)) continue; // trusts the helper
     const isMcpServer = rel.startsWith("open-sse/mcp-server/");
     if (forwardsRawError(source, isMcpServer)) violations.push(rel);
   }

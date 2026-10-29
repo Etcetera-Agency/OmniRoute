@@ -731,7 +731,8 @@
         "check:test-masking",
         "check:duplication",
         "check:cycles:ratchet",
-        "check:boundary:ratchet"
+        "check:boundary:ratchet",
+        "check:cycles"
       ]
     },
     "quality-scan-fast": {

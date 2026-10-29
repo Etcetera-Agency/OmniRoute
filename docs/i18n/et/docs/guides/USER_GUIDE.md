@@ -120,39 +120,33 @@ Juurdepääs: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
 
 ## 📖 Teenusepakkuja seadistamine
 
-API-võtme ühenduste hulgi lisamiseks CSV- või JSON-failist kasutage valikut **Dashboard → Providers → Import from file**. Veerud on positsioonipõhised (`provider,name,apiKey,baseUrl,priority`); `provider` peab juba olemas olema hallatud teenusepakkuja või ühilduva sõlmena. Vaadake jaotist [Teenusepakkujate importimine CSV- või JSON-failist](../providers/CSV-IMPORT.md).
-
 ### 🔐 Tellimuspõhised teenusepakkujad
 
 #### Claude Code (Pro/Max)
 
 ```bash
 Dashboard → Providers → Connect Claude Code
-→ OAuthi sisselogimine → Tokeni automaatne värskendamine
-→ 5 tunni ja nädala kvoodi jälgimine
+→ OAuth login → Auto token refresh
+→ 5-hour + weekly quota tracking
 
-Mudelid:
+Models:
   cc/claude-opus-4-7
   cc/claude-sonnet-4-6
   cc/claude-haiku-4-5-20251001
 ```
 
-**Profinõuanne:** Kasutage keerukate ülesannete jaoks Opust ja kiiruse jaoks Sonnetit. OmniRoute jälgib iga mudeli kvooti!
+**Kasulik nõuanne:** Kasuta Opust keeruliste ülesannete jaoks, Sonnetit kiiruse jaoks. OmniRoute jälgib kvooti mudeli kaupa!
 
-Kas OmniRoute'i hostis pole brauserit? Käivitage `claude setup-token` mis tahes kohas, kus Claude Code'i on sisse logitud, ja kleepige üheaastane token vahekaardile **Setup Token**. Vaadake jaotist [Claude Code seadistustokeniga](../providers/CLAUDE_CODE_SETUP_TOKEN.md).
-
-Claude'i ja Claude Code'iga ühilduvad marsruudid säilitavad Opuse ja Sonneti mudelite puhul mõtlemispingutuse taseme `max`.
-Haiku mudelid ei aktsepteeri pingutustaset `max`, seega alandab OmniRoute selle
-päringu enne ülesvoolu saatmist kõrgele mõtlemiseelarve tasemele.
+Claude ja Claude Code'iga ühilduvad marsruudid säilitavad `max` mõtlemispingutuse Opuse ja Sonneti mudelite jaoks. Haiku mudelid ei toeta `max` pingutustaset, seega alandab OmniRoute selle taseme kõrgele mõtlemiseelarvele enne päringu edastamist.
 
 #### OpenAI Codex (Plus/Pro)
 
 ```bash
 Dashboard → Providers → Connect Codex
-→ OAuthi sisselogimine (port 1455)
-→ Lähtestamine iga 5 tunni järel ja kord nädalas
+→ OAuth login (port 1455)
+→ 5-hour + weekly reset
 
-Mudelid:
+Models:
   cx/gpt-5.5
   cx/gpt-5.4
   cx/gpt-5.3-codex
@@ -163,10 +157,10 @@ Mudelid:
 
 ```bash
 Dashboard → Providers → Connect GitHub
-→ OAuth GitHubi kaudu
-→ Igakuine lähtestamine (kuu 1. kuupäeval)
+→ OAuth via GitHub
+→ Monthly reset (1st of month)
 
-Mudelid:
+Models:
   gh/gpt-5.5
   gh/gpt-5.4
   gh/claude-sonnet-4.6
@@ -174,57 +168,57 @@ Mudelid:
   gh/gemini-3.1-pro-preview
 ```
 
-### 💰 Soodsad teenusepakkujad
+### 💰 Odavad teenusepakkujad
 
-#### GLM-4.7 (igapäevane lähtestamine, $0.6/1M)
+#### GLM-4.7 (igapäevane taastäitmine, $0.6/1M)
 
-1. Registreeruge: [Zhipu AI](https://open.bigmodel.cn)
-2. Hankige Coding Planist API-võti
-3. Dashboard → Add API Key: Teenusepakkuja: `glm`, API-võti: `your-key`
+1. Registreeru: [Zhipu AI](https://open.bigmodel.cn)
+2. Hangi API-võti Coding Plan liidesest
+3. Dashboard → Add API Key: Provider: `glm`, API Key: `your-key`
 
-**Kasutamine:** `glm/glm-4.7` — **Profinõuanne:** Coding Plan pakub 3× kvooti 1/7 hinnaga! Lähtestamine toimub iga päev kell 10.00.
+**Kasuta:** `glm/glm-4.7` — **Kasulik nõuanne:** Coding Plan pakub 3× kvooti 1/7 hinna eest! Taastäitub igapäevaselt kell 10:00.
 
-#### MiniMax M2.1 (lähtestamine iga 5 tunni järel, $0.20/1M)
+#### MiniMax M2.1 (5h taastäitmine, $0.20/1M)
 
-1. Registreeruge: [MiniMax](https://www.minimax.io)
-2. Hankige API-võti → Dashboard → Add API Key
+1. Registreeru: [MiniMax](https://www.minimax.io)
+2. Hangi API-võti → Dashboard → Add API Key
 
-**Kasutamine:** `minimax/MiniMax-M2.1` — **Profinõuanne:** Odavaim valik pika konteksti jaoks (1M tokenit)!
+**Kasuta:** `minimax/MiniMax-M2.1` — **Kasulik nõuanne:** Odavaim valik pika konteksti (1M tokenit) jaoks!
 
-#### Kimi K2 (fikseeritud $9 kuus)
+#### Kimi K2 ($9/kuus, fikseeritud)
 
-1. Tellige: [Moonshot AI](https://platform.kimi.ai?aff=omniroute)
-2. Hankige API-võti → Dashboard → Add API Key
+1. Telli: [Moonshot AI](https://platform.kimi.ai?aff=omniroute)
+2. Hangi API-võti → Dashboard → Add API Key
 
-**Kasutamine:** `kimi/kimi-k2.5` — **Profinõuanne:** Fikseeritud $9 kuus 10M tokeni eest = tegelik kulu $0.90/1M!
+**Kasuta:** `kimi/kimi-k2.5` — **Kasulik nõuanne:** Fikseeritud $9/kuus 10M tokeni eest = tegelik hind $0.90/1M!
 
 #### Baidu Qianfan / ERNIE
 
-1. Registreeruge: [Baidu AI Cloud Qianfan](https://cloud.baidu.com/product/wenxinworkshop)
-2. Looge Qianfani API-võti → Dashboard → Add API Key: Teenusepakkuja: `qianfan`
+1. Registreeru: [Baidu AI Cloud Qianfan](https://cloud.baidu.com/product/wenxinworkshop)
+2. Loo Qianfan API-võti → Dashboard → Add API Key: Provider: `qianfan`
 
-**Kasutamine:** `qianfan/ernie-5.1`, `qianfan/ernie-x1.1` või mõni muu Qianfani OpenAI-ga ühilduva mudeli ID.
+**Kasuta:** `qianfan/ernie-5.1`, `qianfan/ernie-x1.1`, või muud Qianfani OpenAI-ühilduvat mudeli ID-d.
 
 ### 🆓 TASUTA teenusepakkujad
 
-Autentimist mittevajavate tasuta teenusepakkujate lehel on valiku **No authentication required** kõrval lüliti.
-Selle väljalülitamine keelab vastava teenusepakkuja, eemaldab selle teenusepakkujate seadistatud/kompaktvaadetest ning
-eemaldab selle mudelid asukohast `/v1/models`.
+Autentimist mittevajavatel tasuta teenusepakkujatel on nende leheküljel lüliti **No authentication required** kõrval.
+Selle väljalülitamine keelab teenusepakkuja, eemaldab selle Providers configured/compact vaadetest ja
+eemaldab selle mudelid `/v1/models` loendist.
 
 #### Qoder (9 TASUTA mudelit)
 
 ```bash
-Dashboard → Connect Qoder → OAuthi sisselogimine → Juurdepääs sõltub teenusepakkuja kehtivatest piirangutest
+Dashboard → Connect Qoder → OAuth login → Access is subject to current provider limits
 
-Mudelid: if/qwen3.8-max-preview, if/qwen3.7-max, if/qwen3.7-plus, if/kimi-k3, if/kimi-k2.7-code, if/glm-5.2, if/deepseek-v4-pro, if/deepseek-v4-flash, if/minimax-m3
+Models: if/qwen3.8-max-preview, if/qwen3.7-max, if/qwen3.7-plus, if/kimi-k3, if/kimi-k2.7-code, if/glm-5.2, if/deepseek-v4-pro, if/deepseek-v4-flash, if/minimax-m3
 ```
 
 #### Kiro (Claude TASUTA)
 
 ```bash
-Dashboard → Connect Kiro → AWS Builder ID või Google/GitHub → ~50 krediiti kuus
+Dashboard → Connect Kiro → AWS Builder ID or Google/GitHub → ~50 credits/month
 
-Mudelid: kr/claude-sonnet-4.5, kr/claude-haiku-4.5
+Models: kr/claude-sonnet-4.5, kr/claude-haiku-4.5
 ```
 
 ---
@@ -672,7 +666,7 @@ Täieliku keskkonnamuutujate loendi leiate [README](../README.md) failist.
 
 ### Kohandatud mudelid
 
-Lisage mis tahes mudeli ID mis tahes pakkujale, ilma et peaksite ootama rakenduse värskendust:
+Lisage mis tahes mudeli ID mis tahes teenusepakkujale, ilma et peaksite ootama rakenduse värskendust:
 
 ```bash
 # API kaudu
@@ -684,56 +678,57 @@ curl -X POST http://localhost:20128/api/provider-models \
 # Eemaldamine: curl -X DELETE "http://localhost:20128/api/provider-models?provider=openai&model=gpt-5.2"
 ```
 
-Või kasutage juhtpaneeli: **Pakkujad → [Pakkuja] → Kohandatud mudelid**.
+Või kasutage juhtpaneeli: **Teenusepakkujad → [Teenusepakkuja] → Kohandatud mudelid**.
 
 Märkused:
 
-- OpenRouteri ja OpenAI/Anthropicuga ühilduvaid pakkujaid hallatakse ainult jaotises **Saadaolevad mudelid**. Käsitsi lisamine, importimine ja automaatne sünkroonimine lisavad mudelid kõik samasse saadaolevate mudelite loendisse, seega pole nende pakkujate jaoks eraldi jaotist Kohandatud mudelid.
-- Jaotis **Kohandatud mudelid** on mõeldud pakkujatele, kes ei võimalda hallatud saadaolevate mudelite importimist.
+- OpenRouteri ja OpenAI/Anthropicuga ühilduvaid teenusepakkujaid hallatakse ainult jaotises **Saadaolevad mudelid**. Käsitsi lisamine, importimine ja automaatne sünkroonimine lisavad mudelid kõik samasse saadaolevate mudelite loendisse, seega pole nende teenusepakkujate jaoks eraldi jaotist Kohandatud mudelid.
+- Jaotis **Kohandatud mudelid** on mõeldud teenusepakkujatele, kes ei võimalda hallatud saadaolevate mudelite importimist.
 
-### Kohandatud OpenAI-ga ühilduvad pakkujad
+### Kohandatud OpenAI-ga ühilduvad teenusepakkujad
 
-Mis tahes lüüsi, mis kasutab OpenAI API-t (ise hostitud puhverserver, vLLM, kolmanda osapoole agregaator),
-saab lisada eraldi pakkujasõlmena:
+Iga lüüsi, mis kasutab OpenAI API-t (isehostitud puhverserver, vLLM või kolmanda osapoole agregaator),
+saab lisada eraldi teenusepakkuja sõlmena:
 
-1. **Pakkujad → Lisa OpenAI-ga ühilduv pakkuja**.
-2. **Nimi**: sõlme kuvatav nimi.
+1. **Teenusepakkujad → Lisa OpenAI-ga ühilduv**.
+2. **Nimi**: sõlme kuvatav silt.
 3. **Prefiks**: marsruutimisnimi. Kliendid kutsuvad mudeleid kujul `<prefix>/<model>`, seega teenindab
-   prefiksiga `mygw` sõlm mudelit `mygw/gpt-4o-mini`. Kohustuslik; märgipiiranguid ei ole.
+   prefiksiga `mygw` sõlm mudelit `mygw/gpt-4o-mini`. Kohustuslik; tähemärgipiiranguid pole.
 4. **API tüüp**: lõpp-punktide perekond, mida lüüs teenindab (vestluse lõpetamised, vastused,
    manused, heli, pildid).
 5. **Baas-URL**: API juur kuni osani `/v1` (kaasa arvatud), näiteks
-   `https://gateway.example.com/v1`, mitte täielik `/chat/completions` tee. Mittestandardsete
-   teedega lüüside puhul määrake need jaotises **Täpsemad sätted** (vestluse tee, mudelite tee).
-6. Väli **API-võti (kontrollimiseks)** ainult testib ühendust. Pärast sõlme loomist
-   avage see ja kasutage päringute jaoks kasutatava võtme salvestamiseks valikut **Lisa ühendus**.
+   `https://gateway.example.com/v1`, mitte täielik tee `/chat/completions`. Mittestandardsete
+   teedega lüüside puhul määrake need jaotises **Täpsemad seaded** (vestluse tee, mudelite tee).
+6. Väli **API võti (kontrollimiseks)** ainult testib ühendust. Pärast sõlme loomist
+   avage see ja kasutage päringutes kasutatava võtme salvestamiseks valikut **Lisa ühendus**.
 
 Sõlm saab sisemise ID kujul `openai-compatible-<apiType>-<uuid>`; seda pole kunagi
 vaja sisestada, sest prefiks on avalik nimi.
 
 #### Reserveeritud prefiksid
 
-Prefiks ei tohi olla sisseehitatud pakkuja ID ega alias (näiteks `openai`, `cf`) ega
-kasutuselt kõrvaldatud pakkuja ID. Mudelilahendaja kontrollib sisseehitatud ID-sid ja aliaseid enne
-kohandatud sõlmi, mistõttu sellise prefiksiga sõlm ei saaks kunagi liiklust:
-`<prefix>/model` suunataks selle asemel sisseehitatud pakkujale või nurjuks suletult, kui see pakkuja
-on kasutuselt kõrvaldatud. Sellise prefiksiga sõlme loomine või muutmine lükatakse tagasi järgmise teatega:
+Prefiks ei tohi olla sisseehitatud teenusepakkuja ID ega alias (näiteks `openai`, `cf`) ega
+kasutusest kõrvaldatud teenusepakkuja ID. Mudeli lahendaja kontrollib enne kohandatud sõlmi
+sisseehitatud ID-sid ja aliaseid, mistõttu ei jõuaks liiklus kunagi sellise prefiksiga sõlmeni:
+`<prefix>/model` suunataks hoopis sisseehitatud teenusepakkujale või nurjuks suletult, kui see
+teenusepakkuja on kasutusest kõrvaldatud. Sellise prefiksiga sõlme loomisel või muutmisel kuvatakse:
 
 ```text
-prefix: "<prefix>" on reserveeritud pakkuja prefiks — valige mõni muu prefiks (reserveeritud ID-sid/aliaseid ei saa kohandatud sõlmede jaoks kasutada, sest päringud nagu <prefix>/model suunatakse sisseehitatud pakkujale või nurjuvad suletult, kui pakkuja on kasutuselt kõrvaldatud)
+prefix: "<prefix>" on reserveeritud teenusepakkuja prefiks — valige mõni muu prefiks (reserveeritud ID-sid/aliaseid ei saa kohandatud sõlmede jaoks kasutada, sest päringud kujul <prefix>/model suunatakse sisseehitatud teenusepakkujale või nurjuvad suletult, kui see on kasutusest kõrvaldatud)
 ```
 
 Valige eristuv prefiks (`mygw`, `acme-proxy`). Kui kohandatud sõlmele saadetud päringud nurjuvad
-veaga, mis nimetab sisseehitatud pakkujat või selle identimisteavet, kontrollige, kas sõlme prefiks on
-reserveeritud: enne selle reegli kehtestamist salvestatud sõlmed on endiselt talletatud, kuid nende prefiks suunab
-sisseehitatud pakkujale. Muutke sõlme ja määrake sellele uus prefiks.
+veaga, milles nimetatakse sisseehitatud teenusepakkujat või selle autentimisandmeid, kontrollige,
+kas sõlme prefiks on reserveeritud: enne selle reegli kehtestamist salvestatud sõlmed on endiselt
+alles, kuid nende prefiks suunab sisseehitatud teenusepakkujale. Muutke sõlme ja määrake sellele
+uus prefiks.
 
-### OmniRoute'i partnersõlmede aheldamine
+### OmniRoute'i partnerlüüside aheldamine
 
-Teise OmniRoute'i lüüsi saab lisada **kohandatud OpenAI-ga ühilduva** pakkujana. Kasutage
-partnersõlme `/v1` baas-URL-i ja spetsiaalset, minimaalsete õigustega API-võtit, mille see partnersõlm on väljastanud.
+Teise OmniRoute'i lüüsi saab lisada **kohandatud OpenAI-ga ühilduva** teenusepakkujana. Kasutage
+partnerlüüsi `/v1` baas-URL-i ja selle partneri väljastatud spetsiaalset vähimate õigustega API võtit.
 
-Vastastikuste või mitme hüppega ahelate puhul lubage igas lüüsis valikuline tsüklikaitse:
+Vastastikuste või mitme vahepunktiga ahelate korral lubage igas lüüsis valikuline tsüklikaitse:
 
 ```bash
 # gateway-a
@@ -749,18 +744,18 @@ OMNIROUTE_PEER_URLS=http://gateway-a:20128/v1
 OMNIROUTE_PEER_MAX_HOPS=4
 ```
 
-Ainult päringud, mis saadetakse selgesõnaliselt lubatud partnersõlme URL-ile, saavad
-päise `X-OmniRoute-Peer-Trace`. Lüüs lükkab korduva eksemplari ID või ammendunud hüpete
-eelarve tagasi vastusega HTTP `508 Loop Detected`; tavalised ülesvoolu pakkujad ei saa partnersõlme metaandmeid.
+Päise `X-OmniRoute-Peer-Trace` saavad ainult päringud, mis saadetakse selgesõnaliselt lubatud
+partnerlüüsi URL-ile. Lüüs lükkab korduva eksemplari ID või ammendunud hüpete eelarve korral
+päringu tagasi HTTP-veaga `508 Loop Detected`; tavalised ülesvoolu teenusepakkujad partneri metaandmeid ei saa.
 
-Partnersõlmede aheldamine ei ole andmebaasi replikatsioon ega hosti tõrkesiire. Iga lüüs säilitab sõltumatud
-SQLite'i olekud, vahemälud, kiirusepiirangute loendurid ja seansid. Kasutage aktiivse/passiivse või aktiivse/aktiivse
-käideldavuse jaoks tervisekontrolliga pöördpuhverserverit või kliendipoolset tõrkesiiret ning ärge kunagi haakige üht SQLite'i andmebaasi
-mitmesse töötavasse OmniRoute'i eksemplari.
+Partnerlüüside aheldamine ei ole andmebaasi replikatsioon ega hosti tõrkesiire. Iga lüüs säilitab
+eraldi SQLite'i oleku, vahemälud, kiirusloendurid ja seansid. Aktiivse/passiivse või aktiivse/aktiivse
+käideldavuse jaoks kasutage tervisekontrolliga pöördpuhverserverit või kliendi tõrkesiiret ning ärge
+kunagi ühendage üht SQLite'i andmebaasi mitme töötava OmniRoute'i eksemplariga.
 
-### Spetsiaalsed pakkujamarsruudid
+### Teenusepakkujate spetsiaalsed marsruudid
 
-Suunake päringud mudeli valideerimisega otse kindlale pakkujale:
+Suunake päringud koos mudeli valideerimisega otse kindlale teenusepakkujale:
 
 ```bash
 POST http://localhost:20128/v1/providers/openai/chat/completions
@@ -768,7 +763,7 @@ POST http://localhost:20128/v1/providers/openai/embeddings
 POST http://localhost:20128/v1/providers/fireworks/images/generations
 ```
 
-Kui pakkuja prefiks puudub, lisatakse see automaatselt. Sobimatud mudelid tagastavad `400`.
+Puuduv teenusepakkuja prefiks lisatakse automaatselt. Sobimatud mudelid tagastavad `400`.
 
 ### Võrgupuhverserveri seadistamine
 
@@ -777,7 +772,7 @@ Kui pakkuja prefiks puudub, lisatakse see automaatselt. Sobimatud mudelid tagast
 curl -X PUT http://localhost:20128/api/settings/proxy \
   -d '{"global": {"type":"http","host":"proxy.example.com","port":"8080"}}'
 
-# Pakkujapõhine puhverserver
+# Teenusepakkuja põhine puhverserver
 curl -X PUT http://localhost:20128/api/settings/proxy \
   -d '{"providers": {"openai": {"type":"socks5","host":"proxy.example.com","port":"1080"}}}'
 
@@ -786,7 +781,7 @@ curl -X POST http://localhost:20128/api/settings/proxy/test \
   -d '{"proxy":{"type":"socks5","host":"proxy.example.com","port":"1080"}}'
 ```
 
-**Prioriteetsus:** Võtmepõhine → Kombinatsioonipõhine → Pakkujapõhine → Globaalne → Keskkond.
+**Prioriteetsus:** Võtmepõhine → Kombinatsioonipõhine → Teenusepakkuja põhine → Globaalne → Keskkond.
 
 ### Mudelikataloogi API
 
@@ -794,92 +789,92 @@ curl -X POST http://localhost:20128/api/settings/proxy/test \
 curl http://localhost:20128/api/models/catalog
 ```
 
-Tagastab pakkujate järgi rühmitatud mudelid koos tüüpidega (`chat`, `embedding`, `image`).
+Tagastab teenusepakkujate järgi rühmitatud mudelid koos tüüpidega (`chat`, `embedding`, `image`).
 
 ### Pilvesünkroonimine
 
-- Pakkujate, kombinatsioonide ja sätete sünkroonimine seadmete vahel
-- Automaatne taustal sünkroonimine ajalõpu ja kiire nurjumisega
+- Teenusepakkujate, kombinatsioonide ja seadete sünkroonimine seadmete vahel
+- Automaatne taustal sünkroonimine ajalõpu ja kiire katkestamisega
 - Tootmiskeskkonnas eelistage serveripoolseid `NEXT_PUBLIC_BASE_URL`/`NEXT_PUBLIC_CLOUD_URL` väärtusi
 
 ### Cloudflare'i kiirtunnel
 
-- Saadaval **Töölaud → Lõpp-punktid** all Dockeri ja muude isemajutatud juurutuste jaoks
-- Loob ajutise `https://*.trycloudflare.com` URL-i, mis edastab päringud teie praegusele OpenAI-ga ühilduvale `/v1` lõpp-punktile
+- Saadaval jaotises **Töölaud → Lõpp-punktid** Dockeri ja muude isehostitud juurutuste jaoks
+- Loob ajutise `https://*.trycloudflare.com` URL-i, mis edastab liikluse teie praegusesse OpenAI-ga ühilduvasse `/v1` lõpp-punkti
 - Esmakordsel lubamisel installitakse `cloudflared` ainult vajaduse korral; hilisematel taaskäivitustel kasutatakse sama hallatud binaarfaili
-- Kiirtunneleid ei taastata pärast OmniRoute’i või konteineri taaskäivitamist automaatselt; vajaduse korral lubage need töölaudalt uuesti
+- Kiirtunneleid ei taastata pärast OmniRoute'i või konteineri taaskäivitamist automaatselt; vajaduse korral lubage need töölaudu kaudu uuesti
 - Tunneli URL-id on ajutised ja muutuvad iga kord, kui tunneli peatate või käivitate
 - Hallatud kiirtunnelid kasutavad vaikimisi HTTP/2 transporti, et vältida piiratud ressurssidega konteinerites mürarikkaid QUIC-i UDP-puhvri hoiatusi
 - Hallatud transpordivaliku alistamiseks määrake `CLOUDFLARED_PROTOCOL=quic` või `auto`
-- Kui eelistate hallatud allalaadimise asemel kasutada eelinstallitud `cloudflared` binaarfaili, määrake `CLOUDFLARED_BIN`
+- Määrake `CLOUDFLARED_BIN`, kui eelistate hallatud allalaadimise asemel kasutada eelinstallitud `cloudflared` binaarfaili
 - Cloudflare Quick Tunneli, Tailscale Funneli ja ngrok Tunneli paneele saab kuvada või peita jaotises **Seaded → Välimus**. Paneeli peitmine ei peata töötavat tunnelit.
 
-### LLM-lüüsi intelligentsus (9. etapp)
+### LLM-lüüsi nutifunktsioonid (9. etapp)
 
-- **Semantiline vahemälu** — Salvestab automaatselt vahemällu mittevoogedastatavad vastused, mille temperature=0 (möödumiseks kasutage `X-OmniRoute-No-Cache: true`)
-- **Päringute idempotentsus** — Eemaldab 5 sekundi jooksul duplikaatpäringud päise `Idempotency-Key` või `X-Request-Id` alusel
-- **Edenemise jälgimine** — Lubatavad SSE `event: progress` sündmused päise `X-OmniRoute-Progress: true` kaudu
+- **Semantiline vahemälu** — Salvestab automaatselt vahemällu mittevoogedastatavad vastused, mille temperature=0 (vahelejätmiseks kasutage `X-OmniRoute-No-Cache: true`)
+- **Päringute idempotentsus** — Dedubleerib päringud 5 sekundi jooksul päise `Idempotency-Key` või `X-Request-Id` abil
+- **Edenemise jälgimine** — Lubatavad SSE `event: progress` sündmused päise `X-OmniRoute-Progress: true` abil
 
 ---
 
-### Tõlkija katsekeskkond
+### Tõlkija mänguväljak
 
-Juurdepääs: **Töölaud → Tõlkija**. Siluge ja visualiseerige, kuidas OmniRoute tõlgib API-päringuid teenusepakkujate vahel.
+Avage see jaotises **Töölaud → Tõlkija**. Siluge ja visualiseerige, kuidas OmniRoute tõlgib API-päringuid teenusepakkujate vahel.
 
 | Režiim               | Eesmärk                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------- |
-| **Katsekeskkond**    | Valige lähte- ja sihtvormingud, kleepige päring ning vaadake tõlgitud väljundit kohe        |
-| **Vestluse tester**  | Saatke reaalajas vestlussõnumeid puhverserveri kaudu ja uurige kogu päringu-vastuse tsüklit |
-| **Testimiskeskkond** | Käivitage pakktestid mitme vormingukombinatsiooniga, et kontrollida tõlke õigsust           |
-| **Reaalajamonitor**  | Jälgige reaalajas tõlkeid, kui päringud liiguvad läbi puhverserveri                         |
+| **Mänguväljak**      | Valige lähte- ja sihtvorming, kleepige päring ning vaadake tõlgitud väljundit kohe          |
+| **Vestluse testija** | Saatke reaalajas vestlussõnumeid puhverserveri kaudu ja uurige kogu päringu-vastuse tsüklit |
+| **Testimisplatvorm** | Käivitage pakktestid mitme vormingukombinatsiooniga, et kontrollida tõlke õigsust           |
+| **Reaalajamonitor**  | Jälgige reaalajas tõlkeid, kui päringud liiguvad puhverserveri kaudu                        |
 
 **Kasutusjuhud:**
 
-- Siluge, miks konkreetne kliendi ja teenusepakkuja kombinatsioon ebaõnnestub
-- Kontrollige, et mõtlemissildid, tööriistakutsed ja süsteemiviibad tõlgitakse õigesti
-- Võrrelge OpenAI, Claude’i, Gemini ja Responses API vormingute erinevusi
+- Siluge, miks konkreetne kliendi ja teenusepakkuja kombinatsioon ei tööta
+- Kontrollige, et mõtlemissildid, tööriistakutsed ja süsteemiviibad tõlgitaks õigesti
+- Võrrelge OpenAI, Claude'i, Gemini ja Responses API vormingute erinevusi
 
 ---
 
 ### Marsruutimisstrateegiad
 
-Seadistamine: **Töölaud → Seaded → Marsruutimine**. Töölaual kuvatakse kuut enim kasutatud strateegiat; kombinatsioonid ja automaatmarsruuter toetavad sisemiselt laiemat valikut.
+Seadistage jaotises **Töölaud → Seaded → Marsruutimine**. Töölaual kuvatakse kuus enim kasutatud strateegiat; kombinatsioonid ja automaatmarsruuter toetavad sisemiselt laiemat valikut.
 
-**Töölaual kuvatavad strateegiad (kontotaseme marsruutimine):**
+**Töölaual nähtavad strateegiad (kontotaseme marsruutimine):**
 
-| Strateegia                 | Kirjeldus                                                                                                   |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Täida esimene**          | Kasutab kontosid prioriteedijärjekorras — põhikonto käsitleb kõiki päringuid, kuni see pole saadaval        |
-| **Ringjärjestus**          | Vahetab tsükliliselt kõigi kontode vahel seadistatava püsivuspiiranguga (vaikimisi 3 kutset konto kohta)    |
-| **P2C (kahe valiku jõud)** | Valib 2 juhuslikku kontot ja marsruudib tervemasse — tasakaalustab koormust, arvestades kontode seisundit   |
-| **Juhuslik**               | Valib Fisher-Yatesi segamise abil iga päringu jaoks juhusliku konto                                         |
-| **Vähim kasutatud**        | Marsruudib vanima `lastUsedAt` ajatempliga kontole, jaotades liikluse ühtlaselt                             |
-| **Kuludele optimeeritud**  | Marsruudib madalaima prioriteediväärtusega kontole, optimeerides valiku madalaima kuluga teenusepakkujatele |
+| Strateegia                    | Kirjeldus                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Esimese täitmine**          | Kasutab kontosid prioriteetsuse järjekorras — peamine konto töötleb kõiki päringuid, kuni see muutub kättesaamatuks |
+| **Tsükliline jaotus**         | Käib kõik kontod tsükliliselt läbi seadistatava püsivuspiiranguga (vaikimisi 3 kutset konto kohta)                  |
+| **P2C (kahe valiku meetod)**  | Valib 2 juhuslikku kontot ja marsruudib päringu tervemale neist — tasakaalustab koormust, arvestades seisundit      |
+| **Juhuslik**                  | Valib iga päringu jaoks Fisher-Yatesi segamise abil juhusliku konto                                                 |
+| **Vähim kasutatud**           | Marsruudib päringu kontole, millel on vanim `lastUsedAt` ajatempel, ja jaotab liikluse ühtlaselt                    |
+| **Kulude järgi optimeeritud** | Marsruudib päringu madalaima prioriteediväärtusega kontole, optimeerides odavaimate teenusepakkujate jaoks          |
 
-**Täiustatud kombinatsiooni- ja automaatstrateegiad** (seadistatavad iga kombinatsiooni kohta või `auto/*` prefiksite kaudu — vt [AUTO-COMBO.md](../routing/AUTO-COMBO.md)):
+**Täiustatud kombinatsiooni- ja automaatstrateegiad** (seadistatavad iga kombinatsiooni jaoks eraldi või `auto/*` prefiksite kaudu — vt [AUTO-COMBO.md](../routing/AUTO-COMBO.md)):
 
-- `priority` — range järjestus, ringjärjestust ei kasutata kunagi
-- `weighted` — liikluse proportsionaalne jaotus mudelipõhiste kaalude alusel
+- `priority` — range järjekord, ei kasuta kunagi tsüklilist jaotust
+- `weighted` — liikluse proportsionaalne jaotus mudelipõhiste kaalude järgi
 - `fill-first` — kasutab esimest mudelit kuni piirangute saavutamiseni
 - `round-robin` / `strict-random` / `random`
-- `p2c` (kahe valiku jõud)
+- `p2c` (kahe valiku meetod)
 - `least-used` ja `cost-optimized`
 - `auto` — skooripõhine valik kõigi kandidaatide seast
-- `lkgp` (viimane teadaolevalt toimiv teenusepakkuja) — seob päringud viimase eduka teenusepakkujaga ja kasutab seejärel varuvariandina reegleid
+- `lkgp` (viimati teadaolev toimiv teenusepakkuja) — seob päringud viimase eduka teenusepakkujaga ja kasutab seejärel varuvariandina reegleid
 - `context-optimized` — valib suurima vaba kontekstiaknaga mudeli
-- `context-relay` — aheldab pika kontekstiga mudeleid järgnevate vestlusvoorude jaoks
+- `context-relay` — aheldab pika kontekstiga mudelid järelvoorude jaoks
 
 #### Väline püsiseansi päis
 
-Välise seansi sidususe jaoks (näiteks Claude Code’i/Codexi agendid pöördpuhverserverite taga) saatke:
+Välise seansiseotuse jaoks (näiteks Claude Code'i/Codexi agendid pöördpuhverserverite taga) saatke:
 
 ```http
 X-Session-Id: your-session-key
 ```
 
-OmniRoute aktsepteerib ka `x_session_id` ja tagastab tegeliku seansivõtme päises `X-OmniRoute-Session-Id`.
+OmniRoute aktsepteerib ka `x_session_id` ja tagastab kehtiva seansivõtme päises `X-OmniRoute-Session-Id`.
 
-Kui kasutate Nginxi ja saadate alakriipsuga päiseid, lubage:
+Kui kasutate Nginxi ja saadate allkriipsuga päiseid, lubage:
 
 ```nginx
 underscores_in_headers on;
@@ -894,11 +889,11 @@ Muster: claude-sonnet-*     →  Siht: cc/claude-sonnet-4-6
 Muster: gpt-*               →  Siht: gh/gpt-5.3-codex
 ```
 
-Metamärgid toetavad märki `*` (suvaline arv märke) ja `?` (üks märk).
+Metamärgid toetavad märke `*` (suvalised märgid) ja `?` (üks märk).
 
 #### Varuahelad
 
-Määratlege globaalsed varuahelad, mis kehtivad kõigile päringutele:
+Määratlege globaalsed varuahelad, mis rakenduvad kõigile päringutele:
 
 ```
 Ahel: production-fallback
@@ -909,111 +904,51 @@ Ahel: production-fallback
 
 ---
 
-### Levinud teenusepakkujate kombinatsioonid ja marsruutimismustrid
-
-Allpool on näidismustrid mitme teenusepakkuja kombineerimiseks ja nende vahel marsruutimiseks OmniRoute’is:
-
-#### 1. Programmeerimisagendi kombinatsioon: tipptasemel arutlusvõime koos kulu-/kiiruspõhise varuvariandiga
-
-Ideaalne programmeerimisagentidele (OpenCode, Claude Code, Cursor, Cline). Marsruudib algselt tipptasemel arutlusmudelitele ning limiidi ammendumisel või tõrgete korral kasutab varuvariandina kiireid programmeerimismudeleid.
-
-- **Töölaud**: Kombinatsioonid → Uus kombinatsioon → Nimi: `agent-coding` → Strateegia: `Prioriteet`
-- **Mudelid**:
-  1. `claude/claude-sonnet-4-6` (Peamine programmeerimisagent)
-  2. `openai/gpt-4o` (Teisene suure võimekusega varuvariant)
-  3. `deepseek/deepseek-v4-flash` (Suure tõhususe ja hea kuluefektiivsusega varuvariant)
-
-```bash
-# Näide API kaudu
-curl -X POST http://localhost:20128/api/combos \
-  -H "Authorization: Bearer $OMNIROUTE_MANAGE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "agent-coding",
-    "strategy": "priority",
-    "models": [
-      { "model": "claude/claude-sonnet-4-6" },
-      { "model": "openai/gpt-4o" },
-      { "model": "deepseek/deepseek-v4-flash" }
-    ]
-  }'
-```
-
-#### 2. Tasuta pakettide automaatse tõrkesiirde kombinatsioon
-
-Ühendab mitu tasuta paketti pakkuvat ja API-võtmeta teenusepakkujat, et maksimeerida tööaega ilma API-kuludeta.
-
-- **Strateegia**: `Least Used` või `Round Robin` (jaotab koormuse kvootide vahel)
-- **Mudelid**:
-  1. `groq/llama-3.3-70b-versatile`
-  2. `gemini/gemini-2.5-flash`
-  3. `cerebras/gpt-oss-120b`
-
-```bash
-# Näide CLI kaudu
-omniroute combo create free-stack \
-  --models "groq/llama-3.3-70b-versatile,gemini/gemini-2.5-flash,cerebras/gpt-oss-120b" \
-  --strategy round-robin
-```
-
-#### 3. Multimodaalne / nägemis- ja tekstitöötluse konveier
-
-Spetsiaalsete nägemismudelite ühendamine kiire tekstiloomega töövoogude jaoks, mis hõlmavad piltide mõistmist ja koodi genereerimist.
-
-- **Muster**: `Priority`-kombinatsioon, milles nägemisvõimekusega mudelid on loendis esimesena ning suure läbilaskevõimega teksti-/koodimudel viimasena.
-- **Mudelid**:
-  1. `gemini/gemini-2.5-pro` (Tugev piltide ja multimodaalse sisu mõistmine)
-  2. `openai/gpt-4o` (Tasakaalustatud nägemisvõimekus ja tööriistade kasutamine)
-  3. `deepseek/deepseek-v4-flash` (Teksti/koodi genereerimine)
-
----
-
 ### Tõrkekindlus ja kaitselülitid
 
-Seadistage jaotises **Dashboard → Settings → Resilience**.
+Seadistage jaotises **Töölaud → Seaded → Tõrkekindlus**.
 
 OmniRoute rakendab teenusepakkuja tasemel tõrkekindlust viie komponendi abil:
 
-1. **Päringujärjekord ja tempokontroll** — süsteemitasemel päringukujundus:
-   - **Päringuid minutis (RPM)** — maksimaalne päringute arv minutis konto kohta
-   - **Minimaalne aeg päringute vahel** — minimaalne ajavahemik millisekundites päringute vahel
-   - **Maksimaalne samaaegsete päringute arv** — maksimaalne samaaegsete päringute arv konto kohta
+1. **Päringujärjekord ja tempo reguleerimine** — Süsteemitaseme päringuvoolu kujundamine:
+   - **Päringuid minutis (RPM)** — Maksimaalne päringute arv minutis konto kohta
+   - **Minimaalne aeg päringute vahel** — Minimaalne vahe millisekundites päringute vahel
+   - **Maksimaalne samaaegsete päringute arv** — Maksimaalne samaaegsete päringute arv konto kohta
+2. **Ühenduse ooteaeg** — Autentimistüübipõhine konfiguratsioon üksikule ühendusele pärast tõrkeid, mille korral saab päringut korrata:
+   - **Põhiooteaeg** — Vaikimisi ooteaken ülesvoolu tõrgete korral, mille järel saab päringut korrata
+   - **Ülesvoolu korduskatse vihjete kasutamine** — Järgib autoriteetseid `Retry-After` või lähtestamise vihjeid, kui need on esitatud
+   - **Maksimaalne taganemissammude arv** — Eksponentsiaalse taganemise maksimaalne tase korduvate tõrgete korral
 
-2. **Ühenduse ooteaeg** — autentimistüübipõhine seadistus üksiku ühenduse jaoks pärast kordamist võimaldavaid tõrkeid:
-   - **Põhiline ooteaeg** — vaikimisi ooteaken kordamist võimaldavate ülesvoolu tõrgete korral
-   - **Ülesvoolu korduskatse vihjete kasutamine** — arvestab olemasolu korral autoriteetset `Retry-After` väärtust või lähtestamisvihjeid
-   - **Maksimaalne taganemissammude arv** — maksimaalne eksponentsiaalse taganemise tase korduvate tõrgete korral
+3. **Teenusepakkuja kaitselüliti** — Jälgib teenusepakkuja täieliku päringuahela tõrkeid, märgib teenusepakkuja seadistatud hoiatustaseme saavutamisel halvenenuks ja avab kaitselüliti seadistatud tõrkeläve saavutamisel:
+   - **Halvenemise lävi** — Järjestikuste teenusepakkuja tõrgete arv enne olekusse `DEGRADED` sisenemist
+   - **Tõrkelävi** — Järjestikuste teenusepakkuja tõrgete arv enne olekusse `OPEN` sisenemist
+   - **Lähtestamise ajalõpp** — Ajavahemik enne teenusepakkuja uuesti testimist
+   - **CLOSED** (töökorras) — Päringud liiguvad tavapäraselt
+   - **DEGRADED** — Päringud liiguvad endiselt, samal ajal jälgitakse suurenenud tõrgete arvu
+   - **OPEN** — Teenusepakkuja on pärast korduvaid tõrkeid ajutiselt blokeeritud
+   - **HALF_OPEN** — Testitakse, kas teenusepakkuja on taastunud
 
-3. **Teenusepakkuja kaitselüliti** — jälgib teenusepakkuja läbivaid tõrkeid, märgib teenusepakkuja seadistatud hoiatustaseme saavutamisel halvenenuks ja avab kaitselüliti seadistatud tõrkeläve saavutamisel:
-   - **Halvenemislävi** — järjestikuste teenusepakkuja tõrgete arv enne olekusse `DEGRADED` minemist
-   - **Tõrkelävi** — järjestikuste teenusepakkuja tõrgete arv enne olekusse `OPEN` minemist
-   - **Lähtestamise ajalõpp** — ajavahemik enne teenusepakkuja uuesti testimist
-   - **CLOSED** (Töökorras) — päringud liiguvad tavapäraselt
-   - **DEGRADED** — päringud liiguvad endiselt, samal ajal jälgitakse suurenenud tõrgete arvu
-   - **OPEN** — teenusepakkuja on korduvate tõrgete järel ajutiselt blokeeritud
-   - **HALF_OPEN** — testitakse, kas teenusepakkuja on taastunud
+   Ühendusepõhised `429` kiirusepiirangud jäävad funktsiooni **Ühenduse ooteaeg** käsitlusse ega lähe teenusepakkuja kaitselüliti arvestusse.
 
-   Ühendusepõhised `429` kiiruspiirangud jäävad **ühenduse ooteaja** käsitlusse ja neid ei arvestata teenusepakkuja kaitselüliti puhul.
+   Teenusepakkuja kaitselüliti käitusaegset olekut kuvatakse ainult jaotises **Töölaud → Seisund**.
 
-   Teenusepakkuja kaitselüliti käitusaegset olekut kuvatakse ainult jaotises **Dashboard → Health**.
+4. **Ooteaja lõppemise ootamine** — Kui kõik sobivad ühendused on juba ootel, võib OmniRoute oodata kõige varem lõppeva ooteaja lõpuni ja proovida sama kliendipäringut automaatselt uuesti.
 
-4. **Ooteaja lõppemise ootamine** — kui iga võimalik ühendus on juba ooteolekus, saab OmniRoute oodata kõige varem lõppeva ooteaja lõpuni ja korrata automaatselt sama kliendipäringut.
+5. **Kiirusepiirangu automaatne tuvastamine** — Kui ülesvoolu teenusepakkujad tagastavad selgesõnalised ooteaknad, alistavad need vihjed sätte lubamisel ühenduse kohaliku ooteaja.
 
-5. **Kiiruspiirangu automaatne tuvastamine** — kui ülesvoolu teenusepakkujad tagastavad selgesõnalised ooteaknad, alistavad need vihjed sätte lubamise korral kohaliku ühenduse ooteaja.
-
-**Asjatundja nõuanne:** kasutage lehte **Health**, et pärast katkestust aktiivseid teenusepakkuja kaitselüliteid kontrollida ja lähtestada. Leht Resilience muudab ainult seadistust.
+**Kasulik nõuanne:** Kasutage lehte **Seisund**, et kontrollida ja lähtestada pärast katkestust aktiivseid teenusepakkujate kaitselüliteid. Leht Vastupidavus muudab ainult konfiguratsiooni.
 
 ---
 
-### Andmebaasi eksport/import
+### Andmebaasi eksportimine/importimine
 
-Hallake andmebaasi varukoopiaid jaotises **Dashboard → Settings → System & Storage**.
+Hallake andmebaasi varukoopiaid jaotises **Töölaud → Sätted → Süsteem ja salvestusruum**.
 
-| Toiming                          | Kirjeldus                                                                                                                                                                     |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Andmebaasi eksportimine**      | Laadib praeguse SQLite'i andmebaasi alla `.sqlite`-failina                                                                                                                    |
-| **Kõige eksportimine (.tar.gz)** | Laadib alla täieliku varundusarhiivi, mis sisaldab andmebaasi, sätteid, kombinatsioone, teenusepakkuja ühendusi (ilma identimisteabeta) ja API-võtmete metaandmeid            |
-| **Andmebaasi importimine**       | Laadib üles `.sqlite`-faili, millega asendatakse praegune andmebaas. Impordieelne varukoopia luuakse automaatselt, välja arvatud juhul, kui `DISABLE_SQLITE_AUTO_BACKUP=true` |
+| Toiming                          | Kirjeldus                                                                                                                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Andmebaasi eksportimine**      | Laadib praeguse SQLite'i andmebaasi alla `.sqlite`-failina                                                                                                       |
+| **Kõige eksportimine (.tar.gz)** | Laadib alla täieliku varundusarhiivi, mis sisaldab andmebaasi, sätteid, kombinatsioone, teenusepakkujate ühendusi (ilma mandaatideta) ja API-võtmete metaandmeid |
+| **Andmebaasi importimine**       | Laadib praeguse andmebaasi asendamiseks üles `.sqlite`-faili. Impordieelne varukoopia luuakse automaatselt, kui `DISABLE_SQLITE_AUTO_BACKUP=true` pole määratud  |
 
 ```bash
 # API: andmebaasi eksportimine
@@ -1027,45 +962,45 @@ curl -X POST http://localhost:20128/api/db-backups/import \
   -F "file=@backup.sqlite"
 ```
 
-**Impordi valideerimine:** imporditud faili valideeritakse tervikluse (SQLite'i pragma-kontroll), nõutavate tabelite (`provider_connections`, `provider_nodes`, `combos`, `api_keys`) ja suuruse (maksimaalselt 100 MB) alusel.
+**Impordi valideerimine:** Imporditud faili kontrollitakse tervikluse (SQLite'i pragma-kontroll), nõutavate tabelite (`provider_connections`, `provider_nodes`, `combos`, `api_keys`) ja suuruse (max 100MB) suhtes.
 
 **Kasutusjuhud:**
 
 - OmniRoute'i migreerimine masinate vahel
 - Väliste varukoopiate loomine avariitaasteks
-- Seadistuste jagamine meeskonnaliikmete vahel (eksportige kõik → jagage arhiivi)
+- Konfiguratsioonide jagamine meeskonnaliikmete vahel (ekspordi kõik → jaga arhiivi)
 
 ---
 
-### Sätete juhtpaneel
+### Sätete töölaud
 
-Sätete leht on hõlpsaks navigeerimiseks jaotatud **7 vahekaardiks**:
+Lihtsaks navigeerimiseks on sätete leht jagatud **7 vahekaardiks**:
 
-| Vahekaart           | Sisu                                                                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Üldine**          | Süsteemi salvestusvahendid, vaikekäitumine, Endpoint-tunnelite nähtavus                                                                                                                          |
-| **Välimus**         | Teema juhtelemendid (hele/tume/süsteem), külgriba nähtavus, Cloudflare’i/Tailscale’i/ngroki tunnelikaartide paneelilülitid                                                                       |
-| **AI**              | Mõtlemiseelarve (muutmata edastamine / automaatne eemaldamine / kohandatud / adaptiivne — vt [THINKING_BUDGET.md](./THINKING_BUDGET.md)), globaalne süsteemiviip, viibavahemälu statistika       |
-| **Turvalisus**      | Sisselogimise/parooli seaded, IP-pääsukontroll, `/models` API autentimine, teenusepakkujate blokeerimine, viibasüsti vastane kaitse                                                              |
-| **Marsruutimine**   | Globaalne marsruutimisstrateegia (täida esimene / ringmeetod / P2C / juhuslik / vähim kasutatud / kulupõhine optimeerimine), metamärgiga mudelialiased, varuahelad, kombinatsioonide vaikeseaded |
-| **Tõrkekindlus**    | Päringujärjekord, ühenduse jahtumisaeg, teenusepakkuja kaitselüliti konfiguratsioon ja jahtumisaja ootamise käitumine                                                                            |
-| **Täpsemad seaded** | Globaalne puhverserveri konfiguratsioon (HTTP/SOCKS5), teenusepakkujakohased puhverserveri alistused                                                                                             |
+| Vahekaart           | Sisu                                                                                                                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Üldine**          | Süsteemi salvestusruumi tööriistad, vaikekäitumine, lõpp-punkti tunneli nähtavus                                                                                                                   |
+| **Välimus**         | Teema juhtseaded (hele/tume/süsteem), külgriba nähtavus, Cloudflare'i/Tailscale'i/ngroki tunnelikaartide paneelilülitid                                                                            |
+| **AI**              | Mõtlemise eelarve (muutmata edastamine / automaatne eemaldamine / kohandatud / adaptiivne — vt [THINKING_BUDGET.md](./THINKING_BUDGET.md)), globaalne süsteemiviip, viibavahemälu statistika       |
+| **Turvalisus**      | Sisselogimise/parooli sätted, IP-pääsukontroll, API autentimine `/models` jaoks, teenusepakkujate blokeerimine, viibasüstimise kaitse                                                              |
+| **Marsruutimine**   | Globaalne marsruutimisstrateegia (täida esimene / tsükliline / P2C / juhuslik / vähim kasutatud / kulupõhine optimeerimine), metamärkidega mudelialiased, varuahelad, kombinatsioonide vaikesätted |
+| **Vastupidavus**    | Päringujärjekord, ühenduse ooteaeg, teenusepakkuja kaitselüliti konfiguratsioon ja ooteaja lõppemise ootamise käitumine                                                                            |
+| **Täpsemad sätted** | Globaalne puhverserveri konfiguratsioon (HTTP/SOCKS5), teenusepakkujapõhised puhverserveri alistused                                                                                               |
 
-Jaotises Üldine ei dubleerita enam kirjutuskaitstud logimise ja vahemälu märkmeid. Andmebaasi säilitamise ja
-optimeerimise seaded püsivad lõpp-punkti `/api/settings/database` kaudu; vahemälu käsitsi tühjendamiseks kasutatakse
-`DELETE /api/cache`. Päringu- ja puhverserverilogide ridade ülempiire juhivad
+Vahekaardil Üldine ei dubleerita enam kirjutuskaitstud logimis- ja vahemälumärkusi. Andmebaasi säilitamise ja
+optimeerimise sätted salvestatakse `/api/settings/database` kaudu; vahemälu käsitsi tühjendamiseks kasutatakse
+`DELETE /api/cache`. Päringu- ja puhverserverilogide ridade ülempiire juhitakse muutujatega
 `CALL_LOGS_TABLE_MAX_ROWS` ja `PROXY_LOGS_TABLE_MAX_ROWS`.
 
 ---
 
-### Kulude ja eelarve haldus
+### Kulude ja eelarve haldamine
 
-Juurdepääs: **Töölaud → Kulud**.
+Juurdepääs jaotisest **Töölaud → Kulud**.
 
-| Vahekaart     | Otstarve                                                                                           |
-| ------------- | -------------------------------------------------------------------------------------------------- |
-| **Eelarve**   | Määrake API võtme kaupa päeva-, nädala- või kuueelarvega kululimiidid ja jälgige neid reaalajas    |
-| **Hinnastus** | Vaadake ja muutke mudelite hinnakirjeid — 1000 sisend-/väljundtokeni maksumus teenusepakkuja kohta |
+| Vahekaart     | Otstarve                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| **Eelarve**   | API-võtmepõhiste kululimiitide määramine päeva-, nädala- ja kuueelarvete ning reaalajas jälgimisega  |
+| **Hinnakiri** | Mudelite hinnakirjete vaatamine ja muutmine — 1K sisend-/väljundtokeni maksumus teenusepakkuja kohta |
 
 ```bash
 # API: eelarve määramine
@@ -1073,11 +1008,11 @@ curl -X POST http://localhost:20128/api/usage/budget \
   -H "Content-Type: application/json" \
   -d '{"keyId": "key-123", "limit": 50.00, "period": "monthly"}'
 
-# API: eelarve praeguse oleku hankimine
+# API: praeguse eelarve oleku hankimine
 curl http://localhost:20128/api/usage/budget
 ```
 
-**Kulude jälgimine:** iga päringu puhul logitakse tokenikasutus ja arvutatakse hinnatabeli põhjal maksumus. Vaadake jaotises **Töölaud → Kasutus** teenusepakkuja, mudeli ja API võtme põhiseid üksikasju.
+**Kulude jälgimine:** Iga päringu puhul logitakse tokenite kasutus ja arvutatakse hinnakirja alusel maksumus. Teenusepakkuja, mudeli ja API-võtme kaupa jaotusi saate vaadata jaotises **Töölaud → Kasutus**.
 
 ---
 
@@ -1097,17 +1032,17 @@ curl -X POST http://localhost:20128/v1/audio/transcriptions \
   -F "model=openai/whisper-1"
 ```
 
-`deepgram/nova-3` on Deepgrami omamarsruut ja vajab Deepgrami API võtit.
-Kui konfigureeritud on ainult OpenRouter, kasutage `openrouter/deepgram/nova-3`.
+`deepgram/nova-3` on Deepgrami natiivne marsruut ja vajab Deepgrami API-võtit.
+Kui seadistatud on ainult OpenRouter, kasutage `openrouter/deepgram/nova-3`.
 
 **Kõne tekstiks teisendamise (transkribeerimise)** teenusepakkujad:
 
-- `openai/` (whisper-ühilduv)
+- `openai/` (ühildub Whisperiga)
 - `groq/` (Groq Whisper Turbo)
-- `deepgram/` (Nova perekond)
+- `deepgram/` (Nova tootepere)
 - `assemblyai/`
 - `nvidia/` (Parakeet, Canary)
-- `huggingface/` (whisperi variandid)
+- `huggingface/` (Whisperi variandid)
 - `qwen/`
 
 **Teksti kõneks teisendamise (`POST /v1/audio/speech`)** teenusepakkujad:
@@ -1133,50 +1068,50 @@ Transkribeerimiseks toetatud helivormingud: `mp3`, `wav`, `m4a`, `flac`, `ogg`, 
 
 ### Kombinatsioonide tasakaalustamisstrateegiad
 
-Konfigureerige kombinatsioonipõhine tasakaalustamine jaotises **Töölaud → Kombinatsioonid → Loo/muuda → Strateegia**.
+Seadistage iga kombinatsiooni tasakaalustamine jaotises **Töölaud → Kombinatsioonid → Loo/muuda → Strateegia**.
 
-| Strateegia                    | Kirjeldus                                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Ringmeetod**                | Kasutab mudeleid järjestikku kordamööda                                                           |
-| **Prioriteet**                | Proovib alati esimest mudelit; kasutab varuvarianti ainult vea korral                             |
-| **Juhuslik**                  | Valib iga päringu jaoks kombinatsioonist juhusliku mudeli                                         |
-| **Kaalutud**                  | Marsruudib proportsionaalselt mudelitele määratud kaalude alusel                                  |
-| **Vähim kasutatud**           | Marsruudib mudelile, millel on kõige vähem hiljutisi päringuid (kasutab kombinatsiooni mõõdikuid) |
-| **Kulupõhiselt optimeeritud** | Marsruudib odavaimale saadaolevale mudelile (kasutab hinnatabelit)                                |
+| Strateegia                | Kirjeldus                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| **Tsükliline**            | Vahetab mudeleid järjestikku                                                                  |
+| **Prioriteet**            | Proovib alati esmalt esimest mudelit; kasutab varuvarianti ainult vea korral                  |
+| **Juhuslik**              | Valib iga päringu jaoks kombinatsioonist juhusliku mudeli                                     |
+| **Kaalutud**              | Marsruudib proportsionaalselt igale mudelile määratud kaalude põhjal                          |
+| **Vähim kasutatud**       | Marsruudib kõige vähem hiljutisi päringuid saanud mudelile (kasutab kombinatsiooni mõõdikuid) |
+| **Kuludele optimeeritud** | Marsruudib odavaimale saadaolevale mudelile (kasutab hinnakirja)                              |
 
-Kombinatsioonide globaalsed vaikeseaded saab määrata jaotises **Töölaud → Seaded → Marsruutimine → Kombinatsioonide vaikeseaded**.
-Kombinatsiooni sihtkohtade ajalõpud pärivad vaikimisi päringu praeguse ajalõpu. Kasutage kombinatsiooni vaikeseadetes või üksikus kombinatsioonis valikut **Sihtkoha ajalõpp
-(sekundites)** ainult siis, kui lühem sihtkohapõhine piirang peaks käivitama kiirema
+Kombinatsioonide globaalseid vaikesätteid saab määrata jaotises **Töölaud → Sätted → Marsruutimine → Kombinatsioonide vaikesätted**.
+Kombinatsiooni sihtmärkide ajalõpud pärivad vaikimisi praeguse päringu ajalõpu. Kasutage kombinatsioonide vaikesätetes või üksikus kombinatsioonis valikut **Sihtmärgi ajalõpp
+(sekundites)** ainult siis, kui lühem sihtmärgipõhine piirang peaks käivitama kiirema
 varuvariandile ülemineku.
 
-Null-latentsusega kombinatsiooni optimeerimised on valikulised. Jätke **Null-latentsusega optimeerimised** keelatuks, et
-takistada neil latentsusfunktsioonidel varusihtkohtadega võistlemist, TTFT
-ajaloo põhjal sihtkohtade vahelejätmist või varupäringute tihendamist; nende lubamine võimaldab konfigureeritud paralleelset ennetuspäringut, ennustavat TTFT-põhist
-vahelejätmist ja ennetavat varupäringute tihendamist, et vahetada marsruutimise/päringu täpsus väiksema
-äärmuslatentsuse vastu.
+Null-latentsusega kombinatsioonide optimeerimised on vabatahtlikud. Jätke **Null-latentsusega optimeerimised** keelatuks, et
+vältida nende latentsusfunktsioonide võistlemist varusihtmärkidega, sihtmärkide vahelejätmist TTFT
+ajaloo põhjal või varupäringute tihendamist; selle lubamine võimaldab seadistatud riskimaandamisel, ennustavatel TTFT-põhistel
+vahelejätmistel ja ennetaval varupäringute tihendamisel vahetada marsruutimise/päringu täpsuse väiksema pika saba
+latentsuse vastu.
 
-Keelake **arutlustokenite puhver** välja, kui ülesvoolu teenusepakkujad nõuavad rangete
-`max_tokens` / `maxOutputTokens` piirangute järgimist. Kui see on lubatud, lisab kombineeritud marsruutimine arutlusmudelitele
-varu ainult teadaoleva väljundipiiranguga mudelite puhul ning jätab kliendi tokenipiirangu muutmata, kui
-turvaline puhverdatud väärtus ületaks selle piirangu. Kui kliendi piirang juba ületab teadaolevat piiri,
-vähendab OmniRoute selle enne ülesvoolupäringu saatmist vastava piirini.
+Keelake **Põhjendustokenite puhver**, kui ülesvoolu teenusepakkujad nõuavad rangeid
+`max_tokens` / `maxOutputTokens` piiranguid. Kui see on lubatud, lisab kombinatsiooni marsruutimine põhjendusmudelitele
+lisavaru ainult teadaoleva väljundipiiranguga mudelite puhul ning jätab kliendi tokenipiirangu muutmata, kui
+turvaline puhverdatud väärtus ületaks selle piirangu. Kui kliendi piirang on juba teadaolevast piirangust suurem,
+vähendab OmniRoute selle enne ülesvoolupäringu saatmist kõnealuse piiranguni.
 
 ---
 
-### Seisundi juhtpaneel
+### Seisundi töölaud
 
-Avage see menüüst **Juhtpaneel → Seisund**. Reaalajas süsteemi seisundi ülevaade kuue kaardiga:
+Avage jaotise **Töölaud → Seisund** kaudu. Süsteemi reaalajas seisundi ülevaade kuue kaardiga:
 
-| Kaart                        | Mida see näitab                                                                 |
-| ---------------------------- | ------------------------------------------------------------------------------- |
-| **Süsteemi olek**            | Tööaeg, versioon, mälukasutus, andmekataloog                                    |
-| **Teenusepakkujate seisund** | Teenusepakkujate globaalse kaitselüliti käitusaegne olek                        |
-| **Kiirusepiirangud**         | Kontopõhised aktiivsete ühenduste ooteajad koos järelejäänud ajaga              |
-| **Aktiivsed blokeeringud**   | Aktiivsed mudelipõhised blokeeringud ja ajutised välistamised                   |
-| **Signatuuride vahemälu**    | Duplikaatide eemaldamise vahemälu statistika (aktiivsed võtmed, tabamuste määr) |
-| **Latentsuse telemeetria**   | Teenusepakkujapõhine p50/p95/p99 latentsuse koondstatistika                     |
+| Kaart                        | Mida see näitab                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| **Süsteemi olek**            | Tööaeg, versioon, mälukasutus, andmekataloog                                 |
+| **Teenusepakkujate seisund** | Globaalsete teenusepakkujate kaitselülitite käitusaegne olek                 |
+| **Kiirusepiirangud**         | Aktiivsed ühenduste ooteajad konto kohta koos järelejäänud ajaga             |
+| **Aktiivsed lukustused**     | Aktiivsed mudelipõhised lukustused ja ajutised välistused                    |
+| **Allkirjavahemälu**         | Duplikaatide eemaldamise vahemälu statistika (aktiivsed võtmed, tabamusmäär) |
+| **Latentsuse telemeetria**   | p50/p95/p99 latentsuse koondandmed teenusepakkuja kohta                      |
 
-**Kasulik näpunäide:** Seisundilehte värskendatakse automaatselt iga 10 sekundi järel. Kasutage kaitselüliti kaarti, et tuvastada, millistel teenusepakkujatel esineb probleeme.
+**Kasulik nõuanne:** Seisundilehte värskendatakse automaatselt iga 10 sekundi järel. Kasutage kaitselüliti kaarti, et tuvastada, millistel teenusepakkujatel esineb probleeme.
 
 ---
 

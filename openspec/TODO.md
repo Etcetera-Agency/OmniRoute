@@ -871,42 +871,52 @@ Deferred cross-repository and operations work:
       read-only root, read-only smoke artifacts, and tmpfs `/tmp`; no production
       data, env, keys, provider calls, or container changes were involved. Run
       `40504168756` failed before publish/deploy.
-- [x] Upgrade the isolated branch from merged fix `7bb10048702966cccaa0eebe62bb83bfad040265`
-      to final official v3.8.52 source `ad6f33f66bda34eba98645d3bfdabbde294bc843`
-      and pin the matching overlay index `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
-      before any image build. Keep deployed fork migrations 197–199; map
-      upstream 197–212 to 200–215 and pending fork 200 to 216. Preserve
-      benchmark formula/profiles/current-set publication, strict zero-cost
-      free-only Auto bands, and capabilities. SQL digests for fork migrations
-      197–199 and pending 216 match their pre-rename bytes; official migration
-      SQL matches exact v3.8.52 source. Both overlay pins and regression
-      baselines identify the official OCI index. Focused regression suites pass
-      and fresh independent review found no must-fix issues; source is locally
-      committed without push, merge, build, or deployment.
-- [x] Compare release-sensitive upstream/fork invariants with the pre-change
-      source: migration bytes/order, benchmark formula/current-set/native
-      reader, models.dev capabilities, and direct-refresh no-search behavior.
-      Focused migration, benchmark-current, free-only Auto-band, capability,
-      deploy-helper, and overlay suites pass; exact commands and counts are in
-      the package `completion.review`. They ran with isolated Linux esbuild at
-      `/tmp/tl315-esbuild-linux-x64`; shared dependencies were not changed. No
-      full repository test sweep was run.
-- [x] Complete fresh independent review and commit the reviewed local
-      candidate from the lead-owned worktree. No push, merge, workflow
-      enablement, build, or deployment was performed.
-- [ ] TL316 must update installed host helper
-      `/usr/local/libexec/omniroute-deploy.py` so its accepted
+- [x] Merge latest `origin/main` into `feat/upstream-v3852-final-20261027`
+      with a normal two-parent merge. Parents are feature
+      `8439e210fca55b42707273be52a26982e67e1839` and main
+      `7bb10048702966cccaa0eebe62bb83bfad040265`; merge base is
+      `fc5e2bccd4f70fecf5aab94dfb8136c74ab5a21b`. Kept PR #42 ancestry and
+      semantic benchmark snapshot fix `ed6dbc5d16`; retained final official
+      v3.8.52 source, full-catalog benchmark formula/native reader, direct
+      refresh with zero search or inference, strict free-only Auto bands,
+      models.dev capabilities, immutable fork migrations 197–199, upstream
+      197–212 mapped to 200–215, fork migration 200 mapped to 216, and both
+      overlay pins at OCI index
+      `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
+      Dropped incoming `200_model_benchmark_evidence_current_set.sql` because
+      its SHA-256 exactly matches retained local migration 216; kept official
+      `200_proxy_subscription_core_config.sql`, with no duplicate version and
+      no migration 217. Removed duplicate Ollama limiter declarations
+      introduced while combining `searchProxy.ts` and a repeated thrifty-rung
+      block from `virtualFactory.ts`. Consolidated the duplicate rerank
+      dispatch helper while retaining the latest database-settings API and the
+      feature's caller connection scope and combo-target gate.
+      Conflict choices also retain main's latest provider/session security,
+      local-only route guard, rerank database settings, generated translations,
+      docs, and its CI/quality/nightly workflow definitions. No workflow was
+      dispatched or build run. Release-specific source, tests, and overlay
+      policy remain from the reviewed feature branch. Package JSON and lockfile
+      retain nonconflicting entries from both sides. Focused conflict-area
+      checks, core regressions, strict OpenSpec validation, and Code Simplifier
+      results are recorded in the release package `completion.review`.
+- [ ] Before pushing this feature branch, TL316 supplies a read-only receipt
+      confirming production source `5c9266982d5b330628eac4233d46faba8ad4c091`
+      and a migration ledger at or below 199. This verifies the upstream files
+      remapped to 200–215 were not applied under the old names. Do not mutate
+      runtime state or the database for this receipt.
+- [ ] TL316 must review and install the repository-verified host-helper update
+      at `/usr/local/libexec/omniroute-deploy.py` so its accepted
       `org.opencontainers.image.base.digest` matches official OCI index
       `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
-      The repository helper and its tests are updated; no production host file
-      was read or changed. TL316 must review and install the matching helper
-      patch before any deployment.
-- [ ] TL313 rehearses exact ordered migration set against a consistent
-      isolated production DB clone; verify migrated schema, FTS5 and credential
-      behavior, benchmark outputs, foreign keys and DB integrity; restore the
-      pre-migration snapshot with prior image to prove rollback. Only after
-      that gate and parent's grant may disabled workflow build one authoritative
-      ARM64 image and retain immutable artifact receipts.
+      The installed helper was not read or changed. No deployment before this
+      gate.
+- [ ] TL313 rehearses ordered migrations 200–216 against a consistent,
+      isolated production DB clone; verifies schema, FTS5, credentials,
+      benchmark outputs, foreign keys and DB integrity; and restores the
+      pre-migration snapshot with the prior image to prove rollback. Only after
+      that gate and the owner's separate grant may the disabled workflow build
+      one authoritative ARM64 image. Preserve immutable build and smoke
+      receipts before any deployment.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.

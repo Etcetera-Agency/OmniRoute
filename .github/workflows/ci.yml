@@ -2,15 +2,7 @@ name: CI
 
 on:
   push:
-    # Pushes to release/** no longer start this matrix (2026-10-18). Every change that
-    # reaches a release branch already ran it on its own PR, and the merged COMBINATION
-    # is validated by Release-Green (nightly-release-green.yml: --quick on every push to
-    # release/v*, full sweep 3×/day on its own runner slot). With ~10 merges/hour the push
-    # runs here were cancelled by the next push before finishing (24 of 24 in one day) while
-    # each held up to 30 of the account's 40 hosted job slots — the queue that made PR
-    # checks wait for hours. `main` keeps it: the release squash is the one push that
-    # lands code nobody validated as a PR into main.
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
     branches: [main, "release/**"]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, edited]
@@ -256,7 +248,7 @@ jobs:
     # The coverage.* metrics degrade gracefully: the download is continue-on-error and
     # the ratchet runs with --allow-missing, so absent coverage is skipped, not failed.
     # Path filter: code-only — pure docs/i18n PRs have nothing for these ratchets to guard.
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || needs.changes.outputs.queueCandidate == 'true') && needs.changes.outputs.code == 'true' && (needs.lint.result == 'success' || needs.lint.result == 'failure'))) }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.code == 'true' && (needs.lint.result == 'success' || needs.lint.result == 'failure'))) }}
     # security-events: read lets the CodeQL ratchet read open code-scanning alerts
     # via `gh api .../code-scanning/alerts`. contents: read keeps checkout working.
     permissions:
@@ -373,7 +365,7 @@ jobs:
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
     # Path filter: code-only (scanners/ratchets target production surface).
-    if: ${{ github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || needs.changes.outputs.queueCandidate == 'true') && needs.changes.outputs.code == 'true') }}
+    if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.code == 'true') }}
     steps:
       # fetch-depth: 0 — the OpenAPI breaking-change gate (oasdiff) reads the base
       # spec via `git show <base_ref>:docs/openapi.yaml`; a shallow clone
@@ -735,23 +727,17 @@ jobs:
     name: Build
     # Dynamic runner: when the release captain flips the USE_VPS_RUNNER repo var to
     # 'true' (scripts/vps/release-runner-up.sh does it after the self-hosted VM is
-    # online), push Builds (main only: release/** pushes stopped running this workflow
-    # in #17092) and workflow_dispatch Builds run on the .113 build slot (label
-    # omni-build) with the Turbopack bundler that npm-publish ships.
-    # Pull requests (own-origin and forks) and merge_group always build on the hosted
-    # pool with webpack (2026-10-18): the slot is ONE runner and a Turbopack Build holds
-    # it 29-58 min, so with every own-origin PR routed there 18 Builds queued for up to
-    # 18 h, and the release line's own push Build got the slot once in 40 jobs. Hosted,
-    # the same PR Build takes 8-12 min next to the PR's other jobs. Safety: no PR code
-    # reaches the self-hosted runner (push / dispatch events are own-origin by
-    # definition). Any failure path (VM down, var unset/false) also falls back to
-    # ubuntu-latest.
-    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && vars.USE_VPS_BUILD_RUNNER == 'true' && github.event_name != 'merge_group' && github.event_name != 'pull_request') && fromJSON('["self-hosted","omni-build"]') || 'ubuntu-latest' }}
+    # online), the heavy jobs run on the dedicated 32-core VPS runners (label
+    # omni-build) instead of queueing on the 20-concurrent-job hosted pool.
+    # Safety: fork PRs NEVER reach the self-hosted runner — the expression falls
+    # back to ubuntu-latest unless the PR head repo is this repository (push /
+    # dispatch events are own-origin by definition). Any failure path (VM down,
+    # var unset/false) also falls back to ubuntu-latest.
+    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && github.event_name != 'merge_group' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","omni-build"]') || 'ubuntu-latest' }}
     needs: changes
     # Capacity is owned by the ONE omni-build runner slot (#12048), also used by
     # Docker amd64. Do not add another worker with that label on the same host
-    # without reviewing its memory budget (a Turbopack next-build holds ~40 GB in the
-    # compile phase alone and peaked at 49 GB uncapped; docs/ops/RUNNER_BOX.md).
+    # without reviewing its memory budget (a next-build peaks at 14–16 GB RSS).
     # A shared PR concurrency group is not a queue: GitHub's default one-pending
     # limit replaces unrelated waiting PRs even with cancel-in-progress: false.
     # Isolate candidate refs; the runner slot still serializes self-hosted builds.

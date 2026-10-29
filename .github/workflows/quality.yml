@@ -2,10 +2,7 @@ name: Quality Gates
 
 on:
   push:
-    # release/** pushes are covered by the PR run of each change plus Release-Green on the
-    # merged combination (see ci.yml for the 2026-10-18 measurement); the per-push run here
-    # only ever queued hosted slots and was cancelled by the next merge.
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
     branches: [main, "release/**"]
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, edited]

@@ -1136,6 +1136,7 @@ export async function createVirtualAutoComboFromPrepared(
       );
     }
   }
+
   let weights: ScoringWeights = { ...DEFAULT_WEIGHTS };
   let explorationRate = 0.05; // Default exploration rate
   let routerStrategy = "lkgp"; // All auto variants use LKGP

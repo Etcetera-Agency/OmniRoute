@@ -443,7 +443,8 @@ function findExistingCookieConnection(
       .prepare("SELECT * FROM provider_connections WHERE provider = ? AND auth_type = 'cookie'")
       .all(provider) as JsonRecord[];
     for (const row of cookieRows) {
-      if (storedCookieCredentialKey(row.provider_specific_data) === newCredKey) return row;
+      const psd = parseProviderSpecificData(row.provider_specific_data);
+      if (psd && webSessionCredentialKey(psd) === newCredKey) return row;
     }
   }
 
@@ -458,7 +459,10 @@ function findExistingCookieConnection(
           "SELECT * FROM provider_connections WHERE provider = ? AND auth_type = 'cookie' AND name = ?"
         )
         .get(provider, name) as JsonRecord | undefined) || null;
-    if (byName && !storedCookieCredentialKey(byName.provider_specific_data)) {
+    if (
+      byName &&
+      !webSessionCredentialKey(parseProviderSpecificData(byName.provider_specific_data))
+    ) {
       return byName;
     }
   }

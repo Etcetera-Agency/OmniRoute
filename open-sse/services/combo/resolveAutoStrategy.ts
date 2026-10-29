@@ -31,6 +31,12 @@ import {
   type BandThriftyRung,
 } from "../autoCombo/bands";
 import {
+  BAND_THRIFTY_RUNG_ORDER,
+  isBandsEnabled,
+  parseBandCategory,
+  type BandThriftyRung,
+} from "../autoCombo/bands";
+import {
   getModelContextLimitForModelString,
   providerSupportsEmulatedToolCalling,
 } from "./comboStructure.ts";

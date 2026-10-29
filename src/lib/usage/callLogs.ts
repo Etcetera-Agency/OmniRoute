@@ -136,6 +136,12 @@ type CallLogSummaryRow = {
 export const RESOLVED_ACCOUNT_SQL =
   "COALESCE(NULLIF(pc.name, ''), NULLIF(pc.email, ''), cl.account)";
 
+type LegacyInlineRow = {
+  request_body: string | null;
+  response_body: string | null;
+  error: string | null;
+};
+
 type DeleteResult = {
   deletedRows: number;
   deletedArtifacts: number;

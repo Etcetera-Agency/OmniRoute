@@ -1,4 +1,5 @@
-// Regression tests for #15159 S-01: spawn-capable /api/providers/ routes.
+// Regression tests for #15159 S-01: two spawn-capable /api/providers/ routes
+// were missing from LOCAL_ONLY_API_PATTERNS.
 //
 // The audit verified two spawn sites reached from management routes that
 // requireLogin=false waives:
@@ -13,33 +14,26 @@
 //      reached from GET /api/providers/[id]/models
 //
 // Hard Rules #15 and #17 require loopback enforcement unconditionally before
-// any auth check. Both hops are now gated at their call sites on the trusted
-// peer-locality header (the /api/providers/[id]/models precedent): the spawn
-// only runs for loopback/LAN peers, so the routes themselves stay
-// remote-reachable. A path-level LOCAL_ONLY lock on validate/import/bulk
-// (#15242) broke every reverse-proxied deployment — docker + nginx, the
-// documented home setup — whose dashboard could then never validate ANY key
-// (the Add API Key "Check" button returned 403 LOCAL_ONLY, rendered as a bare
-// "Invalid" badge). This file asserts the call-site gates exist and that no
-// over-broad path pattern returns.
+// any auth check. This test asserts isLocalOnlyPath() returns true for all
+// spawn-capable paths, and false for the non-spawning siblings (no over-broadening).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isLocalOnlyPath } from "../../../src/server/authz/routeGuard.ts";
 
-// ─── S-01: validate/import/bulk stay remote-reachable; spawn is call-site gated ──
+// ─── S-01: /api/providers/validate, /import, /bulk spawn a child process ──
 
-test("isLocalOnlyPath: /api/providers/validate, /import, /bulk are NOT local-only (spawn gated at call site)", () => {
-  // webProvidersB.ts:535 spawns `bin` with argv ["acp", "--agent-type", "summarizer"]
-  // only in the devin CLI-key fallback validator, which receives allowLocalSpawn from
-  // each dispatching route (#15766 shape). A blanket LOCAL_ONLY pattern here locks
-  // remote dashboards out of key validation for every provider — the regression
-  // fixed after a reverse-proxied deployment's Check button always said "Invalid".
-  assert.equal(isLocalOnlyPath("/api/providers/validate"), false);
-  assert.equal(isLocalOnlyPath("/api/providers/import"), false);
-  assert.equal(isLocalOnlyPath("/api/providers/bulk"), false);
-  assert.equal(isLocalOnlyPath("/api/providers/validate/"), false);
-  assert.equal(isLocalOnlyPath("/api/providers/import/"), false);
-  assert.equal(isLocalOnlyPath("/api/providers/bulk/"), false);
+test("isLocalOnlyPath: /api/providers/validate, /import, /bulk are local-only (S-01, #15159)", () => {
+  // webProvidersB.ts:535 spawns `bin` with argv ["acp", "--agent-type", "summarizer"].
+  // The binary comes from a fixed candidate list and argv is fixed — not caller-
+  // controlled RCE — but Hard Rules #15 + #17 still require loopback enforcement
+  // before any auth check so a leaked JWT via tunnel cannot trigger the spawn.
+  assert.equal(isLocalOnlyPath("/api/providers/validate"), true);
+  assert.equal(isLocalOnlyPath("/api/providers/import"), true);
+  assert.equal(isLocalOnlyPath("/api/providers/bulk"), true);
+  // Trailing slash must also match (Next.js normalizes but the guard should be safe)
+  assert.equal(isLocalOnlyPath("/api/providers/validate/"), true);
+  assert.equal(isLocalOnlyPath("/api/providers/import/"), true);
+  assert.equal(isLocalOnlyPath("/api/providers/bulk/"), true);
 });
 
 // ─── S-01: GET /api/providers/{id}/models is NOT path-gated (deliberate) ──
@@ -121,7 +115,7 @@ test("S-01: the cursor-agent spawn call site requires a loopback peer", async ()
 
 test("isLocalOnlyPath: non-spawn /api/providers/ routes stay remote-reachable (S-01)", () => {
   // The generic provider CRUD surface must NOT be loopback-locked.
-  // The spawn-capable validate/import/bulk paths gate the spawn at the call site.
+  // Only the spawn-capable validate/import/bulk paths are gated.
   assert.equal(isLocalOnlyPath("/api/providers"), false);
   assert.equal(isLocalOnlyPath("/api/providers/"), false);
   assert.equal(isLocalOnlyPath("/api/providers/cursor"), false);

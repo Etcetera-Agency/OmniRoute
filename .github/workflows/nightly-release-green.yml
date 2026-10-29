@@ -60,7 +60,7 @@ concurrency:
   # landed. GitHub keeps one running + one pending run per group, and a newer push still
   # replaces the pending one, so the storm still collapses — without throwing work away.
   group: release-green-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
   OMNIROUTE_SKIP_SYSTEM_TRUST: "1"
