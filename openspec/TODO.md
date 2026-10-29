@@ -1035,6 +1035,15 @@ Deferred cross-repository and operations work:
       by moving pure URL helpers to `src/shared/utils/compatibleProviderUrls.ts`;
       no local bundle was built. Verify the actual emitted import on GitHub
       before release; keep `--check-runtime` evaluating the module.
+- [ ] TL316 temporary bundle diagnostic: merge the reviewed manual-only
+      `operator-diagnostics` target/workflow, then use one separately granted
+      GitHub ARM64 run to export all generated root `.mjs` files, `chunks/`,
+      and the esbuild metafile from source `410cc6ee8c5c3201bca5790f1df1fed875ea8f7d`.
+      Give the one-day artifact to TL329 for diagnosis. Keep the normal
+      `--check-runtime` stage unchanged; this targeted capture does not rerun
+      that check. After TL329 inspects it, delete the artifact and remove the
+      temporary workflow/target in a reviewed cleanup PR before closing this
+      item.
 - [x] Local import-boundary correction passed independent review. The source
       graph regression passes on the corrected tree and fails on clean base
       `0c316b9`; focused adapter, capability, endpoint, pricing, Claude, and
