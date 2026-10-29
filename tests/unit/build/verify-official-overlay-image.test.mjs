@@ -16,7 +16,7 @@ const verifier = await import(verifierUrl.href).catch((error) => {
 const EXPECTED = {
   source: "https://github.com/Etcetera-Agency/OmniRoute",
   revision: "1234567890abcdef1234567890abcdef12345678",
-  baseDigest: "sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96",
+  baseDigest: "sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c",
 };
 
 function makeRuntimeConfig() {

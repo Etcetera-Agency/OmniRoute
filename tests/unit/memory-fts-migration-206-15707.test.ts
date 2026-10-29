@@ -14,7 +14,7 @@ test.after(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
-test("#15707: migration 203 backfills NULL memory_id, drops orphan FTS docs and keeps search consistent", () => {
+test("#15707: migration 206 backfills NULL memory_id, drops orphan FTS docs and keeps search consistent", () => {
   const db = core.getDbInstance();
 
   // Recreate the legacy broken state: no triggers, NULL ids, stale/orphan FTS docs.
@@ -32,7 +32,7 @@ test("#15707: migration 203 backfills NULL memory_id, drops orphan FTS docs and 
   );
 
   const sql = fs.readFileSync(
-    path.join(process.cwd(), "src/lib/db/migrations/203_memory_fts_content_rowid.sql"),
+    path.join(process.cwd(), "src/lib/db/migrations/206_memory_fts_content_rowid.sql"),
     "utf8"
   );
   db.exec(sql);

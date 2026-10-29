@@ -1,7 +1,7 @@
 /**
  * tests/unit/db/usage-cost-migrations.test.ts
  *
- * Migration 212_usage_history_provider_reported_cost adds `provider_credits` and
+ * Migration 215_usage_history_provider_reported_cost adds `provider_credits` and
  * `provider_cost_usd` to `usage_history`. The upgrade path is replayed against a
  * database shaped like the pre-migration schema (marker removed, columns dropped),
  * which is what an existing install sees; existing rows keep NULL (= priced from

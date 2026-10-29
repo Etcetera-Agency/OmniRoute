@@ -22,3 +22,94 @@
 - Source rebase, conflict review, GREEN checks, independent review, and local
   implementation commit remain pending. No image was pulled or built, no
   runtime/database was touched, and nothing was pushed or merged.
+
+## Isolated implementation — 2026-10-29
+
+- Confirmed this branch is based on exact official source commit
+  `ad6f33f66bda34eba98645d3bfdabbde294bc843`; did not redo the lead's rebase.
+- Kept fork migrations 197–199 byte-identical and moved the pending fork
+  migration to 216. SHA-256 before/after: `197_model_benchmark_search.sql`
+  `b2ca733179d9efc86b6240efe1bb5a347e147d9cfd1bab4c4d44fc9a397e8a40`,
+  `198_model_benchmark_catalog_backfill.sql`
+  `6271e873c1e755ad29d5fdc59eebe878d00e606bb38322f56f6910d04c8f0917`,
+  `199_model_benchmark_search_retry_after.sql`
+  `371c34b9a3d44cd4df20208ef8c18f9df9fe3fb064b051e1d0d24fc619eecd90`,
+  and `216_model_benchmark_evidence_current_set.sql`
+  `42e1372061dfdf45dc4643f80adc8f2f54512c3c7654de4a019f0d2372f3c005`.
+- Compared every mapped official migration's bytes with `git show` from the
+  pinned v3.8.52 commit; all 16 match. This includes drop-index migration
+  204, FTS rebuild 206, credential migration 208, and index recreation 214.
+  Updated runner hook for fork migration 216, provider-cost schema guard 215,
+  and `OPTIONAL_FTS5_MIGRATION_VERSIONS` plus its test for local migration 206.
+- Updated migration tests/fixtures/docs and both overlay pins to the reviewed
+  OCI index. Extended the full-catalog refresh regression to reject search,
+  chat, completion, inference, and Auto requests; it retains assertions that
+  no search run is claimable and every identity has zero attempts.
+- `node --test tests/unit/build/upstream-v3852-release-layout.test.mjs` passes
+  2/2. Combined overlay/layout tests pass 18/19; the pre-existing
+  `omni-overlay-workflow-policy.test.mjs` case fails because `.dockerignore`
+  contains its existing `!tests/` runtime-smoke exception, which the assertion
+  rejects. `.dockerignore` is unchanged here.
+- Focused TypeScript migration/benchmark tests could not start: shared
+  `/srv/projects/hermes/OmniRoute/node_modules` contains macOS ARM64 esbuild;
+  this Linux host requires Linux x64. Worktree has no local `node_modules`.
+  Did not install or mutate shared dependencies. No full suite or OpenSpec
+  validator result is claimed.
+- Code Simplifier review found only a long regression assertion to format;
+  no further behavior-preserving simplification was needed. `git diff --check`
+  passed. Changes remain uncommitted for lead review; no push, merge, workflow
+  enablement, build, deployment, or DB operation was performed.
+- Next gates: run focused TypeScript suites with correct Linux dependencies,
+  complete fresh independent review, and let lead own any commit. After merge,
+  TL313 must complete isolated production-clone migration and rollback
+  rehearsal before any ARM64 image build.
+
+## Review follow-up and Linux validation — 2026-10-29
+
+- Fixed three review findings: updated the repository deployment verifier's
+  base-label pin and active image-build spec; corrected artifact-index fixture
+  cutoff/expectations to selector 211 and index 212; changed overlay policy
+  test to pin the exact required `.dockerignore` runtime-smoke allowlist. The
+  installed host helper `/usr/local/libexec/omniroute-deploy.py` was not read
+  or modified; TL316 host update is recorded in repo `openspec/TODO.md`.
+- `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild`
+  focused migration/benchmark/capability command passed 87/87. Artifact-index
+  upgrade test passed 2/2. Deploy-helper tests passed 58/58. Combined overlay,
+  layout, and verifier tests passed 20/20 after correcting the stale assertion.
+- The overlay policy finding was a test-contract defect: `.dockerignore`
+  intentionally unignores only `tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs`
+  plus its required parent directories; Dockerfile copies that one smoke into
+  the candidate. The test now asserts exactly those four negations.
+- The repo deploy verifier compares both candidate and prior-image
+  `org.opencontainers.image.base.digest` labels to its constant, confirming
+  the repository value must track the new OCI index. The installed host helper
+  still requires TL316 review/install before deployment; no deployment action
+  was performed.
+- Code Simplifier review found the explicit allowlist comparison and release
+  pin assertions clear and bounded; no further simplification needed. No full
+  suite or strict OpenSpec CLI validation was run. Independent review, baseline
+  comparison, host-helper update, local commit, and TL313 migration rehearsal
+  remain open.
+
+## Final focused validation and independent review — 2026-10-29
+
+- Fresh independent review found no must-fix issues. It rechecked all 16
+  upstream SQL files against the exact tag, fork migration hashes, migration
+  hooks, the overlay/spec/repository verifier pin, direct no-search/no-inference
+  catalog refresh, and the remaining host-helper and DB-rehearsal gates.
+- Focused migration, benchmark, capability, Auto-band, and integration suites
+  passed 87/87 using an isolated Linux esbuild binary. Command used:
+  `ESBUILD_BINARY_PATH=/tmp/tl315-esbuild-linux-x64/node_modules/@esbuild/linux-x64/bin/esbuild DISABLE_SQLITE_AUTO_BACKUP=true node --max-old-space-size=8192 --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1`
+  with the 12 file paths listed in the implementation receipt. Artifact-index
+  upgrade passed 2/2 with the same command prefix; Python deploy-helper tests
+  passed 58/58; overlay, layout, and verifier tests passed 20/20. The direct
+  benchmark/full-catalog regression also passed in a separate focused 17/17
+  run. `git diff --check` passed.
+- Code Simplifier ran again after review-driven changes and found no further
+  simplification. The strict OpenSpec CLI validator was unavailable locally;
+  no full repository baseline comparison was run. Those limits are explicit
+  in `tasks.md` and `openspec/TODO.md`.
+- No installed host helper, production database, image build, workflow,
+  deployment, push, or merge was touched. TL316 must review/install the host
+  helper update; TL313 must complete the isolated migration and rollback
+  rehearsal before any image build or deployment.

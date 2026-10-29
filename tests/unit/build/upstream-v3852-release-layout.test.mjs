@@ -49,3 +49,11 @@ test("both overlay base pins identify the official v3.8.52 index digest", () => 
   assert.ok(dockerfile.includes(`ARG OFFICIAL_IMAGE=${OFFICIAL_IMAGE}`));
   assert.ok(dockerfile.includes(`ARG OFFICIAL_BASE_DIGEST=${OFFICIAL_DIGEST}`));
 });
+
+test("release contract and repo deploy verifier accept the pinned official base", () => {
+  const deployHelper = fs.readFileSync("scripts/deploy/omniroute-deploy.py", "utf8");
+  const spec = fs.readFileSync("openspec/specs/github-overlay-image-build/spec.md", "utf8");
+
+  assert.ok(deployHelper.includes(`OFFICIAL_BASE_DIGEST = "${OFFICIAL_DIGEST}"`));
+  assert.ok(spec.includes(OFFICIAL_IMAGE));
+});

@@ -128,7 +128,7 @@ test("unparseable adopted file warns and is never modified", async () => {
 
 test("additive migration replays without effect", async () => {
   const sql = fs.readFileSync(
-    new URL("../../src/lib/db/migrations/197_proxy_subscription_core_config.sql", import.meta.url),
+    new URL("../../src/lib/db/migrations/200_proxy_subscription_core_config.sql", import.meta.url),
     "utf8"
   );
   assert.ok(sql.includes("ADD COLUMN core_config_path TEXT"));

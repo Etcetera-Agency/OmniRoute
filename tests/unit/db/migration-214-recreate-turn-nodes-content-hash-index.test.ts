@@ -1,6 +1,6 @@
-// Migration 201 dropped idx_turn_nodes_content_hash as unread; #15637's
+// Migration 204 dropped idx_turn_nodes_content_hash as unread; #15637's
 // content-based reconnect candidates (findAgenticConversationsByContent) read
-// it on every tracked request. Migration 211 recreates it, and the candidate
+// it on every tracked request. Migration 214 recreates it, and the candidate
 // query must take it instead of filtering each conversation's nodes row by row.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -22,8 +22,8 @@ for (const file of [
   "155_agentic_conversations.sql",
   "156_conversation_turn_nodes.sql",
   "186_conversation_turn_nodes_last_seen_index.sql",
-  "201_drop_unused_turn_node_indexes.sql",
-  "211_recreate_turn_nodes_content_hash_index.sql",
+  "204_drop_unused_turn_node_indexes.sql",
+  "214_recreate_turn_nodes_content_hash_index.sql",
 ]) {
   fs.copyFileSync(path.join(repoMigrations, file), path.join(migrationsDir, file));
 }
@@ -63,7 +63,7 @@ function seed(db: SqliteAdapter): void {
   db.prepare("ANALYZE").run();
 }
 
-test("migration 211 recreates the (conversation_id, content_hash) index after 201", () => {
+test("migration 214 recreates the (conversation_id, content_hash) index after 204", () => {
   const db = openMemorySqliteAdapter();
   try {
     assert.equal(runMigrations(db, { isNewDb: true }), 5);

@@ -1,5 +1,5 @@
-ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96
-ARG OFFICIAL_BASE_DIGEST=sha256:754b5e50361dc2802f0b6576456e72a5163cdc991378ce3f212a2f90b771eb96
+ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
+ARG OFFICIAL_BASE_DIGEST=sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
 ARG BACKEND_ARTIFACT_STAGE=backend-builder
 
 # Install lockfile-resolved dependencies once for both the backend compiler

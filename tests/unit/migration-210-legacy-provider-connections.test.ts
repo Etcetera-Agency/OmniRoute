@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-// 207_remove_opencode_free_provider reads api_key / access_token / refresh_token / id_token /
+// 210_remove_opencode_free_provider reads api_key / access_token / refresh_token / id_token /
 // provider_specific_data. A provider_connections table that predates those core.ts columns
 // used to abort the whole migration run with "no such column: api_key".
 
@@ -57,13 +57,13 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
-test("migration 207 applies on a provider_connections table without the credential columns", () => {
+test("migration 210 applies on a provider_connections table without the credential columns", () => {
   const db = core.getDbInstance();
 
   const applied = db
     .prepare("SELECT version FROM _omniroute_migrations WHERE version = '207'")
     .get();
-  assert.ok(applied, "migration 207 must be recorded as applied on the legacy schema");
+  assert.ok(applied, "migration 210 must be recorded as applied on the legacy schema");
 
   const columns = new Set(
     (db.prepare("PRAGMA table_info(provider_connections)").all() as Array<{ name: string }>).map(

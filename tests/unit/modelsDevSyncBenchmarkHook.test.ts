@@ -161,7 +161,7 @@ test.describe("modelsDevSync benchmark hook", { concurrency: 1 }, async () => {
     assert.deepEqual(modelsDev.getSyncedCapabilities(), {});
   });
 
-  test("syncModelsDev passes saved full-catalog identities to the direct refresh", async () => {
+  test("direct full-catalog refresh publishes evidence without search or inference work", async () => {
     process.env.AA_API_KEY = "local-fetch-stub-only";
     const models = Array.from({ length: 4 }, (_, index) => ({
       id: `benchmark-hook-model-${index + 1}`,
@@ -314,7 +314,9 @@ test.describe("modelsDevSync benchmark hook", { concurrency: 1 }, async () => {
     );
     assert.equal(requestUrls.filter((url) => url.includes("deepswe.datacurve.ai")).length, 1);
     assert.ok(
-      requestUrls.every((url) => !/huggingface|ollama\.com|chat\/completions|inference/i.test(url))
+      requestUrls.every((url) =>
+        !/huggingface|ollama\.com|search|chat\/|completion|inference|auto\//i.test(url)
+      )
     );
   });
 });

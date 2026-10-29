@@ -1,5 +1,5 @@
 // The call-log rotation clears one row per deleted artifact, which scanned
-// call_logs on every lookup. Migration 209 adds idx_cl_artifact_relpath.
+// call_logs on every lookup. Migration 212 adds idx_cl_artifact_relpath.
 // This pins the migration and asserts both readers use the index
 // (EXPLAIN QUERY PLAN), plus the functional clear-then-read behavior.
 import test from "node:test";
@@ -17,8 +17,8 @@ const repoMigrations = path.join(
 );
 const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-migration-209-artifact-"));
 fs.copyFileSync(
-  path.join(repoMigrations, "209_call_logs_artifact_relpath_index.sql"),
-  path.join(migrationsDir, "209_call_logs_artifact_relpath_index.sql")
+  path.join(repoMigrations, "212_call_logs_artifact_relpath_index.sql"),
+  path.join(migrationsDir, "212_call_logs_artifact_relpath_index.sql")
 );
 const originalMigrationsDir = process.env.OMNIROUTE_MIGRATIONS_DIR;
 process.env.OMNIROUTE_MIGRATIONS_DIR = migrationsDir;
@@ -103,7 +103,7 @@ function explain(db: SqliteAdapter, sql: string, params: unknown[]): string {
     .join(" | ");
 }
 
-test("migration 209 creates idx_cl_artifact_relpath and a second run is a no-op", () => {
+test("migration 212 creates idx_cl_artifact_relpath and a second run is a no-op", () => {
   const db = openDb();
   try {
     assert.equal(runMigrations(db, { isNewDb: true }), 1);
@@ -115,7 +115,7 @@ test("migration 209 creates idx_cl_artifact_relpath and a second run is a no-op"
     assert.ok(names.includes("idx_cl_artifact_relpath"));
     assert.equal(runMigrations(db, { isNewDb: true }), 0);
     assert.deepEqual(db.prepare("SELECT version, name FROM _omniroute_migrations").all(), [
-      { version: "209", name: "call_logs_artifact_relpath_index" },
+      { version: "212", name: "call_logs_artifact_relpath_index" },
     ]);
   } finally {
     db.close();

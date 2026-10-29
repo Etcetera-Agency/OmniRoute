@@ -91,7 +91,7 @@ export function findAgenticConversationsByFingerprint(
 /**
  * SQL behind findAgenticConversationsByContent for `probeCount` content hashes. Params, in
  * order: the hashes, the fingerprint hash, the scan limit, the result limit. Exported so
- * the migration test can assert its plan uses idx_turn_nodes_content_hash (migration 211):
+ * the migration test can assert its plan uses idx_turn_nodes_content_hash (migration 214):
  * without it each correlated probe filters a conversation's nodes row by row.
  */
 export function contentCandidatesSql(probeCount: number): string {
@@ -115,8 +115,8 @@ export function contentCandidatesSql(probeCount: number): string {
  * recently seen conversations are probed, through the (conversation_id, content_hash)
  * index. Unlike the plain recency window above, a busy bucket (many parallel agents on
  * one key or session) cannot push a conversation out of the candidates as long as it is
- * among the bucket's recent `scanLimit`. The index was dropped by migration 201 and
- * recreated by 211 for this query (see contentCandidatesSql).
+ * among the bucket's recent `scanLimit`. The index was dropped by migration 204 and
+ * recreated by 214 for this query (see contentCandidatesSql).
  */
 export function findAgenticConversationsByContent(
   fingerprintHash: string,

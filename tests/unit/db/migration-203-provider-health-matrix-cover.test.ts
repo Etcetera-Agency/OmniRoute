@@ -1,5 +1,5 @@
 // The provider health matrix ranks recent call log targets with two ROW_NUMBER()
-// windows, which scanned call_logs without a covering index. Migration 200 adds
+// windows, which scanned call_logs without a covering index. Migration 203 adds
 // idx_cl_health_matrix_cover. This pins the migration and asserts the ranked
 // query actually uses the index (EXPLAIN QUERY PLAN).
 import test from "node:test";
@@ -17,8 +17,8 @@ const repoMigrations = path.join(
 );
 const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-migration-200-"));
 fs.copyFileSync(
-  path.join(repoMigrations, "200_provider_health_matrix_covering_index.sql"),
-  path.join(migrationsDir, "200_provider_health_matrix_covering_index.sql")
+  path.join(repoMigrations, "203_provider_health_matrix_covering_index.sql"),
+  path.join(migrationsDir, "203_provider_health_matrix_covering_index.sql")
 );
 const originalMigrationsDir = process.env.OMNIROUTE_MIGRATIONS_DIR;
 process.env.OMNIROUTE_MIGRATIONS_DIR = migrationsDir;
@@ -165,7 +165,7 @@ function explain(db: SqliteAdapter, sql: string, params: Record<string, string>)
     .join(" | ");
 }
 
-test("migration 200 creates idx_cl_health_matrix_cover and a second run is a no-op", () => {
+test("migration 203 creates idx_cl_health_matrix_cover and a second run is a no-op", () => {
   const db = openDb();
   try {
     assert.equal(runMigrations(db, { isNewDb: true }), 1);
@@ -177,7 +177,7 @@ test("migration 200 creates idx_cl_health_matrix_cover and a second run is a no-
     assert.ok(names.includes("idx_cl_health_matrix_cover"));
     assert.equal(runMigrations(db, { isNewDb: true }), 0);
     assert.deepEqual(db.prepare("SELECT version, name FROM _omniroute_migrations").all(), [
-      { version: "200", name: "provider_health_matrix_covering_index" },
+      { version: "203", name: "provider_health_matrix_covering_index" },
     ]);
   } finally {
     db.close();

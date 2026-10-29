@@ -871,22 +871,42 @@ Deferred cross-repository and operations work:
       read-only root, read-only smoke artifacts, and tmpfs `/tmp`; no production
       data, env, keys, provider calls, or container changes were involved. Run
       `40504168756` failed before publish/deploy.
-- [ ] Upgrade the isolated branch from merged fix `7bb10048702966cccaa0eebe62bb83bfad040265`
+- [x] Upgrade the isolated branch from merged fix `7bb10048702966cccaa0eebe62bb83bfad040265`
       to final official v3.8.52 source `ad6f33f66bda34eba98645d3bfdabbde294bc843`
       and pin the matching overlay index `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
       before any image build. Keep deployed fork migrations 197–199; map
       upstream 197–212 to 200–215 and pending fork 200 to 216. Preserve
       benchmark formula/profiles/current-set publication, strict zero-cost
-      free-only Auto bands, and capabilities. Prove the exact source/runtime
-      migration inventory, order and upstream SQL effects, then run targeted
-      upstream migration, benchmark, Auto-band, capability, and overlay
-      regressions. TL313 must rehearse the full ordered migration set against
-      a consistent isolated production DB clone, verify the migrated schema,
-      FTS5 and credential behavior, benchmark outputs, foreign keys and DB
-      integrity, and test rollback by restoring its pre-migration snapshot with
-      the prior image. Only after that gate and the parent's grant may the
-      disabled workflow build one authoritative ARM64 image, verify and publish
-      its immutable digest, and proceed to approved deployment.
+      free-only Auto bands, and capabilities. SQL digests for fork migrations
+      197–199 and pending 216 match their pre-rename bytes; official migration
+      SQL matches exact v3.8.52 source. Both overlay pins and regression
+      baselines identify the official OCI index. Focused regression suites pass
+      and fresh independent review found no must-fix issues; source is locally
+      committed without push, merge, build, or deployment.
+- [ ] Compare repository-wide test failures with the pre-change branch before
+      release acceptance. Focused migration, benchmark-current, free-only
+      Auto-band, models.dev capability, deploy-helper, and overlay suites pass;
+      exact commands and counts are in the package `completion.review`. They ran
+      with an isolated Linux esbuild at `/tmp/tl315-esbuild-linux-x64`; shared
+      dependency directories were not changed. Direct full-catalog refresh
+      makes no search enqueue/drain, search/chat/provider-inference, or
+      free-Auto requests.
+- [x] Complete fresh independent review and commit the reviewed local
+      candidate from the lead-owned worktree. No push, merge, workflow
+      enablement, build, or deployment was performed.
+- [ ] TL316 must update installed host helper
+      `/usr/local/libexec/omniroute-deploy.py` so its accepted
+      `org.opencontainers.image.base.digest` matches official OCI index
+      `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
+      The repository helper and its tests are updated; no production host file
+      was read or changed. TL316 must review and install the matching helper
+      patch before any deployment.
+- [ ] TL313 rehearses exact ordered migration set against a consistent
+      isolated production DB clone; verify migrated schema, FTS5 and credential
+      behavior, benchmark outputs, foreign keys and DB integrity; restore the
+      pre-migration snapshot with prior image to prove rollback. Only after
+      that gate and parent's grant may disabled workflow build one authoritative
+      ARM64 image and retain immutable artifact receipts.
 - [x] Verify the direct operator's raw active-catalog fitness key reaches both
       actual free `coding_high_tools` and `general_high_tools` band filters;
       keep `${providerId}/${modelId}` separate as the route-facing model string.

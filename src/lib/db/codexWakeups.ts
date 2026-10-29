@@ -1,7 +1,7 @@
 /**
  * Database module: scheduled Codex account wakeups.
  *
- * Tables `codex_wakeup_tasks` and `codex_wakeup_runs` (migration 206). A run row is also
+ * Tables `codex_wakeup_tasks` and `codex_wakeup_runs` (migration 209). A run row is also
  * the cross-process lease: `claimCodexWakeupRun` only inserts a new `running` run when
  * no other run of the same task holds a live lease, inside one SQLite transaction, so
  * two processes sharing a DATA_DIR cannot both run the same task.

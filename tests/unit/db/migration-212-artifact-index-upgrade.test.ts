@@ -5,16 +5,16 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-artifact-209-upgrade-"));
+const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-artifact-212-upgrade-"));
 const dataDir = path.join(fixture, "data");
 const migrationsDir = path.join(fixture, "migrations");
 const repoMigrations = fileURLToPath(new URL("../../../src/lib/db/migrations/", import.meta.url));
-const indexMigration = "209_call_logs_artifact_relpath_index.sql";
+const indexMigration = "212_call_logs_artifact_relpath_index.sql";
 fs.mkdirSync(migrationsDir);
 // Pin this upgrade fixture to its target; later migrations have their own tests.
 for (const name of fs
   .readdirSync(repoMigrations)
-  .filter((name) => /^\d+_.+\.sql$/.test(name) && Number.parseInt(name, 10) <= 209)) {
+  .filter((name) => /^\d+_.+\.sql$/.test(name) && Number.parseInt(name, 10) <= 212)) {
   fs.copyFileSync(path.join(repoMigrations, name), path.join(migrationsDir, name));
 }
 // Counted, not hard-coded: the fixture holds every migration up to the index one.
@@ -38,18 +38,18 @@ test.after(() => {
   fs.rmSync(fixture, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
-test("fresh database applies every migration up to the artifact index, including selector 208", () => {
+test("fresh database applies every migration up to artifact index 212, including selector 211", () => {
   const db = freshDatabase();
   const records = db.prepare("SELECT version, name FROM _omniroute_migrations").all();
   assert.equal(records.length, fixtureCount);
   assert.ok(
     records.some(
       (row) =>
-        row.version === "208" && row.name === "proxy_subscription_selector_last_switch_by_selector"
+        row.version === "211" && row.name === "proxy_subscription_selector_last_switch_by_selector"
     )
   );
   assert.ok(
-    records.some((row) => row.version === "209" && row.name === "call_logs_artifact_relpath_index")
+    records.some((row) => row.version === "212" && row.name === "call_logs_artifact_relpath_index")
   );
   assert.ok(
     db.prepare("SELECT name FROM sqlite_master WHERE name = 'idx_cl_artifact_relpath'").get()
