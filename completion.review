@@ -1287,3 +1287,16 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   record simplification for both source slices; integration adds no code, so no
   further simplification was applicable. Combined release and native live
   acceptance remain open; keep packages unarchived.
+
+## Final combined review follow-up — 2026-10-29
+
+- Fresh independent review of the combined diff first found the score resolver
+  header omitted the new fourth `free-prefix` tier. A second pass found the
+  initial wording overclaimed that nested IDs always stay unresolved. Two
+  comment-only commits now document the exact rule: a full registry-anchored
+  remainder resolves; otherwise the raw ID stays unchanged.
+- Re-review of final commit `c00eda16a6c5ed629a3b48f12bd2a21c755c8777` found no
+  remaining findings. Behavior did not change, so focused suites were not
+  rerun after the comment edits; commit hooks passed both edits.
+- Combined deployed-source and native free-only live acceptance remains open
+  and tracked in `openspec/TODO.md`.
