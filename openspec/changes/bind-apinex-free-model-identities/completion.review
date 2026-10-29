@@ -1,0 +1,54 @@
+# Completion review: exact APInex free-prefix model identity binding
+
+## Source cause and selected fix
+
+- APInex custom-provider inventory preserves raw dispatch IDs such as
+  `free/muse-spark-1.3`; the shared catalog and existing score rows use exact
+  base identity `muse-spark-1.3`. The score resolver handled `-free` suffixes,
+  not this leading namespace. Capability resolution had no strict canonical
+  binding seam for the raw ID.
+- Review also found that generic synced lookup strips paths to their leaf,
+  effort fallback strips suffixes, and the vision heuristic scans model-name
+  fragments. Those paths could let unanchored nested, sibling variant, or
+  family-looking IDs gain capabilities despite having no exact identity.
+- Added an exact provider-registry ID lookup and literal `free/<base>` resolver.
+  Scores reuse the existing base inheritance path only after an exact anchor.
+  Capability resolution keeps raw dispatch identity, uses exact raw synced rows,
+  and consults exact-base synced, unanimous registry, and exact static evidence
+  only after the anchor. Unknown, nested, partial, conflicting identities,
+  unanchored effort variants, and unanchored vision-family paths do not inherit
+  guessed capability fields.
+- Provider-specific direct fields and overrides keep precedence. Base score
+  values, source priorities, expiry/profile rules, routing formulas, band
+  predicates, candidate membership, and Auto filters are unchanged.
+
+## Regressions and verification
+
+- TDD reproduced APInex `free/<exact-base>` missing score/capabilities, a
+  nested free path borrowing a synced row by its leaf, an unanchored `-high`
+  free variant borrowing its sibling base, and an unanchored `pixtral` path
+  gaining vision from the model-name heuristic. All pass with strict lookup;
+  exact `free/kimi` still wins despite longer IDs sharing its prefix.
+- Focused suite passed **26/26** across APInex binding, task fitness,
+  capability registry/path resolution, and native AutoCombo candidate tests.
+  Coverage includes canonical field consensus, explicit provider false/vision
+  overrides, global/profile `coding` and `general` score priority, expired
+  Arena evidence, hidden raw keys, raw/base connection exclusions, unchanged
+  dispatch IDs, and unchanged band pool membership.
+- Strict OpenSpec validation passed. Prettier checks and `git diff --check`
+  passed. The final scoped `check:open-sse-typecheck` still reports seven
+  diagnostics, including four diagnostics outside this diff:
+  `open-sse/services/systemOne/schema.ts` TS2353,
+  `src/lib/modelBenchmarkSearch.ts` TS2322/TS2339, and
+  `src/lib/proxySubscription/parse.ts` TS2345 (three occurrences). It reports
+  no diagnostic in a TL322-changed file.
+- Code Simplifier reviewed the source and tests. No local app/image build,
+  provider request, provider-state mutation, push, merge, or deploy occurred.
+
+## Remaining work
+
+- Fresh independent review, integration, and deployed-source/live native
+  acceptance remain open. Repo-level `openspec/TODO.md` tracks these gates.
+- TL324 owns official APInex free-entitlement pricing ingestion. Do not infer
+  eligibility from the `free/` prefix, fabricate prices, or modify the existing
+  strict zero-cost guard as part of this change.

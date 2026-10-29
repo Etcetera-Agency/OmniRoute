@@ -1,7 +1,10 @@
 import {
   PROVIDER_ID_TO_ALIAS,
   PROVIDER_MODELS,
+  findRegistryModelsByExactId,
+  resolveFreePrefixBase,
 } from "@omniroute/open-sse/config/providerModels.ts";
+import type { RegistryModel } from "@omniroute/open-sse/config/providerRegistry.ts";
 import {
   hasKnownProviderModel,
   parseModel,
@@ -352,6 +355,84 @@ function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSp
   return undefined;
 }
 
+function getExactStaticSpec(modelId: string | null): ModelSpec | undefined {
+  if (!modelId || findModelSpecIdByExactOrAlias(modelId, { stripNamespace: false }) !== modelId) {
+    return undefined;
+  }
+  return getModelSpec(modelId, { stripNamespace: false });
+}
+
+const CANONICAL_REGISTRY_CAPABILITY_FIELDS = [
+  "toolCalling",
+  "supportsReasoning",
+  "supportsVision",
+  "supportsAudio",
+  "supportsVideo",
+  "contextLength",
+  "maxInputTokens",
+  "maxOutputTokens",
+  "supportedThinkingEfforts",
+  "interleavedField",
+] as const satisfies readonly (keyof RegistryModel)[];
+
+// AICODE-NOTE: A free/ path stays the request identity. Only its exact catalog
+// base can supply missing capability evidence.
+function sameRegistryCapabilityValue(left: unknown, right: unknown): boolean {
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+  return Object.is(left, right);
+}
+
+function getExactCanonicalRegistryCapabilities(modelId: string): RegistryModel | undefined {
+  const rows = findRegistryModelsByExactId(modelId);
+  if (rows.length === 0) return undefined;
+
+  const merged: RegistryModel = { id: modelId, name: rows[0]!.name };
+  for (const field of CANONICAL_REGISTRY_CAPABILITY_FIELDS) {
+    const declared = rows.flatMap((row) => (row[field] === undefined ? [] : [row[field]]));
+    if (declared.length === 0) continue;
+    const value = declared[0];
+    if (!declared.every((candidate) => sameRegistryCapabilityValue(candidate, value))) continue;
+    merged[field] = value as never;
+  }
+  return merged;
+}
+
+function mergeDefinedFields<T extends object>(fallback: T, direct?: Partial<T> | null): T {
+  if (!direct) return fallback;
+  const defined = Object.fromEntries(
+    Object.entries(direct).filter(([, value]) => value !== undefined)
+  );
+  return { ...fallback, ...defined } as T;
+}
+
+function fillRegistryCapabilityGaps(
+  direct: RegistryModel | null,
+  fallback: RegistryModel | undefined
+): RegistryModel | null {
+  if (!fallback) return direct;
+  return mergeDefinedFields(fallback, direct);
+}
+
+function fillStaticSpecGaps(
+  direct: ModelSpec | undefined,
+  fallback: ModelSpec | undefined
+): ModelSpec | undefined {
+  return fallback ? mergeDefinedFields(fallback, direct) : direct;
+}
+
+function fillSyncedCapabilityGaps(
+  direct: SyncedCapabilities,
+  fallback: SyncedCapabilities
+): SyncedCapabilities {
+  if (!fallback) return direct;
+  const defined = Object.fromEntries(
+    Object.entries(direct ?? {}).filter(([, value]) => value !== null && value !== undefined)
+  );
+  return { ...fallback, ...defined };
+}
+
 /**
  * #8032: vision-only leaf fallback for path-shaped routed ids.
  *
@@ -459,6 +540,10 @@ function reverseModelsDevProviders(provider: string): readonly string[] {
   return result;
 }
 
+function getSyncedCapabilityProviderCandidates(provider: string): string[] {
+  return Array.from(new Set([provider, ...reverseModelsDevProviders(provider), "vercel"]));
+}
+
 function getSyncedCapabilityForResolved(
   provider: string | null,
   model: string | null,
@@ -489,9 +574,7 @@ function getSyncedCapabilityForResolved(
 
   // Include common host providers that re-publish OpenAI specialty models under
   // qualified ids (observed: vercel/openai/whisper-1, vercel/openai/tts-1).
-  const providerCandidates = Array.from(
-    new Set([provider, ...reverseModelsDevProviders(provider), "vercel"])
-  );
+  const providerCandidates = getSyncedCapabilityProviderCandidates(provider);
 
   const bulk = snapshot?.synced ?? null;
   for (const prov of providerCandidates) {
@@ -501,6 +584,33 @@ function getSyncedCapabilityForResolved(
     }
   }
   return null;
+}
+
+function getSyncedCapabilityForExactModel(
+  provider: string | null,
+  model: string | null,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): SyncedCapabilities {
+  if (!provider || !model) return null;
+  for (const candidate of getSyncedCapabilityProviderCandidates(provider)) {
+    const found = getSyncedCapability(candidate, model, snapshot?.synced ?? null);
+    if (found) return found;
+  }
+  return null;
+}
+
+function getSyncedCapabilityForFreePrefix(
+  provider: string | null,
+  model: string | null,
+  rawModel: string | null,
+  base: string | null,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): SyncedCapabilities {
+  const direct =
+    getSyncedCapabilityForExactModel(provider, model, snapshot) ??
+    (rawModel !== model ? getSyncedCapabilityForExactModel(provider, rawModel, snapshot) : null);
+  const canonical = base ? getSyncedCapabilityForExactModel(provider, base, snapshot) : null;
+  return fillSyncedCapabilityGaps(direct, canonical);
 }
 
 /**
@@ -564,7 +674,8 @@ function resolveVisionCapability(
   modelId?: string,
   customVisionOverride?: boolean | null,
   compatVisionOverride?: boolean | null,
-  syncedAvailableModelVision?: boolean | null
+  syncedAvailableModelVision?: boolean | null,
+  allowModelIdHeuristic = true
 ): boolean | null {
   const allModalities = [...modalitiesInput, ...modalitiesOutput].map((entry) =>
     String(entry).toLowerCase()
@@ -631,7 +742,7 @@ function resolveVisionCapability(
   // Last resort: no capability data at all. Positively confirm known multimodal
   // families by model id so image requests can be routed to them; everything
   // else stays `null` (unknown).
-  if (modelIdLikelyVision(modelId)) return true;
+  if (allowModelIdHeuristic && modelIdLikelyVision(modelId)) return true;
 
   return null;
 }
@@ -813,23 +924,40 @@ export function getExplicitModelOutputCap(
   snapshot?: ModelCapabilityResolutionSnapshot | null
 ): number | null {
   const resolved = resolveCapabilityInput(input);
+  const freeBase = resolveFreePrefixBase(resolved.model ?? "");
   const maxTokenOverride = snapshot
     ? getMaxTokenCapabilityOverride(resolved, snapshot)
     : getOutputTokenCapabilityOverride(resolved);
   if (maxTokenOverride !== null) return maxTokenOverride;
 
-  const synced = getSyncedCapabilityForResolved(
-    resolved.provider,
-    resolved.model,
-    resolved.rawModel,
-    snapshot
-  );
+  const synced = resolved.model?.startsWith("free/")
+    ? getSyncedCapabilityForFreePrefix(
+        resolved.provider,
+        resolved.model,
+        resolved.rawModel,
+        freeBase,
+        snapshot
+      )
+    : getSyncedCapabilityForResolved(
+        resolved.provider,
+        resolved.model,
+        resolved.rawModel,
+        snapshot
+      );
   if (synced && typeof synced.limit_output === "number") return synced.limit_output;
 
-  const registryModel = getRegistryModel(resolved.provider, resolved.model);
+  const registryModel = fillRegistryCapabilityGaps(
+    getRegistryModel(resolved.provider, resolved.model),
+    freeBase ? getExactCanonicalRegistryCapabilities(freeBase) : undefined
+  );
   if (typeof registryModel?.maxOutputTokens === "number") return registryModel.maxOutputTokens;
 
-  const spec = getStaticSpec(resolved.model, resolved.rawModel);
+  const spec = resolved.model?.startsWith("free/")
+    ? fillStaticSpecGaps(
+        getExactStaticSpec(resolved.model),
+        freeBase ? getExactStaticSpec(freeBase) : undefined
+      )
+    : getStaticSpec(resolved.model, resolved.rawModel);
   return spec?.maxOutputTokens ?? null;
 }
 
@@ -854,14 +982,26 @@ export function getResolvedModelCapabilities(
   // persisted override never feeds back into the comparison that (re)writes it.
   const usePersistedOverrides = options?.persistedOverrides !== false;
   const resolved = resolveCapabilityInput(input);
-  let spec = getStaticSpec(resolved.model, resolved.rawModel);
+  const isFreePrefixModel = resolved.model?.startsWith("free/") ?? false;
+  const freeBase = resolveFreePrefixBase(resolved.model ?? "");
+  let spec = isFreePrefixModel
+    ? getExactStaticSpec(resolved.model)
+    : getStaticSpec(resolved.model, resolved.rawModel);
   let registryModel = getRegistryModel(resolved.provider, resolved.model);
-  let synced = getSyncedCapabilityForResolved(
-    resolved.provider,
-    resolved.model,
-    resolved.rawModel,
-    snapshot
-  );
+  let synced = isFreePrefixModel
+    ? getSyncedCapabilityForFreePrefix(
+        resolved.provider,
+        resolved.model,
+        resolved.rawModel,
+        freeBase,
+        snapshot
+      )
+    : getSyncedCapabilityForResolved(
+        resolved.provider,
+        resolved.model,
+        resolved.rawModel,
+        snapshot
+      );
 
   // Effort-suffixed variants (e.g. command-code `deepseek-v4-flash-max`,
   // `meta/muse-spark-1.2-contributor-xhigh`) are synthesized in the catalog
@@ -872,7 +1012,14 @@ export function getResolvedModelCapabilities(
   // silently reorders it behind models with confirmed capabilities. Resolve
   // the variant's capabilities from its base model when every direct source
   // misses.
-  if (!spec && !registryModel && !synced && resolved.provider && resolved.model) {
+  if (
+    !isFreePrefixModel &&
+    !spec &&
+    !registryModel &&
+    !synced &&
+    resolved.provider &&
+    resolved.model
+  ) {
     const baseModelId = stripKnownEffortSuffix(resolved.model);
     if (baseModelId && baseModelId !== resolved.model) {
       spec = getStaticSpec(baseModelId, resolved.rawModel);
@@ -884,6 +1031,14 @@ export function getResolvedModelCapabilities(
         snapshot
       );
     }
+  }
+
+  if (freeBase) {
+    registryModel = fillRegistryCapabilityGaps(
+      registryModel,
+      getExactCanonicalRegistryCapabilities(freeBase)
+    );
+    spec = fillStaticSpecGaps(spec, getExactStaticSpec(freeBase));
   }
 
   const modalitiesInput = parseModalities(synced?.modalities_input);
@@ -927,11 +1082,24 @@ export function getResolvedModelCapabilities(
           : null) ??
         (typeof spec?.supportsThinking === "boolean" ? spec.supportsThinking : null));
 
-  const authoritativeContextWindow = getAuthoritativeStaticContextWindow(
-    resolved.provider,
-    resolved.model,
-    resolved.rawModel
-  );
+  let authoritativeContextWindow: number | null;
+  if (isFreePrefixModel) {
+    authoritativeContextWindow = null;
+    for (const candidate of [resolved.model, resolved.rawModel]) {
+      if (!candidate) continue;
+      authoritativeContextWindow = getAuthoritativeProviderContextWindow(
+        resolved.provider,
+        candidate
+      );
+      if (authoritativeContextWindow !== null) break;
+    }
+  } else {
+    authoritativeContextWindow = getAuthoritativeStaticContextWindow(
+      resolved.provider,
+      resolved.model,
+      resolved.rawModel
+    );
+  }
   // A persisted context-window override (operator-set or auto-discovered)
   // reflects the real *total* window and wins over every static/synced source.
   // `maxInputTokens` still follows its own precedence chain; only when that
@@ -958,9 +1126,11 @@ export function getResolvedModelCapabilities(
       ? getOutputTokenCapabilityOverride(resolved)
       : null;
 
-  // Vision consults leaf static metadata for path-shaped ids; other capability
-  // fields keep using the non-leaf `spec` from getStaticSpec() above.
-  const visionSpec = getVisionStaticSpec(resolved.model, resolved.rawModel);
+  // Preserve the leaf fallback for other paths; free/ IDs use only the exact
+  // raw or base specs resolved above.
+  const visionSpec = isFreePrefixModel
+    ? spec
+    : getVisionStaticSpec(resolved.model, resolved.rawModel);
 
   // #9195 / #12758: keep the original provider&&model short-circuit. All
   // three advertised id forms still parse to both halves; the matcher
@@ -999,7 +1169,8 @@ export function getResolvedModelCapabilities(
     lookupKey,
     customVisionOverride,
     compatVisionOverride,
-    syncedAvailableModelVision
+    syncedAvailableModelVision,
+    !isFreePrefixModel || freeBase !== null
   );
   const supportsAudio = resolveAudioCapability(spec, registryModel, modalitiesInput);
   const supportsVideo = resolveVideoCapability(spec, registryModel, modalitiesInput);

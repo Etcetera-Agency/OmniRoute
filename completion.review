@@ -1,5 +1,40 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## APInex exact free-prefix identity binding (2026-10-29)
+
+- APInex custom-provider model inventory keeps raw IDs such as
+  `free/muse-spark-1.3`, while existing capability and score evidence is keyed
+  by exact canonical ID `muse-spark-1.3`. Added strict exact registry anchoring
+  for the literal leading `free/` path and reused existing fitness inheritance
+  without changing scores, priorities, profile selection, or expiry rules.
+- Capability inheritance is exact-ID only. The raw provider/model pair remains
+  the dispatch and candidate identity; raw synced values and provider-scoped
+  overrides retain precedence. Canonical synced/static/registry evidence is
+  eligible only after the exact registry anchor. Duplicate registry fields
+  must agree, and conflicts remain unknown.
+- Source review found generic synced-leaf and effort-suffix fallbacks plus the
+  vision-family heuristic could resolve unanchored paths. Regressions
+  reproduced a nested path inheriting a synced leaf, an unanchored `-high`
+  variant inheriting its sibling base, and a nested `pixtral` name gaining
+  vision heuristically. Free-prefix lookup now uses exact raw/base IDs and
+  skips shared heuristic fallback without an exact anchor.
+- TDD regressions pass for exact APInex IDs, prefix-only/nested unknown IDs,
+  `free/kimi` exact-ID precedence, capability consensus, provider false/vision
+  overrides, unanchored nested/effort/vision-family identities, expired Arena scores,
+  user/Arena/benchmark priorities, low/mid/high profiles, raw hidden keys,
+  per-connection exclusions, and unchanged native band pool membership.
+  Focused combined tests pass 26/26.
+- Strict OpenSpec validation, Prettier, and `git diff --check` pass. Scoped
+  typecheck remains red with seven repository diagnostics, including four
+  outside this diff in `open-sse/services/systemOne/schema.ts`,
+  `src/lib/modelBenchmarkSearch.ts`, and `src/lib/proxySubscription/parse.ts`;
+  no diagnostic points to a TL322-changed file. Code Simplifier reviewed the
+  changed source and tests.
+- No local app/image build, provider request, provider-state mutation, push,
+  merge, or deploy occurred. Fresh independent review and deployed-source/live
+  acceptance remain open. TL324 separately owns official APInex free pricing;
+  the `free/` prefix is not entitlement evidence.
+
 ## ARM64 duplicate import regression (2026-10-29)
 
 - Removed duplicate imports from `open-sse/services/combo/resolveAutoStrategy.ts`

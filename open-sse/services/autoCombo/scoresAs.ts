@@ -34,12 +34,16 @@
  *
  * One hop only — a `scoresAs` target is not itself re-resolved.
  */
-import { findRegistryModelById, findRegistryScoresAs } from "../../config/providerModels.ts";
-import { splitClaudeEffortSuffix } from "../../config/providerModels.ts";
+import {
+  findRegistryModelById,
+  findRegistryScoresAs,
+  resolveFreePrefixBase,
+  splitClaudeEffortSuffix,
+} from "../../config/providerModels.ts";
 import { splitCodexReasoningSuffix } from "../../executors/codex/reasoningSuffix.ts";
 
 /** How a base id was reached; `null` means "not resolved — score the id as given". */
-export type ScoresAsVia = "explicit" | "effort-suffix" | "free-suffix" | null;
+export type ScoresAsVia = "explicit" | "effort-suffix" | "free-suffix" | "free-prefix" | null;
 
 export interface ScoresAsResolution {
   /** The id whose quality scores apply. Equals the input when `via` is `null`. */
@@ -57,6 +61,11 @@ const EFFORT_SPLITTERS = [splitClaudeEffortSuffix, splitCodexReasoningSuffix] as
 export function resolveScoresAs(modelId: string): ScoresAsResolution {
   const unresolved: ScoresAsResolution = { base: modelId, via: null };
   if (typeof modelId !== "string" || modelId.length === 0) return unresolved;
+
+  if (modelId.startsWith("free/")) {
+    const base = resolveFreePrefixBase(modelId);
+    return base ? { base, via: "free-prefix" } : unresolved;
+  }
 
   // 1. Explicit registry declaration. One hop: the target must itself be a
   //    catalog id, and its own `scoresAs` (if any) is deliberately not followed.

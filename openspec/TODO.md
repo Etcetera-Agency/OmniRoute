@@ -969,14 +969,28 @@ Deferred cross-repository and operations work:
       `request_exhaustion` / generic availability subreasons without changing
       filters based on the timeout. Owner notes that existing canonical free,
       capability, reasoning, and fitness data may be reusable across provider
-      routes. TL320 owns proving the exact data-binding gap; no fix has been
-      selected. Treat APInex metadata coverage and cross-provider binding as
-      unverified until that receipt. One successful native free-only tool call
+      routes. TL320 proved the exact data-binding gap from read-only runtime
+      state. TL322's local exact-canonical identity binding is implemented on
+      its feature branch; fresh review, integration, and deployed-source
+      acceptance remain open. One
+      successful native free-only tool call
       must prove actual model, route, usage, and cost, with no paid or
       out-of-band fallback. Keep APInex-only state until owner steering; restore
       other providers only on that steering. Clean this task's redundant
       artifacts while retaining one DB/image rollback pair. Do not archive this
       package before this gate closes.
+- [ ] TL324: integrate official APInex free-entitlement pricing through the
+      source-aware reader/merge path. The official APInex model pages list 44
+      models, including 21 free models with exact zero input/output prices;
+      the synced custom-node model rows carry only ID, name, and source. The
+      native zero-cost guard needs a fresh exact-zero pricing snapshot, while
+      band tiering reads `models_dev_pricing[provider][rawModel]`. Do not infer
+      entitlement from `free/` or zero-cost appearance, hand-write pricing rows,
+      or change the strict zero-cost guard. TL324 owns this separate data
+      boundary; after integration, rerun native eligibility and complete the
+      live acceptance above. The earlier APInex `/v1/models` 401 used encrypted
+      SQLite credentials directly and does not establish that saved credentials
+      are invalid; make no provider request as part of TL322.
 - [ ] Before the separately authorized generated-override cleanup, verify
       whitelist hash
       `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`,
