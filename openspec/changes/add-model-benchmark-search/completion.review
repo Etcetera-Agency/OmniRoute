@@ -1,8 +1,11 @@
 # Completion review — add-model-benchmark-search
 
-**Status:** local implementation, integrated verification, and independent
-review are complete. Merge, release migration rehearsal, deployment, and
-controlled live acceptance remain pending.
+**Status:** Implementation, integrated review, migration rehearsal, ARM64
+deployment, and full current-set benchmark publication are complete. Native
+strict-free tool acceptance remains open: the only actual provider attempt
+timed out, and the APInex-only candidate inspector returned zero candidates
+for the requested band. Keep this package open and unarchived until that gate
+closes.
 
 ## Root cause
 
@@ -279,3 +282,104 @@ awaited operation for the live stall is not proven from available logs.
   restore the pre-migration snapshot with the prior image, then build one
   authoritative ARM64 image. No push, merge, deployment, production DB write,
   live search, or inference occurred in this local package.
+
+## Integrated current-set and live runtime acceptance — 2026-10-29
+
+- The original AA defect was an evidence hash that omitted benchmark and
+  metric, colliding Coding and Intelligence observations. The earlier direct
+  refresh also covered only active providers and did not feed the complete
+  canonical catalog or ordinary models.dev sync. The integrated fix preserves
+  full AA pagination, official SWE-bench / Terminal-Bench 2.0 / 2.1 / DeepSWE
+  feeds, exact raw-ID then unique exact-name matching, current-set replacement,
+  and atomic publication to native `model_intelligence` sources. It stores no
+  raw payload or source history. Existing HF evidence is preserved; its latest
+  captured rows are from 2026-10-26, so no fresh HF fetch is claimed.
+- The correction merged in PR #42 at `7bb10048702966cccaa0eebe62bb83bfad040265`.
+  Final upstream v3.8.52 integration merged in PR #43 at
+  `c204f2aba69c282e582697f43ca5ca6e2cf474f2`; duplicate build-import
+  declarations were corrected in PR #44 at main `df19cd81e3031621148e13b8b4ee4b0bea52126e`.
+  The upstream tag is `ad6f33f66bda34eba98645d3bfdabbde294bc843`.
+- The exact migration set was rehearsed on an isolated production DB clone.
+  Integrity and foreign-key checks passed, 327 benchmark observations and
+  score projections were preserved, and the synthetic FTS check was rolled
+  back to its savepoint. Production journal is at migration 216; the current
+  evidence table has no `raw_json`, and the legacy evidence table is absent.
+- Successful normal models.dev sync wrote 9,812 pricing rows, 236 provider
+  rows, and 10,216 capability rows. Direct-source snapshot: AA 416 rows / 208
+  raw IDs / 199 canonical IDs; DeepSWE 73 rows / 31 raw IDs / 28 canonical
+  IDs; SWE-bench 38 rows / 7 canonical IDs; Terminal-Bench 2.0 24 rows / 10
+  canonical IDs; Terminal-Bench 2.1 2 rows / 1 canonical ID. Existing HF
+  snapshot remains 1,419 rows across 123 IDs from its 2026-10-26 capture. All
+  `benchmark_fitness`, `benchmark_fitness:low`,
+  `benchmark_fitness:medium`, and `benchmark_fitness:high` were republished at
+  2026-10-29 13:49:27 UTC.
+- The native reader returns `benchmark_fitness` for
+  `claude-3.5-sonnet` in coding and general categories, with low/medium/high
+  profiles `0.35714285714285715` and base score `0.5`. Current free-band
+  candidate counts before provider isolation were coding low/mid/high `10/5/2`
+  and general `13/3/1`. Generic Auto reads the base score; explicit bands read
+  the matching profile. Existing `benchmark_consensus` and
+  `models_dev_tier` scores remain valid static fallbacks for candidates without
+  a benchmark profile. Formula, scoring, effort profiles, Auto/free filters,
+  routing, capabilities, and cost policy did not change.
+- GitHub workflow run `40871049172` failed before publish or deploy. Run
+  `40879166447` succeeded on source
+  `df19cd81e3031621148e13b8b4ee4b0bea52126e`, built and deployed the ARM64
+  image `sha256:3239130242ccc9d6a15fb535b01bcce361379c42927c2c132a070dc83af68a35`
+  (image ID
+  `ae300d0556b1c16fe0ed809357b96ef8da194afed4b1a85daf94918c475cdc2d`). It
+  uses official base index
+  `sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`
+  and ARM64 child
+  `sha256:fb7f91836fd95f382a5a04af740d859e2e9731804b5c0ba43f5d2e7f9ad64794`.
+  Runtime is healthy. Temporary sync suppression was removed, the original
+  sync resumed on the same image, the app alone was recreated, and Redis was
+  unchanged. No local Hetzner build is used as acceptance: the earlier local
+  attempt ended by SIGTERM and is inconclusive; future image builds remain
+  GitHub-only. Workflow `373883666` remains manually disabled.
+- Native request accounting: three client completions produced exactly one
+  actual provider attempt. Public correlation
+  `741de1ea-289b-4c1e-bf5c-a17ebfc15743` received Traefik 403 at
+  2026-10-29 14:24:24 UTC before upstream. Restricted-key correlation
+  `5dcd66b1-c32b-40ed-9271-a4dbe0b3c9ed` / request
+  `a6e7dbaa-756c-409d-8a40-4f18d7dae643` returned 503
+  `ALL_TARGETS_SKIPPED`: the key denied all six targets, twice, so no provider
+  was called. The temporary narrow key allowed the six native targets and
+  requested combo only; it was deleted and is absent from the DB.
+- The actual native request used correlation
+  `6dc4d3a1-f3a3-43fd-80e6-b3b37ce9f86c`, trace
+  `tracecombo-997642a9-3a5c-4326-aeeb-9d0449111f1a`, and
+  `auto/coding_high_tools:free`. Strict preflight passed and selected
+  `nvidia/deepseek-ai/deepseek-v4.1-flash`, connection
+  `0dcae5e2-a3ae-4d25-846a-09d88e4baf5c`, with candidate score `0.9821875`
+  from `benchmark_consensus:high`; generic task fit was `0.85` from
+  `models_dev_tier`. This single provider attempt timed out after 302,271 ms
+  with HTTP 504. Proxy `5c39b461-6d6a-403f-915b-5d0924193ae3`, inner call
+  `9facf497-fe5f-43bd-b7c5-71f0e07046d1`, and outer call
+  `1401213a-fd91-4ef7-ae90-ab0d2d17ae24` are logs for that one attempt, not
+  additional attempts. Usage is 0/0 and there is no cost-ledger row; this is
+  not a successful zero-cost receipt.
+- Owner-requested provider isolation remains in effect. Of 42 connections and
+  35 providers before isolation, all 33 non-APInex providers were disabled;
+  eight connections already inactive stayed inactive. The sole active node is
+  APInex (`openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1`,
+  connection `9565fb26-817c-42b4-baa0-b76733a951c4`, base
+  `api.apinex.bond/v1`). The resulting state has one active and 41 inactive
+  connections, fingerprint
+  `339920df080202894e12326f6e7c6101ac4b80be3c27b3135be85918df77c968`. Do not
+  re-enable other providers without owner steering. The APInex-only candidate
+  inspector returned zero candidates for the requested high free band; this is
+  an eligibility observation, while APInex metadata coverage and cross-provider
+  data binding remain unverified. Owner notes that OmniRoute's existing
+  canonical free, capability, reasoning, and fitness data may be reusable
+  across provider routes. TL320 owns proving the exact binding gap; no fix has
+  been selected.
+- Remaining acceptance: diagnose APInex-only eligibility and retain the exact
+  native preflight subreason (`request_exhaustion` for the Nvidia request;
+  OpenRouter generic availability cause remains unknown), without changing
+  source filters based on a provider timeout. Then complete one successful
+  native free-only tool call with actual model, route, tokens, and cost receipt;
+  no paid or out-of-band fallback. Restore provider state only on owner
+  steering. Clean only this task's redundant artifacts while retaining one
+  DB/image rollback pair. `openspec/TODO.md` tracks these gates; do not archive
+  this package yet.
