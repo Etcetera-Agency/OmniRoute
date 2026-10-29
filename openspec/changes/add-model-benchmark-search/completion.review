@@ -383,3 +383,26 @@ awaited operation for the live stall is not proven from available logs.
   steering. Clean only this task's redundant artifacts while retaining one
   DB/image rollback pair. `openspec/TODO.md` tracks these gates; do not archive
   this package yet.
+
+## TL324 APInex current zero-price source (2026-10-29)
+
+- Root cause confirmed in source: the configured APInex node already had exact
+  synced raw model IDs, while `models_dev_pricing` and the native zero-price
+  snapshot had no APInex rows. The unchanged strict gate therefore had no exact
+  APInex evidence.
+- Local TL324 package reads the official
+  [`/api/public/models`](https://apinex.bond/api/public/models) structured
+  catalog, validates explicit numeric input/output prices, binds only exact
+  configured APInex node IDs and existing synced raw IDs, stores independent
+  current-source provenance, and composes independently fresh sources with
+  the oldest included timestamp. It does not alter strict filters, candidate
+  state, capabilities, fitness, or hidden/exclusion state.
+- Focused models.dev and APInex tests pass 33/33. Strict OpenSpec validation,
+  Prettier, and `git diff --check` pass. Core typecheck exits 2 with 720
+  unrelated diagnostics and none in TL324 files. Independent Luna-high review
+  found no concrete findings.
+- This supersedes the earlier TL320 source-binding note above. TL322 owns
+  canonical capability/fitness identity binding; TL324 owns current APInex
+  pricing evidence. Coordinate both packages for release. This is local source
+  evidence only, not runtime or live free-only acceptance; retain the pending
+  native gate and TODO entry above.

@@ -967,11 +967,12 @@ Deferred cross-repository and operations work:
       successful free acceptance. The APInex-only inspector has zero eligible
       candidates; diagnose its eligibility and retain exact native
       `request_exhaustion` / generic availability subreasons without changing
-      filters based on the timeout. Owner notes that existing canonical free,
-      capability, reasoning, and fitness data may be reusable across provider
-      routes. TL320 owns proving the exact data-binding gap; no fix has been
-      selected. Treat APInex metadata coverage and cross-provider binding as
-      unverified until that receipt. One successful native free-only tool call
+      filters based on the timeout. TL322 owns canonical capability/fitness
+      identity binding; TL324 owns current APInex zero-price evidence and native
+      pricing binding. Land and release those source packages together without
+      changing strict filters or candidate-pool state. Local source tests do not
+      satisfy this live gate. Treat deployed APInex metadata coverage as
+      unverified until the receipt. One successful native free-only tool call
       must prove actual model, route, usage, and cost, with no paid or
       out-of-band fallback. Keep APInex-only state until owner steering; restore
       other providers only on that steering. Clean this task's redundant

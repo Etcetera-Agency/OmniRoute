@@ -1,0 +1,63 @@
+# Completion review — add-apinex-zero-price-source
+
+**Status:** Local source implementation, focused tests, OpenSpec validation, and
+independent review are complete. Combined TL322/TL324 release and native
+free-only live acceptance remain open; this package stays unarchived.
+
+## Cause and source
+
+The configured APInex node already had imported raw model IDs, but the native
+pricing namespace and strict-zero snapshot had no APInex source. The existing
+exact provider/model guard therefore had no source evidence for APInex IDs.
+
+On 2026-10-29, the official public structured catalog at
+[`/api/public/models`](https://apinex.bond/api/public/models) returned 44 model
+rows with raw `id`, numeric `dollarsPer1M` input price, and numeric
+`outputDollarsPer1M` output price. The official [catalog page](https://apinex.bond/models?provider=Free)
+showed 21 zero-price rows. The adapter uses only structured numeric price and
+raw identity fields; `provider`, `name`, `allowFree`, health, and `free/` prefix
+do not create price evidence.
+
+## Change
+
+- Fetch APInex only when an exact configured OpenAI-compatible chat node uses
+  `https://api.apinex.bond/v1`.
+- Require a complete nonempty catalog, unique raw IDs, and finite non-negative
+  numeric price fields. Only records with numeric zero for input, output, and
+  every additional published per-token price field qualify.
+- Intersect exact catalog IDs with IDs already present under that node's
+  `syncedAvailableModels` connections. Do not write availability, visibility,
+  exclusion, connection, capability, fitness, or candidate data.
+- Persist only current APInex provenance in a separate snapshot. Preserve it
+  across models.dev saves without changing its timestamp; independently omit
+  stale, future, or invalid sources at the existing evidence read and compose
+  with the oldest included source timestamp.
+- Leave `strictZeroCostFilter.ts` and strict policy unchanged. A malformed or
+  failed APInex fetch does not fail a successful models.dev pricing or
+  capability sync.
+
+## Verification
+
+- RED was observed before the APInex adapter existed: the focused test failed
+  with `ERR_MODULE_NOT_FOUND` for `src/lib/modelsDevSync/apinex.ts`.
+- Focused models.dev and APInex tests pass **33/33**, including current-source
+  parsing, exact identity binding, unavailable/paid/mixed IDs, stale/future and
+  exact 36-hour boundaries, APInex-only read, source failure/empty response,
+  next models.dev save, and clear behavior.
+- `npx --yes @fission-ai/openspec@latest validate add-apinex-zero-price-source --strict`
+  passes.
+- Prettier and `git diff --check` pass for changed files.
+- `npm run typecheck:core` exits 2 with 720 project diagnostics outside changed
+  files; it reports no diagnostics for `src/lib/modelsDevSync.ts`,
+  `src/lib/modelsDevSync/apinex.ts`, or the changed test.
+- Code Simplifier review applied to the implementation and test diff.
+- Fresh independent Luna-high review found no concrete code or policy findings.
+
+## Remaining acceptance
+
+The source package is local-only. TL322 canonical identity work and TL324
+pricing work must be coordinated together for release. No GitHub push, build,
+deployment, provider probe, or model completion was performed here. The
+original native free-only acceptance remains pending: one successful controlled
+call must prove model, connection, route, usage, and zero cost with no paid or
+out-of-band fallback. Track this gate in `openspec/TODO.md`.
