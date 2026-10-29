@@ -19,7 +19,7 @@
  *    context windows (the auto-combo context pre-filter routes oversized
  *    requests to large-window candidates, so MAX is safe to advertise).
  *  - GET /api/combos/auto includes context_length / max_output_tokens.
- *  - contextManager.resolveComboContextLimit(): prefers the executing
+ *  - comboContextLimit.resolveComboContextLimit(): prefers the executing
  *    target's own limit; min(...targets) only as a defensive fallback when
  *    the current provider/model resolves no specific limit.
  */
@@ -38,7 +38,7 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 
 const virtualFactory = await import("../../open-sse/services/autoCombo/virtualFactory.ts");
 const suffixComposition = await import("../../open-sse/services/autoCombo/suffixComposition.ts");
-const contextManager = await import("../../open-sse/services/contextManager.ts");
+const comboContextLimit = await import("../../open-sse/services/comboContextLimit.ts");
 const combosAutoRoute = await import("../../src/app/api/combos/auto/route.ts");
 
 test.after(() => {
@@ -296,10 +296,10 @@ test("GET /api/combos/auto includes positive context_length for combos with cand
   }
 });
 
-// ── contextManager.resolveComboContextLimit (per-target compression limit) ──
+// ── comboContextLimit.resolveComboContextLimit (per-target compression limit) ──
 
 test("resolveComboContextLimit prefers the executing target's own limit over combo min", () => {
-  const { resolveComboContextLimit } = contextManager as unknown as {
+  const { resolveComboContextLimit } = comboContextLimit as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
       model: string | null;
@@ -309,7 +309,7 @@ test("resolveComboContextLimit prefers the executing target's own limit over com
   assert.equal(
     typeof resolveComboContextLimit,
     "function",
-    "contextManager should export resolveComboContextLimit()"
+    "comboContextLimit should export resolveComboContextLimit()"
   );
 
   // Executing on gemini (1048576 provider default) while the combo also has
@@ -324,7 +324,7 @@ test("resolveComboContextLimit prefers the executing target's own limit over com
 });
 
 test("resolveComboContextLimit regression: claude target must not be compressed at an 8k sibling", () => {
-  const { resolveComboContextLimit } = contextManager as unknown as {
+  const { resolveComboContextLimit } = comboContextLimit as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
       model: string | null;
@@ -344,7 +344,7 @@ test("resolveComboContextLimit regression: claude target must not be compressed 
 });
 
 test("resolveComboContextLimit falls back to combo min when the target has no specific limit", () => {
-  const { resolveComboContextLimit } = contextManager as unknown as {
+  const { resolveComboContextLimit } = comboContextLimit as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
       model: string | null;
@@ -361,7 +361,7 @@ test("resolveComboContextLimit falls back to combo min when the target has no sp
 });
 
 test("resolveComboContextLimit uses generic fallback when nothing else is known", () => {
-  const { resolveComboContextLimit } = contextManager as unknown as {
+  const { resolveComboContextLimit } = comboContextLimit as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
       model: string | null;

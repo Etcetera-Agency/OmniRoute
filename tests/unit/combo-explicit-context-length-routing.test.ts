@@ -13,9 +13,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { resolveComboContextLimit } = await import(
-  "../../open-sse/services/contextManager.ts"
-);
+const { resolveComboContextLimit } = await import("../../open-sse/services/comboContextLimit.ts");
 
 test("explicit combo context_length wins over an unknown provider/model fallback", () => {
   // openrouter/<custom alias> has no per-model window → resolveTokenLimit()

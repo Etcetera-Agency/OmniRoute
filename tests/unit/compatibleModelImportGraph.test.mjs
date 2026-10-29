@@ -47,6 +47,16 @@ function collectReachableLocalSources(entryPath) {
   return reachable;
 }
 
+function collectDirectLocalSources(entryPath) {
+  const source = readFileSync(path.join(repoRoot, entryPath), "utf8");
+  return new Set(
+    ts
+      .preProcessFile(source)
+      .importedFiles.map(({ fileName: specifier }) => resolveLocalImport(specifier, entryPath))
+      .filter(Boolean)
+  );
+}
+
 test("compatible discovery stays outside provider validation runtime graph", () => {
   const reachable = collectReachableLocalSources("src/lib/providers/compatibleModelDiscovery.ts");
 
@@ -61,6 +71,22 @@ test("compatible discovery stays outside provider validation runtime graph", () 
   }
   assert.ok(reachable.has("src/shared/utils/compatibleProviderUrls.ts"));
   assert.ok(reachable.has("src/shared/constants/upstreamHeaders.ts"));
+});
+
+test("context-limit modules keep one-way initialization dependency", () => {
+  const contextManager = collectDirectLocalSources("open-sse/services/contextManager.ts");
+  const comboContextLimit = collectDirectLocalSources("open-sse/services/comboContextLimit.ts");
+
+  assert.equal(
+    contextManager.has("open-sse/services/comboContextLimit.ts"),
+    false,
+    "contextManager must not re-import comboContextLimit during module initialization"
+  );
+  assert.equal(
+    comboContextLimit.has("open-sse/services/contextManager.ts"),
+    true,
+    "comboContextLimit must continue to use the existing token-limit resolver"
+  );
 });
 
 test("operator runtime mode imports benchmark module before its success exit", async () => {

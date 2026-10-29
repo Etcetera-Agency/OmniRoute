@@ -130,3 +130,50 @@
   ARM64 artifact check remains open and requires a separately authorized
   GitHub run. Deployment, provider acceptance, and native free-only completion
   remain open; do not archive this package.
+
+## Confirmed emitted initializer correction — 2026-10-29
+
+- GitHub diagnostic artifact `12938431477` from run `40965497429` contains the
+  full generated operator closure at source `ea46cc92b53d211b4830df3b903ccfe5d1e80192`.
+  Its 499 emitted `.mjs` files match the metafile outputs. Replaying the
+  unchanged operator entry in existing Node 26.12 ARM64 image config
+  `sha256:de76b231bfa63b7e2f3dae97e02921411f180fa29dd954c584b0120c3fcb1430`
+  with `--network none`, a read-only bundle mount, private tmpfs, and no
+  production DB/config/env/key mounts reproduces exit 13.
+- `async_hooks` on the emitted artifact identifies unresolved init promises:
+  `contextManager.ts` awaits `comboContextLimit.ts`, and
+  `comboContextLimit.ts` awaits `contextManager.ts`. The benchmark entry reaches
+  these initializers through the existing `executeWebSearch` → auth/provider →
+  `claudeCodeCompatible` import path.
+- Removed `contextManager`'s value/type re-exports of
+  `resolveComboContextLimit`; `chatCore` and tests import the resolver from its
+  owning `comboContextLimit` module. Resolver implementation, context-limit
+  precedence, token calculations, and routing behavior are unchanged. No
+  compatibility export remains. The source graph test first failed with the
+  reverse dependency present and now passes.
+- Import graph regression: **3/3 passed**. Existing context-limit, auto-combo,
+  and chat-core tests: **28/28 passed**. Focused ESLint passes on changed
+  services and tests. `chatCore.ts` retains one unchanged baseline warning,
+  unused `ClaudeMessage` at line 176. Prettier passes on changed source, test,
+  and OpenSpec files; the root `completion.review` parser check reports only
+  previously unformatted lines outside this correction. `git diff --check`
+  passes; strict OpenSpec 1.15.0 validation passes.
+- Final rerun of the import-graph, combo context-limit, explicit context-length,
+  and auto-combo files passed **30/30**. The Code Simplifier pass confirmed the
+  direct import move and edge removal are the minimal behavior-preserving fix;
+  no further safe simplification was identified.
+- Fresh independent review of the combined source, tests, OpenSpec records, and
+  TL316 diagnostic cleanup returned no findings. The reviewer ran no tests or
+  builds.
+- `npm run typecheck:core -- --pretty false` exits 2 with 720 diagnostics. A
+  clean worktree at exact base `ea46cc92b53d211b4830df3b903ccfe5d1e80192` has
+  the identical 720 diagnostics: 0 added, 0 removed.
+- The earlier pure-URL boundary change removed a real source graph path, but it
+  was not the sole cause of the emitted runtime failure. The already-documented
+  `executeWebSearch` → usage migration path still initializes SQLite under the
+  runner's configured data path; `--check-runtime` is not side-effect-free.
+  The Dockerfile runtime check remains unchanged. No local operator build,
+  deployment, or provider request was made.
+- GitHub generated-bundle `--check-runtime`, production deployment, provider
+  acceptance, and native free-only acceptance remain open. Do not archive this
+  package until their separate authorized gates pass.

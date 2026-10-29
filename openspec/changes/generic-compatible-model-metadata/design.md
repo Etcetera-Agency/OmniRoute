@@ -128,46 +128,56 @@ outside this change.
 
 ## Runtime import regression found on merged source
 
-GitHub ARM64 run `40954554580` evaluated the emitted benchmark operator with
-`--check-runtime`. Node exited 13 with an unsettled top-level await while the
-operator dynamically imported `modelBenchmarkSearch-Y5TC2YLC.mjs`. The log also
-shows SQLite initialization before the import stalled. No bundle or metafile
-survived the failed ephemeral runner.
+The first source-graph regression found a candidate path from compatible
+discovery through validation helpers into Claude runtime/context modules and
+back through model capability sync. Pure URL helpers were moved to a shared
+dependency-light module, and the regression now proves compatible discovery no
+longer reaches validation/runtime or model-sync modules. This was a useful
+source-boundary fix, but it did not explain the emitted operator failure: GitHub
+run `40960960503` still exited 13 after that change.
 
-The source import graph on main `0c316b924437fb6bd17e4384059896de556d6e61`
-shows the new cycle introduced by the compatible discovery dependency:
+GitHub run `40965497429` captured the full generated operator import closure and
+metafile at source `ea46cc92b53d211b4830df3b903ccfe5d1e80192`. The extracted
+artifact contained 499 `.mjs` outputs matching the metafile exactly. Its
+generated `modelBenchmarkSearch-L3DR26C5.mjs` awaits its module initializer,
+which awaits `executeWebSearch` before reaching later benchmark dependencies.
+The isolated Node 26.12 ARM64 run in existing image config
+`sha256:de76b231bfa63b7e2f3dae97e02921411f180fa29dd954c584b0120c3fcb1430`
+reproduced exit 13 with the unchanged `--check-runtime` entry. It used no
+network, production mounts, environment, key, config, or host database; its
+temporary data directory was private container tmpfs.
 
-```text
-modelsDevSync
-  -> compatibleModelDiscovery
-  -> providers/validation/urlHelpers
-  -> open-sse/services/claudeCodeCompatible
-  -> open-sse/services/contextManager
-  -> modelCapabilities
-  -> modelCapabilityResolutionSnapshot
-  -> modelsDevSync
-```
-
-`compatibleModelDiscovery` needs only pure URL/path normalizers, but imports
-them from `urlHelpers`; that module imports the high-level Claude runtime
-service for its string helpers. The shared metadata adapter therefore closes a
-runtime import loop through model capability resolution. Move those pure URL
-helpers to a dependency-light module and import it directly from discovery and
-the existing callers. Keep protocol fetch/auth code and the benchmark
-operator's actual emitted-module evaluation unchanged.
+`async_hooks` on that emitted artifact identified the unresolved initializer
+cycle:
 
 ```text
-test source dependency graph from compatibleModelDiscovery
-assert graph does not reach modelCapabilities or modelsDevSync
-assert existing callers retain identical URL normalization results
-run focused compatible metadata and benchmark import regressions
-assert operator source awaits benchmark import before runtime-check exit
-keep Dockerfile --check-runtime evaluating the emitted operator module
-trace remaining import-time effects and record their exact source edge
+contextManager.ts initializer
+  awaits init_comboContextLimit()
+comboContextLimit.ts initializer
+  awaits init_contextManager()
 ```
 
-After the cycle is removed, a separate pre-existing source path still reaches
-usage migrations:
+The benchmark import reaches this cycle through the existing high-level search
+path: `modelBenchmarkSearch` → `executeWebSearch` → auth/provider setup →
+`claudeCodeCompatible` → `contextManager`. The source cycle is caused by
+`contextManager.ts` re-exporting `resolveComboContextLimit` from
+`comboContextLimit.ts`, while `comboContextLimit.ts` imports
+`resolveTokenLimit` from `contextManager.ts`. The repair removes the reverse
+export edge and updates consumers/tests to import the resolver from its owning
+module. `resolveComboContextLimit` logic and all context-limit precedence stay
+unchanged:
+
+```text
+comboContextLimit.ts -> contextManager.resolveTokenLimit
+chatCore.ts -> contextManager helpers and comboContextLimit.resolveComboContextLimit
+contextManager.ts -/-> comboContextLimit.ts
+```
+
+Keep the operator's actual emitted-module evaluation and Dockerfile
+`--check-runtime` guard unchanged. Do not claim source tests prove generated
+bundle behavior; a GitHub ARM64 artifact check remains authoritative.
+
+The same runtime trace confirms an existing import-time DB path:
 
 ```text
 src/lib/modelBenchmarkSearch.ts
@@ -181,7 +191,7 @@ src/lib/modelBenchmarkSearch.ts
 `migrateLegacyUsageFiles()` at module load and, when `shouldPersistToDisk` is
 true, awaits `archiveLegacyRequestLogs()` and calls
 `migrateUsageJsonToSqlite()`. This path predates TL329 and is outside this
-correction. GitHub logs show SQLite initialization but do not identify which
-call opened it in that build stage. Do not claim `--check-runtime` is
-side-effect-free or change its emitted-module evaluation. A separately
-authorized GitHub ARM64 build remains authoritative for the generated module.
+correction. The isolated artifact run applied migrations and opened only its
+tmpfs SQLite file. Do not claim `--check-runtime` is side-effect-free or change
+its emitted-module evaluation. A separately authorized GitHub ARM64 build
+remains authoritative for the generated module.
