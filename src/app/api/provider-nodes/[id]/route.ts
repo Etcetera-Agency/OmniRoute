@@ -11,7 +11,7 @@ import {
 import { isClaudeCodeCompatibleProvider } from "@/shared/constants/providers";
 import { updateProviderNodeSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { validateProviderNodeBaseUrl } from "../urlGuard";
+import { validateProviderNodeBaseUrl, validateProviderNodeModelsPath } from "../urlGuard";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -87,6 +87,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     const baseUrlError = validateProviderNodeBaseUrl(sanitizedBaseUrl);
     if (baseUrlError) return baseUrlError;
+    if (!isClaudeCodeCompatibleProvider(id)) {
+      const modelsPathError = validateProviderNodeModelsPath(sanitizedBaseUrl, modelsPath);
+      if (modelsPathError) return modelsPathError;
+    }
 
     const updates: Record<string, unknown> = {
       name: name.trim(),

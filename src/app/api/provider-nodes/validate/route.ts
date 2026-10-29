@@ -12,6 +12,7 @@ import { getProviderValidationGuard } from "@/shared/network/outboundUrlGuardPol
 import { isCcCompatibleProviderEnabled } from "@/shared/utils/featureFlags";
 import { providerNodeValidateSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { buildCompatibleModelsUrl } from "@/lib/providers/validation/urlHelpers";
 
 // Matches a base URL whose host is localhost / 127.0.0.1 (with an optional port).
 const LOCALHOST_BASE_URL_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:[/?#]|$)/i;
@@ -232,7 +233,15 @@ export async function POST(request) {
       const normalizedBase = sanitizeAnthropicBaseUrl(baseUrl);
 
       // Use /models endpoint for validation as many compatible providers support it (like OpenAI)
-      const modelsUrl = `${normalizedBase}${modelsPath || "/models"}`;
+      let modelsUrl: string;
+      try {
+        modelsUrl = buildCompatibleModelsUrl(normalizedBase, modelsPath || "/models");
+      } catch (error) {
+        return NextResponse.json({
+          valid: false,
+          error: error instanceof Error ? error.message : "Invalid models endpoint",
+        });
+      }
 
       const res = await safeOutboundFetch(modelsUrl, {
         ...SAFE_OUTBOUND_FETCH_PRESETS.validationRead,
@@ -295,7 +304,15 @@ export async function POST(request) {
       });
     }
 
-    const modelsUrl = `${openAiBase}${modelsPath || "/models"}`;
+    let modelsUrl: string;
+    try {
+      modelsUrl = buildCompatibleModelsUrl(openAiBase, modelsPath || "/models");
+    } catch (error) {
+      return NextResponse.json({
+        valid: false,
+        error: error instanceof Error ? error.message : "Invalid models endpoint",
+      });
+    }
     const res = await safeOutboundFetch(modelsUrl, {
       ...SAFE_OUTBOUND_FETCH_PRESETS.validationRead,
       guard: getProviderValidationGuard(),

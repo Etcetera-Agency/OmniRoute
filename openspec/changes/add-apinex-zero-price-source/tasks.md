@@ -1,5 +1,10 @@
 # Implementation tasks
 
+> Historical local work only. Superseded before release by
+> `generic-compatible-model-metadata` on 2026-10-29; checked tasks and the
+> completion receipt record prior work, not current normative scope or release
+> acceptance. Keep this package unarchived until the replacement is accepted.
+
 ## 1. Proposal and failing tests
 
 - [x] 1.1 Add parser tests using the official `/api/public/models` field names

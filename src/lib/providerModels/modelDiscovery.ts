@@ -4,6 +4,10 @@ import {
   replaceSyncedAvailableModelsForConnection,
   type SyncedAvailableModel,
 } from "@/lib/db/models";
+import {
+  normalizeCompatibleModels,
+  saveCompatibleMetadataSnapshot,
+} from "@/lib/providerModels/compatibleMetadata";
 import type { VertexModelMetadataProvenance } from "@/lib/providerModels/vertexModelMetadata";
 import { CANONICAL_EFFORT_VALUES } from "@/shared/reasoning/effortStandardization";
 import { isObsoleteKiroModelAlias } from "@omniroute/open-sse/services/kiroModels.ts";
@@ -770,4 +774,37 @@ export async function persistDiscoveredModels(
   );
   await replaceSyncedAvailableModelsForConnection(providerId, connectionId, normalized);
   return normalized;
+}
+
+export async function persistCompatibleDiscoveredModels(
+  providerId: string,
+  connectionId: string,
+  sourceUrl: string,
+  rawModels: unknown
+): Promise<SyncedAvailableModel[]> {
+  const metadata = normalizeCompatibleModels(rawModels);
+  const metadataById = new Map(metadata.map((model) => [model.id, model]));
+  const models = (rawModels as unknown[]).flatMap((value) => {
+    const source = asRecord(value);
+    const record = metadataById.get(source.id as string);
+    if (!record) return [];
+    return [
+      {
+        ...source,
+        ...(record.name ? { name: record.name } : {}),
+        ...(record.supportsVision !== undefined ? { supportsVision: record.supportsVision } : {}),
+        ...(record.supportsTools !== undefined ? { supportsTools: record.supportsTools } : {}),
+      },
+    ];
+  });
+  const synced = await persistDiscoveredModels(providerId, connectionId, models);
+  saveCompatibleMetadataSnapshot(providerId, connectionId, sourceUrl, rawModels);
+  return synced.map((model) => {
+    const source = metadataById.get(model.id);
+    return {
+      ...model,
+      ...(source?.supportsVision !== undefined ? { supportsVision: source.supportsVision } : {}),
+      ...(source?.supportsTools !== undefined ? { supportsTools: source.supportsTools } : {}),
+    };
+  });
 }

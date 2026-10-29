@@ -51,6 +51,16 @@ const dailyQuotaResetHourSchema = z
     message: "Hour must be 0-23",
   });
 
+const compatibleModelsPathSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) => value === "" || value.startsWith("/") || /^https?:\/\//i.test(value),
+    "Models path must start with / or be an HTTP(S) URL"
+  )
+  .optional();
+
 // ──── Provider Schemas ────
 
 // #2166 + data-URL support: shared optional remote icon URL for compatible provider
@@ -400,7 +410,7 @@ export const createProviderNodeSchema = z
     // a baseUrl. Currently just VibeProxy (github.com/automazeio/vibeproxy).
     preset: z.enum(["vibeproxy-openai"]).optional(),
     chatPath: z.string().trim().startsWith("/").max(500).optional().or(z.literal("")),
-    modelsPath: z.string().trim().startsWith("/").max(500).optional().or(z.literal("")),
+    modelsPath: compatibleModelsPathSchema,
     // #2166: optional operator-supplied remote icon URL for the provider node. Empty
     // string is accepted so callers can explicitly submit "no custom icon" (falls back
     // to the built-in @lobehub/static resolution). Length/scheme limits live in
@@ -500,7 +510,7 @@ export const updateProviderNodeSchema = z
       .optional(),
     baseUrl: z.string().trim().min(1, "Base URL is required"),
     chatPath: z.string().trim().startsWith("/").max(500).optional().or(z.literal("")),
-    modelsPath: z.string().trim().startsWith("/").max(500).optional().or(z.literal("")),
+    modelsPath: compatibleModelsPathSchema,
     // #2166: same optional remote icon URL as createProviderNodeSchema — empty string
     // clears a previously stored custom icon.
     iconUrl: providerNodeIconUrlSchema,
@@ -538,7 +548,7 @@ export const providerNodeValidateSchema = z.object({
     ])
     .optional(),
   chatPath: z.string().trim().startsWith("/").max(500).optional().or(z.literal("")),
-  modelsPath: z.string().trim().startsWith("/").max(500).optional().or(z.literal("")),
+  modelsPath: compatibleModelsPathSchema,
   modelId: z.string().trim().max(200).optional().or(z.literal("")),
 });
 

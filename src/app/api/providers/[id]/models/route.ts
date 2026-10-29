@@ -93,7 +93,14 @@ import {
   getCachedDiscoveredModels,
   isAutoFetchModelsEnabled,
   persistDiscoveredModels,
+  persistCompatibleDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
+import {
+  applyCompatibleCapabilityOverrides,
+  compatibleCapabilityMap,
+  fetchCompatibleModelCatalog,
+} from "@/lib/providers/compatibleModelDiscovery";
+import { readCompatibleMetadataSnapshot } from "@/lib/providerModels/compatibleMetadata";
 import { buildProviderModelsUrl, getDiscoveryClientVersionOptions } from "./discoveryClientVersion";
 import { getAdobeModels } from "./adobeFireflyDiscovery";
 import { getSyncedAvailableModels, getCustomModels, getModelIsHidden } from "@/lib/db/models";
@@ -213,6 +220,11 @@ export async function GET(
     if (!provider) {
       return NextResponse.json({ error: "Invalid connection provider" }, { status: 400 });
     }
+    let compatibleType: "openai-compatible" | "anthropic-compatible" | null = null;
+    if (isOpenAICompatibleProvider(provider)) compatibleType = "openai-compatible";
+    else if (isAnthropicCompatibleProvider(provider) && !isClaudeCodeCompatibleProvider(provider)) {
+      compatibleType = "anthropic-compatible";
+    }
     const usesCuratedModelsOnly = providerUsesCuratedModelsOnly(provider);
 
     // Resolve proxy for this provider (provider-level → global → direct)
@@ -252,6 +264,9 @@ export async function GET(
 
     const buildResponse = (payload: any, statusConfig?: ResponseInit) => {
       if (payload.models && Array.isArray(payload.models)) {
+        payload.models = compatibleType
+          ? applyCompatibleCapabilityOverrides(payload.models, compatibleMetadataById)
+          : payload.models;
         payload.models = mergeCustomModels(payload.models);
         payload.models = filterModelsForRoute(provider, payload.models, chatOnly);
       }
@@ -264,6 +279,14 @@ export async function GET(
     };
 
     const connectionId = typeof connection.id === "string" ? connection.id : id;
+    let compatibleMetadataById: Record<
+      string,
+      { supportsVision?: boolean; supportsTools?: boolean }
+    > = {};
+    if (compatibleType) {
+      compatibleMetadataById =
+        readCompatibleMetadataSnapshot(provider, connectionId)?.modelsById || {};
+    }
     const apiKey = typeof connection.apiKey === "string" ? connection.apiKey : "";
     const accessToken = typeof connection.accessToken === "string" ? connection.accessToken : "";
     const codexDiscoveryMode =
@@ -392,6 +415,54 @@ export async function GET(
         warning: "Auto-fetch disabled — no cached models available",
       });
     };
+
+    if (compatibleType) {
+      const cached = maybeReturnCachedDiscovery();
+      if (cached) return cached;
+      const disabled = maybeReturnAutoFetchDisabled();
+      if (disabled) return disabled;
+      const token = accessToken || apiKey;
+      if (!token) {
+        return buildDiscoveryFallbackResponse() || errorResponse(400, "No API key configured");
+      }
+      const rawBaseUrl = getProviderBaseUrl(connection.providerSpecificData);
+      if (!rawBaseUrl) {
+        return buildDiscoveryFallbackResponse() || errorResponse(400, "No base URL configured");
+      }
+      try {
+        const catalog = await fetchCompatibleModelCatalog({
+          type: compatibleType,
+          baseUrl: rawBaseUrl,
+          apiKey,
+          accessToken,
+          providerSpecificData: connection.providerSpecificData,
+          fetchImpl: (url, init) => {
+            const openAI = compatibleType === "openai-compatible";
+            return safeOutboundFetch(url, {
+              ...(openAI
+                ? SAFE_OUTBOUND_FETCH_PRESETS.modelsProbe
+                : SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery),
+              guard: openAI ? getProviderValidationGuard() : getProviderOutboundGuard(),
+              proxyConfig: proxy,
+              ...init,
+            });
+          },
+        });
+        const models = await persistCompatibleDiscoveredModels(
+          provider,
+          connectionId,
+          catalog.sourceUrl,
+          catalog.models
+        );
+        compatibleMetadataById = compatibleCapabilityMap(models);
+        return buildResponse({ provider, connectionId, models, source: "api" });
+      } catch (error) {
+        const fallback = buildDiscoveryFallbackResponse();
+        if (fallback) return fallback;
+        const status = getSafeOutboundFetchErrorStatus(error) || 502;
+        return errorResponse(status, `Failed to fetch models: ${sanitizeErrorMessage(error)}`);
+      }
+    }
 
     const buildApiDiscoveryResponse = async (
       models: any[],

@@ -1,0 +1,80 @@
+# Completion review: generic compatible model metadata (2026-10-29)
+
+## Scope and implementation
+
+- Added one shared metadata parser, per-provider/connection current snapshot, and
+  normalized persistence path for stored `openai-compatible` and
+  `anthropic-compatible` nodes. Removed the APInex-specific collector, hook,
+  and namespace without a compatibility reader.
+- Reused the native route's protocol shapes, auth roles, outbound guards, and
+  proxy resolution. The periodic models.dev lifecycle refreshes active
+  compatible connections independently; one endpoint failure does not block
+  models.dev pricing/capability writes. Credential resolution uses the native
+  lazy-decrypt getter.
+- Added one same-origin configured endpoint builder for validation and
+  discovery. OpenAI default probes and both protocols' existing relative path
+  behavior remain; configured endpoint errors do not fall back. Anthropic
+  snapshots replace only after complete pagination.
+- The same builder validates the `modelsPath` field on provider-node
+  create/update and the provider-node validation endpoint. The existing field
+  still accepts slash-prefixed paths and now accepts same-origin HTTP(S) URLs;
+  cross-origin endpoints are rejected before a request.
+- Stores current source URL without query/fragment, original fetch timestamp,
+  exact raw IDs, normalized display name/limits/selected capabilities, and only
+  explicit finite non-negative per-million prices. Duplicate IDs are omitted
+  fail-closed. Failed/incomplete refresh keeps the prior source record and age.
+- Compatible pricing and strict-zero evidence bind to exact synced raw IDs and
+  current eligible provider connections. Conflicting, unknown, stale, and
+  future prices fail closed. Explicit compatible false capabilities from an
+  active eligible connection beat canonical defaults; inactive/excluded
+  connections do not contribute, and operator/provider overrides retain
+  precedence.
+- Integrated review caught a duplicate-ID case that could preserve prior zero
+  metadata and a design statement that overstated catalog/snapshot atomicity.
+  Duplicate raw IDs are now omitted from the replacement, and the design records
+  the existing sequential catalog write followed by one snapshot upsert.
+  Create/update schema and validation coverage was also extended after source
+  audit found the existing absolute endpoint was rejected before discovery.
+- The superseded APInex spec now contains only removed/superseded deltas; a
+  duplicate active-looking freshness block was deleted while historical
+  completion receipts remain intact.
+- The Anthropic fixture and field mapping follow the official documented
+  `image_input.supported`, `display_name`, token-limit, and pagination fields.
+  `server_tools` is not inferred as caller tool-use support. See [Anthropic
+  List Models](https://platform.claude.com/docs/en/api/models/list) and [OpenAI
+  List Models](https://developers.openai.com/api/reference/resources/models/methods/list).
+
+## Verification
+
+- Focused compatible metadata, discovery, capability, endpoint schema,
+  models.dev pricing, and benchmark-hook tests: **89/89 passed**. The existing
+  models.dev live-API test
+  performs a public models.dev catalog GET; compatible provider fetches use
+  test fixtures/mocks.
+- Focused ESLint on changed production modules and new focused test files
+  passed. Full changed-file ESLint remains red on 11 pre-existing diagnostics:
+  nine unused imports/types in the route and two `any` annotations in the
+  extended test file; none is an added line in this change.
+- Prettier passed for the changed code and OpenSpec files except
+  `src/app/api/provider-nodes/[id]/route.ts`; its clean-base source also fails
+  Prettier. Existing unrelated formatting was left untouched, and the added
+  lines follow the project formatter. `git diff --check` passed. Strict
+  OpenSpec validation passed for this package and both superseded APInex
+  packages.
+- `npm run typecheck:core -- --pretty false` remains nonzero with **720**
+  diagnostics, exactly matching the clean-base diagnostic set; no diagnostic
+  names a changed production module. This is not a passing typecheck.
+- Code Simplifier was applied to the changed source. The pass removed an
+  unsupported Anthropic `tool_use` inference after primary-doc verification and
+  normalized configured URL whitespace at one boundary. No other simplification
+  preserved the selected protocol/auth and exact-identity behavior more clearly.
+
+## Review and release boundary
+
+- Fresh independent integrated review returned no actionable findings. The
+  reviewer ran no tests or builds.
+- Local commit is the end of this package. GitHub build/release, deployment,
+  provider requests/completions, and native free-only acceptance remain
+  separate open gates in `openspec/TODO.md`. This change does not archive or
+  claim release acceptance. No runtime state or credentials were changed or
+  exposed.

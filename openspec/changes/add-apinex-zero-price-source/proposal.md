@@ -1,5 +1,10 @@
 # Change: Ingest APInex zero-price evidence
 
+> **Superseded before release by `generic-compatible-model-metadata` on
+> 2026-10-29.** This proposal records the earlier local implementation only;
+> its provider-specific behavior is no longer normative. Keep its completion
+> receipt as history and do not archive this package as released work.
+
 ## Why
 
 APInex's configured OpenAI-compatible node has current raw model IDs and an

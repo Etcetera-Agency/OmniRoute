@@ -12,6 +12,7 @@ import {
 import { getDefaultExecutor } from "@omniroute/open-sse/executors/defaultResolver.ts";
 import {
   addModelsSuffix,
+  buildCompatibleModelsUrl,
   normalizeAnthropicBaseUrl,
   normalizeClaudeCodeCompatibleBaseUrl,
 } from "./urlHelpers";
@@ -259,6 +260,15 @@ export async function validateAnthropicCompatibleProvider({
   if (!baseUrl) {
     return { valid: false, error: "No base URL configured for Anthropic compatible provider" };
   }
+  let modelsUrl: string;
+  try {
+    modelsUrl = buildCompatibleModelsUrl(baseUrl, providerSpecificData?.modelsPath || "/models");
+  } catch (error) {
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : "Invalid models endpoint",
+    };
+  }
 
   const headers = applyCustomUserAgent(
     {
@@ -278,7 +288,7 @@ export async function validateAnthropicCompatibleProvider({
   // probe below. Ported from decolua/9router 584cf66a.
   try {
     const modelsRes = await validationRead(
-      joinBaseUrlAndPath(baseUrl, providerSpecificData?.modelsPath || "/models"),
+      modelsUrl,
       {
         method: "GET",
         headers,

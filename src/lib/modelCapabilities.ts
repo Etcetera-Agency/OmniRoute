@@ -30,6 +30,11 @@ import { getModelCompatVisionOverride } from "@/lib/db/models/compat";
 import { getProviderNodePrefixSync } from "@/lib/db/providers/nodePrefix";
 import { getCustomModelVisionOverride, getSyncedAvailableModelVision } from "@/lib/db/models";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+import {
+  readCompatibleMetadataSnapshots,
+  readCurrentCompatibleEligibleConnections,
+  resolveCompatibleCapabilityOverride,
+} from "@/lib/providerModels/compatibleMetadata";
 import { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapabilityModalities";
 import { getNoAuthHydrationProviderIds } from "@/sse/services/noAuthProviderSiblings";
 
@@ -674,6 +679,7 @@ function resolveVisionCapability(
   modelId?: string,
   customVisionOverride?: boolean | null,
   compatVisionOverride?: boolean | null,
+  compatibleSourceVisionOverride?: boolean | null,
   syncedAvailableModelVision?: boolean | null,
   allowModelIdHeuristic = true
 ): boolean | null {
@@ -700,6 +706,10 @@ function resolveVisionCapability(
   // win for models the vendor documents as text-only. Beats every branch below so an
   // image request can never be routed to a blind model (#4071).
   if (isKnownTextOnlyDespiteSync(modelId)) return false;
+
+  if (typeof compatibleSourceVisionOverride === "boolean") {
+    return compatibleSourceVisionOverride;
+  }
 
   // #14081: a custom OpenAI-compatible node's synced `syncedAvailableModels`
   // row already made /v1/models report capabilities.vision:true for this
@@ -982,6 +992,16 @@ export function getResolvedModelCapabilities(
   // persisted override never feeds back into the comparison that (re)writes it.
   const usePersistedOverrides = options?.persistedOverrides !== false;
   const resolved = resolveCapabilityInput(input);
+  // AICODE-NOTE: Use exact raw IDs and current eligible connections for source
+  // capabilities; price TTL never applies here.
+  const compatibleSourceData =
+    resolved.provider && resolved.rawModel
+      ? {
+          snapshots: snapshot?.compatibleMetadataSnapshots ?? readCompatibleMetadataSnapshots(),
+          eligibleConnections:
+            snapshot?.compatibleEligibleConnections ?? readCurrentCompatibleEligibleConnections(),
+        }
+      : null;
   const isFreePrefixModel = resolved.model?.startsWith("free/") ?? false;
   const freeBase = resolveFreePrefixBase(resolved.model ?? "");
   let spec = isFreePrefixModel
@@ -1062,8 +1082,20 @@ export function getResolvedModelCapabilities(
     resolved.provider && resolved.model
       ? getUnsupportedParams(resolved.provider, resolved.model).includes("tools")
       : false;
+  const compatibleSourceToolsOverride =
+    compatibleSourceData && resolved.provider && resolved.rawModel
+      ? resolveCompatibleCapabilityOverride(
+          compatibleSourceData.snapshots,
+          compatibleSourceData.eligibleConnections,
+          resolved.provider,
+          resolved.rawModel,
+          "supportsTools",
+          providerDeniesTools ? false : null
+        )
+      : null;
 
   const supportsTools =
+    compatibleSourceToolsOverride ??
     synced?.tool_call ??
     (typeof registryModel?.toolCalling === "boolean" ? registryModel.toolCalling : null) ??
     (typeof spec?.supportsTools === "boolean" ? spec.supportsTools : null) ??
@@ -1159,6 +1191,16 @@ export function getResolvedModelCapabilities(
           snapshot?.syncedAvailableModelVision
         )
       : null;
+  const compatibleSourceVisionOverride =
+    compatibleSourceData && resolved.provider && resolved.rawModel
+      ? resolveCompatibleCapabilityOverride(
+          compatibleSourceData.snapshots,
+          compatibleSourceData.eligibleConnections,
+          resolved.provider,
+          resolved.rawModel,
+          "supportsVision"
+        )
+      : null;
 
   const supportsVision = resolveVisionCapability(
     visionSpec,
@@ -1169,6 +1211,7 @@ export function getResolvedModelCapabilities(
     lookupKey,
     customVisionOverride,
     compatVisionOverride,
+    compatibleSourceVisionOverride,
     syncedAvailableModelVision,
     !isFreePrefixModel || freeBase !== null
   );
