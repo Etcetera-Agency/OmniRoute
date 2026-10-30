@@ -1,4 +1,83 @@
-# Completion review: generic compatible model metadata (2026-10-29)
+# Completion review: generic compatible model metadata (2026-10-30)
+
+## Current main release and native acceptance state (TL331–TL333, 2026-10-30)
+
+- Main source `455442b057542c857425d986853745b16e244543` passed GitHub ARM64
+  build, emitted runtime import check with `--network none` (1.2s), parity, and
+  artifact publication in run `40969961834`. Protected deployment
+  `40969961834-1` is healthy on image
+  `ghcr.io/etcetera-agency/omniroute@sha256:b50091e18c7e61ac89e54ddc23d2484dafea2d7627e48492ebeccce3c18a5aa3`,
+  config digest `sha256:603b8d65b894ac8b5b828f87280141298a7fc9b1144668d8d0fb9cc15313bd32`,
+  official base `b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
+- Host receipt confirms healthy container and migration version 216 in
+  `prodtable_omniroute_migrations`, plus the current
+  `latest_model_benchmark_evidence_current_set`. This is not the
+  `request_cost_ledger` count (48 old rows). Protected pre-deploy SQLite backup
+  is mode 0600, integrity `ok`, SHA-256
+  `10529d76d0433bd773caa56ac4e0d626d112ba5567dba364f5507f04ee324784`.
+  Rollback pairs the DB with prior image
+  `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b` and
+  source `e5be44c4080f228bc022ac9f821e073faddf80a8`; never restore the old image
+  alone.
+- Runtime isolation remains as owner directed: one active connection out of 42,
+  APInex connection `9565fb26-817c-42b4-baa0-b76733a951c4`; 41 remain inactive
+  (33 disabled, 8 originally inactive). Node
+  `openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1` has stored type
+  `openai-compatible`, API type `chat`, prefix `apinex`, inference base
+  `https://api.apinex.bond/v1`. Only generic `modelsPath` changed from `/models`
+  to `https://api.apinex.bond/api/public/models`. Config fingerprints before
+  and after are
+  `227435c6dab9fd6a2b570c6e60ba85b380847a0732eefd642ad8fe15e34df530` and
+  `0f0bd0095160ab172e4a11975cba91cd9f259b949980f6b0b8786736d77975fa`; the
+  earlier provider-state manifest fingerprint
+  `7e6443426aa45d1066374beb613a3174a68a6f4a657d10836592b9564dc0974e` is a
+  before-state value, not the current config fingerprint. No credential values
+  were read or recorded.
+- Normal models.dev and generic metadata sync returned 200. The full metadata
+  snapshot has 44 models/44 explicit price pairs, including 21 numeric
+  zero/zero pairs, fetched `2026-10-29T23:31:58.026Z`. All 44 report tools and
+  vision; existing flags remain per model and hidden models were not
+  reactivated. The later successful-request metadata read is recorded below.
+  Native visibility review found 25 providers and 2,108 hidden overrides;
+  `uncloseai` remains without a DB connection and its current
+  `turboderp/Qwen3.8-27B-exl3` stays hidden.
+- Six native Auto defaults remain coding and general low/mid/high `3/1/7`, with
+  high range `0.70–1.00`; Auto bands are enabled and no JSON/calibration
+  override exists. Direct deployed fitness read for `free/gemini-3.8-flash`
+  returned coding and high scores `0.92`, both sourced from `models_dev_tier`;
+  the tier helper confirmed `models_dev_tier:inherited`. No Auto predicate,
+  threshold, formula, effort, routing, or strict zero-cost filter changed.
+- Aggregate is five client completions and five provider attempts: public
+  client HTTP 403 stopped at the edge; the restricted native key returned 503
+  before dispatch; NVIDIA returned HTTP 504 after one attempt and 302,271 ms;
+  the earlier APInex request returned HTTP 402 after three attempts; latest
+  APInex request succeeded after one attempt. Success correlation
+  `382a4b4f-3a76-4766-b7ff-9d5a5b17c189`, request
+  `32879ca5-ab90-4c0d-b7d8-84929e3c173e`, response
+  `52a490d8a4959b8c71caeb86437f1699`, used
+  `auto/coding_high_tools:free` and APInex connection
+  `9565fb26-817c-42b4-baa0-b76733a951c4` with node
+  `openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1`.
+  The successful request was one client completion and one provider attempt:
+  `free/gemini-3.8-flash` returned HTTP 200 in 1,789 ms; forced
+  `acceptance_probe({"ready":true})` returned `ready=true`. Usage was 591 input
+  and 28 output tokens (619 total). Metadata fetched at
+  `2026-10-30T06:00:35.764Z` reported explicit `$0/$0` per-million prices and
+  tools/vision. Computed cost from actual usage and explicit zero prices is
+  `$0`; no `request_cost_ledger` row exists for this request, so no persisted
+  ledger cost is claimed. The successful controlled request made no paid or
+  out-of-band attempts. Temporary key deletion returned 200; management GET
+  returned 404 and SQL found zero key rows.
+- Native free-only live acceptance is closed. Anthropic-compatible live
+  discovery remains untested. The pre-existing import-time usage DB migration
+  behavior and native availability-subreason diagnostics remain deferred in
+  root `openspec/TODO.md`; no source behavior changed for either. Diagnostic
+  artifacts and local extracted bundle files were removed after the runtime
+  check. This documentation-only successor does not change serving source
+  `455442b057542c857425d986853745b16e244543` or its deployed image above. The
+  provider-agnostic delta is merged to
+  `openspec/specs/compatible-model-metadata/spec.md`; package archived at
+  `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/`.
 
 ## Scope and implementation
 
@@ -73,11 +152,12 @@
 
 - Fresh independent integrated review returned no actionable findings. The
   reviewer ran no tests or builds.
-- Local commit is the end of this package. GitHub build/release, deployment,
-  provider requests/completions, and native free-only acceptance remain
-  separate open gates in `openspec/TODO.md`. This change does not archive or
-  claim release acceptance. No runtime state or credentials were changed or
-  exposed.
+- At local source-package completion, no GitHub build/release, deployment,
+  provider request/completion, runtime mutation, or credential access had yet
+  occurred. The later run, deployment, controlled attempts, and eventual live
+  acceptance closure are recorded at the start of this review. This package
+  did not claim successful native free-only acceptance at local source
+  completion.
 
 ## Merged-runtime import correction — 2026-10-29
 
@@ -126,10 +206,10 @@
   final test checks the flag, import-before-branch ordering, and success exit
   after import; documentation now leaves artifact proof to GitHub. The reviewer
   rechecked and confirmed resolution with no remaining actionable findings.
-- No local app/image/bundle build or provider request was made. The generated
-  ARM64 artifact check remains open and requires a separately authorized
-  GitHub run. Deployment, provider acceptance, and native free-only completion
-  remain open; do not archive this package.
+- At this correction's completion, no local app/image/bundle build or provider
+  request was made. The generated ARM64 artifact check remained open pending a
+  separately authorized GitHub run; later deployment and live acceptance are
+  recorded at the start of this review. TL333 later cleared this archive hold.
 
 ## Confirmed emitted initializer correction — 2026-10-29
 
@@ -174,6 +254,7 @@
   runner's configured data path; `--check-runtime` is not side-effect-free.
   The Dockerfile runtime check remains unchanged. No local operator build,
   deployment, or provider request was made.
-- GitHub generated-bundle `--check-runtime`, production deployment, provider
-  acceptance, and native free-only acceptance remain open. Do not archive this
-  package until their separate authorized gates pass.
+- At this correction's completion, GitHub generated-bundle `--check-runtime`,
+  production deployment, provider acceptance, and native free-only acceptance
+  remained open. The later receipts are at the start of this review; TL333
+  later cleared this archive hold.

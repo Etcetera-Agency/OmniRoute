@@ -1,5 +1,73 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
+## TL333 deployed runtime and native acceptance update (2026-10-30)
+
+- Current main source `455442b057542c857425d986853745b16e244543` passed GitHub
+  ARM64 build, emitted `--check-runtime` (`--network none`, 1.2s), parity, and
+  publication in run `40969961834`. Protected deployment transaction
+  `40969961834-1` is healthy on image
+  `ghcr.io/etcetera-agency/omniroute@sha256:b50091e18c7e61ac89e54ddc23d2484dafea2d7627e48492ebeccce3c18a5aa3`,
+  config digest `sha256:603b8d65b894ac8b5b828f87280141298a7fc9b1144668d8d0fb9cc15313bd32`,
+  official base `b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
+- Host receipt: container healthy; `prodtable_omniroute_migrations` is at
+  version 216 and `latest_model_benchmark_evidence_current_set` is current.
+  Version 216 is not a `request_cost_ledger` count (that table has 48 older
+  rows). Protected pre-deploy SQLite backup is mode 0600, integrity `ok`, SHA-256
+  `10529d76d0433bd773caa56ac4e0d626d112ba5567dba364f5507f04ee324784`.
+  Rollback pairs this DB with prior image
+  `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b`
+  and source `e5be44c4080f228bc022ac9f821e073faddf80a8`.
+- Runtime remains isolated to the owner-selected APInex connection among 42:
+  `9565fb26-817c-42b4-baa0-b76733a951c4` is the sole active connection; the
+  other 41 remain inactive (33 disabled, 8 originally inactive). Its native
+  node ID is `openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1`,
+  stored type `openai-compatible`, API type `chat`, prefix `apinex`, and
+  inference base `https://api.apinex.bond/v1`. Only generic `modelsPath` changed from
+  `/models` to `https://api.apinex.bond/api/public/models`; before/after config
+  fingerprints are `227435c6dab9fd6a2b570c6e60ba85b380847a0732eefd642ad8fe15e34df530`
+  and `0f0bd0095160ab172e4a11975cba91cd9f259b949980f6b0b8786736d77975fa`.
+  The pre-change state manifest fingerprint
+  `7e6443426aa45d1066374beb613a3174a68a6f4a657d10836592b9564dc0974e` remains
+  historical. Models.dev and compatible metadata sync returned 200. The full
+  APInex metadata snapshot has 44/44 explicit price pairs, 21 numeric zero/zero
+  pairs, timestamp `2026-10-29T23:31:58.026Z`. All 44 advertise tools and vision;
+  existing capability flags and hidden state were preserved. The later
+  successful-request metadata read is recorded below.
+- `OMNIROUTE_AUTO_BANDS=1`; no JSON band override or calibration override is
+  present. Six native defaults remain coding and general low/mid/high
+  `3/1/7`; high range is `0.70–1.00`. Direct deployed fitness read for
+  `free/gemini-3.8-flash` returned coding and high scores `0.92`, both sourced
+  from `models_dev_tier`; the tier helper confirmed `models_dev_tier:inherited`.
+  No Auto predicate, threshold, formula, effort, routing, or strict zero-cost
+  filter changed.
+- Aggregate is five client completions and five provider attempts: public
+  client HTTP 403 stopped at the edge; the restricted native key returned 503
+  before dispatch; NVIDIA returned 504 after one attempt and 302,271 ms; the
+  earlier APInex request returned 402 after three attempts; latest APInex
+  request succeeded after one attempt. Success correlation
+  `382a4b4f-3a76-4766-b7ff-9d5a5b17c189`, request
+  `32879ca5-ab90-4c0d-b7d8-84929e3c173e`, response
+  `52a490d8a4959b8c71caeb86437f1699`, used
+  `auto/coding_high_tools:free` and APInex connection
+  `9565fb26-817c-42b4-baa0-b76733a951c4` with node
+  `openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1`.
+  The successful request was one client completion and one provider attempt:
+  `free/gemini-3.8-flash` returned HTTP 200 in 1,789 ms; forced
+  `acceptance_probe({"ready":true})` returned `ready=true`. Usage was 591 input
+  and 28 output tokens (619 total). Metadata fetched at
+  `2026-10-30T06:00:35.764Z` reported explicit `$0/$0` per-million prices and
+  tools/vision. Computed cost from actual usage and explicit zero prices is
+  `$0`; no `request_cost_ledger` row exists for this request, so no persisted
+  ledger cost is claimed. The successful controlled request made no paid or
+  out-of-band attempts. Temporary key deletion returned 200; management GET
+  returned 404 and SQL found zero key rows.
+- Native free-only live acceptance is closed. Anthropic-compatible live
+  discovery remains untested. Pre-existing import-time usage DB migration
+  behavior and native availability-subreason diagnostics remain deferred in
+  `openspec/TODO.md`. Diagnostic artifacts and local bundle copies are removed.
+  This documentation-only successor does not change the serving source or
+  image above. Do not restore or re-enable provider state until owner steering.
+
 ## Shared compatible metadata adapter (TL329, 2026-10-29)
 
 - Replaced the personal APInex collector with one current metadata adapter for
@@ -30,7 +98,7 @@
   `server_tools` in the documented nested shape, with no `tool_use` field.
   Removed the unsupported `tool_use` inference; `server_tools` remains unknown
   for caller tool-call support. See the package's
-  [`completion.review`](openspec/changes/generic-compatible-model-metadata/completion.review)
+  [`completion.review`](openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/completion.review)
   for detailed evidence and fixture sources.
 - Focused compatible metadata/discovery/capability/endpoint-schema/models.dev/
   benchmark suite: **89/89 passed**. The existing models.dev live-API test
@@ -44,9 +112,11 @@
   clean base; no changed production module has a diagnostic.
 - Code Simplifier was applied after implementation fixes. Fresh integrated
   independent review returned no actionable findings; the reviewer ran no
-  tests or builds. The local commit contains this review. This package includes
-  no GitHub build/release, deployment, provider request/completion, credential
-  change, or runtime mutation; those gates remain open in `openspec/TODO.md`.
+  tests or builds. At local source-package completion, no GitHub build/release,
+  deployment, provider request/completion, credential change, or runtime
+  mutation had occurred. Later release and live-attempt receipts are recorded
+  in the TL333 section above; native free-only acceptance was still open then
+  and later closed.
 
 ## APInex native node type selection correction (2026-10-29)
 
@@ -81,11 +151,12 @@
   Fresh independent review first found stale dual-type wording after the
   source clarification; it was corrected, and the reviewer confirmed no
   remaining findings.
-- One unauthenticated read of the public APInex catalog grounded the test
-  fixture. No `/v1` provider request, key access, completion, runtime write,
-  local app/image build, push, merge, or deployment occurred. Release,
-  deployed-source verification, and native free-only acceptance remain open
-  in `openspec/TODO.md`; TL320 owns the separate `uncloseai` route-isolation
+- At this correction's completion, one unauthenticated read of the public
+  APInex catalog grounded the test fixture. No `/v1` provider request, key
+  access, completion, runtime write, local app/image build, push, merge, or
+  deployment occurred. Release,
+  deployed-source verification, and native free-only acceptance were still
+  open in `openspec/TODO.md`; TL320 owns the separate `uncloseai` route-isolation
   dependency.
 
 ## APInex exact free-prefix identity binding (2026-10-29)
@@ -1386,8 +1457,8 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - Re-review of final commit `c00eda16a6c5ed629a3b48f12bd2a21c755c8777` found no
   remaining findings. Behavior did not change, so focused suites were not
   rerun after the comment edits; commit hooks passed both edits.
-- Combined deployed-source and native free-only live acceptance remains open
-  and tracked in `openspec/TODO.md`.
+- At this review's completion, combined deployed-source and native free-only
+  live acceptance remained open and tracked in `openspec/TODO.md`.
 
 ## TL329 source import-boundary correction — 2026-10-29
 
