@@ -955,38 +955,19 @@ Deferred cross-repository and operations work:
       matching profiles. Existing `benchmark_consensus` and `models_dev_tier`
       remain valid fallbacks where a benchmark profile is absent; no score or
       filter change is proposed.
-- [ ] Finish native free-only live acceptance. The three client completions
-      produced one provider attempt: public correlation
-      `741de1ea-289b-4c1e-bf5c-a17ebfc15743` stopped at Traefik 403; restricted
-      key correlation `5dcd66b1-c32b-40ed-9271-a4dbe0b3c9ed` was blocked with
-      `ALL_TARGETS_SKIPPED` before provider dispatch; the corrected temporary
-      key was deleted and is absent from the DB. The actual
-      `auto/coding_high_tools:free` attempt passed strict preflight, selected
-      `nvidia/deepseek-ai/deepseek-v4.1-flash`, then timed out after 302,271 ms
-      with HTTP 504. Usage was 0/0 and no cost-ledger row exists, so this is not
-      successful free acceptance. The prior APInex-only inspector had zero
-      eligible candidates; diagnose its eligibility and retain exact native
-      `request_exhaustion` / generic availability subreasons without changing
-      filters based on the timeout. Owner notes that existing canonical free,
-      capability, reasoning, and fitness data may be reusable across provider
-      routes. TL320 proved the exact data-binding gap from read-only runtime
-      state. TL322's local exact-canonical identity binding is implemented on
-      its feature branch; a fresh independent review of source commit
-      `d987b44f7759295b619a3da20f5780a12ee63631` found no findings. Historical
-      TL324 integration with provider-specific pricing was locally complete,
-      then superseded by the owner-selected shared adapter. Deployed-source
-      acceptance remains open.
-      The scoped typecheck fails with the same seven diagnostics on parent source
-      `437d22e2ba20ea33fbb0c702ab7a22f6a8660dd2` and TL322; all seven are in
-      unchanged files, while the frozen baseline marks four counts uncovered.
-      This is not a passing typecheck and no baseline change was made. A
-      successful native free-only tool call must prove actual model, route,
-      usage, and cost, with no paid or
-      out-of-band fallback. Keep recorded provider runtime state unchanged;
-      this source package does not activate providers or restore prior state.
-      Clean this task's redundant artifacts while retaining one DB/image
-      rollback pair. Do not archive this
-      package before this gate closes.
+- [x] Finish native free-only live acceptance (TL333, 2026-10-30). Aggregate:
+      five client completions and five provider attempts. Latest controlled
+      request returned HTTP 200 for `free/gemini-3.8-flash` through
+      `auto/coding_high_tools:free`; forced `acceptance_probe({"ready":true})`
+      returned `ready=true`. Usage was 619 tokens, metadata reported explicit
+      `$0/$0` per-million prices, and computed cost was `$0`; no
+      `request_cost_ledger` row exists for this request. No paid or out-of-band
+      attempts occurred during this successful request.
+      Temporary key deletion returned 200; management GET returned 404 and SQL
+      found zero key rows. Full request IDs, prior outcomes, and receipt are in
+      `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/completion.review`.
+      Keep provider state and protected DB/image rollback pair unchanged; do not
+      restore or re-enable connections until owner steering.
 - [x] TL324: integrate official APInex free-entitlement pricing through the
       source-aware reader/merge path. The official APInex model pages list 44
       models, including 21 free models with exact zero input/output prices;
@@ -994,9 +975,14 @@ Deferred cross-repository and operations work:
       native zero-cost guard needs a fresh exact-zero pricing snapshot, while
       band tiering reads `models_dev_pricing[provider][rawModel]`. Do not infer
       entitlement from `free/` or zero-cost appearance, hand-write pricing rows,
-      or change the strict zero-cost guard. Local TL324 source package is
-      integrated with TL322; native eligibility and live acceptance above
-      remain open. The earlier APInex `/v1/models` 401 used encrypted
+      or change the strict zero-cost guard. This provider-specific TL324
+      implementation was superseded before release by the owner-selected shared
+      adapter for stored `openai-compatible` and `anthropic-compatible` node
+      types; retain this package as historical evidence, not the final
+      architecture. The deployed generic metadata receipt and completed native
+      live gate are in
+      `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/completion.review`.
+      The earlier APInex `/v1/models` 401 used encrypted
       SQLite credentials directly and does not establish that saved credentials
       are invalid; make no provider request as part of TL322.
 - [x] Supersede the TL324 provider-specific selector after the owner chose one
@@ -1004,6 +990,10 @@ Deferred cross-repository and operations work:
       `anthropic-compatible` node types. Keep the TL324 completion receipt as
       historical evidence; its old OpenAI-only endpoint selection is no longer
       normative. Do not archive either prior package as released work.
+- [ ] If authorized, refresh stale references in the superseded
+      `add-apinex-zero-price-source` and `fix-apinex-native-node-type` delta
+      docs that still point to the generic package's former active path. Keep
+      their APInex-specific requirements historical and inactive.
 - [x] Complete local `generic-compatible-model-metadata` implementation and
       fresh independent review. The reviewer found no actionable findings.
       Focused compatible metadata, discovery, capability, endpoint-schema,
@@ -1016,49 +1006,47 @@ Deferred cross-repository and operations work:
       test made a public catalog GET; compatible endpoints used fixtures. No
       local app/image build,
       provider request/completion, runtime mutation, or credential access was
-      performed for this local slice.
-- [ ] After local implementation review, run separately authorized GitHub
-      build/release and live acceptance. Read-only deployed
-      inspection on image `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b`
-      found the configured native node has type `openai-compatible`, exact
-      endpoint `https://api.apinex.bond/v1`, and 44 synced raw IDs. The adapter
-      and current source receipt did not prove deployed generic metadata
-      behavior. Verify both native node types using non-secret, redacted
-      metadata/source receipts; require no cross-origin credential forwarding,
-      complete pagination, exact current source URLs/timestamps, and no
-      account-level price leakage. Do not mutate provider runtime state during
-      this local package.
-- [ ] Re-run the normal GitHub ARM64 runtime check after TL329's reviewed
-      import-cycle correction is merged. Runs `40954554580` (source `0c316b9`)
-      and `40960960503` (source `410cc6e`) both exited 13 in the actual
-      `--check-runtime` import. TL329 traced the emitted async-init deadlock to
-      the awaited SCC `contextManager` → `comboContextLimit` → `contextManager`;
-      the earlier pure URL helper move did not remove this SCC. The minimal
-      source correction is local, passed 30/30 focused import-graph and
-      context-limit/Auto-combo tests, strict OpenSpec, focused ESLint/Prettier,
-      and fresh independent review with no findings. Targeted run `40965497429`
-      exported the generated bundle but did not rerun `--check-runtime`. Keep
-      the standard runtime stage unchanged and require its normal GitHub build
-      to pass before release.
+      performed for this local slice. The provider-agnostic requirements are
+      merged into `openspec/specs/compatible-model-metadata/spec.md`, and this
+      package is archived at
+      `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/`.
+- [x] Complete the separately authorized GitHub ARM64 runtime/build/release
+      gate and protected deployment on current main source
+      `455442b057542c857425d986853745b16e244543`. Run `40969961834` passed the
+      emitted `--check-runtime` with `--network none` (1.2s), parity, and
+      publication; transaction `40969961834-1` deployed healthy image
+      `ghcr.io/etcetera-agency/omniroute@sha256:b50091e18c7e61ac89e54ddc23d2484dafea2d7627e48492ebeccce3c18a5aa3`
+      with config digest
+      `sha256:603b8d65b894ac8b5b828f87280141298a7fc9b1144668d8d0fb9cc15313bd32`
+      on official base
+      `b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c`.
+      Host migration table is at 216 and the current benchmark set is
+      `latest_model_benchmark_evidence_current_set`; this 216 is not the
+      `request_cost_ledger` count (48 old rows). Protected pre-deploy DB backup
+      is mode 0600, integrity `ok`, SHA-256
+      `10529d76d0433bd773caa56ac4e0d626d112ba5567dba364f5507f04ee324784`.
+      Rollback pairs it with prior image
+      `1fc83c89305870786ca6c9ee7b6f794f53b65ee2d2c04ccf448a83a18e40d67b`
+      and source `e5be44c4080f228bc022ac9f821e073faddf80a8`. This closes the
+      emitted runtime and deployment gates; native free-only completion is
+      recorded separately above.
 - [x] TL316 one-time GitHub ARM64 bundle diagnostic: run `40965497429` on
       source `ea46cc92b53d211b4830df3b903ccfe5d1e80192` exported all 499 emitted
       `.mjs` files and esbuild metafile `reprocess-model-benchmark-search.meta.json`.
       Artifact `12938431477` digest was
       `sha256:eb3c0b0e90465d3373b5370ef70f95b457da6f56a28c5bfb55361a569d8962fd`
       (3,700,936 bytes); TL329 inspected the exact bundle and found the SCC
-      above. The artifact was deleted after inspection; the local code/metafile
-      copy remains at `/tmp/tl316-omni-operator-diagnostics-40965497429` until
-      normal runtime verification passes. Buildx also emitted an unintended
-      `.dockerbuild` record, artifact `12937922420`; it was deleted and its API
-      now returns 404. The temporary workflow is disabled and its workflow and
-      scratch target are removed in TL329's source-fix branch. Existing image,
-      CI, and Quality workflows remain disabled.
+      above. Artifact `12938431477` and unintended Buildx `.dockerbuild` record
+      `12937922420` were deleted; both GitHub artifact APIs return 404. Local
+      extracted bundle/metafile copies were removed after the passing normal
+      runtime check. The temporary diagnostic workflow and scratch target are
+      removed. Existing image, CI, and Quality workflows remain disabled.
 - [x] Local import-boundary correction passed independent review. The source
       graph regression passes on the corrected tree and fails on clean base
       `0c316b9`; focused adapter, capability, endpoint, pricing, Claude, and
       benchmark tests pass 109/109. Typecheck has the same 720 diagnostics as
-      base. This is source-level evidence only; emitted-artifact verification
-      remains open above.
+      base. This was source-level evidence at that point; GitHub run
+      `40969961834` later completed the emitted-artifact check above.
 - [x] Trace and record the separate pre-existing import-time usage migration
       path: `modelBenchmarkSearch.ts` → `executeWebSearch.ts` →
       `open-sse/handlers/search.ts` → `usageDb.ts` → `usage/migrations.ts`.
@@ -1066,12 +1054,12 @@ Deferred cross-repository and operations work:
       disk-persistence condition. GitHub logs show SQLite initialization but do
       not isolate which call opens it. This local correction does not change
       that behavior or claim the runtime check is side-effect-free.
-- [ ] Native free-only acceptance remains open after TL320 hid the built-in
-      no-auth `uncloseai` model found in TL326's default-pool inspection. TL320
-      then observed an empty normal pool and 12 APInex candidates only in the
-      diagnostic view; this does not establish an eligible native APInex route
-      or successful completion. Keep this source correction data-only and
-      prove the final request cannot fall back outside the requested free band.
+- [ ] Exercise live Anthropic-compatible metadata discovery separately;
+      current support is fixture-tested and has no live receipt. Retain the
+      pre-existing import-time usage DB migration path and exact native
+      `request_exhaustion` / generic availability-subreason diagnostics as
+      explicit deferred scope. Any behavior change requires a separately
+      scoped decision and proposal; no filter change is part of this package.
 - [ ] Before the separately authorized generated-override cleanup, verify
       whitelist hash
       `15f674bc4b8baacb3033a25c5220a842c050e060d2f11193aad297e704cb11d1`,
@@ -1115,4 +1103,4 @@ Deferred cross-repository and operations work:
 - [x] Complete normal current-catalog refresh after deployment with direct
       source, canonical-ID, and native-profile receipts above. The refresh made
       no discovery, search, or inference calls. Preserve the pre-migration DB
-      snapshot until the remaining native free-only acceptance closes.
+      snapshot; native free-only acceptance later closed in TL333.

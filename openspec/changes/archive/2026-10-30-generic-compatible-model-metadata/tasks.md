@@ -76,7 +76,7 @@
       Apply Code Simplifier to the complete correction before review.
 - [x] 4.6 Obtain fresh independent review, resolve actionable findings, and
       commit locally. Keep the generated-artifact GitHub check and live provider
-      acceptance open in `openspec/TODO.md`.
+      acceptance in `openspec/TODO.md`; section 6 records their later status.
 
 ## 5. Confirmed emitted initializer deadlock
 
@@ -92,6 +92,46 @@
       `git diff --check`. Do not build/transpile the application or operator
       locally; retain GitHub `--check-runtime` as the emitted-bundle gate.
 - [x] 5.4 Apply Code Simplifier, update completion/TODO records, obtain fresh
-      independent review, and commit locally. Keep generated-bundle runtime,
-      deployment, provider acceptance, and free-only acceptance open until their
-      separate authorized gates pass.
+      independent review, and commit locally. Track generated-bundle runtime,
+      deployment, provider acceptance, and free-only acceptance as separate
+      gates; section 6 records their later status.
+
+## 6. Post-merge runtime and live acceptance (TL331–TL333, 2026-10-30)
+
+- [x] 6.1 Verify GitHub ARM64 run `40969961834` on source
+      `455442b057542c857425d986853745b16e244543`: build, emitted
+      `--check-runtime` with `--network none`, parity, and published artifact.
+- [x] 6.2 Verify protected deployment transaction `40969961834-1`, current
+      image/config digest, healthy container, migration version 216, and paired
+      protected pre-deploy DB/image rollback receipt in this package review.
+- [x] 6.3 Verify current generic metadata sync and owner-directed APInex
+      isolation. The current provider returned 44 models and 44 explicit price
+      pairs; this does not prove an inference completion.
+- [x] 6.4 Delete the restricted temporary key and diagnostic artifacts after
+      use; confirm API 404, SQL zero key rows, deleted GitHub diagnostic
+      artifacts, and removal of local extracted bundle copies.
+- [x] 6.5 Complete one controlled forced-tool request through
+      `auto/coding_high_tools:free`. Correlation
+      `382a4b4f-3a76-4766-b7ff-9d5a5b17c189`, request
+      `32879ca5-ab90-4c0d-b7d8-84929e3c173e`, response
+      `52a490d8a4959b8c71caeb86437f1699`: `free/gemini-3.8-flash` on APInex
+      connection `9565fb26-817c-42b4-baa0-b76733a951c4`, node
+      `openai-compatible-chat-fbf9bf6f-8827-4330-a87d-9b5eaf4d30b1`; one
+      client completion and one provider attempt, HTTP 200, 1,789 ms. Forced
+      `acceptance_probe({"ready":true})` returned `ready=true`. Usage was 591
+      input + 28 output = 619 tokens. Metadata fetched
+      `2026-10-30T06:00:35.764Z` reported explicit `$0/$0` per-million prices
+      and tools/vision. Computed cost from actual usage and explicit zero prices
+      is `$0`; no `request_cost_ledger` row exists for this request, so no
+      persisted cost is claimed. The successful controlled request made no paid
+      or out-of-band attempts. Temporary key deletion
+      returned 200; management GET returned 404 and SQL found zero key rows.
+      This closes native free-only live acceptance.
+- [x] 6.6 Record live Anthropic-compatible metadata discovery as a separate
+      TODO follow-up. Current Anthropic support is fixture-tested; no live
+      discovery was performed or claimed. The follow-up remains open in root
+      `openspec/TODO.md`.
+- [x] 6.7 Record the pre-existing import-time usage DB migration behavior and
+      native availability-subreason diagnostics as deferred scope in root
+      `openspec/TODO.md`; any behavior change requires a separately scoped
+      decision and proposal.
