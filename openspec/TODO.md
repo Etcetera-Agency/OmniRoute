@@ -15,8 +15,22 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       target timeout400000 plus fallback250000=650000 before caller1200000.
       Same saved comboTimeoutMs1200000 passes on original BASE loop; source change
       is unnecessary. Persisted native comboDefaults1200000 via PATCH200/GET200.
-- [ ] Finish final combined regression receipt and correct initial PR53 main
-      changes. Its GitHub image build41209904236 was cancelled before publish/deploy;
+- [x] Final combined fork regression43/43 passed; PR54 restored all production
+      source to BASE and live455442b05754 (merge23066b5c22).
+- [ ] Complete user-directed manual audit beyond APInex through TL013/TL014.
+      APInex direct basic and strictSO probes200 with usage.cost_tokens0 prove
+      usablefreeSO model, so missingcatalog/state cannot be calledproofpaid.
+      Verify common catalog/identity/capability/state data across active LLMproviders.
+      Preserve nativeupstreamstrict; inspectfork9ba456643e/modelsDevimport bridge
+      andactualsnapshotfreshness/IDmapping. Responsecostfields are not required.
+- [ ] Resolve live high-SO executable-pool gate before claiming fresh normalization
+      acceptance: smoke3432f08c-8b2c-4e20-b704-7c689ede3a97 returned404 before
+      provider dispatch despite9 diagnostic candidates for each manage key. TL013
+      diagnoses native reachability/free exclusions without widening eligibility.
+      Confirmed high-SO reasons:6 not-in-catalog,3 state-unknown; all reachable
+      and not manually excluded. Determine native trusted catalog/state refresh
+      before admitting any candidate; never disable strictfree to clear this gate.
+      Initial PR53 main changes were reverted. Its GitHub image build41209904236 was cancelled before publish/deploy;
       image workflow disabled, live source455442b05754. No local image builds.
 - [x] Activate persistent gateway-only zero envs by authorized app-only restart
       using current image and --no-build. Image603b8d65b894 and source455442b05754 unchanged; healthcheck passes,
@@ -1134,3 +1148,10 @@ Deferred cross-repository and operations work:
       source, canonical-ID, and native-profile receipts above. The refresh made
       no discovery, search, or inference calls. Preserve the pre-migration DB
       snapshot; native free-only acceptance later closed in TL333.
+
+## E013 — native free evidence import and live acceptance (2026-10-31)
+
+- Local implementation is in `openspec/changes/fix-native-free-evidence-import/` on branch `fix/auto-fallback-request-lifetime-20261031`. Exact provider/model source evidence survives beyond 36 hours with original `fetchedAt`; raw models.dev provider IDs use the existing native mapping. Upstream strict-zero policy, dynamic `openrouter/free` exclusion, static catalog precedence, hard stops, and quota checks remain intact.
+- E013 updated the fork-owned stale-evidence and raw-provider mapping expectations in `tests/unit/autoCombo/strict-zero-cost-filter.test.ts` and `tests/unit/modelsDevZeroCostEvidence.test.ts`. The separate compatible-pricing TTL is removed without changing capability false-veto or unknown behavior.
+- Live acceptance remains open: verify deployed importer/runtime carries exact evidence into candidate classification, then perform owner-authorized provider/model billing acceptance. E013 made no provider/network calls and did not establish that source zero prices guarantee zero provider billing. Keep the OpenSpec package unarchived until these gates are resolved.
+- Deferred audit findings only: direct-source completeness, the full five-snapshot gate, all-row rejection, and fitness-source allowlist mismatch. Do not implement these under E013 without separate owner decisions.

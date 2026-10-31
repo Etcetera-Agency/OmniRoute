@@ -12,6 +12,7 @@ const metadata = await import("../../src/lib/providerModels/compatibleMetadata.t
 const discovery = await import("../../src/lib/providerModels/modelDiscovery.ts");
 
 const NOW = "2026-10-29T12:00:00.000Z";
+const THIRTY_SIX_HOURS_MS = 36 * 60 * 60 * 1000;
 const PROVIDER_ID = "shared-compatible-metadata-node";
 const CONNECTION_ID = "connection-1";
 const SOURCE_URL = "https://gateway.example/v1/models";
@@ -320,7 +321,7 @@ test("compatible capability overrides use eligible exact IDs and preserve explic
   );
 });
 
-test("composes only unanimous fresh exact prices and uses oldest included source time", () => {
+test("composes only unanimous exact prices and uses oldest included source time", () => {
   const now = Date.parse(NOW);
   const providerId = "anthropic-compatible-node";
   const firstFetchedAt = new Date(now - 2 * 60 * 60 * 1000).toISOString();
@@ -382,7 +383,7 @@ test("composes only unanimous fresh exact prices and uses oldest included source
   });
 });
 
-test("missing, stale, future, or conflicting connection data fails closed", () => {
+test("stale complete zero prices remain; missing, future, and conflicting data fail closed", () => {
   const now = Date.parse(NOW);
   const providerId = "openai-compatible-node";
   const modelId = "vendor/model";
@@ -391,27 +392,43 @@ test("missing, stale, future, or conflicting connection data fails closed", () =
     connectionId,
     modelIds: [modelId],
   }));
-  const makeSnapshot = (connectionId: string, fetchedAt = NOW, input = 0, output = 0) => ({
+  const makeSnapshot = (
+    connectionId: string,
+    fetchedAt = NOW,
+    input = 0,
+    output = 0,
+    includeOutput = true
+  ) => ({
     providerId,
     connectionId,
     sourceUrl: SOURCE_URL,
     fetchedAt,
     modelsById: {
-      [modelId]: { id: modelId, inputDollarsPer1M: input, outputDollarsPer1M: output },
+      [modelId]: {
+        id: modelId,
+        inputDollarsPer1M: input,
+        ...(includeOutput ? { outputDollarsPer1M: output } : {}),
+      },
     },
   });
   const compose = (snapshots: ReturnType<typeof makeSnapshot>[]) =>
     metadata.composeCompatibleMetadataPrices(snapshots, eligible, now);
 
+  const staleFetchedAt = new Date(now - THIRTY_SIX_HOURS_MS - 1).toISOString();
+  const staleComplete = compose([
+    makeSnapshot("connection-1", staleFetchedAt),
+    makeSnapshot("connection-2"),
+  ]);
+  assert.deepEqual(staleComplete.pricingByProvider, {
+    [providerId]: { [modelId]: { input: 0, output: 0 } },
+  });
+  assert.deepEqual(staleComplete.zeroPriceModelsByProvider, { [providerId]: [modelId] });
+  assert.equal(staleComplete.fetchedAt, staleFetchedAt);
+
   assert.deepEqual(compose([makeSnapshot("connection-1")]).pricingByProvider, {});
   assert.deepEqual(
-    compose([
-      makeSnapshot(
-        "connection-1",
-        new Date(now - metadata.COMPATIBLE_METADATA_MAX_AGE_MS - 1).toISOString()
-      ),
-      makeSnapshot("connection-2"),
-    ]).pricingByProvider,
+    compose([makeSnapshot("connection-1", NOW, 0, 0, false), makeSnapshot("connection-2")])
+      .pricingByProvider,
     {}
   );
   assert.deepEqual(
@@ -424,6 +441,13 @@ test("missing, stale, future, or conflicting connection data fails closed", () =
   assert.deepEqual(
     compose([makeSnapshot("connection-1"), makeSnapshot("connection-2", NOW, 0.1, 0.2)])
       .pricingByProvider,
+    {}
+  );
+  assert.deepEqual(
+    compose([
+      makeSnapshot("connection-1", NOW, 0.1, 0.2),
+      makeSnapshot("connection-2", NOW, 0.1, 0.2),
+    ]).zeroPriceModelsByProvider,
     {}
   );
 });

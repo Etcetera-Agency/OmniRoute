@@ -128,8 +128,8 @@ test("models.dev zero-price extraction preserves canonical provider and raw mode
   } as unknown as ModelsDevData;
 
   assert.deepEqual(extractModelsDevZeroPriceModels(raw), {
-    openrouter: ["vendor/model:free"],
-    togetherai: ["direct-free"],
+    openrouter: ["direct-free"],
+    together: ["direct-free"],
   });
 });
 
@@ -256,7 +256,7 @@ test("strict zero evidence reads both fresh sources without network or writes", 
   );
 });
 
-test("stale and future compatible snapshots do not contribute current zero evidence", () => {
+test("stale compatible pricing contributes while future timestamps remain excluded", () => {
   const rawModelId = "vendor/model:free";
   const eligibleConnections = [
     { providerId: PROVIDER_ID, connectionId: CONNECTION_ID, modelIds: [rawModelId] },
@@ -269,17 +269,21 @@ test("stale and future compatible snapshots do not contribute current zero evide
     modelsById: { [rawModelId]: { id: rawModelId, inputDollarsPer1M: 0, outputDollarsPer1M: 0 } },
   });
 
-  for (const fetchedAt of [
-    new Date(NOW - compatibleMetadata.COMPATIBLE_METADATA_MAX_AGE_MS - 1).toISOString(),
-    new Date(NOW + 1).toISOString(),
-  ]) {
-    assert.deepEqual(
-      compatibleMetadata.composeCompatibleMetadataPrices(
-        [snapshot(fetchedAt)],
-        eligibleConnections,
-        NOW
-      ).zeroPriceModelsByProvider,
-      {}
-    );
-  }
+  const staleFetchedAt = new Date(NOW - 36 * 60 * 60 * 1000 - 1).toISOString();
+  const stalePricing = compatibleMetadata.composeCompatibleMetadataPrices(
+    [snapshot(staleFetchedAt)],
+    eligibleConnections,
+    NOW
+  );
+  assert.deepEqual(stalePricing.zeroPriceModelsByProvider, { [PROVIDER_ID]: [rawModelId] });
+  assert.equal(stalePricing.zeroFetchedAt, staleFetchedAt);
+
+  assert.deepEqual(
+    compatibleMetadata.composeCompatibleMetadataPrices(
+      [snapshot(new Date(NOW + 1).toISOString())],
+      eligibleConnections,
+      NOW
+    ).zeroPriceModelsByProvider,
+    {}
+  );
 });
