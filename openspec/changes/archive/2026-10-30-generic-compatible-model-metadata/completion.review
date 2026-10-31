@@ -258,3 +258,144 @@
   production deployment, provider acceptance, and native free-only acceptance
   remained open. The later receipts are at the start of this review; TL333
   later cleared this archive hold.
+
+## TL013 exact-main deployment and held metadata resync — 2026-10-31
+
+- PR58 is merged at `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`; live GitHub
+  `main` was re-read at the same SHA before release. Workflow
+  `373883666` (`.github/workflows/omni-overlay-image.yml`) was initially
+  `disabled_manually`; it was dispatched once on `refs/heads/main`, then
+  restored to `disabled_manually`. Run
+  [41235613024](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/41235613024)
+  completed successfully at `2026-10-31T20:00:59Z` with exact head
+  `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. Build job
+  `124638647787` passed native ARM64 build, emitted runtime check, official UI
+  parity, and immutable publish. Protected deploy job `124641967040` passed.
+  Published runtime digest:
+  `ghcr.io/etcetera-agency/omniroute@sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`.
+- Remote read-only checks used SSH alias `etc2nd-shlink` via a shell heredoc.
+  `omniroute` is running and healthy with restart count 0, configured to the
+  pinned digest; its image ID is
+  `sha256:289a71d0edd897b4f0d92d6648c24bfe0836eec1d9a2c261f9b2bd9b46162650`.
+  `/app/.build/next/omni-overlay/server/BUILD_SHA` contains the exact source
+  SHA. The effective emitted artifact includes the settings sync route and
+  native Auto candidates route. The application entrypoint/Cmd are unchanged.
+  Redis remained healthy on its original image ID
+  `sha256:8baad871cba966985cc0010b2324eae3612581bfb0e6e00213537e11cadc0a20`.
+  The known paired rollback artifacts and diagnostic archive were preserved;
+  the archive `/var/oled/omniroute-deploy-diagnostics/a4-artifact-73056e982e6348ab94df085e82753005/image.tar`
+  remains 3,159,546,880 bytes, mode 0600, SHA-256
+  `080176ad3734cfc37ea003e48f5794877a626b74b826cd33443d6b73914663bc`.
+- A protected pre-sync SQLite backup was saved at
+  `/var/oled/omniroute-deploy-diagnostics/e013-41235613024-pre-sync.sqlite`,
+  95,899,648 bytes, mode 0600, SHA-256
+  `2fd4b67d399aa4d9c27183f57bde213c3227b0c6ebdc45c84a5b72f39e89a59c`.
+  The paired sanitized before capture is
+  `/var/oled/omniroute-deploy-diagnostics/e013-41235613024-before.json`,
+  mode 0600, captured `2026-10-31T20:05:17.461707Z`. It records four active
+  compatible connections, pre-existing AIHubMix/APInex snapshots with 660/44
+  models, and two Caprover connections with no snapshot/synced catalog. The
+  AIHubMix and APInex snapshot timestamps shortly after startup are not proof
+  that the authorized sync ran; no sync result or per-connection post-state
+  exists.
+- The one authorized request to
+  `POST /api/settings/models-dev` used body
+  `{"action":"sync","dryRun":false,"syncCapabilities":false}` and
+  returned HTTP 403 without a result. This attempt was not repeated. The
+  database's stored `api_keys.key` values did not hash-match their management
+  bearer `key_hash`; the existing Chrome session had no OmniRoute dashboard
+  open. No auth bypass or new credential was used. Do not count imports or
+  derive after-state from this response. A future attempt needs a fresh backup
+  and before capture, then settled after-state evidence.
+- At the pre-sync capture, the models.dev zero snapshot was still fetched at
+  `2026-10-29T23:31:57.808Z` and contained provider key `kilo`, not canonical
+  `kilocode`. The separate pricing capture had 380 `kilocode` entries. The
+  zero snapshot was not rewritten. The persisted settings capture confirms
+  `freeAccessPolicy=strict`, enabled lockout with `403,404,429,502,503,504`,
+  base/max/steps `120000/1800000/10` and exponential backoff, and
+  `comboDefaults.comboTimeoutMs=1200000`; `API_BRIDGE_PROXY_TIMEOUT_MS=0`,
+  `API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS=0`, and `REQUEST_TIMEOUT_MS` unset.
+- One bounded APInex public metadata fetch returned HTTP 200/44 models:
+  `structured_output` present 0, absent 44, unavailable 0, unhandled shape 0.
+  Full raw payload/key set was not retained. The field remains absent for exact
+  IDs `free/deepseek-v4.1-flash` and `deepseek-v4.1-flash` in their saved
+  snapshots/synced rows, so capability stays unknown. Other active compatible
+  catalogs were not raw-fetched. AIHubMix's normalized 660-model snapshot has
+  no structured-output fields; both Caprover connections have no saved catalog
+  snapshot. Neither is raw-source absence evidence. No capability override,
+  inference, provider probe, or added provider/config is in scope.
+- Candidate-pool diagnostic is not an executable-pool count. In the prior
+  high-SO diagnostic, 9 rows showed `reachable=true` and `excluded=false`, but
+  the native strict reasons were 6 `not-in-catalog` and 3 `state-unknown`;
+  strict filtering admits only connections with outcome `safe`, so zero of
+  those nine was strict-admitted. These historical diagnostic fields say
+  nothing about current ordering, and current diagnostic/strict-orderable
+  counts remain unproven. Source inspection found the candidate handler uses
+  `prepareVirtualAutoComboInputs({}, true)` to retain diagnostic rows and then
+  annotates `freeAccessExclusion`. Its classifier calls
+  `resolveFreeAccessState`; a missing/stale cache entry triggers
+  `void refresh(provider, connectionId)`, which can perform a provider usage
+  request for usage-fetcher providers with a connection. Therefore the endpoint
+  was not called. Diagnostic and strict counts for the current deployed state
+  remain unproven; historical pool/order for correlation `6dc4` remains
+  unknown.
+- No native sync/import or stock derived writes were confirmed. The BASE startup
+  path and periodic BASE zero-writer defect remain unchanged/open; the full
+  OVERLAY startup choice remains open. No inference, search, benchmark, queue,
+  paid fallback, policy change, or provider/config mutation occurred. Production
+  health is verified; metadata resync and passive structured-output acceptance
+  remain blocked on a usable existing authenticated session and a successful
+  one-time sync with before/after proof.
+
+## TL013 dashboard-authenticated metadata resync continuation (2026-10-31)
+
+- First sync POST returned HTTP 403 before its handler. Source branch `src/server/authz/policies/management.ts:331-336` identifies cause: supplied DB API-key value was not valid management bearer (`api_keys.key` did not validate against management `key_hash`). Exact source response for this invalid-Bearer branch: `{"error":{"code":"AUTH_001","message":"Invalid management token","correlation_id":"<request-id>"}}`. Dynamic correlation ID and original body were not retained. No evidence points to Origin, CSRF, session, Host, or deliberate `/api/v1` deny middleware. Invalid request did not run importer.
+- Used existing dashboard password login and native session cookie, same-origin `Origin`, and `x-omniroute-csrf` token from `/api/auth/csrf`. Login, CSRF fetch, and `/api/settings/models-dev?action=status` returned 200. Exactly one native POST with `{"action":"sync","dryRun":false,"syncCapabilities":false}` then returned HTTP 200, `success=true`, 9,829 models, 238 providers, 0 capability writes. No arbitrary retry, new credential, JWT construction, scope grant, auth/middleware/config change. Before status had `lastSync=null`, `periodicEnabled=false`; route awaits sync result and returns it. Status omits an `inProgress` field, so no separate concurrent-work claim is made. `periodicEnabled=false` remained after sync.
+- Protected SQLite online backup before successful mutation, integrity `ok`, mode 0600, 95,899,648 bytes, SHA-256 `fcfd8950cb3ce9d624ed16bf095f4522d3e4c87e06a2c0f8771892aeb6834b7d`: `/var/oled/omniroute-deploy-diagnostics/e013-41235613024-dashboard-auth-pre-sync.sqlite`. Before capture `e013-41235613024-dashboard-auth-before.json` (9,162 bytes, SHA-256 `5764fb5948d293f86680e2c41dee46c0d6f5ecde387e465238381a7ea18d8581`); after capture `e013-41235613024-dashboard-auth-after.json` (9,731 bytes, SHA-256 `a33c0c6ccd8b7fe4237bff0553821d7e402bb9210a4c3c8e4069a922ab0cf24c`). Captures and backup remain mode 0600.
+- Settled receipt coverage: 4/4 active compatible connections with fresh source, snapshot, and synced receipts: Caprover `caprover-local-fast`, 1 model, `2026-10-31T20:28:08.359Z`; Caprover `caprover-uacore-local-fast`, 1 model, `20:28:10.490Z`; AIHubMix connection `13596fa2-252b-41e7-8bad-7665b5722194`, 660 models, `20:28:12.738Z`; APInex connection `9565fb26-817c-42b4-baa0-b76733a951c4`, 44 models, `20:28:12.896Z`. Snapshot and synced timestamps checked per connection; no second refresh needed.
+- APInex's one bounded raw metadata GET used exact native enriched URL `https://api.apinex.bond/api/public/models` (HTTP 200), JSONPath `$.models` (44 rows). Exact `$.models[*]` keys: `allowFree,contextWindow,dollarsPer1M,health,id,name,outputDollarsPer1M,provider,supportsTools,supportsVision,tags,weight`. No `capabilities` or `structured_output` field, and no JSON-schema capability field. Counts: recognized `structured_output` 0, absent 44, unavailable 0, unhandled declared shape 0. This is not `/v1/models`. Raw payload was not retained; sanitized path/key/count evidence was. Exact IDs `deepseek-v4.1-flash` and `free/deepseek-v4.1-flash` remain unknown in snapshot, synced rows, and resolver. Prior strict-JSON HTTP 200 does not authorize backfill. AIHubMix's imported 660 rows and each Caprover catalog also lack structured-output property; no override, inheritance, or base-ID promotion.
+- Models.dev zero snapshot after sync records actual `fetchedAt=2026-10-31T20:28:08.276Z`, canonical `kilocode` with 20 IDs and no `kilo` key (before: stale `2026-10-29T23:31:57.808Z`, 21 IDs under `kilo`). Pricing has 380 `kilocode` rows. Sync result 9,829 models/238 providers/0 capability writes; status after 9,873 models/239 providers/10,233 capability rows. Before/after settings equal: strict free access; lockout enabled for 403/404/429/502/503/504, base 120,000 ms, max 1,800,000 ms, 10 exponential steps; combo timeout 1,200,000 ms; `API_BRIDGE_PROXY_TIMEOUT_MS=0`, `API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS=0`, `REQUEST_TIMEOUT_MS` unset; `PROXY_AUTO_SELECT_ENABLED=false`.
+- Settled stock bookkeeping had no observed delta: LKG pool rows 32; APInex session history 2; no session affinity, proxy assignments/rotation, quota-pool membership, or `qtSd` combos; `auto:discovery` override counts 0 for `auto/coding_high_tools:free` and `auto/general_high_so:free`. Native hooks stayed enabled. Free metadata eligibility is not provider billing proof.
+- Candidate endpoint was not called. Current active usage-fetcher provider set includes `agy` and `antigravity`; configured usage leaf reaches `getAntigravityUsage`, whose stale/missing-cache path can issue metadata POSTs via `fetchAntigravityAvailableModelsCached`, `fetchAntigravityUserQuotaCached`, and `loadCodeAssist`. Concrete active leaf, not a generic `cantriggerusage` marker, is reason candidate GET stayed outside current GET-only boundary. No inference/provider probe. Historical 9 diagnostic rows had 6 `not-in-catalog`, 3 `state-unknown`, and zero strict-admitted among those nine. `reachable=true && excluded=false` is not an executable count. Current diagnostic and strict-policy-admitted/orderable counts remain unproven; old `6dc4` pool/order remains unknown.
+- Policy audit entered in root TODO without source/config change: `OMNIROUTE_AUTO_BANDS_CONFIG` `capabilities.so.unknown` supports allow/deny and defaults deny; no API/UI found. Allow preserves `null`, explicit false remains veto; owner decision pending. `response_format` is recognized; false is incompatible, null passes. Quality validation checks response body/string/JSONPath, not caller JSON Schema. Quality failure can lead to target fallback, but HTTP 200 invalid content/schema has no generic retry guarantee. Gemini translates `responseSchema`; Claude adds prompt instruction. No common all-provider strict-output/schema guarantee. No proposed policy options or implementation added.
+- Runtime is healthy on pinned release digest with `BUILD_SHA=35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. Effective emitted settings route `/app/.build/next/omni-overlay/server/app/api/settings/models-dev/route.js` SHA-256 `478ac4b69471516d19bf2c0a2bd0c739e9f52ae16198cb915d5a65fc5bdcca94` contains sync handler; candidate route `/app/.build/next/omni-overlay/server/app/api/v1/auto-combo/[channel]/candidates/route.js` SHA-256 `74aa7998236985f8abb65ee6ff8c74bcc3a21ac826c1b234dcf92497909be826` contains strict exclusion marker. Old app container exited `2026-10-31T20:00:15.557161245Z` (143); new container started `2026-10-31T20:00:19.138980479Z`, restart count 0. Redis stayed healthy on original image ID `sha256:8baad871cba966985cc0010b2324eae3612581bfb0e6e00213537e11cadc0a20`. Direct restart-gate warning did not reach TL013 before old-app stop. Latest root free space 3,123,126,272 bytes, `/var/oled` 7,194,427,392 bytes. Rollback pairs and 3,159,546,880-byte archive remain preserved at `/var/oled/omniroute-deploy-diagnostics/a4-artifact-73056e982e6348ab94df085e82753005/image.tar`, mode 0600, SHA-256 `080176ad3734cfc37ea003e48f5794877a626b74b826cd33443d6b73914663bc`.
+- No build, restart, rollback, new provider/config, inference, candidate GET, source edit, policy change, or periodic timer start in this continuation. BASE periodic zero-writer defect remains open; full-OVERLAY startup choice remains pending. PR59 stays open for review, no merge/check bypass. Root receipt: [root `completion.review`](../../../../completion.review); current gates remain in root `openspec/TODO.md`.
+- Code Simplifier reviewed this docs-only continuation; no source changed and no further simplification was needed. `npm run check:docs-all` passed docs-sync and frontmatter, then stopped at docs-counts with 73 repository-wide strict pre-existing drifts and `readCodeFacts unavailable: tsx/spawnSync failed`; unrelated count drift was not repaired. Final `git diff --check` passed.
+
+## E013 candidate-only continuation and receipt corrections (2026-10-31)
+
+- Historical 403 correction: the initial request's HTTP 403 was observed; original response bytes and request correlation ID were not retained. AUTH_001 / “Invalid management token” is the code branch's response for an invalid management bearer, but original request branch/body is unconfirmed. The DB API-key/hash mismatch is source diagnosis only. The later ordinary dashboard session + same-origin + CSRF request proves auth for the subsequent successful sync only.
+- Active provider inventory from protected pre-sync backup: 10 active usage-fetcher connections across eight provider IDs: agy, antigravity, jina-ai, jina-reader, kilocode, ollama-cloud (three connections), openrouter, tavily-search. APInex/AIHubMix compatible provider IDs have no registered usage fetcher. resolveFreeAccessState() returns cached process state synchronously; on a miss/stale entry its detached refresh() calls getUsageForProvider(..., { forceRefresh: false }).
+- Antigravity/AGY branch proof:
+  - Active agy OAuth connection has saved project ID and clientProfile=cli; active antigravity OAuth connection has saved project ID and defaults to ide. getAntigravityUsage() calls cached loadCodeAssist, fetch-available-models, per-model user quota, and quota summary.
+  - POST https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist body keys: metadata containing ideType, platform, pluginType.
+  - POST {https://daily-cloudcode-pa.googleapis.com,https://cloudcode-pa.googleapis.com,https://daily-cloudcode-pa.sandbox.googleapis.com}/v1internal:fetchAvailableModels body key project (empty object if absent).
+  - POST {https://daily-cloudcode-pa.googleapis.com,https://cloudcode-pa.googleapis.com}/v1internal:retrieveUserQuota and /v1internal:retrieveUserQuotaSummary, body key project.
+  - Cold/stale client-version metadata may GET https://api.github.com/repos/google-antigravity/antigravity-cli/releases/latest for configured CLI profile or https://antigravity-auto-updater-974169037036.us-central1.run.app/releases for IDE profile.
+  - Model-generation probe path is /v1internal:streamGenerateContent?alt=sse; probeAntigravityCreditBalance requires forceRefresh === true and credits mode always. Candidate refresh passes forceRefresh=false; the model probe is unreachable on this path. The usage leaf does not call onboardUser, create-project, or enrollment endpoints. No model/chat/completions/inference/probe was executed.
+- Other active metadata leaves and current config branches: Kilo Code OAuth GET /api/profile/balance and /api/trpc/kiloPass.getState (batch,input query fields); Jina API-key GET /api/v1/api_key/fe_user (api_key query field; value omitted); Ollama Cloud has three active API-key connections, OLLAMA_USAGE_COOKIE and URL override unset, so only default GET https://ollama.com/api/balance; OpenRouter API-key GET /api/v1/key and /api/v1/credits; Tavily API-key GET https://api.tavily.com/usage, with custom base unset. Their responses are quota/account metadata. OpenRouter may update its process-local purchasedAtLeast10 free-window tier from numeric totalCredits; source shows no provider/model/config DB write in this usage leaf.
+- Existing native diagnostic route is GET /api/v1/auto-combo/{channel}/candidates. It calls prepareVirtualAutoComboInputs({}, true): strict reasons are annotated with the native classifier while strict filtering is skipped. reachable reports breaker/cooldown/model-lock state; excluded reports per-key overrides. The handler expands logical model candidates into account rows after the candidate-level strict verdict, so the same safe verdict can be copied onto unsafe/unknown account rows when a candidate has multiple allowedConnectionIds. The response omits the final safe account IDs and routing order. A successful response could provide diagnostic reasons, but cannot prove per-account strict orderability from reachable/excluded or the copied model-level reason alone.
+- No candidate GET was sent. Both browser-codex and computer-use MCP transports returned Transport closed; existing dashboard auth could not be used through the allowed browser controls. No anonymous request, invalid-bearer retry, login bypass, or new credential was used. freeBandCandidateCounts remain null for both approved target bands. Current diagnostic counts and strict-admitted/orderable counts remain unproven; prior 9-row diagnostic is 6 not-in-catalog, 3 state-unknown, zero strict-admitted. Correlation 6dc4 historic pool/order remains unknown.
+- Four refreshed compatible connections have exact post-sync persisted structured_output counters (true/false/non-boolean/absent): Caprover caprover-local-fast 0/0/0/1, snapshot/source/synced at 2026-10-31T20:28:08.359Z; Caprover caprover-uacore-local-fast 0/0/0/1, 20:28:10.490Z; AIHubMix 13596fa2-252b-41e7-8bad-7665b5722194 0/0/0/660, snapshot 20:28:12.740Z, synced 20:28:12.738Z; APInex 9565fb26-817c-42b4-baa0-b76733a951c4 0/0/0/44, snapshot 20:28:12.897Z, synced 20:28:12.896Z. Sources: Caprover http://100.82.44.118:8080/v1/models; UACore http://100.97.141.24:8080/v1/models; AIHubMix https://aihubmix.com/v1/models; APInex https://api.apinex.bond/api/public/models. Before sync Caprover had no catalog timestamp; AIHubMix was snapshot/synced 20:01:53.645Z/20:01:55.745Z; APInex 20:02:09.668Z/20:02:11.739Z. Resolver capability and override row counts stayed zero for each connection; APInex target resolver values remain absent/null.
+- APInex raw source evidence: exact enriched URL https://api.apinex.bond/api/public/models, JSONPath $.models, 44 rows. Field names allowFree,contextWindow,dollarsPer1M,health,id,name,outputDollarsPer1M,provider,supportsTools,supportsVision,tags,weight; structured_output declared 0, absent 44, unavailable 0, unhandled 0. Raw body not retained. This does not cover /v1/models. AIHubMix's 660 persisted synced rows and two Caprover synced rows have zero structured-output values; do not claim full raw source absence for AIHubMix.
+- Before/after stock row counts were identical: qtSd 0; LKG pool 32; session affinity 0; APInex session history 2; proxy assignments 0; proxy rotation 0; quota-pool membership 0; both target auto-discovery override/exclusion counts 0. No billing proof follows from metadata eligibility.
+- modelsDevSyncEnabled=true; live MODELS_DEV_SYNC_ENABLED and MODELS_DEV_SYNC_INTERVAL are unset; post-sync OVERLAY status reported periodicEnabled=false. The one-time sync action calls syncModelsDev and does not start/stop the OVERLAY timer. This module-local status is not evidence that all process periodic work or the BASE timer is disabled. BASE periodic zero-writer defect remains open; full-OVERLAY startup selection remains pending.
+- No further import, build, restart, source/config mutation, inference, policy change, or provider probe occurred. PR59 remains open for review.
+- Policy provenance clarification: `OMNIROUTE_AUTO_BANDS_CONFIG.capabilities.so.unknown` is this OmniRoute fork's existing setting, not an upstream native-band setting. Stock combo admission rejects only explicit `structured_output === false`; parent recommends allow, but owner decision remains pending. Explicit false and free-only behavior are unchanged. The HTTP 200 invalid JSON/schema retry limit is a current behavior note, not a validator implementation proposal; no policy/config/source change.
+
+## Startup delta auditor reconciliation (2026-10-31)
+
+- Current 355 release and metadata sync are accepted; owner startup choice remains independently pending: preserve BASE startup with stable integration, or choose OVERLAY startup with its alternate bindings. Both compiled variants register the same 77 orchestration import sites; only `modelsDev` binding differs (`368236` vs `665453`) and cleanup binding differs (`539626` vs `372844`). Earlier claim that Arena/Radar/etc. are additional fork boot is corrected. Normalized compiled-chunk orchestration hash `1b59dad7de09159487d809bf0cd0a7c4fa463844b46807a929e0c54016892c1d` does not prove leaf-binary equality. Shared entry is `instrumentation.ts:18` → `registerNodejs:512`; no production selective models.dev replacement or other normalizer start hook found. Test callback is not a production seam.
+- Capture `2026-10-31T20:37:12Z–20:49:32Z`: background/headless-disable vars unset; persisted `modelsDevSyncEnabled=true`; models.dev env vars unset. OVERLAY local timer `false` does not prove BASE timer disabled; BASE periodic zero-writer defect remains open.
+- Both variants have credential-health flow `instrumentation-node:781` → `credentialHealth/scheduler:191` → `providers/[id]/test:1024` → `validation/specialtyInline:250`; BASE also `26509`, OVERLAY `15464` and `26509`. Health-disable unset; default 60m; initial delay 30s; NVIDIA credential active; health interval null; no refresh backoff; leases 0. Path can POST NVIDIA chat with user `test`, `max_tokens:1`; no such request was executed/observed and no successful inference/health is claimed. Preserve native job opt-ins, LiveWS=0, empty wakeup-batch auto-ping.
+- No startup/config/source change or additional auditor. Candidate diagnostics remain independently pending because browser MCP returned `Transport closed`; metadata acceptance is not blocked by startup/policy choices.
+
+## Candidate diagnostics and owner policy decision (2026-10-31)
+
+- Existing native credential was checked in-process against the current stored bcrypt hash and matched. Standard `POST /api/auth/login` and `GET /api/auth/csrf` returned HTTP 200. Session cookie/CSRF token remained in the SSH Node process; no credential was printed and no auth bypass or permissions/config change occurred.
+- First native candidate GETs for both approved bands, a 45-second quota-cache wait, and passive GETs completed `2026-10-31T21:06:02Z–21:06:50Z`; all four requests returned HTTP 200 and identical first/passive counts.
+- `auto/coding_high_tools:free`: 24 account diagnostic rows, 21 unique provider/model candidates; account-row `freeAccessExclusion` reasons null 18, `state-unknown` 5, `not-in-catalog` 1; unique logical reasons null 18, `state-unknown` 2, `not-in-catalog` 1.
+- `auto/general_high_so:free`: 9 account diagnostic rows, 7 unique provider/model candidates; account-row reasons null 5, `state-unknown` 3, `not-in-catalog` 1; unique logical reasons null 5, `state-unknown` 1, `not-in-catalog` 1.
+- Every row had `reachable=true`, breaker `CLOSED`, `excluded=false`. Response exposes `freeAccessExclusion`, connection identity, reachability, cooldown, and model-lock fields, but omits final safe connection IDs, allowed IDs, and dispatch order. Null reason is a native strict-free classifier pass at logical provider/model level; it does not prove SO capability eligibility or per-account strict orderability. Never treat reachable and not excluded as executable. No inference/provider probe/chat request ran.
+- Owner's final policy decision is keep `OMNIROUTE_AUTO_BANDS_CONFIG.capabilities.so.unknown=deny`; it remains this fork's existing setting and was not changed. APInex's exact enriched raw URL `https://api.apinex.bond/api/public/models`, JSONPath `$.models`, has 44 rows with no declared `structured_output`; exact free/base targets remain unknown and not SO-band eligible. No positive inference, override, inheritance, or policy loosening. HTTP 200 invalid JSON/schema has no generic schema-based retry; limitation is future-only if desired, not current policy work.
+- Candidate reasons captured; per-account orderability remains unproven. Metadata release/sync accepted; startup choice and BASE periodic zero-writer defect remain open. No more import/build/restart/source change. Code Simplifier reviewed docs; `git diff --check` passed; no tests ran.

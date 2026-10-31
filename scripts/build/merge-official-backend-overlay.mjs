@@ -158,6 +158,27 @@ async function writeJsonAtomic(file, value) {
   await fs.rename(temporaryPath, file);
 }
 
+async function resolveFileWithin(root, file, label) {
+  let resolved;
+  try {
+    resolved = await fs.realpath(file);
+  } catch (error) {
+    throw new Error(`${label} is missing: ${file}`, { cause: error });
+  }
+
+  const relative = path.relative(root, resolved);
+  if (
+    !relative ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative) ||
+    !(await fs.stat(resolved)).isFile()
+  ) {
+    throw new Error(`${label} must resolve to a file inside its server tree: ${file}`);
+  }
+  return resolved;
+}
+
 function hasV1ApiRewrite(rewrites) {
   return REWRITE_GROUPS.some((group) =>
     rewrites[group].some(
@@ -259,6 +280,13 @@ export async function mergeOfficialBackendOverlay({
 
   const resolvedBundles = new Map();
   const sourceRoot = await fs.realpath(normalizedOverlayServerDir);
+  const sourceInstrumentationPath = path.join(normalizedOverlayServerDir, "instrumentation.js");
+  await resolveFileWithin(
+    sourceRoot,
+    sourceInstrumentationPath,
+    "Backend overlay startup instrumentation"
+  );
+
   for (const [routeKey, bundlePath] of overlayApiEntries) {
     const sourceBundle = validateApiBundlePath(normalizedOverlayServerDir, routeKey, bundlePath);
     let realBundle;
@@ -333,6 +361,27 @@ export async function mergeOfficialBackendOverlay({
       errorOnExist: true,
     });
   }
+
+  const runtimeOverlayRoot = await fs.realpath(normalizedRuntimeOverlayServerDir);
+  const runtimeInstrumentationPath = path.join(runtimeOverlayRoot, "instrumentation.js");
+  const realRuntimeInstrumentationPath = await resolveFileWithin(
+    runtimeOverlayRoot,
+    runtimeInstrumentationPath,
+    "Runtime backend overlay startup instrumentation"
+  );
+
+  // AICODE-NOTE: Next loads the root entry; delegate to the source build so its relative chunks stay in the isolated overlay.
+  const instrumentationRequest = path
+    .relative(normalizedBaseServerDir, realRuntimeInstrumentationPath)
+    .split(path.sep)
+    .join("/");
+  const rootInstrumentationPath = path.join(normalizedBaseServerDir, "instrumentation.js");
+  const temporaryInstrumentationPath = `${rootInstrumentationPath}.${process.pid}.tmp`;
+  await fs.writeFile(
+    temporaryInstrumentationPath,
+    `module.exports = require(${JSON.stringify(instrumentationRequest)});\n`
+  );
+  await fs.rename(temporaryInstrumentationPath, rootInstrumentationPath);
 
   await Promise.all([
     writeJsonAtomic(baseAppPathsFile, mergedAppPaths),
