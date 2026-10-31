@@ -1186,8 +1186,12 @@ Deferred cross-repository and operations work:
       `incomplete Hugging Face feeds preserve current evidence and native scores`.
       That exact offline test passes 1/1; focused six-file ESLint passes. Production
       source is unchanged; prior unfiltered 68/68 and independent source review stand.
-- [ ] Owner accepted source, unfiltered 68/68, independent review, and P3
-      clarification. Complete authorized feature integration, then the GitHub-only build and
+- [x] Owner accepted source, unfiltered 68/68, independent review, and P3
+      clarification. Feature integration is tracked by
+      [PR57](https://github.com/Etcetera-Agency/OmniRoute/pull/57); current-main PR56
+      history is preserved in the feature branch. Merge completion must be confirmed
+      from the PR and fetched main, not inferred from local checks.
+- [ ] After confirmed PR57 integration, complete the GitHub-only build and
       protected deployment/passive runtime acceptance. No local build or deployment
       is part of this slice. Owner correction: the no-space issue was fixed without
       stopping the app; TL013 owns the separate held startup-artifact fix. These

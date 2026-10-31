@@ -2024,3 +2024,26 @@ Focused quality commands after correction:
 - Root TODO retains all deployment/passive runtime and TL013 startup/common SO
   provenance/import/resync gates. Task 9 stays open; fork-main package merge
   remains pending until GitHub confirms it. No build or deploy is dispatched.
+
+## TL015 PR57 final merge preflight (2026-10-31)
+
+- Owned feature PR: https://github.com/Etcetera-Agency/OmniRoute/pull/57, base
+  `main`, head `fix/benchmark-source-isolation-20261031`, same fork repository
+  `Etcetera-Agency/OmniRoute`. Main integration is not yet claimed complete.
+- GitHub reports MERGEABLE/CLEAN. Main has no branch protection or rulesets;
+  check-runs and status contexts are empty, and no Actions run exists for the
+  feature. The combined status endpoint says pending with total_count 0; this
+  is absence of checks, not a passing check run. There are no check run URLs.
+- Image workflow `373883666` remains `disabled_manually`; no workflow enable,
+  dispatch, build, deployment, or model/provider call occurred. Existing active
+  workflows have no ordinary feature-push/PR trigger that builds this package.
+- Code Simplifier reapplied before this documentation commit and the authorized
+  normal GitHub merge: current task changes need no additional simplification.
+  The sole post-review test change remains unused mock-parameter removal; source
+  and tests match feature commit `8c87f2c82e41803e9bbdab57f76d4213382266ea`.
+  Strict selected OpenSpec validation, changed-doc formatting, and diff checks
+  pass; normal hooks are required without bypass. No test suite was repeated.
+- Root TODO links PR57 for the integration receipt and retains pending GitHub
+  build/protected deployment/passive runtime and TL013 gates. Task 9 remains
+  open and the package unarchived. Actual landing will be confirmed from GitHub
+  and fetched main after the merge.
