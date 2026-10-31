@@ -9,6 +9,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
+const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 
 mock.method(globalThis, "fetch", async () => {
   throw new Error("External HTTP is forbidden in compatible capability unit tests");
@@ -16,6 +17,30 @@ mock.method(globalThis, "fetch", async () => {
 
 const providerId = "openai-compatible-local";
 const rawModelId = "gpt-4o";
+const crossProviderModelId = "deepseek-v4.1-flash";
+
+function syncedCapability(structured_output, tool_call = null) {
+  return {
+    tool_call,
+    reasoning: null,
+    reasoning_efforts: null,
+    attachment: null,
+    structured_output,
+    temperature: null,
+    modalities_input: "[]",
+    modalities_output: "[]",
+    knowledge_cutoff: null,
+    release_date: null,
+    last_updated: null,
+    status: null,
+    family: null,
+    open_weights: null,
+    limit_context: null,
+    limit_input: null,
+    limit_output: null,
+    interleaved_field: null,
+  };
+}
 
 function compatibleSnapshot(overrides = {}) {
   return {
@@ -273,5 +298,197 @@ test("structured-output handoff keeps false veto, true evidence, exact identity,
       higherPriorityFalse
     ).structuredOutput,
     false
+  );
+});
+
+test("native models.dev structured-output booleans keep priority over other providers", () => {
+  modelsDevSync.saveModelsDevCapabilities({
+    "opencode-go": {
+      [crossProviderModelId]: syncedCapability(true),
+    },
+    "alibaba-token-plan": {
+      [crossProviderModelId]: syncedCapability(false),
+    },
+  });
+
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: "opencode-go",
+      model: crossProviderModelId,
+    }).structuredOutput,
+    true
+  );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: "alibaba-token-plan",
+      model: crossProviderModelId,
+    }).structuredOutput,
+    false
+  );
+});
+
+test("any exact cross-provider models.dev true resolves regardless of false rows or order", () => {
+  for (const entries of [
+    [
+      ["alibaba-token-plan", false],
+      ["opencode-go", true],
+    ],
+    [
+      ["opencode-go", true],
+      ["alibaba-token-plan", false],
+    ],
+  ]) {
+    modelsDevSync.saveModelsDevCapabilities(
+      Object.fromEntries(
+        entries.map(([provider, structuredOutput]) => [
+          provider,
+          { [crossProviderModelId]: syncedCapability(structuredOutput) },
+        ])
+      )
+    );
+
+    assert.equal(
+      modelCapabilities.getResolvedModelCapabilities({
+        provider: providerId,
+        model: crossProviderModelId,
+      }).structuredOutput,
+      true
+    );
+  }
+
+  const snapshot = compatibleSnapshot({
+    synced: {
+      "alibaba-token-plan": {
+        [crossProviderModelId]: syncedCapability(false),
+      },
+      "opencode-go": {
+        [crossProviderModelId]: syncedCapability(true, false),
+      },
+    },
+  });
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${crossProviderModelId}`,
+      undefined,
+      snapshot
+    ).structuredOutput,
+    true
+  );
+
+  modelsDevSync.saveModelsDevCapabilities({
+    "opencode-go": {
+      [crossProviderModelId]: syncedCapability(true, false),
+    },
+  });
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: crossProviderModelId,
+    }).structuredOutput,
+    true
+  );
+});
+
+test("false, null, tool-call-only, and similar model rows do not prove structured output", () => {
+  modelsDevSync.saveModelsDevCapabilities({
+    "alibaba-token-plan": {
+      [crossProviderModelId]: syncedCapability(false),
+    },
+    "ollama-cloud": {
+      [crossProviderModelId]: syncedCapability(null, true),
+    },
+    "opencode-go": {
+      [`${crossProviderModelId}-preview`]: syncedCapability(true),
+    },
+  });
+
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: crossProviderModelId,
+    }).structuredOutput,
+    null
+  );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: `${crossProviderModelId}-preview-v2`,
+    }).structuredOutput,
+    null
+  );
+});
+
+test("exact compatible false still vetoes cross-provider models.dev true", () => {
+  const base = compatibleSnapshot({
+    synced: {
+      "opencode-go": {
+        [rawModelId]: syncedCapability(true),
+      },
+    },
+    compatibleMetadataSnapshots: [
+      {
+        providerId,
+        connectionId: "connection-a",
+        sourceUrl: "https://example.test/models",
+        fetchedAt: "2026-10-29T00:00:00.000Z",
+        modelsById: { [rawModelId]: { id: rawModelId, structuredOutput: false } },
+      },
+    ],
+    compatibleEligibleConnections: [
+      { providerId, connectionId: "connection-a", modelIds: [rawModelId] },
+    ],
+  });
+
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(`${providerId}/${rawModelId}`, undefined, base)
+      .structuredOutput,
+    false
+  );
+});
+
+test("recognized free prefix uses its exact base without promoting free-native evidence", () => {
+  modelsDevSync.saveModelsDevCapabilities({
+    "opencode-go": {
+      [crossProviderModelId]: syncedCapability(true),
+    },
+  });
+
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: `free/${crossProviderModelId}`,
+    }).structuredOutput,
+    true
+  );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: `free/${crossProviderModelId}-preview`,
+    }).structuredOutput,
+    null
+  );
+
+  modelsDevSync.saveModelsDevCapabilities({
+    [providerId]: {
+      [`free/${crossProviderModelId}`]: syncedCapability(false),
+    },
+    "opencode-go": {
+      [crossProviderModelId]: syncedCapability(true),
+    },
+  });
+
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: `free/${crossProviderModelId}`,
+    }).structuredOutput,
+    false
+  );
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities({
+      provider: providerId,
+      model: crossProviderModelId,
+    }).structuredOutput,
+    true
   );
 });

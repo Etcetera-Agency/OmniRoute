@@ -1276,3 +1276,39 @@ Deferred cross-repository and operations work:
 - Latest capture window `2026-10-31T20:37:12Z–20:49:32Z`: background/headless-disable vars unset, persisted `modelsDevSyncEnabled=true`, models.dev env vars unset. OVERLAY local timer status `false` does not establish BASE timer status. BASE periodic zero-writer defect remains open; no timer/config/source change.
 - Both BASE and OVERLAY include credential-health flow `instrumentation-node:781` → `credentialHealth/scheduler:191` → `providers/[id]/test:1024` → `validation/specialtyInline:250`; BASE also has the same path at `26509`, OVERLAY at `15464` and `26509`. Current config: health-disable unset; global default 60m; initial delay 30s; active NVIDIA credential; health interval null; refresh backoff absent; leases 0. Source can POST NVIDIA chat with `messages: [{role:"user",content:"test"}]` and `max_tokens:1`. This audit executed/observed no such request; do not claim inference or successful provider health. Preserve native job opt-ins, LiveWS=0, and empty wakeup-batch auto-ping.
 - No new production startup hook or implementation is proposed. Current deployment and metadata sync remain accepted. Candidate reason and logical strict-policy counts are captured above; per-account orderability remains unproven because the endpoint omits safe IDs/order. Startup choice remains independently pending.
+
+## TL013 shared models.dev structured-output fallback (2026-10-31)
+
+- [x] Owner-selected common resolver policy: the exact requested provider,
+      connection, and model's native structured-output boolean wins, including
+      `false`. Only when native value is absent, any models.dev row with the
+      same canonical model ID and explicit `structured_output=true` returns
+      true. Other rows' false/null/absence do not veto; no true evidence remains
+      unknown. `tool_call` is neither evidence nor prerequisite. This selection
+      supersedes the prior no-cross-provider-inheritance statement only for
+      exact same-ID models.dev structured-output fallback. Per-model overrides,
+      APInex gates, paid fallback, and billing gates remain out of scope.
+- [x] Local E013 implementation on
+      `fix/structured-output-modelsdev-fallback`, based on approved main
+      `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. Existing resolver now checks
+      build snapshots or the established models.dev all-row cache after native
+      sources. Known `free/<model>` identity uses the exact existing resolver.
+      Unknown remains `null` for the current fail-closed band filter.
+- [x] DATA E013-so-sources: one public models.dev metadata GET and DB capture show exact ID
+      `deepseek-v4.1-flash` declared true by `opencode-go`/`opencode-zen` and
+      false by `alibaba-token-plan`/`ollama-cloud`; raw audit was 23 true and 2
+      false among 25 exact-ID records. This implementation used offline fixtures without repeating the GET or DB
+      capture. Owner selected the policy; DATA E013-so-sources supplied the data.
+      Fresh inference, forced-tool calls, and billing acceptance are currently
+      forbidden and are not metadata completion gates.
+- [x] Strictly validated and locally archived OpenSpec change as
+      `openspec/changes/archive/2026-10-31-fix-modelsdev-structured-output-fallback/`;
+      merged shared contract is `openspec/specs/model-capability-resolution/spec.md`.
+      Local spec archiving is not deployment or runtime acceptance.
+- [ ] Parent consolidated local acceptance/integration first, then the
+      already-authorized GitHub build/deploy and passive metadata follow-up.
+      No new approval gate applies. Execution remains held until local readiness.
+- [ ] SUSPENDED / owner-dependent: historical fresh inference, forced-tool-call,
+      and billing acceptance items are currently forbidden and are not required
+      to finish fallback metadata. Deferred compatible vision-false preservation
+      remains a separate TODO.

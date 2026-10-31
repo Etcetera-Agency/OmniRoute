@@ -2139,3 +2139,88 @@ NODE_OPTIONS=--import=/tmp/compatible-so-integration-20261031/offline-guard.mjs 
 - Owner final decision: retain `OMNIROUTE_AUTO_BANDS_CONFIG.capabilities.so.unknown=deny`. This is an existing fork setting, not an upstream native-band setting; no config/source change. APInex's exact enriched raw source `https://api.apinex.bond/api/public/models`, JSONPath `$.models`, 44 rows, declares no `structured_output`; its exact free/base models remain unknown and not SO-band eligible. No positive claim, per-model override, cross-provider inheritance, or policy loosening. HTTP 200 invalid JSON/schema has no generic schema-based retry; this remains future-only if desired, not work for the chosen policy.
 - This section supersedes earlier candidate-pending and owner-decision-pending notes above. Candidate diagnostics are now captured; strict-free classifier passes are at logical model level, while SO eligibility and per-account orderability remain unproven from this route. Metadata deployment/sync remain accepted. Full startup choice and BASE periodic zero-writer defect remain independent and open. No more imports, builds, restarts, or source changes.
 - Code Simplifier reviewed these docs-only acceptance updates; no further simplification was needed. `git diff --check` passed; no tests were run.
+
+## TL013 shared models.dev structured-output fallback — local implementation (2026-10-31)
+
+- Executor thread: `E013-SO-modelsdev — SO из models.dev`, ID
+  `01a193e1-9677-72b1-b5f1-d5953ac15426`; thread read confirmed cwd
+  `/srv/projects/hermes` and active status.
+- Worktree: `/srv/projects/hermes/OmniRoute/.claude/worktrees/structured-output-modelsdev-fallback`,
+  branch `fix/structured-output-modelsdev-fallback`, exact base
+  `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. Shared checkout and other
+  workers' worktrees were not switched or edited.
+- Selected rule implemented in the common resolver: native exact provider /
+  connection / model boolean wins, including false; when absent, any models.dev
+  row with the same exact canonical model ID and `structured_output=true` is
+  sufficient. Other providers' false/null/omitted values and row order do not
+  veto. No true evidence returns null. `tool_call` is not proof or prerequisite.
+  Exact known `free/<model>` identity uses existing `resolveFreePrefixBase`;
+  unknown free IDs and similar names do not inherit.
+- Source scope: `src/lib/modelCapabilities.ts` and
+  `tests/unit/compatible-model-capability-resolution.test.ts`. Existing
+  `snapshot.synced` or `getSyncedCapabilities()` supplies rows. No DB helper,
+  migration, model/config change, pricing, scoring, routing, startup, or
+  provider-specific gate was added. AICODE note records exact-ID/true invariant.
+- TDD RED command selected five resolver regressions:
+
+```sh
+DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-reporter=spec --test-name-pattern='native models.dev structured-output booleans|any exact cross-provider models.dev true|false, null, tool-call-only|exact compatible false|recognized free prefix' tests/unit/compatible-model-capability-resolution.test.ts
+```
+
+Result: 3 passed, 2 failed as expected (`null !== true`) for cross-provider
+exact-ID fallback and recognized free-prefix fallback. Pre-existing native
+boolean and compatible-connection veto checks already passed. The test suite
+rejects global `fetch`, and fixtures use isolated SQLite data.
+
+- GREEN affected Node suites:
+
+```sh
+DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 --test-reporter=spec tests/unit/compatible-model-capability-resolution.test.ts tests/unit/compatibleMetadata.test.ts tests/unit/model-metadata-registry.test.ts
+```
+
+Result: 27/27 passed, no skips. This includes DB-backed exact-provider rows,
+snapshot resolution, false veto, any-true/order independence, null/false-only,
+tool-call independence, exact-ID isolation, and known free-prefix identity.
+
+- Existing policy regression suites:
+  `vitest run --config vitest.mcp.config.ts` over
+  `bands-capabilities.test.ts`, `strict-zero-cost-filter.test.ts`,
+  `paid-model-filter-6512.test.ts`, `benchmark-fitness-band-tier.test.ts`,
+  `bands-routing-priority.test.ts`, and
+  `free-regime-not-read-by-predicate.test.ts` — 6 files, 49/49 passed. Unknown
+  SO remains denied; free-cost, paid filtering, scoring, and band priority tests
+  pass unchanged.
+- Code Simplifier reviewed the final source/test slice for scope, directness, and
+  redundant logic; no further changes were needed. Scoped ESLint passed;
+  Prettier check passed for source, test, and package Markdown; strict OpenSpec
+  validation reported valid; `git diff --check` passed.
+- DATA E013-so-sources used one public models.dev metadata GET plus DB capture.
+  The GET contained 23 explicit true and 2 false declarations among 25 exact-ID
+  `deepseek-v4.1-flash` rows. The prior
+  saved rows identify `opencode-go`/`opencode-zen` true and
+  `alibaba-token-plan`/`ollama-cloud` false. This implementation relies on the
+  selected same-ID cross-serving assumption; no APInex request, billing proof,
+  fresh catalog fetch, or runtime verification was performed.
+- Root TODO records parent consolidated local acceptance/integration first,
+  followed by already-authorized GitHub build/deploy and passive metadata
+  follow-up. Full OVERLAY startup is selected. Fresh inference, forced-tool-call,
+  and billing acceptance are currently forbidden; historical items are suspended
+  and are not fallback metadata gates. Compatible vision-false work stays separate.
+  No new approval or financial-proof gate applies.
+- OpenSpec package was strictly validated, archived locally under
+  `openspec/changes/archive/2026-10-31-fix-modelsdev-structured-output-fallback/`,
+  and merged into the new shared `model-capability-resolution` spec. This local
+  spec operation does not claim deployment or runtime acceptance.
+
+- Independent review completed with no code findings; parent accepts source after
+  these documentation corrections. Provenance is DATA E013-so-sources; owner
+  selected policy. Code Simplifier reviewed the commit scope; source/tests remain
+  byte-identical to the accepted patch. Retained results: 27/27 Node and 49/49
+  Vitest; no tests rerun. Only selected SO source/tests/spec/docs are authorized
+  for this local commit. Parent coordinates integration after startup readiness;
+  no push, build, deploy, or other-worktree merge occurs here.
+- Docs correction source/test diff SHA-256 before and after:
+  `c612e2f2507b250cec26a42696ab2475f48984eb8c486337c012f06d70e7cb00`.
+  Scoped documentation formatting, living OpenSpec validation, and diff checks
+  passed. Code Simplifier reapplied immediately before the local commit; no
+  source/test edits or test reruns are part of this correction.
