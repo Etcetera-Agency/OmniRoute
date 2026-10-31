@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -9,6 +9,10 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
+
+mock.method(globalThis, "fetch", async () => {
+  throw new Error("External HTTP is forbidden in compatible capability unit tests");
+});
 
 const providerId = "openai-compatible-local";
 const rawModelId = "gpt-4o";
@@ -57,6 +61,7 @@ function resetStorage() {
 test.beforeEach(resetStorage);
 
 test.after(() => {
+  mock.restoreAll();
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
@@ -128,4 +133,145 @@ test("unknown compatible capability leaves the canonical verdict unchanged", () 
     snapshot
   );
   assert.equal(resolved.supportsVision, true);
+});
+
+test("structured-output handoff keeps false veto, true evidence, exact identity, and priority", () => {
+  const base = compatibleSnapshot({
+    compatibleMetadataSnapshots: [
+      {
+        providerId,
+        connectionId: "connection-a",
+        sourceUrl: "https://example.test/models",
+        fetchedAt: "2026-10-29T00:00:00.000Z",
+        modelsById: { [rawModelId]: { id: rawModelId, structuredOutput: false } },
+      },
+      {
+        providerId,
+        connectionId: "connection-b",
+        sourceUrl: "https://example.test/models",
+        fetchedAt: "2026-10-29T00:00:00.000Z",
+        modelsById: { [rawModelId]: { id: rawModelId, structuredOutput: true } },
+      },
+    ],
+  });
+  const resolved = modelCapabilities.getResolvedModelCapabilities(
+    `${providerId}/${rawModelId}`,
+    undefined,
+    base
+  );
+  assert.equal(resolved.structuredOutput, false);
+
+  const trueOnly = {
+    ...base,
+    compatibleMetadataSnapshots: base.compatibleMetadataSnapshots.slice(1),
+    compatibleEligibleConnections: base.compatibleEligibleConnections.slice(1),
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${rawModelId}`,
+      undefined,
+      trueOnly
+    ).structuredOutput,
+    true
+  );
+
+  const absent = {
+    ...trueOnly,
+    compatibleMetadataSnapshots: [
+      {
+        providerId,
+        connectionId: "connection-b",
+        sourceUrl: "https://example.test/models",
+        fetchedAt: "2026-10-29T00:00:00.000Z",
+        modelsById: { [rawModelId]: { id: rawModelId } },
+      },
+    ],
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(`${providerId}/${rawModelId}`, undefined, absent)
+      .structuredOutput,
+    null
+  );
+
+  const otherModel = {
+    ...trueOnly,
+    compatibleEligibleConnections: [
+      { providerId, connectionId: "connection-b", modelIds: ["different-model"] },
+    ],
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${rawModelId}`,
+      undefined,
+      otherModel
+    ).structuredOutput,
+    null
+  );
+
+  const otherProvider = {
+    ...trueOnly,
+    compatibleEligibleConnections: [
+      { providerId: "other-compatible-node", connectionId: "connection-b", modelIds: [rawModelId] },
+    ],
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${rawModelId}`,
+      undefined,
+      otherProvider
+    ).structuredOutput,
+    null
+  );
+
+  const otherConnection = {
+    ...trueOnly,
+    compatibleMetadataSnapshots: [
+      {
+        ...trueOnly.compatibleMetadataSnapshots[0],
+        connectionId: "connection-a",
+      },
+    ],
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${rawModelId}`,
+      undefined,
+      otherConnection
+    ).structuredOutput,
+    null
+  );
+
+  const higherPriority = {
+    ...base,
+    synced: {
+      [providerId]: {
+        [rawModelId]: { structured_output: true },
+      },
+    },
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${rawModelId}`,
+      undefined,
+      higherPriority
+    ).structuredOutput,
+    true
+  );
+
+  const higherPriorityFalse = {
+    ...higherPriority,
+    synced: {
+      [providerId]: {
+        [rawModelId]: { structured_output: false },
+      },
+    },
+  };
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities(
+      `${providerId}/${rawModelId}`,
+      undefined,
+      higherPriorityFalse
+    ).structuredOutput,
+    false
+  );
 });

@@ -8,6 +8,7 @@ export interface CompatibleModelRecord {
   outputTokenLimit?: number;
   supportsVision?: boolean;
   supportsTools?: boolean;
+  structuredOutput?: boolean;
   inputDollarsPer1M?: number;
   outputDollarsPer1M?: number;
 }
@@ -33,7 +34,7 @@ export interface CompatibleMetadataPrices {
   zeroFetchedAt: string | null;
 }
 
-export type CompatibleBooleanCapability = "supportsVision" | "supportsTools";
+export type CompatibleBooleanCapability = "supportsVision" | "supportsTools" | "structuredOutput";
 
 export const COMPATIBLE_METADATA_NAMESPACE = "compatible_model_metadata";
 
@@ -82,6 +83,9 @@ function normalizedRecord(id: string, source: UnknownRecord): CompatibleModelRec
   if (typeof source.supportsTools === "boolean") {
     record.supportsTools = source.supportsTools;
   }
+  if (typeof capabilities?.structured_output === "boolean") {
+    record.structuredOutput = capabilities.structured_output;
+  }
 
   const inputDollarsPer1M = nonnegativeFiniteNumber(source.dollarsPer1M);
   const outputDollarsPer1M = nonnegativeFiniteNumber(source.outputDollarsPer1M);
@@ -125,7 +129,7 @@ function parseStoredModel(id: string, value: unknown): CompatibleModelRecord | n
       record[field] = number;
     }
   }
-  for (const field of ["supportsVision", "supportsTools"] as const) {
+  for (const field of ["supportsVision", "supportsTools", "structuredOutput"] as const) {
     if (source[field] !== undefined) {
       if (typeof source[field] !== "boolean") return null;
       record[field] = source[field];
@@ -310,7 +314,7 @@ export function resolveCompatibleCapabilityOverride(
   capability: CompatibleBooleanCapability,
   higherPriorityOverride?: boolean | null
 ): boolean | null {
-  // AICODE-NOTE: Capability eligibility is current; pricing TTL does not expire explicit capabilities.
+  // AICODE-NOTE: Keep compatible declarations exact and current; price TTL never expires them.
   if (typeof higherPriorityOverride === "boolean") return higherPriorityOverride;
 
   const snapshotsByConnection = new Map(

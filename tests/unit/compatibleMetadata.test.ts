@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -8,8 +8,12 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-compatible-met
 process.env.DATA_DIR = DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
+const modelsDb = await import("../../src/lib/db/models.ts");
 const metadata = await import("../../src/lib/providerModels/compatibleMetadata.ts");
 const discovery = await import("../../src/lib/providerModels/modelDiscovery.ts");
+const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
+const modelMetadataRegistry = await import("../../src/lib/modelMetadataRegistry.ts");
+const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 
 const NOW = "2026-10-29T12:00:00.000Z";
 const THIRTY_SIX_HOURS_MS = 36 * 60 * 60 * 1000;
@@ -17,13 +21,19 @@ const PROVIDER_ID = "shared-compatible-metadata-node";
 const CONNECTION_ID = "connection-1";
 const SOURCE_URL = "https://gateway.example/v1/models";
 
+mock.method(globalThis, "fetch", async () => {
+  throw new Error("External HTTP is forbidden in compatible metadata unit tests");
+});
+
 test.beforeEach(() => {
   core.resetDbInstance();
   fs.rmSync(DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   fs.mkdirSync(DATA_DIR, { recursive: true });
 });
 
-test.after(() => {
+test.after(async () => {
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  mock.restoreAll();
   core.resetDbInstance();
   fs.rmSync(DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
@@ -57,6 +67,78 @@ test("normalizes documented Anthropic and OpenAI rows with exact raw IDs", () =>
       },
     ]
   );
+});
+
+test("native structured-output declaration survives compatible import and resolution", async () => {
+  const db = core.getDbInstance();
+  const now = new Date().toISOString();
+  db.prepare(
+    "INSERT INTO provider_nodes (id, type, name, prefix, api_type, base_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(PROVIDER_ID, "openai-compatible", "Gateway", "gateway", "chat", SOURCE_URL, now, now);
+  db.prepare(
+    "INSERT INTO provider_connections (id, provider, name, is_active, provider_specific_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(CONNECTION_ID, PROVIDER_ID, "Active", 1, null, now, now);
+
+  for (const structuredOutput of [true, false, undefined] as const) {
+    modelsDevSync.saveModelsDevCapabilities({
+      openai: {
+        "gpt-4o": {
+          tool_call: null,
+          reasoning: null,
+          attachment: null,
+          structured_output: structuredOutput ?? null,
+          temperature: null,
+          modalities_input: "[]",
+          modalities_output: "[]",
+          knowledge_cutoff: null,
+          release_date: null,
+          last_updated: null,
+          status: null,
+          family: null,
+          open_weights: null,
+          limit_context: null,
+          limit_input: null,
+          limit_output: null,
+          interleaved_field: null,
+          reasoning_efforts: null,
+        },
+      },
+    });
+
+    const nativeRow = modelMetadataRegistry.enrichCatalogModelEntry(
+      { id: "gpt-4o", owned_by: "openai", capabilities: {} },
+      { provider: "openai", model: "gpt-4o" }
+    );
+    const nativeCapabilities = nativeRow.capabilities as Record<string, unknown>;
+    if (structuredOutput === undefined) {
+      assert.equal(Object.hasOwn(nativeCapabilities, "structured_output"), false);
+    } else {
+      assert.equal(nativeCapabilities.structured_output, structuredOutput);
+    }
+
+    await discovery.persistCompatibleDiscoveredModels(PROVIDER_ID, CONNECTION_ID, SOURCE_URL, [
+      nativeRow,
+    ]);
+    const snapshot = await metadata.readCompatibleMetadataSnapshot(PROVIDER_ID, CONNECTION_ID);
+    assert.ok(snapshot);
+    const imported = snapshot.modelsById["gpt-4o"];
+    if (structuredOutput === undefined) {
+      assert.equal(Object.hasOwn(imported, "structuredOutput"), false);
+    } else {
+      assert.equal(imported.structuredOutput, structuredOutput);
+    }
+
+    const synced = await modelsDb.getSyncedAvailableModelsForConnection(PROVIDER_ID, CONNECTION_ID);
+    if (structuredOutput === undefined) {
+      assert.equal(Object.hasOwn(synced[0], "structuredOutput"), false);
+    } else {
+      assert.equal(synced[0].structuredOutput, structuredOutput);
+    }
+    assert.equal(
+      modelCapabilities.getResolvedModelCapabilities(`${PROVIDER_ID}/gpt-4o`).structuredOutput,
+      structuredOutput ?? null
+    );
+  }
 });
 
 test("only exact finite nonnegative per-million prices map, and explicit false survives", () => {
