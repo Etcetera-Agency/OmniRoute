@@ -11,12 +11,20 @@ const core = await import("../../src/lib/db/core.ts");
 const searchDb = await import("../../src/lib/db/modelBenchmarkSearch.ts");
 const search = await import("../../src/lib/modelBenchmarkSearch.ts");
 const fitnessSync = await import("../../src/lib/modelBenchmarkFitnessSync.ts");
+const taskFitness = await import("../../open-sse/services/autoCombo/taskFitness.ts");
 
 const catalog = [
   { id: "Vendor/Raw-1", name: "Model One" },
   { id: "Vendor/Inactive", name: "Inactive Model" },
   { id: "Vendor/Ambiguous-A", name: "Shared Display" },
   { id: "Vendor/Ambiguous-B", name: "Shared Display" },
+];
+const directSources = [
+  "artificial-analysis-free",
+  "swe-bench",
+  "terminal-bench-2.0",
+  "terminal-bench-2.1",
+  "deepswe",
 ];
 
 function resetStorage() {
@@ -211,9 +219,61 @@ function benchmarkFitnessRows() {
     .all();
 }
 
+function priorEvidence(modelId: string, source: string, value: number) {
+  const benchmark =
+    source === "artificial-analysis-free"
+      ? "AA Coding"
+      : source.startsWith("terminal-bench")
+        ? "Terminal-Bench"
+        : source === "deepswe"
+          ? "DeepSWE"
+          : "SWE-bench";
+  const metric =
+    source === "artificial-analysis-free"
+      ? "artificial_analysis_coding_index"
+      : source.startsWith("terminal-bench")
+        ? "accuracy"
+        : source === "deepswe"
+          ? "pass_rate"
+          : "resolved";
+  return {
+    evidenceHash: `prior:${modelId}:${source}`,
+    modelId,
+    source,
+    sourceVersion: "prior-source-version",
+    matchedModelId: modelId,
+    matchedModelName: modelId,
+    benchmark,
+    benchmarkVersion: "prior-v1",
+    reasoningEffort: "high",
+    reasoningConfig: null,
+    metric,
+    value,
+    sourceUrl: "https://example.test/prior",
+    sourceDate: null,
+    verificationStatus: "official_leaderboard",
+    capturedAt: "2026-10-01T00:00:00.000Z",
+  };
+}
+
+function seedPriorEvidence(modelIds: string[]) {
+  searchDb.upsertModelBenchmarkSearchIdentities(modelIds.map((id) => ({ id, name: id })));
+  searchDb.replaceModelBenchmarkEvidenceSources(
+    modelIds.flatMap((modelId) =>
+      directSources.map((source, sourceIndex) => ({
+        modelId,
+        source,
+        rows: [priorEvidence(modelId, source, (sourceIndex + 1) / 10)],
+      }))
+    )
+  );
+  fitnessSync.publishModelBenchmarkFitnessSnapshot();
+}
+
 test.beforeEach(() => {
   resetStorage();
   searchDb.upsertModelBenchmarkSearchIdentities(catalog);
+  taskFitness.invalidateFitnessCache();
 });
 test.afterEach(() => core.resetDbInstance());
 test.after(() => {
@@ -560,7 +620,7 @@ test("catalog refresh calls serialize in invocation order and the later catalog 
   assert.ok(rows.some(({ modelId, value }) => modelId === "Vendor/Inactive" && value === 29));
 });
 
-test("a rejected catalog refresh releases the queue for the next call", async () => {
+test("a partial catalog refresh releases the queue for the next call", async () => {
   const firstFixture = feedFetch();
   const secondFixture = feedFetch();
   let rejectFirst!: () => void;
@@ -600,48 +660,183 @@ test("a rejected catalog refresh releases the queue for the next call", async ()
   assert.equal(secondCalls, 0);
 
   rejectFirst();
-  await assert.rejects(firstRefresh, /offline fixture failure/);
+  const firstResult = await firstRefresh;
+  assert.equal(firstResult.status, "partial");
+  assert.equal(firstResult.receipts[0].sources.artificialAnalysis.status, "error");
   await secondRefresh;
   assert.ok(secondCalls > 0);
   assert.ok(currentRows().some(({ modelId }) => modelId === "Vendor/Inactive"));
 });
 
-test("invalid source feed leaves previous current evidence and scores untouched", async () => {
+test("invalid source feed preserves failed dataset and publishes successful datasets", async () => {
   const valid = feedFetch();
   await search.refreshModelBenchmarkCatalogEvidence([catalog[0]], valid.fetchImpl);
-  const before = currentRows();
-  const beforeFitness = benchmarkFitnessRows();
+  const oldDeepSwe = currentRows().filter((row) => row.source === "deepswe");
 
   const invalid = feedFetch({ aaValue: 99, invalidDeepSwe: true });
-  await search
-    .refreshModelBenchmarkCatalogEvidence([catalog[0]], invalid.fetchImpl)
-    .catch(() => undefined);
+  const result = await search.refreshModelBenchmarkCatalogEvidence([catalog[0]], invalid.fetchImpl);
 
-  assert.deepEqual(currentRows(), before);
-  assert.deepEqual(benchmarkFitnessRows(), beforeFitness);
+  assert.equal(result.status, "partial");
+  assert.equal(result.receipts[0].sources.deepSwe.status, "error");
+  assert.deepEqual(
+    currentRows().filter((row) => row.source === "deepswe"),
+    oldDeepSwe
+  );
+  assert.equal(currentRows().find((row) => row.source === "artificial-analysis-free")?.value, 99);
+  assert.ok(result.fitness);
   assert.equal(
     invalid.requests.filter(({ url }) => url.includes("artificialanalysis.ai")).length,
     4
   );
 });
 
-test("feed errors, empty snapshots, malformed payloads, and incomplete pagination preserve current evidence", async () => {
-  const valid = feedFetch();
-  await search.refreshModelBenchmarkCatalogEvidence([catalog[0]], valid.fetchImpl);
-  const before = currentRows();
-  const beforeFitness = benchmarkFitnessRows();
+test("mixed snapshots replace only successful nonempty source datasets", async () => {
+  seedPriorEvidence([catalog[0].id, catalog[1].id, "Vendor/Retired"]);
+  const fixture = feedFetch({ incompleteAa: true, failedSwe: true, invalidTerminal: true });
+
+  const result = await search.refreshModelBenchmarkCatalogEvidence(
+    [catalog[0], catalog[1]],
+    fixture.fetchImpl
+  );
+
+  assert.equal(result.status, "partial");
+  assert.equal(result.evidenceWrites, 1);
+  assert.equal(result.receipts[0].sources.artificialAnalysis.status, "incomplete");
+  assert.equal(result.receipts[0].sources.sweBench.status, "error");
+  assert.equal(result.receipts[0].sources.terminalBench20.status, "error");
+  assert.equal(result.receipts[0].sources.terminalBench21.status, "error");
+  const rows = currentRows();
+  const value = (modelId: string, source: string) =>
+    rows.find((row) => row.modelId === modelId && row.source === source)?.value;
+  assert.equal(value(catalog[0].id, "artificial-analysis-free"), 0.1);
+  assert.equal(value(catalog[0].id, "swe-bench"), 0.2);
+  assert.equal(value(catalog[0].id, "terminal-bench-2.0"), 0.3);
+  assert.equal(value(catalog[0].id, "terminal-bench-2.1"), 0.4);
+  assert.equal(value(catalog[0].id, "deepswe"), 0.57);
+  assert.equal(value(catalog[1].id, "deepswe"), undefined);
+  assert.equal(value("Vendor/Retired", "deepswe"), 0.5);
+  assert.equal(value("Vendor/Retired", "swe-bench"), 0.2);
+  assert.ok(result.fitness);
+});
+
+test("source-level empty snapshots and incomplete feeds retain their old sets", async () => {
   const cases = [
-    feedFetch({ failedSwe: true }),
-    feedFetch({ emptyAa: true }),
-    feedFetch({ invalidTerminal: true }),
-    feedFetch({ incompleteAa: true }),
+    { failedSwe: true, expectedSource: "swe-bench", expectedValue: 0.61 },
+    { emptyAa: true, expectedSource: "artificial-analysis-free", expectedValue: 42 },
+    { invalidTerminal: true, expectedSource: "terminal-bench-2.0", expectedValue: 0.63 },
+    { incompleteAa: true, expectedSource: "artificial-analysis-free", expectedValue: 42 },
   ];
 
-  for (const fixture of cases) {
-    await search
-      .refreshModelBenchmarkCatalogEvidence([catalog[0]], fixture.fetchImpl)
-      .catch(() => undefined);
-    assert.deepEqual(currentRows(), before);
-    assert.deepEqual(benchmarkFitnessRows(), beforeFitness);
+  for (const scenario of cases) {
+    await search.refreshModelBenchmarkCatalogEvidence([catalog[0]], feedFetch().fetchImpl);
+    const { expectedSource, expectedValue, ...options } = scenario;
+    const result = await search.refreshModelBenchmarkCatalogEvidence(
+      [catalog[0]],
+      feedFetch({ aaValue: 99, ...options }).fetchImpl
+    );
+    const rows = currentRows();
+    assert.equal(result.status, "partial");
+    assert.equal(
+      rows.find((row) => row.modelId === catalog[0].id && row.source === expectedSource)?.value,
+      expectedValue
+    );
+    if (expectedSource !== "artificial-analysis-free") {
+      assert.equal(
+        rows.find(
+          (row) => row.modelId === catalog[0].id && row.source === "artificial-analysis-free"
+        )?.value,
+        99
+      );
+    }
   }
+});
+
+test("no successful source is a no-op with source receipts", async () => {
+  seedPriorEvidence([catalog[0].id, "Vendor/Retired"]);
+  const before = currentRows();
+  const beforeFitness = benchmarkFitnessRows();
+  const fixture = feedFetch({
+    emptyAa: true,
+    failedSwe: true,
+    invalidTerminal: true,
+    invalidDeepSwe: true,
+  });
+
+  const result = await search.refreshModelBenchmarkCatalogEvidence([catalog[0]], fixture.fetchImpl);
+
+  assert.equal(result.status, "no_sources");
+  assert.equal(result.evidenceWrites, 0);
+  assert.equal(result.fitness, null);
+  assert.equal(result.receipts[0].sources.artificialAnalysis.status, "missing");
+  assert.equal(result.receipts[0].sources.sweBench.status, "error");
+  assert.deepEqual(currentRows(), before);
+  assert.deepEqual(benchmarkFitnessRows(), beforeFitness);
+});
+
+test("fitness publication rollback preserves cache; committed refresh invalidates it", async () => {
+  seedPriorEvidence([catalog[0].id, catalog[1].id]);
+  taskFitness.invalidateFitnessCache();
+  const cachedBefore = taskFitness.getTaskFitnessWithSource(catalog[0].id, "coding");
+  assert.equal(cachedBefore?.source, "benchmark_fitness");
+  core
+    .getDbInstance()
+    .prepare(
+      "UPDATE model_intelligence SET score = 0.123 WHERE model = ? AND source = 'benchmark_fitness' AND category = 'coding'"
+    )
+    .run(catalog[0].id.toLowerCase());
+  const before = currentRows();
+  const beforeFitness = benchmarkFitnessRows();
+  core.getDbInstance().exec(`
+    CREATE TRIGGER fail_benchmark_fitness_publish
+    BEFORE DELETE ON model_intelligence
+    WHEN OLD.source LIKE 'benchmark_fitness%'
+    BEGIN
+      SELECT RAISE(ABORT, 'test fitness publication failure');
+    END;
+  `);
+
+  await assert.rejects(
+    search.refreshModelBenchmarkCatalogEvidence([catalog[0]], feedFetch({ aaValue: 99 }).fetchImpl),
+    /test fitness publication failure/
+  );
+
+  assert.deepEqual(currentRows(), before);
+  assert.deepEqual(benchmarkFitnessRows(), beforeFitness);
+  assert.deepEqual(taskFitness.getTaskFitnessWithSource(catalog[0].id, "coding"), cachedBefore);
+
+  core.getDbInstance().exec("DROP TRIGGER fail_benchmark_fitness_publish");
+  const result = await search.refreshModelBenchmarkCatalogEvidence(
+    [catalog[0], catalog[1]],
+    feedFetch({ aaValue: 99 }).fetchImpl
+  );
+  assert.equal(result.status, "complete");
+  assert.ok(result.evidenceWrites > 0);
+  const publishedCoding = benchmarkFitnessRows().find(
+    (row) =>
+      row.model === catalog[0].id.toLowerCase() &&
+      row.source === "benchmark_fitness" &&
+      row.category === "coding"
+  );
+  assert.ok(
+    publishedCoding,
+    JSON.stringify({ fitness: result.fitness, receipts: result.receipts, rows: currentRows() })
+  );
+  const cachedAfterCommit = taskFitness.getTaskFitnessWithSource(catalog[0].id, "coding");
+  assert.equal(cachedAfterCommit.score, publishedCoding.score);
+  assert.notEqual(cachedAfterCommit.score, cachedBefore?.score);
+});
+
+test("partial source refresh skips global obsolete-ID cleanup", async () => {
+  seedPriorEvidence([catalog[0].id, "Vendor/Retired"]);
+  const fixture = feedFetch({ failedSwe: true });
+
+  const result = await search.refreshModelBenchmarkCatalogEvidence([catalog[0]], fixture.fetchImpl);
+
+  assert.equal(result.status, "partial");
+  assert.ok(currentRows().some((row) => row.modelId === "Vendor/Retired"));
+  assert.equal(
+    currentRows().find((row) => row.modelId === "Vendor/Retired" && row.source === "swe-bench")
+      ?.value,
+    0.2
+  );
 });

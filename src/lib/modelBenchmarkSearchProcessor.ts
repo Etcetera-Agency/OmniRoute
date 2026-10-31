@@ -84,7 +84,17 @@ interface ProcessorResult {
   requestId?: string;
   responseModel?: string;
   evidence: NormalizedBenchmarkCandidate[];
+  rejectedRows: Array<{ index: number; reasonCodes: string[] }>;
+  rejectionCounts: Record<string, number>;
+  envelopeError?: string;
   error?: string;
+}
+
+interface NormalizationParseResult {
+  evidence: NormalizedBenchmarkCandidate[];
+  rejectedRows: Array<{ index: number; reasonCodes: string[] }>;
+  rejectionCounts: Record<string, number>;
+  envelopeError: string | null;
 }
 
 // AICODE-NOTE: The serial search worker owns normalization pacing across rows.
@@ -101,6 +111,9 @@ function processorResult(
       | "requestId"
       | "responseModel"
       | "evidence"
+      | "rejectedRows"
+      | "rejectionCounts"
+      | "envelopeError"
       | "error"
     >
   > = {}
@@ -114,6 +127,9 @@ function processorResult(
     ...(options.requestId ? { requestId: options.requestId } : {}),
     ...(options.responseModel ? { responseModel: options.responseModel } : {}),
     evidence: options.evidence ?? [],
+    rejectedRows: options.rejectedRows ?? [],
+    rejectionCounts: options.rejectionCounts ?? {},
+    ...(options.envelopeError ? { envelopeError: options.envelopeError } : {}),
     ...(options.error ? { error: options.error } : {}),
   };
 }
@@ -183,23 +199,47 @@ export function parseNormalizationResponse(
   response: unknown,
   model: { id: string; name: string },
   searchResults: Array<{ url: string; title?: string; snippet?: string }>
-): NormalizedBenchmarkCandidate[] | null {
+): NormalizationParseResult {
   const choices = asRecord(response).choices;
   const choice = Array.isArray(choices) ? asRecord(choices[0]) : {};
   const message = asRecord(choice.message);
-  if (choice.finish_reason !== "stop" || typeof message.content !== "string") return null;
+  if (choice.finish_reason !== "stop") {
+    return {
+      evidence: [],
+      rejectedRows: [],
+      rejectionCounts: {},
+      envelopeError: "finish_reason_not_stop",
+    };
+  }
+  if (typeof message.content !== "string" || !message.content.trim()) {
+    return {
+      evidence: [],
+      rejectedRows: [],
+      rejectionCounts: {},
+      envelopeError: "missing_content",
+    };
+  }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(message.content);
   } catch {
-    return null;
+    return { evidence: [], rejectedRows: [], rejectionCounts: {}, envelopeError: "malformed_json" };
   }
 
   const rows = asRecord(parsed).results;
-  if (!Array.isArray(rows)) return null;
+  if (!Array.isArray(rows)) {
+    return {
+      evidence: [],
+      rejectedRows: [],
+      rejectionCounts: {},
+      envelopeError: "missing_results_array",
+    };
+  }
   const output: NormalizedBenchmarkCandidate[] = [];
-  for (const item of rows) {
+  const rejectedRows: NormalizationParseResult["rejectedRows"] = [];
+  const rejectionCounts: Record<string, number> = {};
+  for (const [index, item] of rows.entries()) {
     const row = asRecord(item);
     const quote = row.evidence_quote;
     const sourceUrl = row.source_url;
@@ -211,14 +251,12 @@ export function parseNormalizationResponse(
     const sourceDate = nullableString(row.source_date);
     const validNumber =
       row.value === null || (typeof row.value === "number" && Number.isFinite(row.value));
+    const reasons = new Set<string>();
     if (
       typeof quote !== "string" ||
       typeof sourceUrl !== "string" ||
-      !searchResults.some((result) => result.url === sourceUrl) ||
       typeof row.model_id !== "string" ||
       typeof row.model_name !== "string" ||
-      row.model_id !== model.id ||
-      row.model_name !== model.name ||
       !validNumber ||
       (typeof row.value === "number" && (!benchmark || !metric)) ||
       benchmark === undefined ||
@@ -228,39 +266,68 @@ export function parseNormalizationResponse(
       config === undefined ||
       sourceDate === undefined
     ) {
-      return null;
+      reasons.add("invalid_fields");
     }
-    const result = searchResults.find((candidate) => candidate.url === sourceUrl)!;
-    const quoteIsVerbatim = result.title?.includes(quote) || result.snippet?.includes(quote);
     if (
-      !quote.trim() ||
-      !quoteIsVerbatim ||
-      (!contains(quote, model.id) && !contains(quote, model.name)) ||
-      !contains(quote, benchmark) ||
-      !contains(quote, benchmarkVersion) ||
-      !contains(quote, metric?.replaceAll("_", " ") ?? null) ||
-      !contains(quote, effort) ||
-      !contains(quote, config) ||
-      !contains(quote, sourceDate) ||
-      (typeof row.value === "number" && !containsNumber(quote, row.value))
+      typeof sourceUrl !== "string" ||
+      !searchResults.some((result) => result.url === sourceUrl)
     ) {
-      return null;
+      reasons.add("source_url_not_found");
+    }
+    if (
+      typeof row.model_id !== "string" ||
+      typeof row.model_name !== "string" ||
+      row.model_id !== model.id ||
+      row.model_name !== model.name
+    ) {
+      reasons.add("model_identity_mismatch");
+    }
+    const result =
+      typeof sourceUrl === "string"
+        ? searchResults.find((candidate) => candidate.url === sourceUrl)
+        : undefined;
+    if (typeof quote === "string") {
+      const quoteIsVerbatim = result?.title?.includes(quote) || result?.snippet?.includes(quote);
+      if (!quote.trim() || (result && !quoteIsVerbatim)) reasons.add("quote_not_verbatim");
+      if (!contains(quote, model.id) && !contains(quote, model.name)) {
+        reasons.add("quote_missing_model_identity");
+      }
+      if (
+        !contains(quote, benchmark ?? null) ||
+        !contains(quote, benchmarkVersion ?? null) ||
+        !contains(quote, metric?.replaceAll("_", " ") ?? null) ||
+        !contains(quote, effort ?? null) ||
+        !contains(quote, config ?? null) ||
+        !contains(quote, sourceDate ?? null)
+      ) {
+        reasons.add("quote_missing_populated_field");
+      }
+      if (typeof row.value === "number" && !containsNumber(quote, row.value)) {
+        reasons.add("number_not_in_quote");
+      }
+    }
+    if (!validNumber) reasons.add("invalid_number");
+    if (reasons.size > 0) {
+      const reasonCodes = [...reasons];
+      rejectedRows.push({ index, reasonCodes });
+      for (const code of reasonCodes) rejectionCounts[code] = (rejectionCounts[code] ?? 0) + 1;
+      continue;
     }
     output.push({
       matchedModelId: model.id,
       matchedModelName: model.name,
-      reasoningEffort: effort,
-      reasoningConfig: config,
-      benchmark,
-      benchmarkVersion,
-      metric,
+      reasoningEffort: effort ?? null,
+      reasoningConfig: config ?? null,
+      benchmark: benchmark ?? null,
+      benchmarkVersion: benchmarkVersion ?? null,
+      metric: metric ?? null,
       value: typeof row.value === "number" ? row.value : null,
-      sourceUrl,
-      sourceDate,
-      raw: { result, evidenceQuote: quote },
+      sourceUrl: sourceUrl as string,
+      sourceDate: sourceDate ?? null,
+      raw: { result: result!, evidenceQuote: quote },
     });
   }
-  return output;
+  return { evidence: output, rejectedRows, rejectionCounts, envelopeError: null };
 }
 
 export async function processModelBenchmarkSearchResults(
@@ -341,18 +408,28 @@ export async function processModelBenchmarkSearchResults(
     const parsed = parseNormalizationResponse(responseRecord, model, results);
     const requestId =
       response.headers.get("x-request-id") ?? nullableString(responseRecord.id) ?? undefined;
-    if (!parsed) {
+    if (parsed.envelopeError) {
       return processorResult("normalization_response_invalid_unrated", results.length, {
         normalizerRequestCount: 1,
-        requestId: response.headers.get("x-request-id") ?? undefined,
+        requestId,
+        envelopeError: parsed.envelopeError,
       });
     }
-    const status = parsed.length ? "candidate_evidence_unrated" : "no_evidence_unrated";
+    let status: string;
+    if (parsed.evidence.length > 0) {
+      status = "candidate_evidence_unrated";
+    } else if (parsed.rejectedRows.length > 0) {
+      status = "normalization_response_invalid_unrated";
+    } else {
+      status = "no_evidence_unrated";
+    }
     return processorResult(status, results.length, {
       normalizerRequestCount: 1,
       requestId,
       responseModel: nullableString(responseRecord.model) ?? undefined,
-      evidence: parsed,
+      evidence: parsed.evidence,
+      rejectedRows: parsed.rejectedRows,
+      rejectionCounts: parsed.rejectionCounts,
     });
   } catch (error) {
     const timedOut = controller.signal.aborted;

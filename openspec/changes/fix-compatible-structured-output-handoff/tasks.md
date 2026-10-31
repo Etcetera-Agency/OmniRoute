@@ -26,3 +26,11 @@
       Reimport active existing compatible connections, compare source/snapshot/
       synced/resolver and hook effects before/after, then verify passive GETs.
       Keep package unarchived until acceptance closes.
+
+- [x] 11. Source-trace existing `POST /api/settings/models-dev` with explicit
+      `syncCapabilities:false`; record catalog requests, persistence/local hooks,
+      transient timers and conditional proxy probe. Planning only; do not execute.
+- [ ] 12. Parent may evaluate this existing one-time API only after effective
+      artifact/deployment gates and current proxy-path inspection, with before/after
+      DB backup, price/zero/catalog/hook and strict-free-band evidence. Per-connection
+      SO receipts and pending startup/periodic-writer work remain open.

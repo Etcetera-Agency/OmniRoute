@@ -102,3 +102,71 @@ resolver, combos, and overrides before/after each active existing connection's
 import, then repeat passive GETs against cached rows. Root TODO retains artifact,
 deployment, before/after hook-effect proof, and reimport gates. Startup full-overlay choice remains
 pending independently. No hook execution is part of this docs correction.
+
+## Existing pricing/catalog API path: planning only
+
+The checked-out native API already exposes authenticated
+`POST /api/settings/models-dev` with this exact JSON body:
+
+```json
+{ "action": "sync", "dryRun": false, "syncCapabilities": false }
+```
+
+Evidence: `src/app/api/settings/models-dev/route.ts:13-18,54-79` validates these
+fields and calls `syncModelsDev` with `dryRun` default false and capability sync
+true unless explicitly false. `action: "sync"` returns before the separate
+`start`/`stop` branches. It does not change settings or call `startPeriodicSync`.
+The route does not expose `maxRetries`, `signal`, cache bypass, or a switch to
+skip compatible catalogs. Use an existing authenticated dashboard session; the
+management bearer alternative can additionally update API-key last-used state,
+lazy secret-at-rest backfill, and optional Redis auth cache (`apiAuth.ts:458`,
+`db/apiKeys.ts:340,460,1319`). No new auth/config/route/flag is proposed.
+
+The steady-state call graph for an initialized application is:
+
+| Leaf                                                                                                          | Remaining effect with `syncCapabilities:false`                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modelsDevSync.ts:200,928-1035`                                                                               | Read the 24-hour in-process models.dev cache or GET `https://models.dev/api.json`; preserve its original `cacheTime` as `fetchedAt`. No force-fresh option is exposed. Default `maxRetries=3` permits four whole attempts, with existing 1/2/4-second failure backoffs.                                                                                                     |
+| `modelsDevSync.ts:299-344,968`                                                                                | Unconditionally enumerate existing active compatible node/connection pairs, read/decrypt their stored credentials and configured endpoint/proxy, fetch each catalog, and persist each successful result. Per-connection failure is swallowed and preserves its snapshot; aggregate success does not prove every connection imported.                                        |
+| `compatibleModelDiscovery.ts:95-195` / `safeOutboundFetch.ts:88-105`                                          | Catalog GET only: configured OpenAI path is one URL, otherwise up to three distinct URL candidates; Anthropic uses up to 20 pages. Native safe-fetch presets permit two attempts per URL/page, reject redirects, and use timeout/backoff timers. A whole sync retry can repeat successful connection imports. These adapter bounds are not a claim of one provider request. |
+| `modelsDevSync.ts:444-479`                                                                                    | Atomically replace `key_value.models_dev_pricing`, merge eligible exact compatible prices, and write canonical `models_dev_zero_price/snapshot` even when capability sync is false. Invalidate pricing/catalog memory caches; request stock local SQLite backup/retention work subject to existing backup settings/throttles. Update in-process sync time/counts.           |
+| `db/models/syncedAvailableModelPersistence.ts:24-91`, `db/models.ts:608-620`, `compatibleMetadata.ts:172-203` | Replace/delete changed per-connection `syncedAvailableModels` data; write authoritative compatible snapshot and source time; stamp `provider_connections.synced_models_at` and `updated_at` even on unchanged successful sync. Changed lists schedule the existing unref'd zero-delay reconcile debounce and local backup/cache work.                                       |
+| `db/quotaPools.ts:730`, `quota/quotaCombos.ts:172-292`, `contextWindowResolver.ts:104`                        | Stock local per-pool promise queue upserts/prunes hidden `qtSd` combos; changed synced rows reconcile context windows across all persisted synced providers and add/remove `model_context_overrides` with `auto:discovery`, preserving manual overrides. No provider request is made by these hooks.                                                                        |
+| `db/combos.ts:39-78`, `db/repositories/sqliteComboRepository.ts:353-390`                                      | Combo updates carrying model steps clear matching `session_model_history`; prune can remove combo-scoped proxy assignments/rotation state and LKGP pins. Combo/cache/backup bookkeeping stays local. Capture these dependent rows too when affected.                                                                                                                        |
+| `db/settings.ts:569-846`, `db/proxies/rotation.ts:138,548,576`                                                | Existing proxy resolution may insert/advance local scope-rotation state and update process caches. It does not add provider/connection configuration. Its opt-in fallback caveat is below.                                                                                                                                                                                  |
+
+With `syncCapabilities:false`, `modelsDevSync.ts:952-983` skips capability/identity
+transforms, `ensureCapabilitiesTable`/`saveModelsDevCapabilities`, and the dynamic
+benchmark catalog refresh. Thus this sync branch does not launch benchmark queue,
+search, inference, or model normalization requests. The stock quota promise queue
+and pure catalog row normalization above remain; they are not benchmark work.
+
+No persistent periodic sync or context-reconcile interval is started by this
+request. A blanket "no timers" claim would be false: existing models.dev abort /
+retry timers, safe-fetch timeout/backoff/DNS timers, and changed-row reconcile
+zero-delay debounce remain. Local SQLite backup promises and quota maintenance can
+outlive the HTTP response. Parent acceptance must wait for and compare their
+settled effects without invoking separate jobs or disabling hooks.
+
+There is also a conditional non-catalog-only leaf: after no earlier proxy is
+resolved, `db/settings.ts:827` can call `selectWorkingProxyFallback`.
+`open-sse/utils/proxyFallback.ts:401-439` gates this on existing
+`PROXY_AUTO_SELECT_ENABLED` (default off); with candidates and a cold/expired probe
+cache it HEAD-probes `https://api.openai.com/v1/models` through candidate proxies
+using existing short timeout timers. This is a provider catalog probe, not
+inference, but is outside a claim of only the intended source/provider GETs.
+Before any later replay, inspect current proxy configuration/flag and effective
+transport path read-only. Do not change config, add a flag, bypass hooks, or execute
+this probe here. The source proves the conditional branch, not its current runtime
+reachability.
+
+This existing API is a candidate for a one-time post-deployment native catalog /
+pricing resync within owner catalog-import authorization, subject to effective
+artifact/route verification and the documented before/after DB backup, pricing,
+zero snapshot, active-connection catalogs, pool/combo/dependent rows, context
+override, and strict-free-band proof. It is not a pure pricing-table write.
+Per-connection SO import receipts remain required, even if this call imports some
+connections: it can retain failed snapshots while returning aggregate success.
+No request was executed for this planning check. A one-time write does not repair
+the BASE periodic zero-evidence writer or settle the pending full-OVERLAY startup
+choice. No new API, CLI, flag, configuration, or minified-artifact edit is proposed.

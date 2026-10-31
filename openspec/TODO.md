@@ -1161,6 +1161,82 @@ Deferred cross-repository and operations work:
 - Critical effective-startup packaging gate (TL013 artifact audit): `/app/.build/next/server/instrumentation.js` loads base chunk `68236`, whose models.dev writer updates pricing only. The overlay instrumentation/chunk `65453` contains the zero-snapshot writer, but the packaged startup does not load it. Checkout/source SHA alone therefore cannot establish native zero-evidence startup activation. Hold candidate app switch for published main `0bf99c1`/digest `sha256:a5dccc2c0f5892943c5fdfd0db43d3b1205f0299109dc73aebe6d673d1ce98ac` until TL013's bounded packaging fix and effective-bundle regression resolve this gate. Parent coordinates consolidation with TL015 and any single subsequent GitHub build. Do not force sync, invoke providers/models, or dispatch another build independently. The prior source-path comparison does not prove which startup writer ran; preserve the raw DB/source-time observations above without claiming sync failure.
 - Coordinated deployment retry: the exact pull failure was root filesystem exhaustion while registering the Chromium layer. A verified 3159546880-byte idle diagnostic image archive was relocated to `/var/oled` with original path preserved; root now has4.6GB available and auxiliary storage6.9GB. Preserve receipt `/var/oled/omniroute-deploy-diagnostics/e013-space-recovery.json`, all existing rollback pairs and the archive SHA-256 `080176ad3734cfc37ea003e48f5794877a626b74b826cd33443d6b73914663bc`. Recheck storage headroom and perform the standard protected GitHub deployment only after the effective-startup packaging gate is resolved; no retry has tested the recovered space yet.
 
+- Superseded passive sync uncertainty: the earlier timestamp captures above remain historical; they did not by themselves establish recalculation. The owner-confirmed live artifact cause and remaining startup decision are recorded under `TL013 startup artifact and APInex strict-output follow-up` below. Do not force sync or make provider/model calls.
+
+## TL015 — benchmark source isolation (2026-10-31)
+
+- [x] Implement selected A2+B1+C1 locally: direct source errors/incomplete
+      results retain status and continue to Hugging Face then existing Ollama Search
+      only without usable evidence; partial snapshots replace only successful
+      nonempty datasets; normalized rows validate independently and replace by the
+      existing fitness observation identity. The approved
+      `ollama-search-structured-output` family mapping is active; scoring formulas
+      are unchanged.
+- [x] Add offline regressions with mocked source/provider fetches, actual SQLite
+      transaction rollback, post-commit cache invalidation, row rejection,
+      observation replacement, and current normalized-source fitness. No
+      billing-test acceptance or live API/network request was made or claimed.
+- [x] Independent sequential read-only review completed by reviewer
+      `01a1934b-81be-72c1-b4c4-794ff034adc3`: no concrete source bugs or
+      additional concrete test gaps. Its single P3 documentation finding is
+      corrected by the explicit historical-ID clarification in completion.review.
+      The final unfiltered 68/68 result was accepted without rerunning tests.
+- [x] Resolve the hook blocker with the owner-authorized minimal fork-test fix:
+      remove only unused `init` from the fetch mock in
+      `incomplete Hugging Face feeds preserve current evidence and native scores`.
+      That exact offline test passes 1/1; focused six-file ESLint passes. Production
+      source is unchanged; prior unfiltered 68/68 and independent source review stand.
+- [x] Owner accepted source, unfiltered 68/68, independent review, and P3
+      clarification. Feature integration is tracked by
+      [PR57](https://github.com/Etcetera-Agency/OmniRoute/pull/57); current-main PR56
+      history is preserved in the feature branch. Merge completion must be confirmed
+      from the PR and fetched main, not inferred from local checks.
+- [ ] After confirmed PR57 integration, complete the GitHub-only build and
+      protected deployment/passive runtime acceptance. No local build or deployment
+      is part of this slice. Owner correction: the no-space issue was fixed without
+      stopping the app; TL013 owns the separate held startup-artifact fix. These
+      facts do not close deployment/runtime acceptance. Keep the package unarchived
+      until the parent closes these gates.
+- Focused core typecheck exits 1 with 712 repository diagnostics, none in the
+  three modified production modules. The prior focused ESLint unused `init` finding at
+  `tests/unit/modelBenchmarkSearch.test.ts:1525` is resolved by the explicitly
+  authorized one-parameter mock cleanup; focused six-file ESLint now passes.
+- [x] Final unfiltered three-file Node run (no `--test-name-pattern`) passed
+      68/68 in 163.3s with the isolated temp-DB harness and fixture-mocked fetches.
+      Command:
+  ```sh
+  ESBUILD_BINARY_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules/@esbuild/linux-x64/bin/esbuild node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-reporter=spec tests/unit/modelBenchmarkSearch.test.ts tests/unit/modelBenchmarkSearch.catalog.test.ts tests/unit/modelBenchmarkFitnessSync.test.ts
+  ```
+  The three failures from the first unfiltered run each passed on baseline
+  `062c948280e1` (PR56 docs-only successor); the relevant code/test files match
+  source base `0bf99c1aeae1`. Final package run is green after scoped corrections.
+
+## TL013 startup artifact and APInex strict-output follow-up (2026-10-31)
+
+- [x] Confirmed cause from actual live artifact `455`: base instrumentation
+      loads the BASE pricing writer without `models_dev_zero_price`; the correct
+      OVERLAY writer is unused. The native pricing table is lossy (`missing → 0`)
+      and cannot replace the unchanged explicit-zero proof getter. The minified-base
+      patch was rejected.
+- [ ] Owner startup choice remains pending: preserve BASE plus stable
+      integration, or use the full OVERLAY with its additional catalog and
+      benchmark effects. Deployment remains held until that choice and integration
+      are resolved.
+- [x] Related TL013 APInex inspection found saved metadata for exact catalog ID
+      `free/deepseek-v4.1-flash` has strict-output absent and the resolver returns null;
+      a prior strict-JSON HTTP 200 exists. Raw source was not retained, so field
+      loss is not proven. Do not classify strict-output as unsupported.
+- [ ] The owner rejected a targeted/per-model strict-output override. TL013 owns
+      the read-only investigation of common strict-output/capability provenance and
+      import for compatible providers using existing native OmniRoute data. No
+      capability-source edits are authorized in this slice. After that common fix
+      and reviewed GitHub deployment plus passive strict-output checks, TL013 is
+      authorized to rerun the existing catalog-metadata sync to persist the field
+      (catalog GET/import only). Do not restart unchanged code or force a full
+      models.dev sync. No inference, probes, search, or benchmark-queue work is in
+      that resync; TL015 does not execute it. No billing-test gate or per-model
+      override is added or claimed.
+
 ## Compatible structured-output handoff (2026-10-31)
 
 - Source accepted by independent review: no code findings; full affected tests 22/22, scoped lint/format/OpenSpec/diff checks passed. Package `openspec/changes/fix-compatible-structured-output-handoff/` remains unarchived on `fix/compatible-structured-output-handoff`, exact base `062c948280e1e3e6191c7a6f48a2f1aea2854eb6`. This correction changes docs only.
@@ -1170,3 +1246,7 @@ Deferred cross-repository and operations work:
 - After successful authorized GitHub deployment, reimport catalogs for active existing compatible connections through `GET /api/providers/{connectionId}/models?refresh=true&excludeCustom=true`. The compatible branch at `route.ts:419` fetches catalog GETs only: OpenAI-compatible can try up to three URLs; Anthropic-compatible can fetch up to 20 pages. It makes no inference call. Do not describe replay as one provider request or pure catalog writes.
 - Owner explicitly authorizes ordinary stock derived `qtSd` combo and `auto:discovery` override writes during later native catalog reimport. Before replay, capture a DB backup, current quota-pool membership/config and before-state hidden `qtSd` combos plus `auto:discovery` context-window overrides; compare after-state and verify strict free bands remain unchanged. No extra approval gate applies to stock bookkeeping; do not disable or bypass native hooks. Persistence calls `notifyQuotaCombosForProvider`, which uses a local per-pool serial queue to upsert/prune hidden `qtSd` combos (`quotaCombos.ts:237`). Changed synced rows schedule global context-window reconciliation (`contextWindowResolver.ts:104`), adding/removing `auto:discovery` overrides. These local hooks make no provider requests, but before/after proof of their runtime effects remains required for live acceptance. No hooks were executed here.
 - During authorized replay, capture sanitized native source `capabilities.structured_output` presence/value and exact provider/connection/raw-model IDs; compare snapshot, synced row, resolver, combos, and overrides before/after. Repeat passive GETs without `refresh` only after confirming cached rows exist. Preserve false, true, and absence as observed. No provider/config additions or changes, full models.dev sync/benchmark refresh, separate queue/search/normalization flow, or chat/completion/model probes. Startup full-overlay choice remains pending independently; artifact verification, authorized deployment, before/after hook-effect proof, and reimport acceptance remain open.
+
+- Integrated source checkpoint: local feature commit `5dd353e3ae` merged authorized `origin/main=e7be7311342608661a1b14b989019b441261eeb6` (PR57) with only manual root-doc concatenation; both root histories preserved. Integrated offline Node batch passed 144/144 with zero skips; strict filter 19/19. `npm run typecheck:core` on both a fresh exact-main archive and integrated tree returned exit 2 with the same 712 byte-identical diagnostic lines, zero new diagnostics. No upstream type debt repair or startup change.
+- Existing one-time source path is exposed: authenticated `POST /api/settings/models-dev` body `{"action":"sync","dryRun":false,"syncCapabilities":false}`. It writes native pricing plus canonical zero snapshot, skips capability save/benchmark refresh, but still imports every existing active compatible connection and its stock local hooks. No new periodic interval is started; request timeout/backoff timers, local promise maintenance and changed-row reconcile debounce remain. Proxy resolution can update rotation state; opt-in `PROXY_AUTO_SELECT_ENABLED` can additionally HEAD-probe OpenAI's `/v1/models`. Inspect current existing proxy/transport configuration before claiming only intended catalog GETs; no config change or probe is authorized here. Full leaf effects and source locations are in this package's design.
+- Parent-only post-deployment follow-up: verify the effective route/writer artifact, capture DB backup and before/after pricing/zero snapshots, all active connection imports, pools/combos and dependent session/LKGP/proxy rows, context overrides and strict free bands, and wait for stock async hooks to settle. This API may serve a one-time import within existing catalog-resync authorization; no extra approval is needed for ordinary stock local bookkeeping. Per-connection SO proof remains necessary because failed compatible imports are swallowed. No execution now; no inference/search/benchmark or normalizer queue. One-time import leaves the BASE periodic zero writer unfixed and startup selection independently pending.
