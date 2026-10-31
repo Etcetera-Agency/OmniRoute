@@ -2224,3 +2224,132 @@ tool-call independence, exact-ID isolation, and known free-prefix identity.
   Scoped documentation formatting, living OpenSpec validation, and diff checks
   passed. Code Simplifier reapplied immediately before the local commit; no
   source/test edits or test reruns are part of this correction.
+
+## Source-built overlay startup — local implementation receipt (2026-10-31)
+
+- Owner selected full source-built OVERLAY startup. Isolated branch
+  `fix/source-built-startup` is based on exact approved source
+  `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. The merger now requires the
+  compiled overlay `server/instrumentation.js`, verifies it remains inside the
+  copied overlay tree, then writes a readable root CommonJS delegate.
+  The initial Dockerfile assessment missed the final runtime-stage boundary: the
+  generated root delegate was dropped. P1 correction adds its explicit final-stage
+  COPY; source instrumentation requires no change. Official UI and
+  static output remain on the existing merge path.
+- TDD RED before merger change:
+  `node --test --test-force-exit --test-name-pattern='root startup entry|fails closed when source-built startup' tests/unit/build/merge-official-backend-overlay.test.mjs`
+  failed 2/2 as expected (root still selected base instrumentation; absent
+  source entry did not fail assembly). Final overlay fixture passed 10/10;
+  fixture runs merged root entry through a relative chunk to a native-startup
+  marker and checks missing-entry fail-closed behavior.
+- Offline `modelsDevSyncBenchmarkHook.test.ts` passed 5/5. Saved enabled setting
+  registers one periodic timer and launches immediate models.dev sync; one raw
+  zero-price snapshot insert is observed. AA fixture response is held until sync
+  returns, then fixture metadata persists asynchronously. Saved paused setting
+  makes no timer/fetch. Fixture rejects unlisted URLs; benchmark identity rows
+  remain at zero attempts/no run time, with no eligible queue work or claim.
+  Existing stale assertion expecting a warning for missing AA key was corrected:
+  native source loaders represent feed failures as source statuses and do not
+  emit that warning; test now verifies four mocked official-feed requests and
+  zero AA requests without `AA_API_KEY`.
+- Related settings and credential-health guard batch reported 56/56 passing.
+  It included the existing live models.dev catalog GET test. Parent clarified
+  that this public metadata retrieval was permitted and was not an inference-ban
+  violation. It did exceed the intended fixture-only verification contract;
+  retain that distinction. No repeat of this batch is needed. No provider probe,
+  normalizer worker, or inference ran.
+- Code Simplifier reviewed the modified merger and tests; shared path validation
+  is factored once, and no extra production behavior was added. Scoped ESLint
+  passed for merger and models.dev test; overlay fixture lint passed with a
+  narrow exception for its two pre-existing unused destructured path variables.
+  Prettier check, strict OpenSpec validation, and `git diff --check` passed.
+- Exact native pre-startup no-probe setting is
+  `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true`. It disables only the
+  background credential-health sweep; explicit manual provider-test routes stay
+  available. Runtime value is unknown and unchanged. Root TODO records this gate,
+  the immutable OCI artifact check, and parent local-result acceptance before
+  the already-authorized GitHub phase. No additional owner permission gate is
+  introduced. Old BASE periodic zero-price defect remains live until deployment.
+  E013 SO fallback inventory (23 true, 2 false) came from the `E013-so-sources`
+  GET and DB capture, not owner-supplied data; owner selected policy only.
+  Historical inference/forced-tool/billing acceptance remains suspended and is
+  not a metadata/startup completion gate. OpenSpec remains unarchived; no commit,
+  push, image/app build, deployment, or restart occurred.
+
+## P1 final runtime startup COPY correction (2026-10-31)
+
+- Reviewer and parent confirmed the final runtime stage starts from official
+  again and previously copied only the overlay tree and four manifests. The
+  intermediate root delegate was therefore lost. Added one explicit COPY from
+  merged-backend for `/app/.build/next/server/instrumentation.js`.
+- Regression applies actual runtime-stage merged-backend COPY instructions to
+  a fresh official filesystem fixture, then executes its final root register.
+  It checks overlay-relative startup resolution, official UI/assets/build ID,
+  and all four merged manifests. This is a bounded Dockerfile layout contract,
+  not a Docker interpreter or final OCI proof.
+- RED: `node --test --test-force-exit --test-name-pattern='final Docker runtime COPY contract' tests/unit/build/merge-official-backend-overlay.test.mjs`
+  failed 1/1 with the overlay startup marker undefined. Log:
+  `/tmp/source-built-startup-p1-red.log`.
+- GREEN: `node --test --test-force-exit --test-reporter=spec tests/unit/build/merge-official-backend-overlay.test.mjs`
+  passed 11/11. Log: `/tmp/source-built-startup-p1-green.log`.
+- Code Simplifier reviewed this correction: one final COPY and one bounded
+  assembly regression; no general Docker framework. Native five-test proof
+  remains valid and was not repeated. SO commit remains untouched.
+- Package stays open for targeted P1 rereview. No commit until rereview acceptance;
+  then local commit with normal hooks and both root receipts is authorized.
+  GitHub artifact/deployment authorization persists. Parent authorized persistent
+  `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` staging after local review
+  during that deployment. No config was changed here. It disables the background
+  credential-health sweep; manual test availability was not invoked. Reviewed
+  register path has no queue/normalizer hook. No build, push, deployment, startup,
+  production mutation, probe, or inference occurred in this correction.
+- P1 checks passed: scoped fixture ESLint (same two pre-existing unused-variable
+  exceptions), Prettier, strict selected OpenSpec validation, and diff whitespace
+  check. Final fixture rerun remains 11/11 after Code Simplifier review.
+
+## Startup P1 acceptance and authorized local commit (2026-10-31)
+
+- Parent accepted targeted P1 rereview with no findings; reviewer closed. Retain
+  accepted fixture 11/11 and native models.dev chain 5/5 results, with saved RED
+  and GREEN logs above. No unchanged tests or network batch were repeated.
+- Code Simplifier reviewed the complete owned commit scope before commit. The
+  only additional test edit removes two unused fixture destructured bindings so
+  ordinary ESLint hooks pass without the earlier exception; behavior is unchanged.
+  Root TODO and package tasks now record P1 acceptance.
+- Local commit uses normal hooks and includes only selected startup Dockerfile,
+  merger, two tests, new OpenSpec package, root TODO, and completion.review.
+  OpenSpec remains open pending real GitHub OCI proof and passive acceptance.
+  Parent coordinates consolidated local acceptance and integration while
+  preserving separate SO commit `044bf3e4f78749f0ececafad37bec538bbe011c9` and
+  open PR59 audit docs at `1a9ee324...`; this commit does not integrate them.
+- Persistent `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` is already
+  authorized for later deployment after consolidated local acceptance. No local
+  config delta, push, build, deployment, production change, or live call here.
+- Local Husky wrapper files were initially absent in this isolated worktree.
+  Initialized its ignored wrappers, retained the full index, and recreated the
+  owned unpublished commit from its unchanged approved base so normal hooks
+  inspect every staged source/test file. Code Simplifier reapplied before the
+  replacement commit; no additional implementation changes were needed.
+
+## TL013 local metadata/startup integration — combined acceptance (2026-10-31)
+
+- Integrated exact accepted heads over live `origin/main` `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`: PR59 audit `1a9ee3241d0e9171df1747cd5e9e0e3e42931dc2`, SO `044bf3e4f78749f0ececafad37bec538bbe011c9`, and source-built startup `276fd8d856d47b2d7d1f447e7bd856e2090caf63`. `git ls-remote origin refs/heads/main` confirmed the same remote SHA. Local `refs/heads/main` is `ab3b8270f3badc96d394dd4b55ea56d06634bfd8` (155 commits ahead) and remained untouched; accepted source commits share the selected 355 base.
+- Feature worktree is `/srv/projects/hermes/OmniRoute/.claude/worktrees/metadata-startup-integration`, branch `fix/metadata-startup-integration`. Local merge commits: audit `44c9b4758f`, SO `34364de317`; the startup source merge is this commit's change. Root `completion.review` and `openspec/TODO.md` histories were combined manually. Latest SO/startup decisions are current; prior candidate, auth, 403, and deployment receipts remain intact. The SO package stays archived and its living spec remains; startup package stays active for OCI/runtime acceptance.
+- Code Simplifier reviewed the exact accepted source deltas and the integrated code before commit. Byte comparisons against both accepted source heads found no code/test changes during conflict resolution; no further simplification or corrective code change was needed. The 56-test settings/credential-health batch containing the existing real models.dev GET was excluded.
+- Offline guard `/tmp/compatible-so-integration-20261031/offline-guard.mjs` was loaded into both commands. It permits loopback fixtures and throws on external fetch/socket access. Node batch used `--test-concurrency=1`:
+
+```sh
+ESBUILD_BINARY_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules/@esbuild/linux-x64/bin/esbuild NODE_OPTIONS=--import=/tmp/compatible-so-integration-20261031/offline-guard.mjs DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 --test-reporter=spec tests/unit/compatible-model-capability-resolution.test.ts tests/unit/compatibleMetadata.test.ts tests/unit/model-metadata-registry.test.ts tests/unit/build/merge-official-backend-overlay.test.mjs tests/unit/modelsDevSyncBenchmarkHook.test.ts
+```
+
+- Node result: 43 tests, 43 passed, 0 failed/cancelled/skipped/todo. This is 27 SO, 11 final-Docker/overlay assembly, and 5 native models.dev startup tests. Log: `/tmp/e013-integration-combined-20261031/node-43-retry.log`. First attempt stopped before tests ran because shared dependencies selected macOS esbuild; the retry used a preinstalled Linux binary read-only from the existing worktree. No dependency install or other-worktree write.
+- The six unchanged policy suites ran once as one guarded Vitest batch:
+
+```sh
+NODE_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules ESBUILD_BINARY_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules/@esbuild/linux-x64/bin/esbuild NODE_OPTIONS=--import=/tmp/compatible-so-integration-20261031/offline-guard.mjs /srv/projects/hermes/OmniRoute/node_modules/.bin/vitest run --config vitest.mcp.config.ts tests/unit/autoCombo/bands-capabilities.test.ts tests/unit/autoCombo/strict-zero-cost-filter.test.ts tests/unit/autoCombo/paid-model-filter-6512.test.ts tests/unit/autoCombo/benchmark-fitness-band-tier.test.ts tests/unit/autoCombo/bands-routing-priority.test.ts tests/unit/autoCombo/free-regime-not-read-by-predicate.test.ts
+```
+
+- Vitest result: 6 files, 49 tests passed, no failures. Log: `/tmp/e013-integration-combined-20261031/vitest-49-nodelib.log`. Two runner startup attempts failed before tests because the default worktree dependencies lacked Linux Rolldown bindings; `NODE_PATH` selected the same-version preinstalled Linux package without changing that worktree. No test rerun after combined pass.
+- Scoped ESLint passed on the five changed TS/MJS source and test files. Prettier `--check` passed on those files, changed OpenSpec Markdown, and root TODO. `git diff --check` passed. OpenSpec strict validation: active `fix-source-built-startup` valid; archived validation totals 10 passed/0 failed including the SO archive; living `model-capability-resolution` valid.
+- The first docs-only audit merge commit `44c9b4758f` preceded Husky wrapper initialization in this new worktree; no bypass flag was used, but that invocation had no pre-commit wrapper. `npm run prepare` initialized ignored local wrappers before SO integration. The normal pre-commit then passed on commit `34364de317` (lint-staged, manifest, docs-sync, any-budget, tracked-artifacts, and attribution checks); final startup merge commit also uses normal hooks.
+- No provider/catalog/API request, inference, build, push, deployment, production config change, or restart occurred. `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` remains unverified and unchanged locally; root TODO keeps that pre-startup gate plus immutable OCI and passive runtime acceptance open. Parent review of this consolidated local receipt is next; existing GitHub authorization remains held until then.

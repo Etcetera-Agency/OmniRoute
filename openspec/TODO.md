@@ -1218,10 +1218,47 @@ Deferred cross-repository and operations work:
       OVERLAY writer is unused. The native pricing table is lossy (`missing → 0`)
       and cannot replace the unchanged explicit-zero proof getter. The minified-base
       patch was rejected.
-- [ ] Owner startup choice remains pending: preserve BASE plus stable
-      integration, or use the full OVERLAY with its additional catalog and
-      benchmark effects. It does not block the completed BASE-preserving exact-main
-      release; no startup change was made.
+- [x] Owner selected full source-built OVERLAY startup; choice closed. Local
+      packaging delegates official root `server/instrumentation.js` to the
+      selected overlay's compiled entry, preserving its relative chunk tree and
+      official UI. Implementation and offline tests are on isolated branch
+      `fix/source-built-startup`, based on approved source
+      `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. This is not deployed: the old
+      BASE periodic zero-price writer defect remains live until parent review,
+      immutable artifact proof, and authorized deployment.
+- [x] P1 confirmed: the final runtime stage discarded the generated root entry.
+      Corrected locally with its explicit merged-backend COPY and a regression
+      applying actual final-stage COPY instructions to a fresh official fixture.
+      RED 1/1 failed; GREEN affected fixture suite 11/11 and native chain 5/5
+      passed. P1 rereview accepted with no findings; local commit authorized.
+      OpenSpec remains open for GitHub real OCI proof and passive acceptance.
+- [ ] Before any production startup/restart, verify existing
+      `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` is effective. Native
+      `initCredentialHealthCheck()` uses it to disable the background credential-
+      health sweep that can send provider test inference; it does not disable
+      explicit manual provider-test routes. This setting is the exact available
+      no-probe guard found in source. Parent authorized its persistent env delta
+      after local review during the already-authorized GitHub deployment. No
+      runtime value was checked or changed in this local correction.
+- [ ] Verify the authorized GitHub OCI artifact contains the delegated root
+      entry and complete source-built overlay dependency tree, bound to the
+      reviewed source SHA. Parent acceptance of this consolidated local receipt
+      precedes the already-authorized GitHub phase; no new owner permission gate
+      is added. Exact SO commit `044bf3e4f78749f0ececafad37bec538bbe011c9` and
+      PR59 audit head `1a9ee3241d0e9171df1747cd5e9e0e3e42931dc2` remain in
+      integration ancestry.
+      Offline fixture proof is not OCI proof. Preserve the artifact receipt.
+      No local or server-image build. Keep the startup OpenSpec package
+      unarchived until its artifact/runtime gates pass.
+- A successful native models.dev startup sync is immediate and nonblocking when
+  saved `modelsDevSyncEnabled=true` (or `MODELS_DEV_SYNC_ENABLED=1`) and
+  `syncCapabilities` defaults true; it writes the raw zero-price snapshot and
+  asynchronously refreshes public benchmark metadata, including AA only when
+  its API key is available. Saved `false` pauses this whole sync chain. These
+  source behaviors are covered only with offline fixture fetches; current
+  production saved setting and AA key presence remain unverified. The catalog
+  refresh does not claim or drain benchmark-search work, and no normalizer or
+  inference runs in the tested chain.
 - [x] Related TL013 APInex inspection found saved metadata for exact catalog ID
       `free/deepseek-v4.1-flash` has strict-output absent and the resolver returns null;
       a prior strict-JSON HTTP 200 exists. Raw source was not retained, so field
@@ -1260,14 +1297,14 @@ Deferred cross-repository and operations work:
 - Stock bookkeeping settled with no delta: LKG pool rows 32; APInex session history 2; session affinity, proxy assignments/rotation, quota-pool membership, and `qtSd` combos unchanged/empty; `auto:discovery` overrides stayed 0 for both `auto/coding_high_tools:free` and `auto/general_high_so:free`. Hooks remained enabled. Free metadata eligibility is not billing proof.
 - At the initial post-sync capture, the Native Auto candidate endpoint had not yet been called. Current strict-cache refresh invokes `getUsageForProvider(..., { forceRefresh: false })`. Exact active branches show quota/account/catalog metadata reads, including allowed metadata POSTs for AGY/Antigravity; Antigravity model generation requires `forceRefresh === true && creditsMode === "always"`, so candidate refresh cannot reach it. No enrollment, provider probe, or inference ran. The later native-auth candidate evidence is recorded in the continuation below. Historical 9-row diagnostic had 6 `not-in-catalog` and 3 `state-unknown`; `reachable=true && excluded=false` is never an executable count. Historical order for `6dc4` remains unknown.
 - Policy decision resolved by owner: keep this fork's existing `OMNIROUTE_AUTO_BANDS_CONFIG.capabilities.so.unknown=deny`; no config/source change. It is not an upstream native-band setting (`bands/capabilities.ts` is absent upstream); stock combo admission rejects only explicit `structured_output === false`. Explicit false and free-only behavior stay unchanged. APInex's exact enriched raw catalog has no `structured_output` in 44 rows; its exact free/base targets remain unknown and are not structured-output-band eligible. `response_format` is recognized; false is incompatible, null passes. Quality validation checks response body/string/JSONPath, not caller JSON Schema; HTTP 200 invalid JSON/schema has no generic schema-based retry guarantee. This is a current limitation, not validator work; schema validation is future work only if desired and does not block the deny decision. Gemini translates `responseSchema`; Claude adds a prompt instruction; no common all-provider structured-output/schema guarantee exists.
-- BASE periodic zero-writer defect remains open/unfixed; full-OVERLAY startup choice remains pending independently. PR59 stays open; no merge or required-check bypass. See detailed continuation in `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/completion.review` and root `completion.review`.
+- BASE periodic zero-writer defect remains open/unfixed. At this audit point, full-OVERLAY startup choice was pending; owner later selected it, as recorded below. PR59 stays open; no merge or required-check bypass. See detailed continuation in `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/completion.review` and root `completion.review`.
 
 ## TL013 candidate-only acceptance continuation (2026-10-31)
 
 - [x] Correct usage-leaf diagnosis: a missing/stale strict quota cache can asynchronously call getUsageForProvider(..., { forceRefresh: false }). Current active agy/antigravity, Kilo Code, Jina, Ollama Cloud, OpenRouter, and Tavily branches are quota/account-metadata reads; Antigravity streamGenerateContent probe is gated by forceRefresh === true && creditsMode === "always" and is not reachable from candidate refresh. Exact URL paths, payload keys, current branches, and OpenRouter's process-local limiter update are in root completion.review.
 - [x] Used the existing password login and CSRF contract over SSH Node after validating the current `INITIAL_PASSWORD` against the stored bcrypt hash; no credential values were printed. Two native candidate GETs returned HTTP 200 for each approved band; after a 45-second usage-cache wait, passive GETs returned the same counts. `auto/coding_high_tools:free`: 24 account diagnostic rows, 21 unique provider/model candidates; account-row `freeAccessExclusion` reasons null 18, `state-unknown` 5, `not-in-catalog` 1; unique logical-candidate reasons null 18, `state-unknown` 2, `not-in-catalog` 1. `auto/general_high_so:free`: 9 account rows, 7 unique candidates; account-row reasons null 5, `state-unknown` 3, `not-in-catalog` 1; unique logical-candidate reasons null 5, `state-unknown` 1, `not-in-catalog` 1. A null reason is a native strict-free classifier pass at logical provider/model level; it does not prove SO capability eligibility or per-account orderability. Every row was `reachable=true`, breaker `CLOSED`, `excluded=false`, which is not an executable count. Endpoint exposes diagnostic reasons and connection state, but no final safe IDs, `allowedConnectionIds`, or dispatch order. No inference/provider probe ran.
 - [x] Correct the initial 403 record: original response bytes and correlation ID were not retained. AUTH_001 is the source branch's expected invalid-management-bearer response, not a confirmed original body/cause. The later dashboard-authenticated sync succeeded once; that does not retroactively prove the first 403 body.
-- [x] Record persisted modelsDevSyncEnabled=true, runtime MODELS_DEV_SYNC_ENABLED=unset and interval unset, and OVERLAY status periodicEnabled=false. The one-time sync action does not start/stop the OVERLAY timer; this field does not prove full-process or BASE-timer state. BASE periodic zero-writer defect remains open and the full-OVERLAY startup choice remains pending.
+- [x] Record persisted modelsDevSyncEnabled=true, runtime MODELS_DEV_SYNC_ENABLED=unset and interval unset, and OVERLAY status periodicEnabled=false. The one-time sync action does not start/stop the OVERLAY timer; this field does not prove full-process or BASE-timer state. BASE periodic zero-writer defect remains open. At this capture, full-OVERLAY startup choice remained pending; owner later selected it below.
 - PR59 stays open for review; no merge or required-check bypass. Current deployment and metadata sync remain accepted independently of unresolved SO eligibility and per-account orderability.
 
 ## TL013 startup delta and candidate-only continuation (2026-10-31)
@@ -1305,9 +1342,9 @@ Deferred cross-repository and operations work:
       `openspec/changes/archive/2026-10-31-fix-modelsdev-structured-output-fallback/`;
       merged shared contract is `openspec/specs/model-capability-resolution/spec.md`.
       Local spec archiving is not deployment or runtime acceptance.
-- [ ] Parent consolidated local acceptance/integration first, then the
-      already-authorized GitHub build/deploy and passive metadata follow-up.
-      No new approval gate applies. Execution remains held until local readiness.
+- [ ] Parent reviews this consolidated local receipt; after acceptance, continue
+      the already-authorized GitHub build/deploy and passive metadata follow-up.
+      No new approval gate applies. No push/build/deploy occurs before acceptance.
 - [ ] SUSPENDED / owner-dependent: historical fresh inference, forced-tool-call,
       and billing acceptance items are currently forbidden and are not required
       to finish fallback metadata. Deferred compatible vision-false preservation
