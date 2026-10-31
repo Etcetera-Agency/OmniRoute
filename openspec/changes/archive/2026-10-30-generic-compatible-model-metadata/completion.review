@@ -258,3 +258,91 @@
   production deployment, provider acceptance, and native free-only acceptance
   remained open. The later receipts are at the start of this review; TL333
   later cleared this archive hold.
+
+## TL013 exact-main deployment and held metadata resync — 2026-10-31
+
+- PR58 is merged at `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`; live GitHub
+  `main` was re-read at the same SHA before release. Workflow
+  `373883666` (`.github/workflows/omni-overlay-image.yml`) was initially
+  `disabled_manually`; it was dispatched once on `refs/heads/main`, then
+  restored to `disabled_manually`. Run
+  [41235613024](https://github.com/Etcetera-Agency/OmniRoute/actions/runs/41235613024)
+  completed successfully at `2026-10-31T20:00:59Z` with exact head
+  `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. Build job
+  `124638647787` passed native ARM64 build, emitted runtime check, official UI
+  parity, and immutable publish. Protected deploy job `124641967040` passed.
+  Published runtime digest:
+  `ghcr.io/etcetera-agency/omniroute@sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`.
+- Remote read-only checks used SSH alias `etc2nd-shlink` via a shell heredoc.
+  `omniroute` is running and healthy with restart count 0, configured to the
+  pinned digest; its image ID is
+  `sha256:289a71d0edd897b4f0d92d6648c24bfe0836eec1d9a2c261f9b2bd9b46162650`.
+  `/app/.build/next/omni-overlay/server/BUILD_SHA` contains the exact source
+  SHA. The effective emitted artifact includes the settings sync route and
+  native Auto candidates route. The application entrypoint/Cmd are unchanged.
+  Redis remained healthy on its original image ID
+  `sha256:8baad871cba966985cc0010b2324eae3612581bfb0e6e00213537e11cadc0a20`.
+  The known paired rollback artifacts and diagnostic archive were preserved;
+  the archive `/var/oled/omniroute-deploy-diagnostics/a4-artifact-73056e982e6348ab94df085e82753005/image.tar`
+  remains 3,159,546,880 bytes, mode 0600, SHA-256
+  `080176ad3734cfc37ea003e48f5794877a626b74b826cd33443d6b73914663bc`.
+- A protected pre-sync SQLite backup was saved at
+  `/var/oled/omniroute-deploy-diagnostics/e013-41235613024-pre-sync.sqlite`,
+  95,899,648 bytes, mode 0600, SHA-256
+  `2fd4b67d399aa4d9c27183f57bde213c3227b0c6ebdc45c84a5b72f39e89a59c`.
+  The paired sanitized before capture is
+  `/var/oled/omniroute-deploy-diagnostics/e013-41235613024-before.json`,
+  mode 0600, captured `2026-10-31T20:05:17.461707Z`. It records four active
+  compatible connections, pre-existing AIHubMix/APInex snapshots with 660/44
+  models, and two Caprover connections with no snapshot/synced catalog. The
+  AIHubMix and APInex snapshot timestamps shortly after startup are not proof
+  that the authorized sync ran; no sync result or per-connection post-state
+  exists.
+- The one authorized request to
+  `POST /api/settings/models-dev` used body
+  `{"action":"sync","dryRun":false,"syncCapabilities":false}` and
+  returned HTTP 403 without a result. This attempt was not repeated. The
+  database's stored `api_keys.key` values did not hash-match their management
+  bearer `key_hash`; the existing Chrome session had no OmniRoute dashboard
+  open. No auth bypass or new credential was used. Do not count imports or
+  derive after-state from this response. A future attempt needs a fresh backup
+  and before capture, then settled after-state evidence.
+- At the pre-sync capture, the models.dev zero snapshot was still fetched at
+  `2026-10-29T23:31:57.808Z` and contained provider key `kilo`, not canonical
+  `kilocode`. The separate pricing capture had 380 `kilocode` entries. The
+  zero snapshot was not rewritten. The persisted settings capture confirms
+  `freeAccessPolicy=strict`, enabled lockout with `403,404,429,502,503,504`,
+  base/max/steps `120000/1800000/10` and exponential backoff, and
+  `comboDefaults.comboTimeoutMs=1200000`; `API_BRIDGE_PROXY_TIMEOUT_MS=0`,
+  `API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS=0`, and `REQUEST_TIMEOUT_MS` unset.
+- One bounded APInex public metadata fetch returned HTTP 200/44 models:
+  `structured_output` present 0, absent 44, unavailable 0, unhandled shape 0.
+  Full raw payload/key set was not retained. The field remains absent for exact
+  IDs `free/deepseek-v4.1-flash` and `deepseek-v4.1-flash` in their saved
+  snapshots/synced rows, so capability stays unknown. Other active compatible
+  catalogs were not raw-fetched. AIHubMix's normalized 660-model snapshot has
+  no structured-output fields; both Caprover connections have no saved catalog
+  snapshot. Neither is raw-source absence evidence. No capability override,
+  inference, provider probe, or added provider/config is in scope.
+- Candidate-pool diagnostic is not an executable-pool count. In the prior
+  high-SO diagnostic, 9 rows showed `reachable=true` and `excluded=false`, but
+  the native strict reasons were 6 `not-in-catalog` and 3 `state-unknown`;
+  strict filtering admits only connections with outcome `safe`, so zero of
+  those nine was strict-admitted. These historical diagnostic fields say
+  nothing about current ordering, and current diagnostic/strict-orderable
+  counts remain unproven. Source inspection found the candidate handler uses
+  `prepareVirtualAutoComboInputs({}, true)` to retain diagnostic rows and then
+  annotates `freeAccessExclusion`. Its classifier calls
+  `resolveFreeAccessState`; a missing/stale cache entry triggers
+  `void refresh(provider, connectionId)`, which can perform a provider usage
+  request for usage-fetcher providers with a connection. Therefore the endpoint
+  was not called. Diagnostic and strict counts for the current deployed state
+  remain unproven; historical pool/order for correlation `6dc4` remains
+  unknown.
+- No native sync/import or stock derived writes were confirmed. The BASE startup
+  path and periodic BASE zero-writer defect remain unchanged/open; the full
+  OVERLAY startup choice remains open. No inference, search, benchmark, queue,
+  paid fallback, policy change, or provider/config mutation occurred. Production
+  health is verified; metadata resync and passive structured-output acceptance
+  remain blocked on a usable existing authenticated session and a successful
+  one-time sync with before/after proof.
