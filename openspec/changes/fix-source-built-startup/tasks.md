@@ -16,12 +16,22 @@
        formatting, strict OpenSpec validation, and diff checks. Review the
        implementation with Code Simplifier.
 6. [x] Update `openspec/TODO.md` and `completion.review` with the selected-but-not-
-       live state, exact runtime probe guard, and remaining artifact/runtime gates.
-7. [x] Parent accepted the local source integration. The GitHub artifact was
-       built and published; protected deployment and passive runtime proof remain
-       open under `openspec/TODO.md`. Any retry uses the existing immutable image
-       and waits for the owner health-policy answer plus parent retry grant; no
-       new source acceptance or build is required.
+       live state, exact runtime probe guard, and remaining runtime gates.
+7. [x] Parent accepted the local source integration and static review of the
+       cached ARM64 OCI candidate for source revision
+       `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`, image digest
+       `sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+       In the read-only, network-none filesystem container, the official root
+       `server/instrumentation.js` plain-read delegate target
+       `../omni-overlay/server/instrumentation.js`, webpack runtime, and
+       immediate chunk `58256` were readable. This is static artifact
+       acceptance only; no app code was initialized or executed. App startup,
+       periodic models.dev activation, and structured-output resolution remain
+       runtime gates.
+       Protected deployment and passive runtime proof remain open under
+       `openspec/TODO.md`. Any retry uses the existing immutable image and waits
+       for the owner health-policy answer plus parent execution grant; no new
+       source acceptance or build is required.
 8. [x] P1 correction: reproduce final-stage omission using actual runtime COPY
        instructions, copy the generated root entry explicitly, and rerun only
        affected fixture tests/checks. Targeted rereview accepted with no findings.

@@ -1244,20 +1244,27 @@ Deferred cross-repository and operations work:
       The explicit merged-backend COPY and actual final-stage fixture regression
       were accepted: historical RED 1/1, GREEN 11/11, native chain 5/5, rereview
       with no findings. These local receipts do not prove the OCI artifact.
+- [x] Parent accepted static review of the cached ARM64 OCI candidate for
+      revision `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`, digest
+      `sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+      The read-only, network-none filesystem-container receipt and its static-
+      only boundary are recorded in the E013 current release section below.
 - [ ] Runtime gates remain open after run `41247447693` published the immutable
       image and protected deployment failed with `COMPOSE_RUNTIME_MISMATCH`.
-      Verify source/digest/`BUILD_SHA`, the delegated root entry and complete
-      overlay dependency tree, native periodic writer activation, and passive
-      fresh metadata only after an authorized retry. Parent accepted the local
-      source integration; retry still needs the pending owner health-policy
-      answer and parent retry grant. No new build is authorized.
+      Prove actual app initialization, native periodic writer activation, and
+      passive fresh metadata only after an authorized retry. Static artifact
+      acceptance is complete; image-env `BUILD_SHA` absence is not a defect or
+      gate, and no full transitive async-graph walk is required. Parent accepted
+      the local source integration; retry still needs the pending owner
+      health-policy answer and parent execution grant. No new build is authorized.
 - [ ] SUSPENDED / owner-dependent startup health policy: the pending owner
       decision covers manual price/structured-output tests only versus also
       allowing stock automatic credential-health checks after restart. The
       earlier `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` environment delta
       was parent implementation work, not an owner requirement; it was safely
       reverted and is not a required gate. Do not restart or retry deployment
-      until the owner answer and parent grant arrive.
+      until the owner answer and parent grant arrive. The release actor session
+      is closed with its evidence preserved while those decisions are pending.
 - Deferred upstream behavior, not a current fix task: native global
   `credentialHealthCheck.intervalMinutes=0` suppresses periodic checks but does
   not prevent the initial credential-health sweep after its 30-second startup
@@ -1410,6 +1417,18 @@ Deferred cross-repository and operations work:
   `ghcr.io/etcetera-agency/omniroute@sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`.
   Workflow `373883666` is disabled. No new source work or parent source
   acceptance is pending; any retry is job-only against this immutable artifact.
+- Parent accepted static review of the cached ARM64 OCI candidate for source
+  revision `dcc79e26476434ef0e0bcb5d49be50798c58c0fd` and image digest
+  `sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+  In a read-only, network-none filesystem container, the official root
+  `server/instrumentation.js` plain-read delegate target
+  `../omni-overlay/server/instrumentation.js` existed; webpack runtime and
+  immediate chunk `58256` were readable. This accepts static artifact contents
+  only; no app code was initialized or executed, so this does not prove app
+  startup, periodic models.dev activation, or structured-output resolution. No
+  full transitive async-graph walk is required. Missing image-env `BUILD_SHA` is
+  not a defect or gate; native artifact provenance is accepted without adding
+  env or code.
 - The one `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` env delta was parent
   implementation work, not an owner requirement. It was safely undone using the
   protected backup. Restored `.env` SHA-256 is
@@ -1425,22 +1444,19 @@ Deferred cross-repository and operations work:
   checks but does not prevent the initial sweep after its 30-second startup
   delay. Do not investigate or fix it here. Per-connection health interval `0`
   is supported; no bulk writes are authorized or required for 34 connections.
-- Exact passive runtime gates after any authorized retry:
-  1. Bind reviewed source SHA and immutable image digest to actual runtime
-     `BUILD_SHA`; prove official root `server/instrumentation.js` delegates to
-     the complete source-built overlay dependency tree.
-  2. Prove selected startup runs native models.dev periodic sync with the saved
+- Remaining passive runtime gates after any authorized retry:
+  1. Prove selected startup runs native models.dev periodic sync with the saved
      setting enabled, writes a fresh zero-price snapshot, and uses canonical
      provider `kilocode`.
-  3. Prove APInex configured API base remains exact and the approved free/base model's
+  2. Prove APInex configured API base remains exact and the approved free/base model's
      structured-output capability resolves `true` through native metadata or
      the approved same-canonical-ID models.dev `true` fallback. Raw APInex
      absence alone is not the final resolved result.
-  4. Read back strict-free policy, native model lockout enabled with codes
+  3. Read back strict-free policy, native model lockout enabled with codes
      `403,404,429,502,503,504`, `comboDefaults.comboTimeoutMs=1200000`, both
      bridge timeout settings `0`, `REQUEST_TIMEOUT_MS` unset, and models.dev
      periodic interval at its native 24-hour default.
-  5. Capture passive runtime health and metadata receipts. AA metadata refresh
+  4. Capture passive runtime health and metadata receipts. AA metadata refresh
      is allowed if configured; it does not authorize inference.
 - Current ban remains: no manual LLM, price/structured-output, normalizer,
   search, forced-tool, or billing probes. These future owner-dependent actions

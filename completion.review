@@ -2390,15 +2390,25 @@ NODE_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-reco
   the owner; do not investigate or fix it here. Per-connection health interval
   `0` is supported, but no bulk writes are authorized or required for 34
   connections.
-- Passive runtime gates remain: bind reviewed source/image digest to actual
-  `BUILD_SHA` and prove the root delegate loads the complete overlay tree;
-  prove enabled native models.dev periodic startup writes a fresh zero-price
-  snapshot with canonical `kilocode`; verify APInex's exact configured API base and
-  approved free/base structured-output resolution is `true`; read back strict-
-  free policy, native model lockout and codes, `comboTimeoutMs=1200000`, bridge
-  settings `0`, `REQUEST_TIMEOUT_MS` unset, and native 24-hour models.dev
-  interval; capture passive health/metadata receipts. AA metadata is allowed if
-  configured and does not authorize inference.
+- Parent accepted static review of the cached ARM64 OCI candidate for source
+  revision `dcc79e26476434ef0e0bcb5d49be50798c58c0fd` and image digest
+  `sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+  A read-only, network-none filesystem-container review found the official root
+  `server/instrumentation.js` plain-read delegate target
+  `../omni-overlay/server/instrumentation.js`, webpack runtime, and immediate
+  chunk `58256` readable. No app code was initialized or executed. This is
+  static artifact acceptance only; it proves neither app startup nor periodic
+  models.dev activation nor structured-output resolution. No full transitive
+  async-graph walk is required. Missing image-env `BUILD_SHA` is not a defect or
+  gate; native artifact provenance is accepted without added env or code.
+- Remaining passive runtime gates: prove enabled native models.dev periodic
+  startup writes a fresh zero-price snapshot with canonical `kilocode`; verify
+  APInex's exact configured API base and approved free/base structured-output
+  resolution is `true`; read back strict-free policy, native model lockout and
+  codes, `comboTimeoutMs=1200000`, bridge settings `0`, `REQUEST_TIMEOUT_MS`
+  unset, and native 24-hour models.dev interval; capture passive health/metadata
+  receipts. AA metadata is allowed if configured and does not authorize
+  inference.
 - Manual LLM, normalizer, search, forced-tool, and billing probes remain banned.
   Future owner-dependent actions are SUSPENDED, not package-closure gates. No
   required GitHub checks are configured; that is a fact, not a permission gate.
@@ -2413,3 +2423,9 @@ Code Simplifier reviewed the final documentation diff before commit. Original
 lockout and Auto functional scenarios remain intact, including success-response
 fallback, aggregate failure/queue settlement, and cooldown selection. Only
 obsolete proposal/design/task claims and current-status receipts were corrected.
+
+The release actor session is closed with its evidence preserved, pending the
+owner health-policy answer and parent execution grant. This post-commit docs-only
+receipt changes no source or production state; no test, API, model, restart,
+deployment, or retry was performed. Code Simplifier reviewed this scoped
+follow-up documentation diff before its local commit.
