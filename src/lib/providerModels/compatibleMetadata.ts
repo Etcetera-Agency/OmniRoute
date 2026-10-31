@@ -36,7 +36,6 @@ export interface CompatibleMetadataPrices {
 export type CompatibleBooleanCapability = "supportsVision" | "supportsTools";
 
 export const COMPATIBLE_METADATA_NAMESPACE = "compatible_model_metadata";
-export const COMPATIBLE_METADATA_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -329,13 +328,9 @@ export function resolveCompatibleCapabilityOverride(
   return foundTrue ? true : null;
 }
 
-function isFresh(fetchedAt: string, now: number): boolean {
+function hasValidTimestamp(fetchedAt: string, now: number): boolean {
   const timestamp = Date.parse(fetchedAt);
-  return (
-    Number.isFinite(timestamp) &&
-    timestamp <= now &&
-    now - timestamp <= COMPATIBLE_METADATA_MAX_AGE_MS
-  );
+  return Number.isFinite(timestamp) && timestamp <= now;
 }
 
 export function composeCompatibleMetadataPrices(
@@ -343,10 +338,10 @@ export function composeCompatibleMetadataPrices(
   eligibleConnections: CompatibleEligibleConnection[],
   now = Date.now()
 ): CompatibleMetadataPrices {
-  // AICODE-NOTE: Compatible prices are current only when every active connection exposing the exact ID agrees.
-  const freshSnapshots = new Map(
+  // AICODE-NOTE: Compatible prices require complete exact-price agreement across all active eligible connections.
+  const validSnapshots = new Map(
     snapshots
-      .filter((snapshot) => isFresh(snapshot.fetchedAt, now))
+      .filter((snapshot) => hasValidTimestamp(snapshot.fetchedAt, now))
       .map((snapshot) => [snapshotKey(snapshot.providerId, snapshot.connectionId), snapshot])
   );
   const connectionsByModel = new Map<string, CompatibleEligibleConnection[]>();
@@ -366,7 +361,7 @@ export function composeCompatibleMetadataPrices(
   for (const [key, connections] of connectionsByModel) {
     const [providerId, modelId] = JSON.parse(key) as [string, string];
     const prices = connections.map((connection) => {
-      const snapshot = freshSnapshots.get(
+      const snapshot = validSnapshots.get(
         snapshotKey(connection.providerId, connection.connectionId)
       );
       if (!snapshot || !Object.hasOwn(snapshot.modelsById, modelId)) return null;

@@ -1732,3 +1732,95 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   Initial public smoke returned non-JSON404 before model dispatch; public/v1
   ingress has a dedicated deny middleware and was not altered. A local gateway
   strict-free SO smoke is in progress, correlation3432f08c-8b2c-4e20-b704-7c689ede3a97.
+
+## Main correction and live normalization gate (2026-10-31)
+
+- PR54 merged as23066b5c22720c4f5ff9602c62e37d8b537b107e. Verified origin/main
+  src/open-sse identical to original ceef1b0377 and live455442b05754. Image
+  workflow remains disabled; no new image publication/deployment.
+- Local gateway strict-free SO smoke3432f08c-8b2c-4e20-b704-7c689ede3a97
+  returned404 in1261ms: Combo has no executable targets, before provider dispatch.
+  Read-only candidate GET200 lists9 high-SO diagnostic rows for each of two
+  existing manage keys,4 mid-SO and15 low-SO. Diagnostic rows can include native
+  reachability/free-access exclusions; list length is not executable pool size.
+- TL013 owns read-only exact exclusion-stage diagnosis. No eligibility, key
+  permissions, band thresholds, scoring or paid fallback changes authorized here.
+  Fresh live benchmark normalization is not accepted until that gate is resolved.
+
+## TL013 verified strict-free pool gate (2026-10-31)
+
+- Both active manage keys list the same9 high-SO rows:6 not-in-catalog and
+  3 state-unknown strict-free exclusions. All are reachabletrue/excludedfalse.
+  Mid-SO4 and low-SO15 also have no confirmed-free eligible rows. Candidate GET
+  intentionally skips routing filters and preserves diagnostic reasons.
+- Therefore strict-free admission independently prevents dispatch of every
+  high-SO candidate. Exact first filter for smoke3432f08c remains untraced;
+  don't attribute historical or current stop order beyond this established gate.
+- No key-permission relaxation, scoring change, band widening or paid fallback.
+  TL013 read-only continuation identifies native catalog/state remedy.
+- Owner explicitly chose to keep20min native overall budget on2026-10-31.
+  Existing saved1200000 remains; native30 attempts and target deadlines unchanged.
+- Owner requested manual verification of9 high-SO classifier exclusions. These
+  reasons are classifier output, not proof of actual paid cost. TL013 provides
+  exact model/provider/catalog/state evidence before any further inference.
+
+## Manual APInex evidence and broader audit (2026-10-31)
+
+- APInex connection9565fb26 remainsactive. Authenticated provider/modelsGET200
+  returns44IDs including21free/ IDs; same44/21 stored in synced catalog. IDs
+  alone were not treated as pricing proof.
+- Directfree/deepseek-v4.1-flash probe200 in1039ms returned APINEX_OK with
+  usage.cost_tokens0. Strictjson_schema probe200 in1600ms returned exactly
+  validated{ok:true}, usage.cost_tokens0. This confirms one real freeSO path,
+  not that every provider/model/account is free or satisfies high-band fitness.
+- User directed audit beyond APInex. TL014 owns active native/custom/web LLM
+  provider manual inventory; TL013 owns common strictcatalog/state mechanism.
+  No score/band thresholds or paid-fallback eligibility modified.
+- Provenance correction: freeAccessPolicystrict/strictZeroCostFilter is native
+  upstream v3.8.52 (fileexistsad6f33f66b, upstreamreleaseancestry verified).
+  Parent's earlier foreign-filter description was wrong. Fork9ba456643e adds
+  exactmodelsDevzeroprice fallback; recent metadataimport changes are being
+  checked foractualhandoff/freshness/identity mismatch. Preserve upstreamstrict.
+  Missing responsecost does not imply paid or unsupportedfree status.
+
+## E013 native zero-price evidence import (2026-10-31)
+
+- Implemented the authorized local-only fix on `fix/auto-fallback-request-lifetime-20261031` at base `4111ddd47024f151e0759efab707c1546da33905`. Kept upstream v3.8.52 strict policy and static quota/hard-stop logic unchanged.
+- Removed the fork-owned 36-hour expiry from both models.dev snapshot reading and strict exact-evidence lookup. Invalid and future timestamps remain rejected; `fetchedAt` is returned unchanged as provenance. Zero-price import now calls the same `mapProviderId()` as native pricing/capability transforms and preserves exact raw model IDs.
+- Added fork-only `tests/unit/native-free-evidence-import.test.ts`. Initial RED run: 3/5 passed, 2 failed as expected (`kilo` remained raw provider key; stale exact evidence returned `not-in-catalog`). Final GREEN: 6/6 passed, including a persisted >36h snapshot, exact model identity, nonzero/missing prices, OpenRouter dynamic exclusion, and static hard-stop/quota cases.
+- Exact GREEN command: `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/native-free-evidence-import.test.ts` (6/6).
+- Strict filter Vitest: 18/19 passed. The remaining pre-existing assertion in `tests/unit/autoCombo/strict-zero-cost-filter.test.ts` explicitly expects stale models.dev evidence to fail; this contradicts E013 and is tracked in `openspec/TODO.md`. No tracked upstream tests were edited.
+- Existing models.dev unaffected cases passed 2/2 with `--test-name-pattern='persists only successful non-dry-run|stale and future compatible snapshots'`. OpenSpec strict validation passed. Code Simplifier review found no further behavior-preserving simplification needed.
+- No provider/network request, production write/restart, build, deployment, commit, or push. Live billing/deployment acceptance and reconciliation of legacy test assertions remain open in `openspec/TODO.md`; package remains unarchived and has no completion marker.
+
+## E013 owner-directed correction (2026-10-31)
+
+- Supersedes earlier E013 note that one stale-evidence assertion remained and the earlier wording that compatible-pricing age was unchanged. Updated only fork-owned expectations; native upstream tests were not edited. Root `openspec/TODO.md` now removes the inaccurate separate-test-authorization deferral.
+- Zero-price extraction now selects the last raw provider entry mapped to each canonical provider as that provider's evidence model set. For IDs in that set it checks both the existing explicit raw all-zero rule and effective `transformModelsDevToPricing` values. Collision regression asserts zero→nonzero is excluded, nonzero→explicit 0/0 is admitted only after checking native effective input/output zero, and earlier-only IDs are absent from evidence.
+- Removed compatible pricing's 36-hour age rejection only. Code inspection and graph trace confirmed `isFresh` was called by `composeCompatibleMetadataPrices`; `resolveCompatibleCapabilityOverride` does not call it. Capability snapshots, false veto, unknown result, exact eligible connections, all-connection completeness, and price consensus remain unchanged. Invalid/future timestamps remain rejected; original `fetchedAt` remains provenance.
+- RED: `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-name-pattern='mapped provider precedence' tests/unit/native-free-evidence-import.test.ts` — 0/1 passed as expected; extractor incorrectly included collision and earlier-only IDs.
+- RED: same Node setup with `--test-name-pattern='stale complete zero prices remain' tests/unit/compatibleMetadata.test.ts` — 0/1 passed as expected; age gate discarded complete stale 0/0 evidence.
+- GREEN: E013 regression 7/7; `tests/unit/compatibleMetadata.test.ts` 13/13; `tests/unit/modelsDevZeroCostEvidence.test.ts` 4/4; `vitest.mcp.config.ts tests/unit/autoCombo/strict-zero-cost-filter.test.ts` 19/19. Commands are the exact scoped file commands listed in this review's implementation receipt.
+- `isFresh`/maximum-age constant removed from compatible pricing; future/invalid timestamp checks retained. The Oct29 fixture remains date-fixed because removing pricing TTL makes its originally complete snapshot valid; no timestamp refresh was introduced.
+- Code Simplifier reviewed the source and regression changes: one effective mapped-provider model set, one existing native pricing transform oracle, and direct price/identity checks; no additional abstraction or guard was needed.
+- Deferred only in root TODO: direct-source completeness, full five-snapshot gate, all-row rejection, and fitness-source allowlist mismatch. No E015 guard was changed. No network/provider/API call, production mutation, build, deployment, restart, commit, or push.
+
+### E013 correction exact verification commands
+
+RED alias collision (exit 1; 0/1 passed as expected):
+`node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-name-pattern='mapped provider precedence' tests/unit/native-free-evidence-import.test.ts`
+
+RED compatible pricing age (exit 1; 0/1 passed as expected):
+`node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-name-pattern='stale complete zero prices remain' tests/unit/compatibleMetadata.test.ts`
+
+GREEN regression commands and results:
+- `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/native-free-evidence-import.test.ts` — 7/7.
+- `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/compatibleMetadata.test.ts` — 13/13.
+- `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/modelsDevZeroCostEvidence.test.ts` — 4/4.
+- `./node_modules/.bin/vitest run --config vitest.mcp.config.ts tests/unit/autoCombo/strict-zero-cost-filter.test.ts` — 19/19.
+
+Focused quality commands after correction:
+- `./node_modules/.bin/eslint --no-warn-ignored --suppressions-location config/quality/eslint-suppressions.json src/lib/modelsDevSync.ts src/lib/modelsDevSync/transform.ts src/lib/providerModels/compatibleMetadata.ts open-sse/services/autoCombo/strictZeroCostFilter.ts tests/unit/native-free-evidence-import.test.ts tests/unit/autoCombo/strict-zero-cost-filter.test.ts tests/unit/modelsDevZeroCostEvidence.test.ts tests/unit/compatibleMetadata.test.ts` — exit 0.
+- `./node_modules/.bin/prettier --check src/lib/modelsDevSync.ts src/lib/modelsDevSync/transform.ts src/lib/providerModels/compatibleMetadata.ts open-sse/services/autoCombo/strictZeroCostFilter.ts tests/unit/native-free-evidence-import.test.ts tests/unit/autoCombo/strict-zero-cost-filter.test.ts tests/unit/modelsDevZeroCostEvidence.test.ts tests/unit/compatibleMetadata.test.ts openspec/changes/fix-native-free-evidence-import/proposal.md openspec/changes/fix-native-free-evidence-import/design.md openspec/changes/fix-native-free-evidence-import/tasks.md openspec/changes/fix-native-free-evidence-import/specs/strict-zero-cost/spec.md` — all matched files formatted.
+- `/root/.npm/_npx/8dd48c53c203f559/node_modules/.bin/openspec validate fix-native-free-evidence-import --strict` — valid.
+- `git diff --check` — exit 0.

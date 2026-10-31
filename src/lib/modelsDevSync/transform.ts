@@ -235,23 +235,40 @@ export function transformModelsDevToPricing(raw: ModelsDevData): PricingByProvid
 /** Keep raw identities only when every published price is explicitly zero. */
 export function extractModelsDevZeroPriceModels(raw: ModelsDevData): ModelsDevZeroPriceModels {
   const result: ModelsDevZeroPriceModels = {};
+  const latestProviderModels: Record<
+    string,
+    { providerId: string; models: Record<string, ModelsDevModel> }
+  > = {};
+  const nativePricing = transformModelsDevToPricing(raw);
 
   for (const [providerId, providerData] of Object.entries(raw)) {
-    for (const [modelId, model] of Object.entries(providerData.models || {})) {
+    for (const omniProvider of mapProviderId(providerId)) {
+      latestProviderModels[omniProvider] = {
+        providerId,
+        models: providerData.models || {},
+      };
+    }
+  }
+
+  for (const [omniProvider, { providerId, models }] of Object.entries(latestProviderModels)) {
+    for (const [modelId, model] of Object.entries(models)) {
       if (providerId === "openrouter" && (modelId === "free" || model.id === "openrouter/free")) {
         continue;
       }
       const cost = model.cost;
+      const effectivePrice = nativePricing[omniProvider]?.[modelId];
       if (
         typeof cost?.input !== "number" ||
         cost.input !== 0 ||
         typeof cost.output !== "number" ||
         cost.output !== 0 ||
-        !Object.values(cost).every((price) => typeof price === "number" && price === 0)
+        !Object.values(cost).every((price) => typeof price === "number" && price === 0) ||
+        !effectivePrice ||
+        !Object.values(effectivePrice).every((price) => price === 0)
       ) {
         continue;
       }
-      (result[providerId] ??= []).push(modelId);
+      (result[omniProvider] ??= []).push(modelId);
     }
   }
 

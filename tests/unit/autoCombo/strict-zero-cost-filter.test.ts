@@ -278,10 +278,20 @@ test("models.dev strict evidence uses exact provider and full model IDs", () => 
   }
 });
 
-test("strict models.dev evidence fails closed when stale, future-dated, malformed, or dynamic", () => {
+test("strict models.dev evidence accepts stale exact IDs and rejects future, malformed, or dynamic", () => {
   const candidate = { provider: "openrouter", model: "vendor/model:free", connectionId: REAL_CONN };
+  assert.deepEqual(
+    evaluateCandidateConnections(candidate, undefined, () => undefined, {
+      ...BASE_OPTIONS,
+      modelsDevZeroPriceEvidence: {
+        fetchedAt: "2026-08-18T00:00:00.000Z",
+        modelsByProvider: { openrouter: [candidate.model] },
+      },
+    }),
+    [REAL_CONN]
+  );
+
   const snapshots = [
-    { fetchedAt: "2026-08-18T00:00:00.000Z", modelsByProvider: { openrouter: [candidate.model] } },
     { fetchedAt: "2026-08-21T00:00:00.000Z", modelsByProvider: { openrouter: [candidate.model] } },
     {
       fetchedAt: NOW,

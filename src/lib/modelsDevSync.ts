@@ -39,7 +39,6 @@ import {
   getProviderValidationGuard,
 } from "../shared/network/outboundUrlGuardPolicy";
 import {
-  COMPATIBLE_METADATA_MAX_AGE_MS,
   composeCompatibleMetadataPrices,
   readCurrentCompatibleEligibleConnections,
   readCompatibleMetadataSnapshots,
@@ -432,13 +431,9 @@ export function getModelsDevPricing(): PricingByProvider {
   return synced;
 }
 
-function isFreshEvidence(fetchedAt: string, now: number): boolean {
+function hasValidEvidenceTimestamp(fetchedAt: string, now: number): boolean {
   const timestamp = Date.parse(fetchedAt);
-  return (
-    Number.isFinite(timestamp) &&
-    timestamp <= now &&
-    now - timestamp <= COMPATIBLE_METADATA_MAX_AGE_MS
-  );
+  return Number.isFinite(timestamp) && timestamp <= now;
 }
 
 function hasModelIds(modelsByProvider: ModelsDevZeroPriceModels): boolean {
@@ -515,7 +510,7 @@ export function getModelsDevZeroPriceEvidence(): ModelsDevZeroPriceEvidence | nu
   const sources: ModelsDevZeroPriceEvidence[] = [];
   if (
     modelsDevEvidence &&
-    isFreshEvidence(modelsDevEvidence.fetchedAt, now) &&
+    hasValidEvidenceTimestamp(modelsDevEvidence.fetchedAt, now) &&
     hasModelIds(modelsDevEvidence.modelsByProvider)
   ) {
     sources.push(modelsDevEvidence);

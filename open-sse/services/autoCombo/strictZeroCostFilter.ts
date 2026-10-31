@@ -129,10 +129,8 @@ export interface StrictZeroCostOptions {
   } | null;
 }
 
-const MAX_MODELS_DEV_ZERO_PRICE_AGE_MS = 36 * 60 * 60 * 1000;
-
-// AICODE-NOTE: Strict routing trusts only fresh raw provider/model prices, never normalized aliases.
-function hasFreshExactZeroPriceEvidence(
+// AICODE-NOTE: Strict routing trusts exact imported provider/model prices; fetchedAt is provenance, not expiry.
+function hasExactZeroPriceEvidence(
   candidate: StrictZeroCostCandidate,
   evidence: StrictZeroCostOptions["modelsDevZeroPriceEvidence"],
   now: number
@@ -145,11 +143,7 @@ function hasFreshExactZeroPriceEvidence(
     return false;
   }
   const fetchedAtMs = Date.parse(evidence.fetchedAt);
-  if (
-    !Number.isFinite(fetchedAtMs) ||
-    fetchedAtMs > now ||
-    now - fetchedAtMs > MAX_MODELS_DEV_ZERO_PRICE_AGE_MS
-  ) {
+  if (!Number.isFinite(fetchedAtMs) || fetchedAtMs > now) {
     return false;
   }
   const models = evidence.modelsByProvider?.[candidate.provider];
@@ -257,7 +251,7 @@ export function classifyStrictZeroCostCandidate(
 ): StrictZeroCostVerdict {
   if (!budgetEntry) {
     const now = (options.now ?? Date.now)();
-    if (hasFreshExactZeroPriceEvidence(candidate, options.modelsDevZeroPriceEvidence, now)) {
+    if (hasExactZeroPriceEvidence(candidate, options.modelsDevZeroPriceEvidence, now)) {
       const safeConnectionIds = candidate.connectionId
         ? [candidate.connectionId]
         : (candidate.allowedConnectionIds ?? []);
