@@ -30,4 +30,5 @@
 - [x] 3.2 Correct this package's root TODO and append the final local receipt to
       root `completion.review`, preserving parent-owned text.
 - [x] 3.3 Keep package unarchived and without an implementation-complete marker
-      while live deployment/billing acceptance remains open.
+      while deployment/passive native metadata and candidate acceptance remain
+      open. Provider/model inference is prohibited, not a required acceptance gate.
