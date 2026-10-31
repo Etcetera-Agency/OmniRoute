@@ -316,8 +316,8 @@ listed but never cleared here.
 
 ### Lockout settings UI + success-decay recovery (v3.8.23)
 
-Model lockout is enabled by default and configurable through its settings card;
-set `enabled` to `false` to opt out. It also has a self-healing recovery path.
+Model lockout went from always-on hardcoded behavior to a fully configurable,
+opt-in feature with its own settings card and a self-healing recovery path.
 
 **Settings card:** Settings → Model Lockout
 (`src/app/(dashboard)/dashboard/settings/components/ModelLockoutCard.tsx`).
@@ -326,14 +326,14 @@ _lists_ active lockouts) — the new card _configures the parameters_. Defaults
 live in `DEFAULT_MODEL_LOCKOUT_SETTINGS`
 (`src/lib/resilience/modelLockoutSettings.ts`):
 
-| Setting                 | Default                          | Meaning                                                                                                                                                               |
-| ----------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`               | `true`                           | Master toggle — set `false` to disable model lockout.                                                                                                                 |
-| `errorCodes`            | `[403, 404, 429, 502, 503, 504]` | Statuses eligible for model-scoped failure recording. Upstream and per-target synthetic `504` timeouts can be recorded; a combo-wide timeout is not a target failure. |
-| `baseCooldownMs`        | `120_000` (120 s)                | Initial lockout duration for the first failure.                                                                                                                       |
-| `maxCooldownMs`         | `1_800_000` (30 min)             | Cap on the escalated cooldown.                                                                                                                                        |
-| `maxBackoffSteps`       | `10`                             | Max exponential-backoff escalation steps.                                                                                                                             |
-| `useExponentialBackoff` | `true`                           | Whether repeated failures escalate the cooldown exponentially.                                                                                                        |
+| Setting                 | Default                          | Meaning                                                        |
+| ----------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `enabled`               | `false`                          | Master toggle — model lockout is **off by default**.           |
+| `errorCodes`            | `[403, 404, 429, 502, 503, 504]` | Upstream statuses that count as a model-scoped failure.        |
+| `baseCooldownMs`        | `120_000` (120 s)                | Initial lockout duration for the first failure.                |
+| `maxCooldownMs`         | `1_800_000` (30 min)             | Cap on the escalated cooldown.                                 |
+| `maxBackoffSteps`       | `10`                             | Max exponential-backoff escalation steps.                      |
+| `useExponentialBackoff` | `true`                           | Whether repeated failures escalate the cooldown exponentially. |
 
 Settings persist through the normal settings store and validate via the
 resilience settings schema; the card clamps `baseCooldownMs`/`maxCooldownMs`

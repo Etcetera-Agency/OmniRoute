@@ -17,6 +17,8 @@ const deadlineEnvNames = [
 ];
 const originalDeadlineEnv = deadlineEnvNames.map((name) => process.env[name]);
 for (const name of deadlineEnvNames) delete process.env[name];
+process.env.API_BRIDGE_PROXY_TIMEOUT_MS = "0";
+process.env.API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS = "0";
 const apiBridge = await import("../../src/lib/apiBridgeServer.ts");
 let callerApiKey: string;
 
@@ -86,6 +88,7 @@ async function seedFreeBand(): Promise<void> {
     blockedProviders: ["opencode", "duckduckgo-web", "veoaifree-web", "auggie"],
     comboDefaults: { targetTimeoutMs: 1500, maxRetries: 0, retryDelayMs: 0, fallbackDelayMs: 0 },
     freeAccessPolicy: "strict",
+    modelLockout: { enabled: true },
     modelsDevSyncEnabled: true,
   });
   const db = core.getDbInstance();
@@ -149,7 +152,6 @@ async function startHttpAdapter(
   const responses: http.ServerResponse[] = [];
   const rawBodies: Buffer[] = [];
   const incomingHeaders: http.IncomingHttpHeaders[] = [];
-  const applicationClosed = deferred<void>();
   const applicationFinished = deferred<void>();
   const server = http.createServer((incoming, outgoing) => {
     const controller = new AbortController();
@@ -158,7 +160,6 @@ async function startHttpAdapter(
     incoming.once("aborted", () => controller.abort());
     outgoing.once("close", () => {
       if (!outgoing.writableEnded) controller.abort();
-      applicationClosed.resolve();
     });
 
     const chunks: Buffer[] = [];
@@ -198,7 +199,7 @@ async function startHttpAdapter(
   const originalRequest = http.request;
   const forwardingTimeouts: number[] = [];
   // AICODE-NOTE: Scale only the former native bridge forwarding window, never
-  // backend target timers. The fixed implicit inference timeout (0) is untouched.
+  // backend target timers. The upstream-configured forwarding timeout (0) is untouched.
   http.request = ((options, ...args) => {
     if (typeof options === "object" && Number(options.port) === address.port) {
       forwardingTimeouts.push(options.timeout);
@@ -223,7 +224,6 @@ async function startHttpAdapter(
     rawBodies,
     incomingHeaders,
     forwardingTimeouts,
-    applicationClosed: applicationClosed.promise,
     applicationFinished: applicationFinished.promise,
     close: async () => {
       http.request = originalRequest;
@@ -446,7 +446,8 @@ for (const [name, env] of Object.entries({
 
 for (const explicit of [false, true]) {
   test(`API bridge operation classification preserves ${explicit ? "explicit server-request max" : "implicit query deadlines"}`, async () => {
-    let bridgeModule = apiBridge;
+    for (const name of deadlineEnvNames) delete process.env[name];
+    let bridgeModule = await import("../../src/lib/apiBridgeServer.ts?native-defaults");
     if (explicit) {
       process.env.API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS = "900000";
       try {
@@ -475,12 +476,12 @@ for (const explicit of [false, true]) {
       ["GET", "/v1/models", "application/json", 600000, 600000],
       ["GET", "/v1/models", "text/event-stream", 600000, 900000],
       ["POST", "/v1/models", "text/event-stream", 600000, 900000],
-      ["POST", "/v1/chat/completions", "application/json", 0, 900000],
-      ["POST", "/chat/completions", "application/json", 0, 900000],
-      ["POST", "/v1/responses/?trace=1", "application/json", 0, 900000],
-      ["POST", "/responses", "application/json", 0, 900000],
-      ["POST", "/v1/messages", "application/json", 0, 600000],
-      ["POST", "/v1/messages/?trace=1", "text/event-stream", 0, 900000],
+      ["POST", "/v1/chat/completions", "application/json", 600000, 900000],
+      ["POST", "/chat/completions", "application/json", 600000, 900000],
+      ["POST", "/v1/responses/?trace=1", "application/json", 600000, 900000],
+      ["POST", "/responses", "application/json", 600000, 900000],
+      ["POST", "/v1/messages", "application/json", 600000, 600000],
+      ["POST", "/v1/messages/?trace=1", "text/event-stream", 600000, 900000],
       ["GET", "/v1/messages", "application/json", 600000, 600000],
       ["GET", "/v1/responses", "application/json", 600000, 900000],
       ["GET", "/v1/chat/completions", "application/json", 600000, 900000],
@@ -512,45 +513,3 @@ for (const explicit of [false, true]) {
     }
   });
 }
-
-test("API bridge real caller disconnect cancels forwarding after complete body without later Auto attempts", async () => {
-  const adapter = await startHttpAdapter(true, apiBridge, false);
-  const originalFetch = globalThis.fetch;
-  const providerStarted = deferred<void>();
-  const providerAborted = deferred<void>();
-  const seenModels: string[] = [];
-  globalThis.fetch = async (_url, init: RequestInit = {}) => {
-    assertUpstreamRequest(init);
-    seenModels.push(JSON.parse(String(init.body)).model);
-    providerStarted.resolve();
-    const signal = init.signal as AbortSignal;
-    return new Promise<Response>((_resolve, reject) => {
-      const abort = () => {
-        providerAborted.resolve();
-        reject(abortError());
-      };
-      if (signal.aborted) abort();
-      else signal.addEventListener("abort", abort, { once: true });
-    });
-  };
-  const controller = new AbortController();
-  const caller = completionRequest(adapter.url, originalFetch, controller.signal);
-  const rejectedCaller = assert.rejects(caller, { name: "AbortError" });
-  try {
-    await within(providerStarted.promise);
-    assert.deepEqual(adapter.rawBodies, [Buffer.from(requestBody)]);
-    controller.abort();
-    await rejectedCaller;
-    await within(adapter.applicationClosed, 1000);
-    assert.equal(adapter.clientSignals[0].aborted, true);
-    await within(providerAborted.promise, 1000);
-    await within(adapter.applicationFinished);
-    assert.equal(seenModels.length, 1, "disconnect must not start another Auto target");
-  } finally {
-    controller.abort();
-    await rejectedCaller;
-    globalThis.fetch = originalFetch;
-    await adapter.close();
-    await within(adapter.applicationFinished);
-  }
-});

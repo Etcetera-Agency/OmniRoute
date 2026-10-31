@@ -37,16 +37,7 @@ function requestWantsStreaming(req: IncomingMessage): boolean {
   return /^\/(?:v1\/)?(?:responses|chat\/completions)(?:\/|$)/.test(pathname);
 }
 
-function isInferenceOperation(req: IncomingMessage): boolean {
-  if (req.method !== "POST") return false;
-  const pathname = (req.url || "/").split("?")[0] || "/";
-  return /^\/(?:(?:v1\/)?(?:responses|chat\/completions)|v1\/messages)\/?$/.test(pathname);
-}
-
 function getProxyTimeoutMs(req: IncomingMessage): number {
-  // AICODE-NOTE: Only inference POSTs skip the implicit deadline. A configured
-  // max of zero also implies both legacy forwarding inputs below are zero.
-  if (isInferenceOperation(req) && API_BRIDGE_TIMEOUTS.inferenceProxyTimeoutMs === 0) return 0;
   if (!requestWantsStreaming(req)) return API_BRIDGE_TIMEOUTS.proxyTimeoutMs;
 
   return Math.max(API_BRIDGE_TIMEOUTS.proxyTimeoutMs, API_BRIDGE_TIMEOUTS.serverRequestTimeoutMs);
@@ -151,11 +142,6 @@ function proxyRequest(req: IncomingMessage, res: ServerResponse, dashboardPort: 
 
   req.on("aborted", () => {
     targetReq.destroy();
-  });
-  // AICODE-NOTE: After a complete request body, caller disconnect is signaled
-  // on the response; req.aborted alone leaves the backend inference running.
-  res.once("close", () => {
-    if (!res.writableEnded) targetReq.destroy();
   });
 
   req.pipe(targetReq);
