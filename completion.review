@@ -1844,3 +1844,206 @@ Focused quality commands after correction:
 - TL013's effective-artifact audit supersedes the earlier source-only startup-path inference: base `/app/.build/next/server/instrumentation.js` loads pricing-only base writer chunk68236; zero-snapshot writer exists in overlay instrumentation/chunk65453 but is not loaded by packaged startup. No native import startup acceptance is claimed from source SHA. The published0bf99c1 image switch is on HOLD for TL013 packaging fix/effective-bundle regression and parent consolidation with TL015. No deploy retry or new build dispatch started. Root TODO records the precise gate.
 - Preserved space recovery: verified idle `a4-artifact-73056e982e6348ab94df085e82753005/image.tar` against its existing receipt, copied the directory with metadata to `/var/oled/omniroute-deploy-diagnostics/`, verified archive/receipt checksums and ownership/mode/mtime, then retained the original diagnostic path as a symlink. Archive bytes3159546880, SHA-256 `080176ad3734cfc37ea003e48f5794877a626b74b826cd33443d6b73914663bc`. No container, Docker image or DB/image rollback pair was removed. Root availability increased from1.7GB to4.6GB; auxiliary volume retains6.9GB. Pull retry remains unrun under the packaging HOLD.
 - Code Simplifier reviewed this documentation-only follow-up: exact artifact cause, effective-startup limitation and preservation receipt are explicit; no source changes. Formatting and diff checks passed.
+
+## TL015 — benchmark source isolation implementation receipt (2026-10-31)
+
+- Isolated worktree: `/srv/projects/hermes/OmniRoute/.claude/worktrees/benchmark-source-isolation`; branch `fix/benchmark-source-isolation-20261031`; source base `0bf99c1aeae15402f903628a61c1a417e14da83b`.
+- Preserved the already-applied E013 docs correction as local baseline commit `3ed93f0f6be56b6bde2e0d891031fedcfc86c899`, equivalent to authorized correction `1e3f3750e5f74019057a3db36c77bac0d1841e79` and merged PR56 docs commit `062c948280e1e3e6191c7a6f48a2f1aea2854eb6`. The source baseline is unchanged. No second cherry-pick or reset/rebase was done.
+- Implemented selected A2+B1+C1 only. Direct source errors/incomplete receipts no longer suppress discovery when no usable positive evidence exists; exact active catalog gating and existing usable-evidence returns remain. HF is tried before existing Ollama Search, which runs only if HF has no usable evidence. Failed/empty direct sets are omitted from replacements; only complete nonempty source datasets publish. Partial refresh defers global obsolete-ID cleanup. Evidence/fitness publication uses the existing transactional replacement callback; cache invalidation follows commit. Normalization keeps accepted rows with indexed rejection counts, preserves prior rows on invalid/empty accepted results, and replaces matching observations with the existing fitness identity. The current normalized source uses the same benchmark-family mapping. No score formula or provider path changed.
+- RED before implementation: the three focused test files ran with `--test-force-exit`; exit 1 showed the new source-ordering, source-retention, parser, family-mapping, and normalized-observation regressions failing against the pre-implementation code. The run was offline/mocked.
+- GREEN focused run: the 19 selected regressions across `modelBenchmarkSearch.test.ts`, `modelBenchmarkSearch.catalog.test.ts`, and `modelBenchmarkFitnessSync.test.ts` passed 19/19. Coverage included empty/error HF fallback, usable HF suppression, direct incomplete retention, full-success and partial snapshot behavior, empty/no-source no-op, rollback, deferred cleanup, parser rejection/envelope cases, normalized identity replacement, and current normalized-source fitness.
+- Exact TDD commands:
+  - RED: `ESBUILD_BINARY_PATH=/srv/projects/hermes/OmniRoute/.claude/worktrees/model-benchmark-search-recovery/node_modules/@esbuild/linux-x64/bin/esbuild node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/modelBenchmarkSearch.test.ts tests/unit/modelBenchmarkSearch.catalog.test.ts tests/unit/modelBenchmarkFitnessSync.test.ts` — exit 1 as expected before implementation.
+  - Final GREEN: `ESBUILD_BINARY_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules/@esbuild/linux-x64/bin/esbuild node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-reporter=spec --test-name-pattern='normalization accepts|normalization reports|empty HF response|empty HF and Ollama|direct source error|operator reprocess|incomplete direct feeds|incomplete feeds preserve|normalized rows replace|refreshes all canonical|successful refresh replaces|refresh clears every evidence|invalid source feed preserves|mixed snapshots replace|source-level empty snapshots|no successful source|fitness publication rollback preserves cache|partial source refresh skips|current normalized search source' tests/unit/modelBenchmarkSearch.test.ts tests/unit/modelBenchmarkSearch.catalog.test.ts tests/unit/modelBenchmarkFitnessSync.test.ts` — 19/19 passed (72.6s). Test fixtures stub `globalThis.fetch` and reject unexpected URLs.
+- Strengthened actual-database transaction test: SQLite trigger failure during fitness publication rolls evidence and fitness rows back together. A warmed `taskFitness` cache intentionally differs from the pre-attempt DB score; after rollback the cached value remains, proving failure did not invalidate it. The same test then commits a successful two-model refresh and asserts cached coding fitness matches the committed DB score and differs from the prior cached value. Terminal rerun: focused transaction test 1/1 passed.
+- Normalized-source-to-fitness regression: `current normalized search source reaches fitness through the existing family mapping` passed; the integration regression accepts a valid normalized row, replaces the matching v1 observation despite the new evidence hash, retains unmatched v2/peer rows, and publishes a numeric coding fitness.
+- Code Simplifier reviewed all implementation slices. It replaced a nested status ternary with explicit branches and removed a redundant non-null assertion. Final pass found no additional behavior-preserving simplification. No compatibility shim or new abstraction was added.
+- Verification: final selected 19-case run 19/19 includes the strengthened DB/cache regression; strict OpenSpec validation valid, Prettier check passed, and `git diff --check` passed. Core typecheck exits 1 with 712 repository diagnostics and none in the three modified production modules. Focused ESLint reports the unchanged baseline unused `init` parameter in `tests/unit/modelBenchmarkSearch.test.ts:1525`; no unrelated repair was made.
+- OpenSpec state: implementation tasks 1–8 are checked in `openspec/changes/fix-benchmark-source-isolation/tasks.md`; task 9 remains open while parent review, GitHub build, and runtime acceptance are pending. Root follow-ups are in `openspec/TODO.md`. Package remains unarchived.
+- No live provider/model/API/network request or billing-test acceptance, local/server build, runtime restart, deployment, push, merge, or package commit. Source and normalizer fetches were fixture-mocked. Owner correction: the no-space issue was fixed without app stop; TL013 owns the separate held startup-artifact fix. Parent-coordinated sequential read-only review and GitHub-only build/protected deployment/passive runtime acceptance remain open; no billing-test acceptance is claimed.
+
+## Owner correction: TL013 startup artifact and APInex strict-output (2026-10-31)
+
+- Actual live artifact `455` confirms base instrumentation loads the BASE pricing
+  writer without `models_dev_zero_price`; the correct OVERLAY writer is unused.
+  The native pricing table loses the distinction between missing and zero, so it
+  cannot replace the unchanged explicit-zero proof getter. The minified-base
+  patch was rejected.
+- The owner startup choice remains pending: preserve BASE with stable integration,
+  or use the full OVERLAY and accept its additional catalog/benchmark effects.
+  Deployment remains held.
+- APInex metadata for exact free model `deepseek-v4.1-flash` has strict-output
+  absent and the resolver returns null; a prior strict-JSON HTTP 200 exists. Raw
+  source was not retained, so field loss is not proven. Strict-output is not
+  classified as unsupported. The existing native addressed override/import
+  investigation remains open; no new probes or source changes were made for this
+  correction. No billing-test gate is introduced or claimed.
+
+## Owner correction to TL013 capability follow-up (2026-10-31)
+
+- The owner rejected a targeted/per-model strict-output override as not useful.
+  This supersedes the addressed-override wording in the immediately preceding
+  note. TL013 owns read-only investigation of common strict-output/capability
+  provenance and import for compatible providers using existing native OmniRoute
+  data. No capability-source edits are authorized. Preserve the observed facts:
+  exact catalog ID `free/deepseek-v4.1-flash` metadata lacks strict-output, its resolver
+  result is null, a prior strict-JSON HTTP 200 exists, and raw source was not
+  retained, so field loss is not proven and strict-output is not unsupported.
+  No new probes, source edits, or billing-test gate were made or introduced.
+
+## TL015 unfiltered suite and baseline correction (2026-10-31)
+
+- The owner requested an unfiltered run of all three changed test files. Final
+  command (no test-name pattern):
+
+  ```sh
+  ESBUILD_BINARY_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules/@esbuild/linux-x64/bin/esbuild node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-reporter=spec tests/unit/modelBenchmarkSearch.test.ts tests/unit/modelBenchmarkSearch.catalog.test.ts tests/unit/modelBenchmarkFitnessSync.test.ts
+  ```
+
+  Result: 68 tests, 68 passed, 0 failed (163.3s). Output was tailed for
+  readability; test fixtures stub `globalThis.fetch` and reject unexpected
+  URLs. No live provider/model/API/network call was made.
+- The first unfiltered implementation run had three failures: the catalog
+  refresh test expected a rejected promise, the 429 retry test treated a
+  nonnumeric HF row as usable evidence, and HF source evidence was not included
+  in the atomic publication batch. On baseline worktree
+  `test/benchmark-source-isolation-baseline` at
+  `062c948280e1e3e6191c7a6f48a2f1aea2854eb6`, those exact preexisting cases
+  passed 3/3. A local tree comparison confirmed the relevant source and test
+  files are unchanged between source base
+  `0bf99c1aeae15402f903628a61c1a417e14da83b` and that PR56 docs-only successor.
+  The baseline worktree and its temporary branch were removed after verification.
+- Corrections keep the intended source behavior: a failed direct snapshot yields
+  a partial receipt and releases the catalog queue; HF rows with null values do
+  not suppress web discovery but remain eligible for atomic persistence as a
+  completed nonempty HF dataset. Existing usable numeric HF evidence still
+  suppresses web search.
+- Code Simplifier reviewed these final corrections: explicit numeric usability,
+  one atomic source replacement batch, and the minimum retry-error receipt
+  handling; no further behavior-preserving simplification was needed.
+- The current TL013 correction records the exact ID
+  `free/deepseek-v4.1-flash` and the common compatible-provider capability/SO
+  provenance/import investigation. Its preceding addressed-override wording is
+  retained as historical and explicitly superseded. No billing-test gate is
+  introduced or claimed.
+
+## TL015 independent sequential review and P3 ID clarification (2026-10-31)
+
+- Independent read-only reviewer `01a1934b-81be-72c1-b4c4-794ff034adc3`
+  completed review and is closed. No concrete source bugs or additional concrete
+  test gaps were found. The final unfiltered 68/68 result was accepted without
+  a rerun.
+- P3 correction: the earlier owner-correction entry calling
+  `deepseek-v4.1-flash` the exact free model omitted the `free/` prefix and was
+  incomplete. The exact catalog ID is `free/deepseek-v4.1-flash`. Free and base
+  variants are distinct identities. This clarification explicitly supersedes
+  that earlier ID wording; the historical entry and PR56 records are preserved.
+- Root TODO now records independent review complete with P3 corrected. Package
+  task 9 remains open for parent integration, GitHub-only build, protected
+  deployment, and passive runtime acceptance. TL013 startup and common
+  capability/SO import plus authorized catalog-metadata resync gates remain open.
+  The package is not accepted or archived by this documentation correction.
+- This continuation changes documentation only. Source/test diff is unchanged
+  from the reviewed snapshot; no tests, live calls, builds, package commit, push,
+  merge, or deployment were performed.
+
+## TL015 authorized Git integration preflight (2026-10-31)
+
+- Owner accepted A2+B1+C1 plus the mapper, the unfiltered 68/68 run, independent
+  review, and the explicit P3 ID clarification. Feature commit, push, PR to main,
+  and normal merge are authorized; integration is not yet complete. Task 9 and
+  GitHub build/deployment/passive runtime plus TL013 gates remain open.
+- Code Simplifier reapplied before the feature commit. The accepted source/test
+  diff needs no further simplification and remains unchanged with SHA-256
+  `06c8d7256473e2fde25c009475eda7789bbab6a7b446e5c766f7afe2201a26fa`.
+  No source/test changes or test reruns are part of this Git phase.
+- GitHub identity is `todaysday`; origin is the owned fork
+  `Etcetera-Agency/OmniRoute`, default branch main, with merge commits allowed.
+  Main has no branch protection or repository rulesets. Fork issues are disabled;
+  the prescribed upstream main base-red and release-freeze queries returned no
+  open issues. The owner-selected target remains fork main.
+- GitHub workflow `373883666` (OmniRoute fork main image) is
+  `disabled_manually`; CI/build/deploy workflows are also disabled. Active
+  workflows do not build on this feature push or an ordinary unlabeled PR.
+  No workflow is enabled or dispatched. Strict selected OpenSpec validation
+  passed using the existing cached CLI; changed-doc formatting and diff checks
+  are required before the commit. Historical review formatting is preserved.
+
+## TL015 feature commit blocked by baseline hook error (2026-10-31)
+
+- The authorized feature commit was attempted with normal executable Husky
+  hooks. Pre-commit ran lint-staged with `--no-stash`; Prettier passed, then
+  ESLint failed on the unchanged baseline unused `init` parameter at
+  `tests/unit/modelBenchmarkSearch.test.ts:1525:38`
+  (`@typescript-eslint/no-unused-vars`). Husky exited 1; no feature commit exists.
+- Owner instructions prohibit baseline test repairs and hook bypass. Work is
+  preserved staged in the isolated feature worktree. No main fetch/integration,
+  push, PR, merge, workflow dispatch, build, or deployment followed the failure.
+  Parent coordination is required to resolve this concrete commit dependency.
+- Source/test diff after the hook still matches the reviewed SHA-256
+  `06c8d7256473e2fde25c009475eda7789bbab6a7b446e5c766f7afe2201a26fa`.
+  Strict selected OpenSpec validation, formatting of changed Markdown/new review
+  append, and diff checks pass. Task 9 and all post-integration gates stay open.
+
+## TL015 authorized minimal hook fix (2026-10-31)
+
+- Owner classified the unused mock parameter as an in-scope fork-owned test fix.
+  The test file is absent at official upstream
+  `ad6f33f66bda34eba98645d3bfdabbde294bc843`. Removed only `init` from the fetch
+  callback in `incomplete Hugging Face feeds preserve current evidence and native
+  scores`; production source and test behavior are unchanged. This resolves the
+  preceding hook blocker without suppression or bypass.
+- Exact offline test command: `ESBUILD_BINARY_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-recovered/node_modules/@esbuild/linux-x64/bin/esbuild node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-reporter=spec --test-name-pattern='^incomplete Hugging Face feeds preserve current evidence and native scores$' tests/unit/modelBenchmarkSearch.test.ts`.
+  Result: 1/1 passed, 0 failed, 4.1s; existing fixture fetch guards remain. Focused
+  ESLint on all six changed source/test files passes. No 68/19 rerun or live call.
+- Accepted source algorithm and independent review remain valid. Combined
+  source/test diff SHA-256 is now
+  `8e49dd84e1cf75e3a9d3bc2c13ccc43e3d3f59544cb592ed40bf6a5807206c6d`;
+  the sole post-review test delta is the removed unused mock parameter.
+- Code Simplifier reapplied before the feature commit: removing the unused
+  parameter is the minimum behavior-preserving fix; no further edits needed.
+  Root TODO marks the hook dependency resolved. Integration and task 9 remain
+  pending until confirmed merge; GitHub build/deployment/runtime and TL013 gates
+  remain open. Historical review entries are preserved.
+
+## TL015 current-main preservation before merge commit (2026-10-31)
+
+- Feature commit `8c87f2c82e41803e9bbdab57f76d4213382266ea` passed all normal
+  Husky pre-commit gates, including staged ESLint, docs sync, any-budget, artifact,
+  and attribution checks. No hook bypass was used.
+- Freshly fetched origin/main is PR56 merge
+  `062c948280e1e3e6191c7a6f48a2f1aea2854eb6`. Merging it into this isolated
+  feature produced only root TODO/review conflicts. Resolution preserves the
+  complete current-main records first, then the TL015 history and current owner
+  corrections. PR56 effective-startup hold, storage recovery, IMAGE_PULL_FAILED,
+  and E013 package corrections are retained; no source/test conflict occurred.
+- Code Simplifier reapplied before the merge commit: documentation combines
+  both histories without rewriting historical review formatting. Source/tests
+  are byte-identical to the accepted feature commit including the authorized
+  unused-parameter cleanup; no further simplification is needed.
+- Root TODO retains all deployment/passive runtime and TL013 startup/common SO
+  provenance/import/resync gates. Task 9 stays open; fork-main package merge
+  remains pending until GitHub confirms it. No build or deploy is dispatched.
+
+## TL015 PR57 final merge preflight (2026-10-31)
+
+- Owned feature PR: https://github.com/Etcetera-Agency/OmniRoute/pull/57, base
+  `main`, head `fix/benchmark-source-isolation-20261031`, same fork repository
+  `Etcetera-Agency/OmniRoute`. Main integration is not yet claimed complete.
+- GitHub reports MERGEABLE/CLEAN. Main has no branch protection or rulesets;
+  check-runs and status contexts are empty, and no Actions run exists for the
+  feature. The combined status endpoint says pending with total_count 0; this
+  is absence of checks, not a passing check run. There are no check run URLs.
+- Image workflow `373883666` remains `disabled_manually`; no workflow enable,
+  dispatch, build, deployment, or model/provider call occurred. Existing active
+  workflows have no ordinary feature-push/PR trigger that builds this package.
+- Code Simplifier reapplied before this documentation commit and the authorized
+  normal GitHub merge: current task changes need no additional simplification.
+  The sole post-review test change remains unused mock-parameter removal; source
+  and tests match feature commit `8c87f2c82e41803e9bbdab57f76d4213382266ea`.
+  Strict selected OpenSpec validation, changed-doc formatting, and diff checks
+  pass; normal hooks are required without bypass. No test suite was repeated.
+- Root TODO links PR57 for the integration receipt and retains pending GitHub
+  build/protected deployment/passive runtime and TL013 gates. Task 9 remains
+  open and the package unarchived. Actual landing will be confirmed from GitHub
+  and fetched main after the merge.

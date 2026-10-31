@@ -927,8 +927,8 @@ test("normalization accepts only exact quoted fields and returned source URLs", 
   };
 
   const parsed = processor.parseNormalizationResponse(response, model, searchResults);
-  assert.equal(parsed?.[0].value, 45);
-  assert.equal(parsed?.[0].benchmark, "SWE-bench Verified");
+  assert.equal(parsed.evidence[0].value, 45);
+  assert.equal(parsed.evidence[0].benchmark, "SWE-bench Verified");
   const responseWithQuote = (evidenceQuote: string) => ({
     ...response,
     choices: [
@@ -943,40 +943,123 @@ test("normalization accepts only exact quoted fields and returned source URLs", 
       },
     ],
   });
+  const invalidQuote = processor.parseNormalizationResponse(
+    responseWithQuote("New Model pass rate: 45% on SWE-bench Verified on 2026-10-20."),
+    model,
+    searchResults
+  );
+  assert.equal(invalidQuote.evidence.length, 0);
+  assert.ok(invalidQuote.rejectedRows[0].reasonCodes.includes("quote_not_verbatim"));
+
+  const invalidUrl = processor.parseNormalizationResponse(
+    {
+      ...response,
+      choices: [
+        {
+          ...response.choices[0],
+          message: {
+            content: response.choices[0].message.content.replace(
+              "https://example.org/eval",
+              "https://example.org/other"
+            ),
+          },
+        },
+      ],
+    },
+    model,
+    searchResults
+  );
+  assert.ok(invalidUrl.rejectedRows[0].reasonCodes.includes("source_url_not_found"));
+
+  const invalidModel = processor.parseNormalizationResponse(
+    {
+      ...response,
+      choices: [
+        {
+          ...response.choices[0],
+          message: {
+            content: response.choices[0].message.content.replace("new-model", "other-model"),
+          },
+        },
+      ],
+    },
+    model,
+    searchResults
+  );
+  assert.ok(invalidModel.rejectedRows[0].reasonCodes.includes("model_identity_mismatch"));
+
+  const invalidNumber = processor.parseNormalizationResponse(
+    {
+      ...response,
+      choices: [
+        {
+          ...response.choices[0],
+          message: {
+            content: response.choices[0].message.content.replace('"value":45', '"value":1e999'),
+          },
+        },
+      ],
+    },
+    model,
+    searchResults
+  );
+  assert.ok(invalidNumber.rejectedRows[0].reasonCodes.includes("invalid_number"));
+});
+
+test("normalization reports envelope failures and row rejection counts", () => {
+  const model = { id: "new-model", name: "New Model" };
+  const searchResults = [{ url: "https://example.org/eval", snippet: "New Model SWE-bench" }];
+  const envelope = (finishReason: string, content: string) => ({
+    choices: [{ finish_reason: finishReason, message: { content } }],
+  });
+
   assert.equal(
     processor.parseNormalizationResponse(
-      responseWithQuote("New Model pass rate: 45% on SWE-bench Verified on 2026-10-20."),
+      { choices: [{ finish_reason: "stop", message: {} }] },
       model,
       searchResults
-    ),
-    null
+    ).envelopeError,
+    "missing_content"
   );
   assert.equal(
-    processor.parseNormalizationResponse(
-      responseWithQuote(`${searchResults[0].title}\n${searchResults[0].snippet}`),
-      model,
-      searchResults
-    ),
-    null
+    processor.parseNormalizationResponse(envelope("length", "{}"), model, searchResults)
+      .envelopeError,
+    "finish_reason_not_stop"
   );
   assert.equal(
-    processor.parseNormalizationResponse(
-      {
-        ...response,
-        choices: [
+    processor.parseNormalizationResponse(envelope("stop", "{"), model, searchResults).envelopeError,
+    "malformed_json"
+  );
+
+  const allRejected = processor.parseNormalizationResponse(
+    envelope(
+      "stop",
+      JSON.stringify({
+        results: [
           {
-            ...response.choices[0],
-            message: {
-              content: response.choices[0].message.content.replace('"value":45', '"value":0'),
-            },
+            model_id: "wrong",
+            model_name: "New Model",
+            reasoning_effort: null,
+            reasoning_config: null,
+            benchmark: null,
+            benchmark_version: null,
+            metric: null,
+            value: null,
+            source_url: searchResults[0].url,
+            source_date: null,
+            evidence_quote: "New Model SWE-bench",
           },
         ],
-      },
-      model,
-      searchResults
+      })
     ),
-    null
+    model,
+    searchResults
   );
+  assert.equal(allRejected.evidence.length, 0);
+  assert.deepEqual(allRejected.rejectedRows, [
+    { index: 0, reasonCodes: ["model_identity_mismatch"] },
+  ]);
+  assert.deepEqual(allRejected.rejectionCounts, { model_identity_mismatch: 1 });
 });
 
 test("catalog backfill transaction leaves no marker when an identity insert fails", () => {
@@ -1439,7 +1522,7 @@ test("incomplete Hugging Face feeds preserve current evidence and native scores"
       )
       .all();
 
-    globalThis.fetch = async (input, init) => {
+    globalThis.fetch = async (input) => {
       const url = requestUrl(input);
       if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
         return jsonResponse({
@@ -1574,7 +1657,7 @@ test("malformed Ollama response preserves current Ollama and structured evidence
   assert.deepEqual(searchDb.listModelBenchmarkSearchEvidence("queue-ollama-error"), priorRows);
 });
 
-test("valid-empty HF refresh removes its native score and recomputes related scores", async () => {
+test("empty HF response preserves prior evidence and fitness", async () => {
   process.env.AA_API_KEY = "test-only-key";
   await addActiveCatalogModels([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
   searchDb.enqueueModelBenchmarkSearches([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
@@ -1641,6 +1724,8 @@ test("valid-empty HF refresh removes its native score and recomputes related sco
            AND source LIKE 'benchmark_fitness%' ORDER BY model, source, category`
       )
       .all();
+  const priorRows = searchDb.listModelBenchmarkSearchEvidence("queue-empty-model");
+  const priorScores = scoreRows();
   assert.ok(scoreRows().some((row) => row.model === "queue-empty-model"));
   assert.ok(scoreRows().some((row) => row.model === "queue-empty-peer"));
 
@@ -1675,16 +1760,11 @@ test("valid-empty HF refresh removes its native score and recomputes related sco
 
   await search.drainModelBenchmarkSearchQueue();
 
-  assert.equal(
-    searchDb
-      .listModelBenchmarkSearchEvidence("queue-empty-model")
-      .some((row) => row.source === "huggingface-eval-results"),
-    false
-  );
-  assert.deepEqual(scoreRows(), []);
+  assert.deepEqual(searchDb.listModelBenchmarkSearchEvidence("queue-empty-model"), priorRows);
+  assert.deepEqual(scoreRows(), priorScores);
 });
 
-test("explicit empty HF and Ollama arrays clear their current source sets", async () => {
+test("empty HF and Ollama search results preserve their current source sets", async () => {
   process.env.AA_API_KEY = "test-only-key";
   await addActiveCatalogModels([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
   searchDb.enqueueModelBenchmarkSearches([{ id: "queue-empty-model", name: "Queue Empty Model" }]);
@@ -1747,6 +1827,7 @@ test("explicit empty HF and Ollama arrays clear their current source sets", asyn
       ],
     },
   ]);
+  const priorRows = searchDb.listModelBenchmarkSearchEvidence("queue-empty-model");
   globalThis.fetch = async (input) => {
     const url = requestUrl(input);
     if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
@@ -1785,15 +1866,10 @@ test("explicit empty HF and Ollama arrays clear their current source sets", asyn
 
   await search.drainModelBenchmarkSearchQueue();
 
-  assert.deepEqual(
-    searchDb
-      .listModelBenchmarkSearchEvidence("queue-empty-model")
-      .filter((row) => ["huggingface-eval-results", "ollama-search"].includes(row.source)),
-    []
-  );
+  assert.deepEqual(searchDb.listModelBenchmarkSearchEvidence("queue-empty-model"), priorRows);
 });
 
-test("complete AA and official miss runs HF and explicit free search, then stays unrated", async () => {
+test("direct source error reaches HF, then empty HF allows existing free search", async () => {
   process.env.AA_API_KEY = "test-only-key";
   process.env.OMNIROUTE_AUTO_BANDS = "1";
   await settingsDb.updateSettings({ freeAccessPolicy: "strict" });
@@ -1806,7 +1882,10 @@ test("complete AA and official miss runs HF and explicit free search, then stays
     testStatus: "active",
     providerSpecificData: {},
   });
-  await addActiveCatalogModels([{ id: "NEW-MODEL", name: "Other Catalog Label" }]);
+  await addActiveCatalogModels([
+    { id: "NEW-MODEL", name: "Other Catalog Label" },
+    { id: "new-error-model", name: "New Error Model" },
+  ]);
   const urls: string[] = [];
   globalThis.fetch = async (input, init) => {
     const url = requestUrl(input);
@@ -1829,6 +1908,7 @@ test("complete AA and official miss runs HF and explicit free search, then stays
     if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
       const body = JSON.parse(String(init?.body));
       assert.ok(["2-0", "main"].includes(body.name));
+      if (body.name === "main") return jsonResponse({ error: "temporarily unavailable" }, 503);
       return jsonResponse({ leaderboard: { name: body.name }, rows: [] });
     }
     if (url === "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json") {
@@ -1836,21 +1916,25 @@ test("complete AA and official miss runs HF and explicit free search, then stays
     }
     if (url.startsWith("https://huggingface.co/api/models?")) {
       const query = new URL(url).searchParams.get("search");
-      return jsonResponse(query === "new-model" ? [{ id: "new-model" }] : []);
+      return jsonResponse(
+        query === "new-model" || query === "new-error-model" ? [{ id: query }] : []
+      );
+    }
+    if (url.startsWith("https://huggingface.co/api/models/new-error-model?")) {
+      return jsonResponse({ error: "temporarily unavailable" }, 503);
     }
     if (url.startsWith("https://huggingface.co/api/models/new-model?")) {
-      return jsonResponse({
-        id: "new-model",
-        evalResults: [{ dataset_id: "SWE-bench Verified", value: 0, verified: true }],
-      });
+      return jsonResponse({ id: "new-model", evalResults: [] });
     }
     if (url === "https://ollama.com/api/web_search") {
       const headers = new Headers(init?.headers);
       assert.equal(headers.get("authorization"), "Bearer ollama-search-test-key");
-      assert.deepEqual(JSON.parse(String(init?.body)), {
-        query: '"new-model" benchmark evaluation reasoning effort',
-        max_results: 10,
-      });
+      const body = JSON.parse(String(init?.body));
+      assert.match(
+        body.query,
+        /^"(?:new-model|new-error-model)" benchmark evaluation reasoning effort$/
+      );
+      assert.equal(body.max_results, 10);
       return jsonResponse({
         results: [
           {
@@ -1864,54 +1948,53 @@ test("complete AA and official miss runs HF and explicit free search, then stays
     throw new Error(`Unexpected request: ${url}`);
   };
 
-  searchDb.enqueueModelBenchmarkSearches([{ id: "new-model", name: "New Model" }]);
-  searchDb.enqueueModelBenchmarkSearches([{ id: "new-model", name: "New Model" }]);
+  searchDb.enqueueModelBenchmarkSearches([
+    { id: "new-model", name: "New Model" },
+    { id: "new-error-model", name: "New Error Model" },
+  ]);
   await search.drainModelBenchmarkSearchQueue();
 
-  const [run] = searchDb.listModelBenchmarkSearchRuns();
+  const runs = searchDb.listModelBenchmarkSearchRuns();
+  const run = runs.find(({ modelId }) => modelId === "new-model");
+  const errorRun = runs.find(({ modelId }) => modelId === "new-error-model");
+  assert.ok(run);
+  assert.ok(errorRun);
   assert.equal(run.status, "review_required");
   assert.equal(run.normalizationStatus, "blocked_no_internal_api_key");
   assert.equal(run.sourceStatus.artificialAnalysis.status, "missing");
   assert.equal(run.sourceStatus.sweBench.status, "missing");
   assert.equal(run.sourceStatus.terminalBench20.status, "missing");
-  assert.equal(run.sourceStatus.terminalBench21.status, "missing");
+  assert.equal(run.sourceStatus.terminalBench21.status, "error");
   assert.equal(run.sourceStatus.deepSwe.status, "missing");
   assert.equal(run.sourceStatus.ollamaSearch.provider, "ollama-search");
   assert.equal(run.sourceStatus.ollamaSearch.searchCostUsd, 0);
   assert.equal(run.sourceStatus.normalizationProcessor.status, "blocked_no_internal_api_key");
   assert.equal(run.sourceStatus.normalizationProcessor.candidateCount, 1);
   assert.equal(run.sourceStatus.normalizationProcessor.normalizerRequestCount, 0);
-  assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 1);
-  assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 1);
+  assert.equal(errorRun.sourceStatus.huggingFace.status, "error");
+  assert.equal(searchDb.listModelBenchmarkSearchRuns().length, 2);
+  assert.equal(urls.filter((url) => url === "https://ollama.com/api/web_search").length, 2);
+  assert.ok(
+    urls.findIndex((url) => url.startsWith("https://huggingface.co/api/models?")) <
+      urls.findIndex((url) => url === "https://ollama.com/api/web_search")
+  );
   assert.equal(
     urls.some((url) => /searchapi|perplexity|tavily|exa\.ai/i.test(url)),
     false
   );
 
-  const rows = searchDb.listModelBenchmarkSearchEvidence("new-model");
-  const hfEvidence = rows.find((row) => row.source === "huggingface-eval-results");
-  const webEvidence = rows.find((row) => row.source === "ollama-search");
-  assert.ok(hfEvidence);
-  assert.ok(webEvidence);
-  assert.equal(hfEvidence.value, 0);
-  assert.equal(hfEvidence.reasoningEffort, null);
-  assert.equal(hfEvidence.reasoningConfig, null);
-  assert.equal(hfEvidence.verificationStatus, "source_verified_review_required");
-  assert.equal(webEvidence.value, null);
-  assert.equal(webEvidence.matchedModelId, null);
-  assert.equal(webEvidence.matchedModelName, null);
-  assert.equal(webEvidence.verificationStatus, "candidate_review_required");
-
-  assert.equal(
-    searchDb.saveModelBenchmarkSearchEvidence([
-      {
-        ...hfEvidence,
-        reasoningConfig: hfEvidence.reasoningConfig,
-      },
-    ]),
-    1
-  );
-  assert.equal(searchDb.listModelBenchmarkSearchEvidence("new-model").length, 2);
+  for (const modelId of ["new-model", "new-error-model"]) {
+    const rows = searchDb.listModelBenchmarkSearchEvidence(modelId);
+    const hfEvidence = rows.find((row) => row.source === "huggingface-eval-results");
+    const webEvidence = rows.find((row) => row.source === "ollama-search");
+    assert.equal(hfEvidence, undefined);
+    assert.ok(webEvidence);
+    assert.equal(webEvidence.value, null);
+    assert.equal(webEvidence.matchedModelId, null);
+    assert.equal(webEvidence.matchedModelName, null);
+    assert.equal(webEvidence.verificationStatus, "candidate_review_required");
+    assert.equal(rows.length, 1);
+  }
 });
 
 test("complete direct miss stays unrated when model ID is absent from active synced catalogs", async () => {
@@ -2130,6 +2213,7 @@ test("operator reprocess covers every canonical catalog ID without queue or sear
   };
 
   const result = await search.reprocessModelBenchmarkSearchEvidence();
+  assert.ok(result.fitness);
   const receiptById = new Map(result.receipts.map((receipt) => [receipt.modelId, receipt]));
   assert.equal(result.receipts.length, 140);
   assert.equal(receiptById.get(models[0].id)?.identityStatus, "matched");
@@ -2228,7 +2312,7 @@ test("operator reprocess covers every canonical catalog ID without queue or sear
   );
 });
 
-test("an incomplete official source blocks HF and web search", async () => {
+test("incomplete direct feeds reach HF and usable HF evidence suppresses web search", async () => {
   process.env.AA_API_KEY = "test-only-key";
   let hfCalls = 0;
   let searchCalls = 0;
@@ -2255,9 +2339,18 @@ test("an incomplete official source blocks HF and web search", async () => {
       return jsonResponse({ rows: [] });
     }
     if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
-    if (url.includes("huggingface.co")) {
+    if (url.startsWith("https://huggingface.co/api/models?")) {
       hfCalls += 1;
-      return jsonResponse([]);
+      return new URL(url).searchParams.get("search") === "incomplete-model"
+        ? jsonResponse([{ id: "incomplete-model" }])
+        : jsonResponse([]);
+    }
+    if (url.startsWith("https://huggingface.co/api/models/incomplete-model?")) {
+      hfCalls += 1;
+      return jsonResponse({
+        id: "incomplete-model",
+        evalResults: [{ dataset_id: "SWE-bench Verified", value: 0.72, verified: true }],
+      });
     }
     if (url === "https://ollama.com/api/web_search") {
       searchCalls += 1;
@@ -2266,18 +2359,36 @@ test("an incomplete official source blocks HF and web search", async () => {
     throw new Error(`Unexpected request: ${url}`);
   };
 
+  await addActiveCatalogModels([{ id: "incomplete-model", name: "Incomplete Model" }]);
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-hf-short-circuit-test",
+    apiKey: "ollama-search-hf-short-circuit-test-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
   searchDb.enqueueModelBenchmarkSearches([{ id: "incomplete-model", name: "Incomplete Model" }]);
+  insertLegacyAaCodingEvidence(
+    "incomplete-model",
+    { slug: "incomplete-model", name: "Incomplete Model" },
+    34
+  );
   await search.drainModelBenchmarkSearchQueue();
 
   const [run] = searchDb.listModelBenchmarkSearchRuns();
-  assert.equal(run.status, "source_error");
+  assert.equal(run.status, "review_required");
   assert.equal(run.sourceStatus.artificialAnalysis.status, "incomplete");
   assert.equal(run.sourceStatus.terminalBench21.status, "error");
+  assert.equal(run.sourceStatus.huggingFace.status, "found");
   assert.equal(aaCalls, 5);
   assert.equal(terminal21Calls, 2);
-  assert.equal(hfCalls, 0);
+  assert.equal(hfCalls, 3);
   assert.equal(searchCalls, 0);
-  assert.equal(searchDb.listModelBenchmarkSearchEvidence("incomplete-model").length, 0);
+  const rows = searchDb.listModelBenchmarkSearchEvidence("incomplete-model");
+  assert.equal(rows.find((row) => row.source === "artificial-analysis-free")?.value, 34);
+  assert.ok(rows.some((row) => row.source === "huggingface-eval-results" && row.value === 0.72));
 });
 
 test("incomplete feeds preserve prior AA rows without reparsing retained payloads", async () => {
@@ -2851,6 +2962,298 @@ test("a strict-SO Auto 504 defers the queue before another model is claimed", as
     assert.equal(searchDb.claimModelBenchmarkSearch()?.modelId, "a-slow-model");
   } finally {
     await drain?.catch(() => undefined);
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("normalized rows replace matching observations and preserve unmatched rows on failures", async () => {
+  process.env.AA_API_KEY = "test-only-key";
+  process.env.OMNIROUTE_AUTO_BANDS = "1";
+  process.env.API_KEY_SECRET = "test-only-api-key-secret";
+  await settingsDb.updateSettings({ freeAccessPolicy: "strict", modelsDevSyncEnabled: true });
+  await providersDb.createProviderConnection({
+    provider: "ollama-cloud",
+    authType: "apikey",
+    name: "ollama-search-normalized-isolation-test",
+    apiKey: "ollama-search-normalized-isolation-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  });
+  const normalizationConnection = (await providersDb.createProviderConnection({
+    provider: "openrouter",
+    authType: "apikey",
+    name: "openrouter-normalized-isolation-test",
+    apiKey: "openrouter-normalized-isolation-key",
+    isActive: true,
+    testStatus: "active",
+    providerSpecificData: {},
+  })) as { id: string };
+  const db = core.getDbInstance();
+  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+    "syncedAvailableModels",
+    `openrouter:${normalizationConnection.id}`,
+    JSON.stringify([{ id: "normalizer-current:free", isFree: true }])
+  );
+  db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+    "models_dev_zero_price",
+    "snapshot",
+    JSON.stringify({
+      fetchedAt: new Date().toISOString(),
+      modelsByProvider: { openrouter: ["normalizer-current:free"] },
+    })
+  );
+  modelsDevSync.upsertSyncedCapabilities("openrouter", {
+    "normalizer-current:free": {
+      tool_call: true,
+      reasoning: true,
+      attachment: null,
+      structured_output: true,
+      temperature: null,
+      modalities_input: JSON.stringify(["text"]),
+      modalities_output: JSON.stringify(["text"]),
+      knowledge_cutoff: null,
+      release_date: null,
+      last_updated: null,
+      status: null,
+      family: null,
+      open_weights: null,
+      limit_context: null,
+      limit_input: null,
+      limit_output: null,
+      interleaved_field: null,
+    },
+  });
+  modelIntelligenceDb.upsertModelIntelligence({
+    model: "normalizer-current:free",
+    source: "models_dev_tier",
+    category: "default",
+    score: 0.95,
+    eloRaw: null,
+    confidence: "high",
+    expiresAt: null,
+  });
+  taskFitness.invalidateFitnessCache();
+  await apiKeysDb.createApiKey("benchmark-isolation-test", "test-machine", ["manage"], {
+    allowedConnections: [normalizationConnection.id],
+  });
+  await addActiveCatalogModels([
+    { id: "normalized-target", name: "Normalized Target" },
+    { id: "normalized-peer", name: "Normalized Peer" },
+  ]);
+  searchDb.enqueueModelBenchmarkSearches([{ id: "normalized-target", name: "Normalized Target" }]);
+  searchDb.upsertModelBenchmarkSearchIdentities([
+    { id: "normalized-peer", name: "Normalized Peer" },
+  ]);
+
+  const oldObservation = (modelId: string, benchmarkVersion: string, value: number) => ({
+    evidenceHash: `prior:${modelId}:${benchmarkVersion}`,
+    modelId,
+    source: "ollama-search-structured-output",
+    sourceVersion: "prior-normalizer",
+    matchedModelId: modelId,
+    matchedModelName: modelId === "normalized-target" ? "Normalized Target" : "Normalized Peer",
+    benchmark: "SWE-bench Verified",
+    benchmarkVersion,
+    reasoningEffort: "high",
+    reasoningConfig: "agent-a",
+    metric: "resolved",
+    value,
+    sourceUrl: "https://example.org/prior",
+    sourceDate: "2026-10-01",
+    verificationStatus:
+      modelId === "normalized-target" ? "review_required" : "source_verified_review_required",
+    capturedAt: "2026-10-01T00:00:00.000Z",
+  });
+  searchDb.replaceModelBenchmarkEvidenceSources([
+    {
+      modelId: "normalized-target",
+      source: "ollama-search-structured-output",
+      rows: [
+        oldObservation("normalized-target", "v1", 0.2),
+        oldObservation("normalized-target", "v2", 0.6),
+      ],
+    },
+    {
+      modelId: "normalized-peer",
+      source: "ollama-search-structured-output",
+      rows: [oldObservation("normalized-peer", "v1", 0.9)],
+    },
+  ]);
+
+  const quote =
+    "Normalized Target reported 0.45 resolved on SWE-bench Verified v1 with effort high config agent-a on 2026-10-27.";
+  const validRow = {
+    model_id: "normalized-target",
+    model_name: "Normalized Target",
+    reasoning_effort: "high",
+    reasoning_config: "agent-a",
+    benchmark: "SWE-bench Verified",
+    benchmark_version: "v1",
+    metric: "resolved",
+    value: 0.45,
+    source_url: "https://example.org/eval",
+    source_date: "2026-10-27",
+    evidence_quote: quote,
+  };
+  let normalizationResponse: unknown = {
+    id: "normalized-response",
+    model: "normalizer-current:free",
+    choices: [
+      {
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            results: [validRow, { ...validRow, source_url: "https://example.org/other" }],
+          }),
+        },
+      },
+    ],
+  };
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = ((
+    callback: (...args: unknown[]) => void,
+    delay?: number,
+    ...args: unknown[]
+  ) =>
+    originalSetTimeout(
+      callback,
+      delay === 5_000 ? 0 : delay,
+      ...args
+    )) as typeof globalThis.setTimeout;
+  globalThis.fetch = async (input, _init) => {
+    const url = requestUrl(input);
+    if (url.startsWith("https://artificialanalysis.ai/api/v2/language/models/free")) {
+      return jsonResponse({
+        tier: "free",
+        pagination: { page: 1, page_size: 200, total_pages: 1, has_more: false },
+        data: [],
+      });
+    }
+    if (url.includes("raw.githubusercontent.com/SWE-bench/"))
+      return jsonResponse({ leaderboards: [] });
+    if (url === "https://ofhuhcpkvzjlejydnvyd.supabase.co/functions/v1/leaderboard-read") {
+      return jsonResponse({ rows: [] });
+    }
+    if (url.includes("deepswe.datacurve.ai")) return jsonResponse({ rows: [] });
+    if (url.startsWith("https://huggingface.co/api/models?")) return jsonResponse([]);
+    if (url === "https://ollama.com/api/web_search") {
+      return jsonResponse({
+        provider: "ollama-search",
+        usage: { search_cost_usd: 0 },
+        results: [{ title: "SWE-bench report", url: "https://example.org/eval", content: quote }],
+      });
+    }
+    if (url === "https://openrouter.ai/api/v1/key")
+      return jsonResponse({ data: { label: "test" } });
+    if (url === "https://openrouter.ai/api/v1/credits")
+      return jsonResponse({ data: { total_credits: 1, total_usage: 0 } });
+    if (url.includes("openrouter.ai/api/v1/chat/completions"))
+      return jsonResponse(normalizationResponse);
+    throw new Error(`Unexpected normalized evidence request: ${url}`);
+  };
+
+  try {
+    await search.drainModelBenchmarkSearchQueue();
+
+    const run = searchDb
+      .listModelBenchmarkSearchRuns()
+      .find((item) => item.modelId === "normalized-target");
+    assert.ok(run);
+    assert.ok(run.sourceStatus.normalizationProcessor, JSON.stringify(run));
+    assert.deepEqual(run.sourceStatus.normalizationProcessor.rejectedRows, [
+      { index: 1, reasonCodes: ["source_url_not_found"] },
+    ]);
+    assert.deepEqual(run.sourceStatus.normalizationProcessor.rejectionCounts, {
+      source_url_not_found: 1,
+    });
+    assert.equal(
+      JSON.stringify(run.sourceStatus.normalizationProcessor).includes(
+        "Normalized Target reported"
+      ),
+      false
+    );
+
+    const normalizedRows = () =>
+      searchDb
+        .listModelBenchmarkSearchEvidence("normalized-target")
+        .filter((row) => row.source === "ollama-search-structured-output");
+    const acceptedRows = normalizedRows();
+    assert.equal(acceptedRows.length, 2);
+    assert.deepEqual(
+      acceptedRows.map(({ benchmarkVersion, value }) => [benchmarkVersion, value]).sort(),
+      [
+        ["v1", 0.45],
+        ["v2", 0.6],
+      ]
+    );
+    assert.equal(
+      fitnessSync.getEligibleModelBenchmarkFitnessObservations(
+        searchDb.listAllModelBenchmarkSearchEvidence()
+      ).length,
+      3
+    );
+    assert.equal(
+      typeof fitnessSync
+        .publishModelBenchmarkFitnessSnapshot()
+        .scores.find(({ modelId }) => modelId === "normalized-target")?.codingFitness,
+      "number"
+    );
+
+    const invalidResponses = [
+      {
+        id: "all-rejected",
+        model: "normalizer-current:free",
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: JSON.stringify({ results: [{ ...validRow, model_id: "wrong-model" }] }),
+            },
+          },
+        ],
+      },
+      {
+        id: "empty-results",
+        model: "normalizer-current:free",
+        choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ results: [] }) } }],
+      },
+      {
+        id: "missing-content",
+        model: "normalizer-current:free",
+        choices: [{ finish_reason: "stop", message: {} }],
+      },
+      {
+        id: "malformed-json",
+        model: "normalizer-current:free",
+        choices: [{ finish_reason: "stop", message: { content: "{" } }],
+      },
+      {
+        id: "non-stop",
+        model: "normalizer-current:free",
+        choices: [
+          { finish_reason: "length", message: { content: JSON.stringify({ results: [] }) } },
+        ],
+      },
+    ];
+    for (const response of invalidResponses) {
+      normalizationResponse = response;
+      db.prepare(
+        `UPDATE model_benchmark_evidence
+         SET verification_status = 'review_required'
+         WHERE model_id = ? AND source = 'ollama-search-structured-output'`
+      ).run("normalized-target");
+      const retainedRows = normalizedRows();
+      db.prepare(
+        `UPDATE model_benchmark_search_models
+         SET status = 'pending', normalization_status = 'not_started', attempts = 0,
+             last_run_at = NULL, retry_after_at = NULL, last_error = NULL
+         WHERE model_id = ?`
+      ).run("normalized-target");
+      await search.drainModelBenchmarkSearchQueue();
+      assert.deepEqual(normalizedRows(), retainedRows);
+    }
+  } finally {
     globalThis.setTimeout = originalSetTimeout;
   }
 });
