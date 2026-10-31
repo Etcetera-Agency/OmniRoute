@@ -10,8 +10,7 @@ export interface ModelLockoutSettings {
 }
 
 export const DEFAULT_MODEL_LOCKOUT_SETTINGS: ModelLockoutSettings = {
-  // AICODE-NOTE: Model lockout defaults on so Auto excludes recently timed-out tuples.
-  enabled: true,
+  enabled: false,
   errorCodes: [403, 404, 429, 502, 503, 504],
   baseCooldownMs: 120_000,
   maxCooldownMs: 1_800_000,

@@ -79,17 +79,17 @@ model: "auto/cheap"           # cheapest per token
 
 ### Auto request lifetime and retries
 
-Auto builds a finite, ordered eligible-target pool. Every eligible target receives
-a first dispatch; `maxGlobalAttempts` (default `30`, hard cap `200`) limits only
-repeated Auto dispatches and never truncates the first pass. This
-Auto-specific rule does not change the existing total-attempt budget for other
-combos.
+Auto uses the upstream shared total-attempt budget: `maxGlobalAttempts` defaults
+to `30`, hard cap `200`; first calls and retries consume the same budget.
+`comboDefaults.comboTimeoutMs` sets the native overall deadline. Production uses
+`1200000` ms to align with the benchmark normalizer's 20-minute caller budget;
+concrete combo/provider overrides retain their existing precedence. With no
+positive overall timeout, the upstream loop safety window is `600000` ms.
 
-Each Auto target has a finite deadline. With no positive `comboTimeoutMs`, Auto
-has no implicit ten-minute overall timeout; an explicit positive value still
-bounds the whole combo, and client abort still stops dispatch. The default target
-deadline is effectively `310000` ms: `max(120000, 300000 + 10000)`, using the base
-timeout and the default `comboCooldownWait` budget plus its dispatch buffer.
+Finite target deadlines are unchanged. The effective default target timeout is
+`310000` ms: `max(120000, 300000 + 10000)` from the base and default cooldown-wait
+budget plus dispatch buffer. Native cancellation, model-error guards, scoring and
+strict free-only candidate filters are unchanged.
 
 ### Per-key candidate control (#7819, Level 1+2)
 

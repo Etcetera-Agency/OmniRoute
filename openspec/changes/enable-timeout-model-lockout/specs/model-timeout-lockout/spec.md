@@ -1,62 +1,31 @@
 ## ADDED Requirements
 
-### Requirement: Enable model lockout by default with an explicit opt-out
+### Requirement: Enable native lockout through stored production settings
 
-The system SHALL enable ModelLockout when its setting is omitted and SHALL
-preserve an operator's explicit `modelLockout.enabled: false` value. Existing
-error-code, cooldown, and backoff settings SHALL retain their current meaning.
+Production SHALL persist modelLockout.enabled=true through the existing settings
+API. Backend and UI default constants SHALL remain unchanged. Existing error-code,
+cooldown, backoff and explicit disable semantics SHALL remain intact.
 
-#### Scenario: Model lockout setting omitted
+#### Scenario: Enable existing server setting
 
-GIVEN no `modelLockout` setting is supplied
-WHEN runtime resilience settings are resolved
-THEN ModelLockout is enabled
-AND HTTP 504 remains in the configured default error-code set
-AND the existing 120-second base cooldown and backoff limits remain unchanged
+- **WHEN** the operator configures enabled=true with the native settings API
+- **THEN** GET returns enabled=true and runtime uses existing timeout lockout
 
-#### Scenario: Dashboard defaults match the enabled backend default
+#### Scenario: Preserve upstream defaults and reset semantics
 
-GIVEN the settings response omits `modelLockout.enabled`
-WHEN the dashboard loads settings or the operator resets defaults
-THEN the enabled switch matches the backend default value `true`
-AND saving the reset default sends `enabled: true`
-AND the dashboard keeps its defaults local to the client component
-
-#### Scenario: Operator explicitly disables model lockout
-
-GIVEN `modelLockout.enabled` is explicitly `false`
-WHEN a timeout response reaches the combo failure path
-THEN no model lockout is recorded
-
-#### Scenario: Dashboard preserves explicit opt-out until reset
-
-GIVEN the settings response contains `modelLockout.enabled: false`
-WHEN the dashboard renders the setting before Reset defaults is selected
-THEN the enabled switch is unchecked
-AND Reset defaults changes it to the backend default `true`
-AND saving sends `enabled: true`
+- **WHEN** the setting is absent or Reset Defaults is selected
+- **THEN** upstream false remains the default
+- **AND** UI changes are not persisted until Save
 
 ### Requirement: Record recognized upstream timeout responses without cooling unrelated request failures
 
-When a combo failure is request-scoped, the system SHALL allow model-lockout
-recording only for the existing synthetic `combo_target_timeout` or an HTTP
-504 whose structured code is `upstream_response_failed`. The existing enabled
-setting and configured error-code list SHALL still gate the write. Other
-request-scoped failures SHALL NOT record a model lockout.
+The system SHALL preserve upstream model-lockout eligibility unchanged. Ordinary
+upstream504 and synthetic combo_target_timeout SHALL use the existing recorder.
+No new upstream_response_failed exception SHALL be introduced.
 
 #### Scenario: Ordinary upstream 504
 
 GIVEN the upstream returns HTTP 504 and the failure is not request-scoped
-AND ModelLockout is enabled with 504 in its error-code list
-WHEN the combo records the failed target
-THEN a model lockout is recorded using the existing exact 5xx scope and
-cooldown policy
-
-#### Scenario: Request-scoped upstream response failure is a 504
-
-GIVEN the upstream failure has HTTP status 504 and structured code
-`upstream_response_failed`
-AND combo classification marks the failure request-scoped
 AND ModelLockout is enabled with 504 in its error-code list
 WHEN the combo records the failed target
 THEN a model lockout is recorded using the existing exact 5xx scope and

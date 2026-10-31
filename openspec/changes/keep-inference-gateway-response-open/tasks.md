@@ -1,3 +1,13 @@
+# Current scope correction (2026-10-31)
+
+- [x] Remove separate Auto repeat budget and restore native total accounting.
+- [x] Remove gateway response-close cleanup and associated test.
+- [x] Restore upstream timeout resolver and forwarding implementation; use native gateway settings.
+- [ ] Record revised verification and final release evidence before archive.
+
+Earlier tasks below are historical implementation receipts; rejected source changes
+are superseded by the current design/spec and scope correction above.
+
 ## 1. Specification
 
 - [x] 1.1 Record the selected transport contract, pseudocode and scenarios; validate strictly.

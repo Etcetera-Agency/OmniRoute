@@ -177,3 +177,12 @@ this migration and were not rerun because their files and setup were unchanged.
 The final five-file fork Node run is complete: 45/45 passed, zero failures,
 skips or cancellations. See the current TL006 receipt above and
 `/tmp/omni-auto-final-fork-node.log`.
+
+## Owner-directed native configuration revision (2026-10-31)
+
+Earlier inferenceProxyTimeoutMs/default classifier implementation is superseded.
+Use native gateway-only zero settings; runtimeTimeouts.ts restored to BASE and
+getProxyTimeoutMs unchanged. Only response-close cleanup remains in gateway code.
+Combined fork suite passes 46/46. Provider defaults unchanged. Initial GitHub run
+41209904236 cancelled without publication/deploy; revised release awaits scope
+clarification. See revised design/spec and root completion.review.

@@ -6,10 +6,10 @@ import {
   resolveModelLockoutSettings,
 } from "../../src/lib/resilience/modelLockoutSettings.ts";
 
-test("omitted model lockout settings enable the existing timeout policy", () => {
+test("upstream default remains disabled until configured", () => {
   const settings = resolveModelLockoutSettings(undefined);
 
-  assert.equal(settings.enabled, true);
+  assert.equal(settings.enabled, false);
   assert.ok(settings.errorCodes.includes(504));
   assert.equal(settings.baseCooldownMs, 120_000);
   assert.equal(settings.maxCooldownMs, DEFAULT_MODEL_LOCKOUT_SETTINGS.maxCooldownMs);
@@ -22,4 +22,10 @@ test("omitted model lockout settings enable the existing timeout policy", () => 
 
 test("explicit modelLockout.enabled=false remains an opt-out", () => {
   assert.equal(resolveModelLockoutSettings({ modelLockout: { enabled: false } }).enabled, false);
+});
+
+test("stored enabled=true activates native timeout lockout", () => {
+  const settings = resolveModelLockoutSettings({ modelLockout: { enabled: true } });
+  assert.equal(settings.enabled, true);
+  assert.ok(settings.errorCodes.includes(504));
 });

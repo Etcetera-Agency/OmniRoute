@@ -133,7 +133,7 @@ function seedAvailableModels(connectionId: string): void {
 async function runAttempt(
   connectionId: string,
   response: Response,
-  settings?: Record<string, unknown>
+  settings: Record<string, unknown> = { modelLockout: { enabled: true } }
 ): Promise<void> {
   const target: ResolvedComboTarget = {
     kind: "model",
@@ -170,7 +170,7 @@ test.after(async () => {
   await harness.cleanup();
 });
 
-test("default 504 lockout records exact provider, connection, and model tuple", async () => {
+test("configured native 504 lockout records exact provider, connection, and model tuple", async () => {
   const connectionId = "fork-lockout-default";
   await runAttempt(connectionId, new Response("gateway timeout", { status: 504 }));
 
@@ -189,19 +189,6 @@ test("explicit modelLockout.enabled=false disables timeout recording", async () 
   });
 
   assert.equal(accountFallback.getModelLockoutInfo(provider, connectionId, model), null);
-});
-
-test("request-scoped upstream_response_failed 504 records exact tuple", async () => {
-  const connectionId = "fork-lockout-upstream-response-failed";
-  await runAttempt(
-    connectionId,
-    Response.json(
-      { error: { code: "upstream_response_failed", type: "upstream_error" } },
-      { status: 504 }
-    )
-  );
-
-  assert.ok(accountFallback.getModelLockoutInfo(provider, connectionId, model));
 });
 
 test("synthetic combo_target_timeout 504 records exact tuple", async () => {
@@ -251,6 +238,7 @@ test("real 504 failure filters one account from Auto build, then expiry restores
   await settingsDb.updateSettings({
     modelsDevSyncEnabled: true,
     excludeTosAvoid: false,
+    modelLockout: { enabled: true },
   });
   const initialPool = await virtualFactory.createVirtualAutoCombo(undefined);
   const initialCandidate = initialPool.models.find((entry) => entry.model === modelName);

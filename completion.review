@@ -1616,3 +1616,119 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   app and Redis healthy. Main still equals the reviewed ceef1b0377 base.
 - Build only on GitHub. Deploy uses immutable digest and protected DB/image
   rollback transaction; no image build on the home server.
+
+## Native gateway configuration correction (2026-10-31)
+
+- Owner requested using upstream functionality wherever possible. Restore the
+  upstream runtimeTimeouts.ts and getProxyTimeoutMs implementation; remove the
+  inference timeout field/classifier. Keep only proven response-close cleanup
+  in the gateway. Update the chosen gateway design and fork-owned tests.
+- Native API_BRIDGE_PROXY_TIMEOUT_MS=0 and
+  API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS=0 are written to both persistent server
+  Compose bases. REQUEST_TIMEOUT_MS remains unset: zero would convert to a
+  one-second shared SDK timeout. Separate upstream follow-up is in root TODO.
+- Revised combined fork regressions: 46/46 pass, zero failures/skips/cancellations.
+  Provider timeout config equals upstream defaults under the two gateway zeros.
+  Code Simplifier applied: remove the redundant timeout abstraction; no new
+  compatibility layer or configuration. Upstream test files remain untouched.
+- PR53 merged as 03039b56838caea7533955404834b9799ab0e23f. Its GitHub build
+  41209904236 was cancelled before publication/deploy at owner-directed scope
+  revision. Workflow restored disabled. Live remains on 455442b05754.
+- Revised changes are local and uncommitted. Clarification pending: original
+  code scope is all Auto strategies, shared model lockout and shared caller
+  disconnect cleanup; owner asked whether code is exclusive to fork freebands.
+  Do not deploy the revised release until that scope question is resolved.
+
+## Owner scope reduction and unsupported exception removal (2026-10-31)
+
+- Removed gateway response-close cleanup at owner request; bridge and timeout
+  resolver now match ceef1b0377. Removed the associated cancellation regression.
+- Removed separate Auto repeat accounting at owner request; native default30
+  and hard200 total budget restored. Associated custom-budget branches removed.
+- Removed unproven upstream_response_failed504 exception, status argument and
+  synthetic test. Real malformed-response producer emits502; prior test was not
+  evidence of a production504 source. Predicate and target executor match BASE.
+- Applied Code Simplifier to the reduced source: no new helpers/state remain in
+  restored files. Revised default investigation delegated to TL011; no deploy.
+- Current reduced combined fork suite: 39/39 pass, no failures/skips/cancellations
+  (/tmp/omni-auto-native-lockout-tests.log). Lockout package strict validation
+  and diff check pass. Remaining source diff versus BASE spans only Auto loop,
+  backend default and UI default (3 files). Deeper UI provenance review pending.
+- Replaced the remaining synthetic upstream_response_failed504 sibling fixture
+  with an ordinary upstream504 body. Lifetime suite14/14 passes unchanged
+  upstream recording; all3 new OpenSpec packages validate strictly.
+
+## Native configuration selected; TL011 findings (2026-10-31)
+
+- Both original source defaults were false. No upstream UI/backend mismatch.
+  GET passes stored modelLockout, PATCH normalizes it, Reset Defaults changes
+  only the UI draft until Save. Official overlay preserves official UI.
+- Owner selected server setting instead of source defaults: restored backend/UI
+  and resilience guide to BASE. Native authenticated settings PATCH200 followed
+  by GET200 confirms enabledtrue, codes403/404/429/502/503/504, base120000ms,
+  max1800000ms, steps10, exponentialtrue. No restart/deploy needed for this setting.
+- Restore native three-identical-model-error stop: ordinary504 is provider-class,
+  so bypass was unrelated to timeout incident. Parent already replaced stale
+  synthetic sibling504 fixture with ordinary504; TL011's stale finding predates
+  that correction. TL012 owns benchmark unknown-model verification next.
+- All rejected source changes are removed locally. Original main PR53 remains
+  merged but its image build cancelled, workflow disabled, live source455442b05754.
+- Current native-settings regression batch:39/39 pass, no skips/cancellations
+  (/tmp/omni-auto-native-final-tests.log). All lockout fixtures explicitly enable
+  the saved native setting, matching production; defaults are not modified.
+  HTTP aggregate tests initially dispatched4 calls with native defaultfalse;
+  configuring enabledtrue restores intended2-candidate cooling and39/39 pass.
+
+## Benchmark verification runtime snapshot (2026-10-31)
+
+- Read-only live DB: model_benchmark_search_models totals review_required172,
+  scored87, source_error64, unrated_no_evidence4362; no running/pending rows.
+  Normalization statuses include9 normalization_timeout_unrated,144 request
+  failures and31 invalid responses. Latest per-status runs remain2026-10-26/27.
+  This is historical queue state, not fresh acceptance after enabling lockout.
+- Native lockout saved enabledtrue; service healthy on455442b05754. No queue
+  reset, provider inference, restart or deployment performed in this check.
+
+## TL012 benchmark path verification (2026-10-31)
+
+- New fork-benchmark-auto-fallback.test.ts passes3/3 through actual processor,
+  queue and Auto code:504->next free SO normalized result; exhaustion settles
+  queue; cooled tuple excluded next request. Successful mocks are fail-closed
+  to unexpected fetches; first diagnostic run accidentally reached DuckDuckGo
+  VQD503 and was stopped, not counted as acceptance. No provider inference live.
+- Parent inspected new tests. They cover immediate504, not delayed first-target
+  timeout. Requested one bounded timer-boundary correction before final acceptance.
+- Actual current processor uses directhandleChat and NORMALIZATION_TIMEOUT_MS
+  1200000 (20min); API bridge is bypassed. Prior5min claim is historical and
+  not a reproduced current blocker. Unknown means active catalog/no evidence;
+  outside-catalog discovery is intentionally not attempted. Queue error stores
+  generic HTTP503/504; no complete aggregate-body persistence claim is made.
+
+## Final native configuration result (2026-10-31)
+
+- TL012 fourth scenario passes with native comboDefaults.comboTimeoutMs1200000
+  on both BASE and prior local loop: first real target timeout400000 plus
+  fallback250000=650000 before caller1200000. Local timers accelerated1000:1;
+  first abort and distinct free SO fallback verified. Default case not separately
+  reproduced; existing default safety constant600000 is asserted.
+- Therefore restored comboAttemptLoop.ts too. All production files under src
+  and open-sse now match original ceef1b0377; source also matches live455442b05754.
+  No proposed custom runtime behavior remains. Code Simplifier applied by removal.
+- Saved native20min combo timeout through normal API PATCH200 and verified GET200,
+  preserving existing settings, native30 attempt cap and finite target deadlines.
+  Native lockoutenabledtrue remains saved. No image deployment required.
+- Benchmark normalizer3 immediate cases plus accelerated boundary total4/4 pass;
+  no fresh production provider request or queue reset. Gateway env activation
+  remains app-only restart with current image, never a local build.
+- Final combined six-file fork run43/43 passed, no skips/cancellations
+  (/tmp/omni-auto-native-acceptance-final.log). One prior run exposed a5%
+  exploration assumption in our own lifetime test; fixture now configures native
+  explorationRate0 and fails the first actual dispatch, independent of model order.
+  Production scoring and upstream tests unchanged. ESLint and all3 strict specs pass.
+- Activated the two gateway-only zero envs by app-only Compose recreate with
+  --no-build --no-deps --pull never; image ID exactly unchanged603b8d65b894,
+  source455442b05754. DB backup and protected receipt retained server-side.
+  Healthcheck passed, container healthy, Redis identity/lifetime preserved.
+  Initial public smoke returned non-JSON404 before model dispatch; public/v1
+  ingress has a dedicated deny middleware and was not altered. A local gateway
+  strict-free SO smoke is in progress, correlation3432f08c-8b2c-4e20-b704-7c689ede3a97.

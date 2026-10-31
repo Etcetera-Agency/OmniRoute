@@ -1,82 +1,40 @@
 ## ADDED Requirements
 
-### Requirement: Backend owns implicit inference lifetime
+### Requirement: Configure gateway lifetime through upstream settings
 
-The gateway SHALL disable its implicit forwarding socket timeout for requests
-that POST to the exact endpoints /v1/chat/completions, /chat/completions,
-/v1/responses, /responses or /v1/messages, allowing an optional trailing slash
-and ignoring the query, after the existing gateway path admission. GET,
-subresources and SSE Accept alone SHALL NOT qualify. This shared transport default SHALL cover Auto combos regardless of saved name and SHALL NOT
-require reading or changing the request body.
+Production SHALL configure API_BRIDGE_PROXY_TIMEOUT_MS=0 and
+API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS=0 through persistent Compose environment.
+REQUEST_TIMEOUT_MS SHALL remain unset. The upstream timeout resolver and gateway
+forwarding selection SHALL remain unchanged. These settings are deployment-wide.
 
-#### Scenario: Next target succeeds beyond the former gateway window
+#### Scenario: Fallback succeeds after the former forwarding window
 
-- **GIVEN** an auto/coding_high_tools:free nonstream request with max_tokens 64 and one tool
-- **WHEN** the first target times out and the next target completes after the former implicit forwarding window
-- **THEN** the HTTP caller remains connected with its signal unaborted and receives the exact successful assistant message
+- **GIVEN** both native gateway settings are zero and an Auto freeband request with stream false, max_tokens 64 and one tool
+- **WHEN** the first candidate times out and the next succeeds beyond the former forwarding window
+- **THEN** the caller receives the backend successful assistant response
 
-#### Scenario: Exhaustion beyond the former gateway window
+#### Scenario: Candidate pool is exhausted
 
-- **WHEN** two distinct eligible Auto targets time out after the former implicit forwarding window
-- **THEN** the caller receives the backend aggregate status and body naming both targets, rather than api_bridge_timeout
+- **WHEN** both eligible free candidates time out
+- **THEN** the caller receives the backend aggregate naming both candidates
 
-### Requirement: Preserve explicit transport policy and transparent forwarding
+#### Scenario: Provider defaults stay unchanged
 
-The gateway SHALL retain existing configured forwarding timeout behavior when any
-of REQUEST_TIMEOUT_MS, API_BRIDGE_PROXY_TIMEOUT_MS or
-API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS has a nonblank value. The existing resolver's
-validation, precedence and explicit-zero max rule SHALL remain intact.
-Noninference forwarding and incoming request/header/keepalive/socket settings
-SHALL remain unchanged. Request bytes and auth forwarding SHALL remain intact.
+- **WHEN** only the two gateway settings are zero
+- **THEN** provider timeout configuration equals the unconfigured upstream defaults
 
-#### Scenario: Configured forwarding deadline expires
+### Requirement: Preserve upstream explicit deadlines and forwarding
 
-- **WHEN** an inference request exceeds an explicitly configured forwarding socket timeout
-- **THEN** the gateway returns HTTP 504 with api_bridge_timeout using the existing timeout resolution
+Positive configured deadlines SHALL retain upstream precedence and timeout error
+responses. Request bytes, authorization and existing path/Accept behavior SHALL
+remain unchanged. No request-body inspection or inference classifier SHALL be added.
 
-#### Scenario: Noninference uses the existing default
+#### Scenario: Explicit forwarding deadline
 
-- **WHEN** a noninference request has no explicit timeout override
-- **THEN** its forwarding socket timeout remains 600000 ms
+- **WHEN** a request exceeds a configured positive forwarding deadline
+- **THEN** the caller receives the existing api_bridge_timeout 504
 
-#### Scenario: Transparent body forwarding
+#### Scenario: Transparent forwarding
 
-- **WHEN** JSON bytes with arbitrary whitespace and an authorization header cross the bridge
-- **THEN** the application receives identical bytes and the original authorization header
-
-### Requirement: Caller cancellation closes forwarding
-
-When the caller disconnects before the response finishes, the gateway SHALL
-destroy its application connection even after the request body was fully received.
-
-#### Scenario: Disconnect during a target attempt
-
-- **GIVEN** the complete request body has reached the application and a provider attempt is pending
-- **WHEN** the actual client disconnects
-- **THEN** the application connection closes, cancellation reaches the pending attempt, and no later Auto attempt starts
-
-### Requirement: Preserve query and explicit forwarding policy
-
-The gateway SHALL retain its legacy path/Accept max(proxy, server request) rule
-for other operations and all explicitly configured deadlines, including GET
-requests accepting text/event-stream. Ordinary noninference JSON requests SHALL
-retain proxyTimeoutMs. Anthropic messages count_tokens SHALL NOT be treated as
-an inference operation.
-
-#### Scenario: Models query accepts SSE
-
-- **WHEN** GET /v1/models accepts text/event-stream with no explicit timeout
-- **THEN** the native forwarding timeout remains 600000 ms
-
-#### Scenario: Models query retains explicit server request maximum
-
-- **WHEN** GET /v1/models accepts text/event-stream and API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS is 900000
-- **THEN** the native forwarding timeout remains 900000 ms
-- **AND** the same query accepting application/json retains proxyTimeoutMs
-
-#### Scenario: Anthropic Auto inference
-
-- **GIVEN** /api/v1/messages POST forwards its unchanged Auto model to handleChat
-- **WHEN** POST /v1/messages has no explicit forwarding override
-- **THEN** its implicit forwarding timeout is zero
-- **AND** POST /v1/messages/count_tokens and GET /v1/messages retain legacy timeouts
+- **WHEN** a request crosses the bridge
+- **THEN** backend body bytes and authorization match the caller request

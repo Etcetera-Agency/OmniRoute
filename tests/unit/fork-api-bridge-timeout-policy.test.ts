@@ -8,47 +8,40 @@ const defaultForwardingTimeouts = {
   serverRequestTimeoutMs: 600_000,
 };
 
-test("implicit API bridge timeouts do not set an inference proxy timeout", () => {
+test("upstream API bridge default timeouts remain unchanged", () => {
   const config = getApiBridgeTimeoutConfig({});
 
-  assert.equal(config.inferenceProxyTimeoutMs, 0);
   assert.equal(config.proxyTimeoutMs, defaultForwardingTimeouts.proxyTimeoutMs);
   assert.equal(config.serverRequestTimeoutMs, defaultForwardingTimeouts.serverRequestTimeoutMs);
 });
 
-test("each explicit forwarding timeout enables the resolved inference timeout", () => {
+test("upstream forwarding timeout overrides remain unchanged", () => {
   const requestTimeout = getApiBridgeTimeoutConfig({ REQUEST_TIMEOUT_MS: "120000" });
   assert.equal(requestTimeout.serverRequestTimeoutMs, 300_000);
-  assert.equal(requestTimeout.inferenceProxyTimeoutMs, 300_000);
 
   const proxyTimeout = getApiBridgeTimeoutConfig({ API_BRIDGE_PROXY_TIMEOUT_MS: "450000" });
   assert.equal(proxyTimeout.proxyTimeoutMs, 450_000);
-  assert.equal(proxyTimeout.inferenceProxyTimeoutMs, 450_000);
 
   const serverRequestTimeout = getApiBridgeTimeoutConfig({
     API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS: "700000",
   });
   assert.equal(serverRequestTimeout.serverRequestTimeoutMs, 700_000);
-  assert.equal(serverRequestTimeout.inferenceProxyTimeoutMs, 700_000);
 });
 
 test("zero retains each explicit API bridge timeout override semantics", () => {
   const requestTimeout = getApiBridgeTimeoutConfig({ REQUEST_TIMEOUT_MS: "0" });
   assert.equal(requestTimeout.proxyTimeoutMs, 0);
   assert.equal(requestTimeout.serverRequestTimeoutMs, 0);
-  assert.equal(requestTimeout.inferenceProxyTimeoutMs, 0);
 
   const proxyTimeout = getApiBridgeTimeoutConfig({ API_BRIDGE_PROXY_TIMEOUT_MS: "0" });
   assert.equal(proxyTimeout.proxyTimeoutMs, 0);
   assert.equal(proxyTimeout.serverRequestTimeoutMs, 300_000);
-  assert.equal(proxyTimeout.inferenceProxyTimeoutMs, 300_000);
 
   const serverRequestTimeout = getApiBridgeTimeoutConfig({
     API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS: "0",
   });
   assert.equal(serverRequestTimeout.proxyTimeoutMs, 600_000);
   assert.equal(serverRequestTimeout.serverRequestTimeoutMs, 0);
-  assert.equal(serverRequestTimeout.inferenceProxyTimeoutMs, 600_000);
 });
 
 test("blank timeout overrides are treated as unset", () => {
@@ -59,7 +52,6 @@ test("blank timeout overrides are treated as unset", () => {
   ]) {
     const config = getApiBridgeTimeoutConfig({ [name]: "  " });
 
-    assert.equal(config.inferenceProxyTimeoutMs, 0);
     assert.equal(config.proxyTimeoutMs, defaultForwardingTimeouts.proxyTimeoutMs);
     assert.equal(config.serverRequestTimeoutMs, defaultForwardingTimeouts.serverRequestTimeoutMs);
   }
@@ -73,14 +65,22 @@ test("invalid timeout overrides fall back to current defaults", () => {
   ]) {
     const config = getApiBridgeTimeoutConfig({ [name]: "invalid" });
 
-    assert.equal(config.inferenceProxyTimeoutMs, expected.proxyTimeoutMs);
     assert.equal(config.proxyTimeoutMs, expected.proxyTimeoutMs);
     assert.equal(config.serverRequestTimeoutMs, expected.serverRequestTimeoutMs);
   }
 });
 
-test("explicit fractional timeout values are floored before inference resolution", () => {
+test("explicit fractional timeout values are floored by the upstream resolver", () => {
   const config = getApiBridgeTimeoutConfig({ API_BRIDGE_PROXY_TIMEOUT_MS: "450000.9" });
 
   assert.equal(config.proxyTimeoutMs, 450_000);
+});
+
+test("native gateway-only zero settings disable forwarding without changing provider defaults", async () => {
+  const env = { API_BRIDGE_PROXY_TIMEOUT_MS: "0", API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS: "0" };
+  const config = getApiBridgeTimeoutConfig(env);
+  assert.equal(config.proxyTimeoutMs, 0);
+  assert.equal(config.serverRequestTimeoutMs, 0);
+  const { getUpstreamTimeoutConfig } = await import("../../src/shared/utils/runtimeTimeouts.ts");
+  assert.deepEqual(getUpstreamTimeoutConfig(env), getUpstreamTimeoutConfig({}));
 });
