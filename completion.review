@@ -1566,3 +1566,53 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   504 lockout regression work remain pending. No deploy/restart or paid fallback.
 - Strict spec validation: 8/8 passed; archived validation: 9/9 passed;
   `npm run check:docs-sync` passed. Code Simplifier found no further changes.
+
+## TL001 Auto fallback request lifetime local receipt (2026-10-31)
+
+- Local scope: branch `fix/auto-fallback-request-lifetime-20261031`, base
+  `ceef1b0377`. PR10 archive was owner-authorized and merged at
+  `2026-10-31T11:50:12Z`; Kev docs are already on main in PR24. Workflow
+  `373883666` remains disabled with no active or queued run.
+- Three packages are locally implemented and strictly valid:
+  [lockout](openspec/changes/enable-timeout-model-lockout/completion.review),
+  [Auto lifetime](openspec/changes/fix-auto-fallback-request-lifetime/completion.review),
+  [gateway](openspec/changes/keep-inference-gateway-response-open/completion.review).
+- Lockout defaults on while preserving explicit `false` and exact-tuple 504
+  cooldown. UI load, reset and save match. Auto dispatches every eligible first
+  candidate, including pools over 200; repeats are bounded, no implicit Auto
+  600-second request cap remains, and explicit deadlines, finite target bounds,
+  cancellation, sibling fallback and aggregate history remain. Gateway removes
+  only the implicit forwarding deadline for exact POST chat/completions,
+  responses, bare aliases and `/v1/messages`; other methods/paths retain policy.
+  Scoring, free-only filters and strict zero-cost gates are unchanged.
+- TL006 current fork-only Node acceptance: 45/45, zero failures/skips/cancellations
+  across five fork-owned files discovered by the unchanged runner glob. Valid
+  retained Vitest: 25/25 free plus 3/3 UI. Historical 161/51 and stock-fixture runs are diagnosis only.
+  Six tracked upstream test files match BASE; required regressions are in new
+  fork files. Independent source and test reviews found no confirmed defect.
+- Source patch SHA remains
+  `f826d4367e29120ca76c72b647b7784e1d12b694b567582137ace983018feaa9`.
+  Final typecheck exit 2 matches BASE exactly: 720 diagnostics/113 files,
+  new 0/removed 0. Three package strict validations pass; global strict is
+  24/27 with three unrelated BASE failures; docs-all retains 72 BASE strict
+  drifts. The pre-existing unused `fmt` remains unchanged. The historical incident at
+  302249ms fits the verified 310000ms default, but its pool/order/process,
+  overrides and stop reason remain unknown. Provider traffic was mocked.
+- Local review, regressions, integration, typecheck comparison and package
+  receipts are complete. Remaining gates are authorized GitHub release,
+  production timeout/caller-deadline inspection, actual free-only success and
+  exhaustion through production gateway, then archive. Feature changes remain
+  uncommitted and unpushed. No local image build, workflow dispatch, deploy or
+  restart occurred; image builds require GitHub and explicit authorization.
+  See `openspec/TODO.md`.
+
+## Auto fallback production release authorization (2026-10-31)
+
+- Owner requested live deployment after local acceptance. This authorizes the
+  feature commit, main publication and the existing GitHub production workflow.
+- Code Simplifier reapplied to the source diff; no further changes needed.
+  Fresh fork regressions: 45/45 pass, no skips; diff check passes.
+- Remote preflight: source 455442b057542c857425d986853745b16e244543,
+  app and Redis healthy. Main still equals the reviewed ceef1b0377 base.
+- Build only on GitHub. Deploy uses immutable digest and protected DB/image
+  rollback transaction; no image build on the home server.

@@ -47,6 +47,9 @@ export type AttemptLoopState = {
   earliestCircuitOpenRetryMs: number;
   /** Mutable attempt budget shared with dispatchWithCooldownRetry (Task 4). */
   globalAttempts: number;
+  /** Auto-only first-dispatch keys and repeat budget; persist across set/cooldown retries. */
+  autoRepeatTargets?: Set<string>;
+  autoRepeatAttempts?: number;
   /** Quota-trust accumulators; persist across set retries and cooldown re-dispatch. */
   observedFailure: boolean;
   allObservedFailuresQuota: boolean;

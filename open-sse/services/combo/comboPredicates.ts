@@ -351,10 +351,12 @@ export function isComboTargetTimeoutFailure(error?: {
  */
 export function shouldRecordModelLockoutForComboFailure(
   requestScopedFailure: boolean,
+  status: number,
   error?: { code?: string | null; type?: string | null }
 ): boolean {
   if (!requestScopedFailure) return true;
-  return isComboTargetTimeoutFailure(error);
+  if (isComboTargetTimeoutFailure(error)) return true;
+  return status === 504 && error?.code?.toLowerCase() === "upstream_response_failed";
 }
 
 /** Request-scoped classification that also has access to the HTTP body. */

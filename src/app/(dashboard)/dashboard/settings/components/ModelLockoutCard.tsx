@@ -15,7 +15,7 @@ type ModelLockoutSettings = {
 };
 
 const DEFAULTS: ModelLockoutSettings = {
-  enabled: false,
+  enabled: true,
   errorCodes: [403, 404, 429, 502, 503, 504],
   baseCooldownMs: 120_000,
   maxCooldownMs: 1_800_000,
