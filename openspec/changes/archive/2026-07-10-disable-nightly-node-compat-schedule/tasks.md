@@ -7,4 +7,4 @@
 
 ## 2. Documentation
 
-- [ ] 2.1 Merge the CI workflow scheduling requirement into the living specification during archive.
+- [x] 2.1 Merge the CI workflow scheduling requirement into the living specification during archive.

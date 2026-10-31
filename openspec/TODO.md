@@ -2,6 +2,13 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+## Auto fallback incident follow-up
+
+- [ ] Owner-approved follow-up for incident correlation
+      `6dc4d3a1-f3a3-43fd-80e6-b3b37ce9f86c`: address local request lifetime,
+      full eligible fallback, aggregate behavior, and default 504 lockout
+      regression work. No deploy or restart; no paid fallback.
+
 ## ARM64 source-compilation regression
 
 - [x] Remove the duplicate TypeScript imports reported by workflow run
