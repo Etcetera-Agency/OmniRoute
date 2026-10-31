@@ -77,6 +77,20 @@ model: "auto/cheap"           # cheapest per token
 - ✅ **Multi-account aware:** Each provider connection becomes a separate candidate
 - ✅ **No DB writes:** Virtual combo exists only for the request, zero persistence overhead
 
+### Auto request lifetime and retries
+
+Auto builds a finite, ordered eligible-target pool. Every eligible target receives
+a first dispatch; `maxGlobalAttempts` (default `30`, hard cap `200`) limits only
+repeated Auto dispatches and never truncates the first pass. This
+Auto-specific rule does not change the existing total-attempt budget for other
+combos.
+
+Each Auto target has a finite deadline. With no positive `comboTimeoutMs`, Auto
+has no implicit ten-minute overall timeout; an explicit positive value still
+bounds the whole combo, and client abort still stops dispatch. The default target
+deadline is effectively `310000` ms: `max(120000, 300000 + 10000)`, using the base
+timeout and the default `comboCooldownWait` budget plus its dispatch buffer.
+
 ### Per-key candidate control (#7819, Level 1+2)
 
 `GET /v1/auto-combo/{channel}/candidates` (`{channel}` = the suffix after `auto/`, or

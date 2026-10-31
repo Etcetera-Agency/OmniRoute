@@ -90,6 +90,7 @@ export type TlsClientTimeoutConfig = {
 
 export type ApiBridgeTimeoutConfig = {
   proxyTimeoutMs: number;
+  inferenceProxyTimeoutMs: number;
   serverRequestTimeoutMs: number;
   serverHeadersTimeoutMs: number;
   serverKeepAliveTimeoutMs: number;
@@ -329,6 +330,20 @@ export function getApiBridgeTimeoutConfig(
         ? Math.max(sharedRequestTimeoutMs, derivedRequestTimeoutMs)
         : 0
       : derivedRequestTimeoutMs;
+  const serverRequestTimeoutMs = readTimeoutMs(
+    env,
+    "API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS",
+    serverRequestDefaultMs,
+    {
+      allowZero: true,
+      logger,
+    }
+  );
+  const hasExplicitForwardingTimeout = [
+    "REQUEST_TIMEOUT_MS",
+    "API_BRIDGE_PROXY_TIMEOUT_MS",
+    "API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS",
+  ].some((name) => hasEnvValue(env, name));
   const serverKeepAliveTimeoutMs = readTimeoutMs(
     env,
     "API_BRIDGE_SERVER_KEEPALIVE_TIMEOUT_MS",
@@ -350,15 +365,12 @@ export function getApiBridgeTimeoutConfig(
 
   return {
     proxyTimeoutMs,
-    serverRequestTimeoutMs: readTimeoutMs(
-      env,
-      "API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS",
-      serverRequestDefaultMs,
-      {
-        allowZero: true,
-        logger,
-      }
-    ),
+    // AICODE-NOTE: Inference can outlive the implicit proxy window across finite
+    // backend attempts. Preserve the existing max rule only for explicit policy.
+    inferenceProxyTimeoutMs: hasExplicitForwardingTimeout
+      ? Math.max(proxyTimeoutMs, serverRequestTimeoutMs)
+      : 0,
+    serverRequestTimeoutMs,
     serverHeadersTimeoutMs:
       serverHeadersTimeoutMs > 0 && serverKeepAliveTimeoutMs > 0
         ? Math.max(serverHeadersTimeoutMs, serverKeepAliveTimeoutMs + 1_000)

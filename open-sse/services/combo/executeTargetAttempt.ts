@@ -129,6 +129,19 @@ export async function executeTargetAttempt(
     Boolean(provider && provider !== "unknown") &&
     state.transientRateLimitedProviders.has(provider);
   const maxGlobalAttempts = clampGlobalAttempts(deps.config.maxGlobalAttempts);
+  const autoRepeatTargets =
+    getStrategyTraits(deps.strategy).ordering === "auto"
+      ? (state.autoRepeatTargets ??= new Set<string>())
+      : null;
+  let repeatReserved = false;
+  const reserveAutoRepeat = (): boolean => {
+    if (!autoRepeatTargets) return true;
+    const repeats = state.autoRepeatAttempts ?? 0;
+    if (repeats >= maxGlobalAttempts) return false;
+    state.autoRepeatAttempts = repeats + 1;
+    repeatReserved = true;
+    return true;
+  };
   const retryDelayMs = resolveDelayMs(deps.config.retryDelayMs, 2000);
   const fallbackDelayMs = resolveDelayMs(deps.config.fallbackDelayMs, 0);
   const universalHandoffConfig = deps.universalHandoffConfig ?? DEFAULT_UNIVERSAL_HANDOFF_CONFIG;
@@ -154,8 +167,22 @@ export async function executeTargetAttempt(
       deps.log.info("COMBO", `Client disconnected — aborting combo loop before model ${modelStr}`);
       return { ok: false, response: errorResponse(499, "Client disconnected") };
     }
+    // AICODE-NOTE: Auto's finite ordered pool gets first attempts; configured and hard caps count repeats only.
+    if (autoRepeatTargets) {
+      if (repeatReserved) {
+        repeatReserved = false;
+      } else if (autoRepeatTargets.has(target.executionKey)) {
+        if (!reserveAutoRepeat()) {
+          deps.log.info("COMBO", `Skipping repeat for ${modelStr} — Auto repeat budget exhausted`);
+          return null;
+        }
+        repeatReserved = false;
+      } else {
+        autoRepeatTargets.add(target.executionKey);
+      }
+    }
     state.globalAttempts++;
-    if (state.globalAttempts > maxGlobalAttempts) {
+    if (!autoRepeatTargets && state.globalAttempts > maxGlobalAttempts) {
       deps.log.warn(
         "COMBO",
         `Maximum combo attempts (${maxGlobalAttempts}) exceeded across all targets and fallbacks. Terminating loop to prevent runaway background requests.`
@@ -452,7 +479,10 @@ export async function executeTargetAttempt(
           latencyMs: Date.now() - deps.startTime,
         });
         state.observeFailure(false, target.executionKey);
-        if (handlePreContentStreamRetry(quality, retry, deps, modelStr)) {
+        if (
+          handlePreContentStreamRetry(quality, retry, deps, modelStr) &&
+          (!autoRepeatTargets || reserveAutoRepeat())
+        ) {
           if (emptyStreamSiblingRecovery && quality.upstreamFailure?.emptyContent) {
             emptyTurnConnectionId = effectiveConnectionId || null;
           }
@@ -473,7 +503,7 @@ export async function executeTargetAttempt(
           headers: deps.requestHeaders,
           requestScoped: quality.upstreamFailure?.requestScoped,
         });
-        if (familyNext && familyNext !== modelStr) {
+        if (familyNext && familyNext !== modelStr && (!autoRepeatTargets || reserveAutoRepeat())) {
           deps.log.info("COMBO", `Quality fail ${modelStr} -> family sibling ${familyNext}`);
           modelStr = familyNext;
           rawModel = parseModel(modelStr).model || modelStr;
@@ -806,7 +836,10 @@ export async function executeTargetAttempt(
         deps,
       });
       emptyTurnConnectionId = emptyContentRetry.connectionId;
-      if (emptyContentRetry.shouldRetry === true) continue;
+      if (emptyContentRetry.shouldRetry === true) {
+        if (!autoRepeatTargets || reserveAutoRepeat()) continue;
+        return null;
+      }
       return emptyContentRetry.result;
     }
 
@@ -1160,7 +1193,7 @@ export async function executeTargetAttempt(
         provider &&
         rawModel &&
         retry === 0 &&
-        shouldRecordModelLockoutForComboFailure(scopedFailure, structuredError) &&
+        shouldRecordModelLockoutForComboFailure(scopedFailure, result.status, structuredError) &&
         !isConnectionScopedClaudeQuota
       ) {
         const mlSettings = resolveModelLockoutSettings(deps.settings);
@@ -1197,7 +1230,9 @@ export async function executeTargetAttempt(
         state.fallbackCount++;
         return null;
       }
-      continue; // Retry same model (transient error, no lockout recorded)
+      if (!autoRepeatTargets || reserveAutoRepeat()) {
+        continue; // Retry same model (transient error, no lockout recorded)
+      }
     }
 
     // Done retrying this model
@@ -1253,7 +1288,7 @@ export async function executeTargetAttempt(
     if (
       provider &&
       rawModel &&
-      shouldRecordModelLockoutForComboFailure(scopedFailure, structuredError) &&
+      shouldRecordModelLockoutForComboFailure(scopedFailure, result.status, structuredError) &&
       !isConnectionScopedClaudeQuota
     ) {
       const mlSettings = resolveModelLockoutSettings(deps.settings);

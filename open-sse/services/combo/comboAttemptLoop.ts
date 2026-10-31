@@ -208,6 +208,7 @@ export async function dispatchWithCooldownRetry(opts: {
   extra: DispatchWithCooldownRetryExtra;
 }): Promise<Response> {
   const { state, deps, extra } = opts;
+  const isAutoStrategy = getStrategyTraits(deps.strategy).ordering === "auto";
   // #7360: persist lastStatus/earliestRetryAfter across set retries; reset
   // only on a fresh dispatch (including cooldown-aware re-dispatch).
   state.lastError = null;
@@ -259,7 +260,7 @@ export async function dispatchWithCooldownRetry(opts: {
       // value exposed as `X-OmniRoute-Fallback-Attempts`.
       state.fallbackCount = 0;
       state.recordedAttempts = 0;
-      state.comboErrors = [];
+      if (!isAutoStrategy) state.comboErrors = [];
 
       // QA P0: the sanitized diagnostic trace (pool size + this set-try's exhausted
       // providers/connections + attempt order + terminal reason + recovery hint) is
@@ -270,21 +271,16 @@ export async function dispatchWithCooldownRetry(opts: {
         globalResolve = res;
       });
 
-      // G1 (silent-stop fix): the speculative loop's `Promise.race` waits on
-      // `globalPromise`, which is ONLY resolved from inside a task (success or
-      // fatal error). If a target hangs — e.g. the operator disabled the per-model
-      // timeout (`targetTimeoutMs: 0`) and the upstream never settles — the race
-      // never resolves and the request hangs forever with no response. This safety
-      // promise force-resolves after the combo budget (extra.comboTimeoutMs when set,
-      // otherwise a hard ceiling) so the request ALWAYS terminates with an
-      // actionable 504 instead of dying silently. `state.comboExpired` is flipped so the
-      // target loop stops launching new work; the existing state.comboExpired branch
-      // returns the aggregated 504.
+      // G1 (silent-stop fix): non-Auto requests and Auto with an explicit global
+      // deadline keep this loop-safety timer. Auto without one uses its finite
+      // per-target deadlines and the real client abort signal instead.
       const loopSafetyMs =
         extra.comboTimeoutMs > 0 ? extra.comboTimeoutMs : COMBO_LOOP_SAFETY_TIMEOUT_MS;
+      const useLoopSafetyDeadline = extra.comboTimeoutMs > 0 || !isAutoStrategy;
       let loopSafetyFired = false;
       let loopSafetyTimer: ReturnType<typeof setTimeout> | null = null;
       const loopSafetyPromise = new Promise<Response>((resolve) => {
+        if (!useLoopSafetyDeadline) return;
         loopSafetyTimer = setTimeout(() => {
           loopSafetyFired = true;
           deps.log.warn(
@@ -433,7 +429,12 @@ export async function dispatchWithCooldownRetry(opts: {
           );
         }
 
-        if (!anySuccess && !state.comboExpired && hasIdenticalModelErrorStreak(state.comboErrors)) {
+        if (
+          !isAutoStrategy &&
+          !anySuccess &&
+          !state.comboExpired &&
+          hasIdenticalModelErrorStreak(state.comboErrors)
+        ) {
           comboRequestMalformed = true;
           const last = state.comboErrors[state.comboErrors.length - 1];
           deps.log.warn(

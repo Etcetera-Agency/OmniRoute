@@ -4,10 +4,66 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
 ## Auto fallback incident follow-up
 
-- [ ] Owner-approved follow-up for incident correlation
-      `6dc4d3a1-f3a3-43fd-80e6-b3b37ce9f86c`: address local request lifetime,
-      full eligible fallback, aggregate behavior, and default 504 lockout
-      regression work. No deploy or restart; no paid fallback.
+- [x] Locally implement `enable-timeout-model-lockout`: default true with explicit
+      false opt-out, exact-tuple 504 cooldown, real Auto pool and expiry; align UI
+      load/reset/PATCH defaults. Earlier focused evidence: cooldown 116/116,
+      UI 2/2 via foreign Vitest, backend resolver 2/2. Current combined fork
+      Node acceptance is recorded below. Details: change-local `completion.review`.
+- [x] Locally implement `fix-auto-fallback-request-lifetime`: first dispatch for
+      every eligible candidate even above 200; bound repeats including whole-set
+      and cooldown redispatches; remove only Auto's implicit 600s global cap.
+      Preserve finite targets, explicit overall deadlines/client abort, continued
+      model-error fallback, aggregate history, scoring, strict free-only filters
+      and Non-Auto budgets. Earlier loop/routing/499/safety runs totaled
+      161/161 but depended on modified stock fixtures and are historical only;
+      the current fork-only acceptance is recorded below. Genuine TS2339 fixed;
+      null fallback/aggregate regression verified. Effective target default:
+      max(120000,300000+10000)=310000ms. Historical incident
+      `6dc4d3a1-f3a3-43fd-80e6-b3b37ce9f86c` at 302249ms fits that default;
+      pool/order/process/wait overrides and stop reason remain unknown.
+- [x] Locally implement `keep-inference-gateway-response-open` on actual bridge
+      20129 → 20128: only POST exact chat/completions/responses, existing bare
+      aliases and /v1/messages lose the implicit forwarding deadline. Preserve
+      GET/subresources/SSE-Accept-only policy, explicit existing timeout env,
+      raw body/auth and disconnect cleanup. Before stock-test restoration, the focused gateway run passed 38/38
+      through real bridge/adapter/production POST Auto route with mocked provider
+      fetches (coding_high_tools free, stream=false, max_tokens=64, one tool).
+- [x] Final IND005 typecheck comparison: exit 2 with exactly the base's 720
+      diagnostics in 113 files, new 0/removed 0; full messages identical except
+      chatCore TS2322 union display ordering. Evidence/fingerprint in root
+      `completion.review`; unchanged compiler debt, not a green typecheck.
+- [x] Complete TL006 fork-only regression migration and acceptance: five
+      unchanged-runner-discovered fork test files pass 45/45, zero
+      failures/skips/cancellations. Tracked upstream test files match BASE;
+      only new fork files carry required regressions. Valid retained Vitest
+      totals 25/25 free plus 3/3 UI. Source review and independent test review
+      are complete; source SHA is unchanged at
+      `f826d4367e29120ca76c72b647b7784e1d12b694b567582137ace983018feaa9`.
+      TL005 comparison: 720 diagnostics/113 files exactly BASE, new 0/removed
+      0; exit 2 is known baseline debt. Three new packages pass strict
+      validation; global strict validation is 24/27 with three unrelated BASE
+      failures. Stock-test 161/51 and earlier Node results are historical only.
+      Provider traffic was mocked; no production acceptance is implied.
+- [ ] After an explicitly authorized GitHub release only, inspect production
+      `REQUEST_TIMEOUT_MS`, `API_BRIDGE_PROXY_TIMEOUT_MS`,
+      `API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS` and external caller/ingress
+      deadlines. Then verify free-only success and exhaustion through the actual
+      production gateway and archive all three packages only after these gates.
+      No workflow enablement authorization exists now: workflow `373883666` is
+      disabled with no active or queued run. Image builds are GitHub-only and
+      require authorization; never build images on the home server. No
+      dispatch, deploy or restart is authorized.
+- [ ] On the next upstream upgrade, rerun fork-owned Auto/Non-Auto,
+      repeat-budget, lockout, gateway and explicit-deadline regressions; inspect
+      narrow upstream routing/transport seams. No guarantee of a conflict-free
+      upgrade.
+- [ ] Track separate BASE debt: 720 TypeScript diagnostics in 113 files, 72
+      docs-all strict drifts, and three unrelated strict failures in
+      `add-fmo-pools-quota-extractor`,
+      `route-benchmark-normalization-auto-failover`, and
+      `score-full-model-catalog`. Do not repair upstream tests as part of this
+      work. Unused `fmt` at `ModelLockoutCard.tsx:327` is pre-existing and was
+      left untouched; scoped lint with configured suppressions passed.
 
 ## ARM64 source-compilation regression
 
