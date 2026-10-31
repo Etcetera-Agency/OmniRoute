@@ -1557,3 +1557,12 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
 - Markdown formatting differs at two pre-existing lines outside this section;
   the formatter made no changes to this receipt, and unrelated historical
   text was left untouched.
+
+## Node compatibility archive reconciliation (2026-10-31)
+
+- Replaced archived scheduling spec's placeholder purpose and recorded the
+  owner-approved Auto fallback incident follow-up in `openspec/TODO.md`;
+  request lifetime, full eligible fallback, aggregate behavior, and default
+  504 lockout regression work remain pending. No deploy/restart or paid fallback.
+- Strict spec validation: 8/8 passed; archived validation: 9/9 passed;
+  `npm run check:docs-sync` passed. Code Simplifier found no further changes.
