@@ -33,6 +33,7 @@ export interface SyncedAvailableModel {
   supportsThinking?: boolean;
   alwaysThinking?: boolean;
   supportsTools?: boolean;
+  structuredOutput?: boolean;
   supportsVideo?: boolean;
   /** Discovery economics verdict; false preserves explicit paid evidence. */
   isFree?: boolean;
@@ -131,6 +132,9 @@ function normalizeSyncedAvailableModel(model: unknown): SyncedAvailableModel | n
       : {}),
     ...(record.alwaysThinking === true ? { alwaysThinking: true } : {}),
     ...(typeof record.supportsTools === "boolean" ? { supportsTools: record.supportsTools } : {}),
+    ...(typeof record.structuredOutput === "boolean"
+      ? { structuredOutput: record.structuredOutput }
+      : {}),
     ...(typeof record.supportsVideo === "boolean" ? { supportsVideo: record.supportsVideo } : {}),
     ...(typeof record.isFree === "boolean" ? { isFree: record.isFree } : {}),
     ...(record.supportsVision === true ? { supportsVision: true } : {}),

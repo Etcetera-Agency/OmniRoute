@@ -992,8 +992,7 @@ export function getResolvedModelCapabilities(
   // persisted override never feeds back into the comparison that (re)writes it.
   const usePersistedOverrides = options?.persistedOverrides !== false;
   const resolved = resolveCapabilityInput(input);
-  // AICODE-NOTE: Use exact raw IDs and current eligible connections for source
-  // capabilities; price TTL never applies here.
+  // AICODE-NOTE: Compatible declarations use exact raw IDs/current eligibility; price TTL never applies.
   const compatibleSourceData =
     resolved.provider && resolved.rawModel
       ? {
@@ -1201,6 +1200,17 @@ export function getResolvedModelCapabilities(
           "supportsVision"
         )
       : null;
+  const compatibleSourceStructuredOutputOverride =
+    compatibleSourceData && resolved.provider && resolved.rawModel
+      ? resolveCompatibleCapabilityOverride(
+          compatibleSourceData.snapshots,
+          compatibleSourceData.eligibleConnections,
+          resolved.provider,
+          resolved.rawModel,
+          "structuredOutput",
+          synced?.structured_output ?? null
+        )
+      : null;
 
   const supportsVision = resolveVisionCapability(
     visionSpec,
@@ -1243,7 +1253,7 @@ export function getResolvedModelCapabilities(
     supportsVideo,
     supportsMaxTokens: heuristicMaxTokens(lookupKey),
     attachment,
-    structuredOutput: synced?.structured_output ?? null,
+    structuredOutput: compatibleSourceStructuredOutputOverride ?? synced?.structured_output ?? null,
     temperature: synced?.temperature ?? null,
     contextWindow,
     maxInputTokens: (() => {

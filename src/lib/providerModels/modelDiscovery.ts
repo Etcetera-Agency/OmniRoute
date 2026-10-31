@@ -731,6 +731,9 @@ export function normalizeDiscoveredModels(
           : {}),
       ...(record.alwaysThinking === true ? { alwaysThinking: true } : {}),
       ...(typeof record.supportsTools === "boolean" ? { supportsTools: record.supportsTools } : {}),
+      ...(typeof record.structuredOutput === "boolean"
+        ? { structuredOutput: record.structuredOutput }
+        : {}),
       ...(typeof record.supportsVideo === "boolean" ? { supportsVideo: record.supportsVideo } : {}),
       // Keep a paid verdict through the cache round trip: dropping false would
       // let a :free suffix or a prior optimistic flag grant access again.
@@ -794,6 +797,9 @@ export async function persistCompatibleDiscoveredModels(
         ...(record.name ? { name: record.name } : {}),
         ...(record.supportsVision !== undefined ? { supportsVision: record.supportsVision } : {}),
         ...(record.supportsTools !== undefined ? { supportsTools: record.supportsTools } : {}),
+        ...(record.structuredOutput !== undefined
+          ? { structuredOutput: record.structuredOutput }
+          : {}),
       },
     ];
   });
