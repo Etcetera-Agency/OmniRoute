@@ -89,7 +89,10 @@ dynamic OpenRouter free exclusion, and static catalog quota/hard-stop behavior.
 
 ## Live acceptance boundary
 
-Offline source tests do not establish that a provider's zero prices guarantee
-zero billing. Do not make provider requests or production changes in this
-slice. Record live deployment and billing evidence as unresolved follow-up in
-root `openspec/TODO.md`.
+Release acceptance uses the protected GitHub deployment and passive checks of
+actual source/image identity, health, native metadata, and candidate admission.
+Provider/model inference is explicitly prohibited and is not a required
+billing-proof gate. Offline regressions and passive metadata do not establish
+actual inference behavior; record that verification limitation without adding
+a model-call blocker. Keep unresolved deployment and passive acceptance work
+in root `openspec/TODO.md`.
