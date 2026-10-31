@@ -84,7 +84,8 @@ function asBenchmarkFamily(row: ModelBenchmarkSearchEvidence): ModelBenchmarkFam
   if (row.source === "deepswe") return "deepswe";
   if (
     row.source !== "huggingface-eval-results" &&
-    row.source !== "duckduckgo-free-structured-output"
+    row.source !== "duckduckgo-free-structured-output" &&
+    row.source !== "ollama-search-structured-output"
   ) {
     return null;
   }
@@ -135,6 +136,39 @@ function stableJson(value: unknown): string {
     .join(",")}}`;
 }
 
+function benchmarkObservationIdentity(row: ModelBenchmarkSearchEvidence): {
+  family: ModelBenchmarkFamily;
+  benchmark: string;
+  metric: string;
+  key: string;
+} | null {
+  const family = asBenchmarkFamily(row);
+  const metric = family ? canonicalMetric(family, row.metric) : null;
+  if (!family || !metric || !row.benchmark) return null;
+  return {
+    family,
+    benchmark: row.benchmark,
+    metric,
+    key: JSON.stringify([
+      row.modelId,
+      row.source,
+      family,
+      row.benchmark,
+      row.benchmarkVersion,
+      row.reasoningEffort,
+      stableJson(row.reasoningConfig),
+      metric,
+    ]),
+  };
+}
+
+// AICODE-NOTE: Source refresh shares fitness identity, which excludes value, quote, URL and source version.
+export function getModelBenchmarkFitnessObservationKey(
+  row: ModelBenchmarkSearchEvidence
+): string | null {
+  return benchmarkObservationIdentity(row)?.key ?? null;
+}
+
 export function getEligibleModelBenchmarkFitnessObservations(
   evidence: readonly ModelBenchmarkSearchEvidence[]
 ): ModelBenchmarkFitnessObservation[] {
@@ -144,35 +178,23 @@ export function getEligibleModelBenchmarkFitnessObservations(
   >();
   for (const row of evidence) {
     if (typeof row.value !== "number" || !Number.isFinite(row.value)) continue;
-    const family = asBenchmarkFamily(row);
-    if (!family) continue;
-    const metric = canonicalMetric(family, row.metric);
-    if (!metric || !row.benchmark) continue;
+    const identity = benchmarkObservationIdentity(row);
+    if (!identity) continue;
 
     const observation: ModelBenchmarkFitnessObservation = {
       modelId: row.modelId,
-      family,
-      benchmark: row.benchmark,
+      family: identity.family,
+      benchmark: identity.benchmark,
       benchmarkVersion: row.benchmarkVersion,
       reasoningEffort: row.reasoningEffort,
       reasoningConfig: row.reasoningConfig,
-      metric,
+      metric: identity.metric,
       value: row.value,
       verificationStatus: row.verificationStatus,
     };
-    const key = JSON.stringify([
-      row.modelId,
-      row.source,
-      family,
-      row.benchmark,
-      row.benchmarkVersion,
-      row.reasoningEffort,
-      stableJson(row.reasoningConfig),
-      metric,
-    ]);
-    const current = latest.get(key);
+    const current = latest.get(identity.key);
     if (!current || row.capturedAt >= current.capturedAt) {
-      latest.set(key, { observation, capturedAt: row.capturedAt });
+      latest.set(identity.key, { observation, capturedAt: row.capturedAt });
     }
   }
   return [...latest.values()].map(({ observation }) => observation);

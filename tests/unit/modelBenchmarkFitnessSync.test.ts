@@ -197,6 +197,49 @@ test("search evidence scores only after its verification status passes the fitne
   assert.equal(scores.find(({ modelId }) => modelId === "search-review")?.codingFitness, null);
 });
 
+test("current normalized search source reaches fitness through the existing family mapping", () => {
+  const models = [
+    { id: "normalized-target", name: "Normalized Target" },
+    { id: "normalized-peer", name: "Normalized Peer" },
+  ];
+  searchDb.enqueueModelBenchmarkSearches(models);
+  const rows = [
+    evidence(
+      "normalized-target",
+      "resolved",
+      0.5,
+      "ollama-search-structured-output",
+      "source_verified_review_required",
+      "SWE-bench Verified"
+    ),
+    evidence(
+      "normalized-peer",
+      "resolved",
+      0.9,
+      "ollama-search-structured-output",
+      "source_verified_review_required",
+      "SWE-bench Verified"
+    ),
+  ];
+  searchDb.saveModelBenchmarkSearchEvidence(rows);
+
+  const observations = fitnessSync.getEligibleModelBenchmarkFitnessObservations(
+    searchDb.listAllModelBenchmarkSearchEvidence()
+  );
+  const published = fitnessSync.publishModelBenchmarkFitnessSnapshot();
+
+  assert.equal(observations.length, 2);
+  assert.ok(observations.every(({ family }) => family === "swe-bench"));
+  assert.equal(published.observationCount, 2);
+  assert.equal(
+    published.scores.find(({ modelId }) => modelId === "normalized-target")?.codingFitness,
+    0.25
+  );
+  assert.ok(
+    intelligence.getModelIntelligenceBySource("normalized-target", "benchmark_fitness", "coding")
+  );
+});
+
 test("publishes a single verified benchmark family as low-confidence provisional fitness", async () => {
   searchDb.enqueueModelBenchmarkSearches([
     { id: "single-family", name: "Single Family" },

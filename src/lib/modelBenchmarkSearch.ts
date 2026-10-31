@@ -20,6 +20,7 @@ import {
   listAllModelBenchmarkSearchEvidence,
   listModelBenchmarkSearchCatalogModels,
   listEligibleModelBenchmarkSearchRuns,
+  listModelBenchmarkSearchEvidence,
   replaceModelBenchmarkEvidenceSources,
   upsertModelBenchmarkSearchIdentities,
   updateModelBenchmarkSearchIdentityStatuses,
@@ -31,6 +32,7 @@ import { fetchModelsDev } from "./modelsDevSync";
 import { extractModelsDevModelIdentities } from "./modelsDevSync/modelIdentity";
 import {
   invalidateModelBenchmarkFitnessCache,
+  getModelBenchmarkFitnessObservationKey,
   publishModelBenchmarkFitnessSnapshot,
   recomputeModelBenchmarkFitness,
 } from "./modelBenchmarkFitnessSync";
@@ -102,6 +104,7 @@ interface SearchRunOutcome {
   sourceStatus: Record<string, unknown>;
   discoveredEvidence: boolean;
   evidenceSetsReplaced?: boolean;
+  fitness?: ModelBenchmarkFitness[];
   lastError: string | null;
   retryAfterAt?: string;
   consumeAttempt?: boolean;
@@ -135,13 +138,14 @@ type ReprocessReceipt = {
 };
 
 type ReprocessResult = {
+  status: "complete" | "partial" | "no_sources";
   receipts: ReprocessReceipt[];
   evidenceWrites: number;
   fitness: {
     observationCount: number;
     publishedCount: number;
     profilePublishedCount: number;
-  };
+  } | null;
 };
 
 let sharedSourceSnapshotCache: {
@@ -184,8 +188,6 @@ function exactIdentityFields(model: ModelIdentity, values: string[]): boolean {
   return values.some((value) => modelValues.has(folded(value)));
 }
 
-// AICODE-NOTE: a negative source result is valid only after a complete AA scan and all four
-// configured official leaderboard datasets have succeeded. This queue never publishes scores.
 export function exactModelMatch(model: ModelIdentity, values: unknown[]): boolean {
   return exactIdentityFields(
     model,
@@ -616,14 +618,18 @@ function matchSnapshotForModel(
   };
 }
 
-function requireCompleteBenchmarkSnapshot(snapshot: BenchmarkSourceSnapshot): void {
-  for (const source of [snapshot.aa, ...Object.values(snapshot.official)]) {
-    if (source.status !== "found" || source.allRows.length === 0) {
-      throw new Error(
-        `${source.sourceVersion ?? source.sourceUrl}: ${source.error ?? source.status}`
-      );
-    }
-  }
+// AICODE-NOTE: Only completed, nonempty source snapshots replace evidence; failed or empty snapshots retain their prior sets.
+function publishableSourceSnapshots(
+  snapshot: BenchmarkSourceSnapshot
+): Array<[string, SourceSnapshot]> {
+  const sources: Array<[string, SourceSnapshot]> = [
+    ["artificial-analysis-free", snapshot.aa],
+    ["swe-bench", snapshot.official["swe-bench"]],
+    ["terminal-bench-2.0", snapshot.official["terminal-bench-2.0"]],
+    ["terminal-bench-2.1", snapshot.official["terminal-bench-2.1"]],
+    ["deepswe", snapshot.official.deepswe],
+  ];
+  return sources.filter(([, source]) => source.status === "found" && source.allRows.length > 0);
 }
 
 function uniqueCatalogNames(models: ModelIdentity[]): Set<string> {
@@ -639,18 +645,9 @@ function evidenceSourceReplacements(
   models: ModelIdentity[],
   snapshot: BenchmarkSourceSnapshot,
   names = uniqueCatalogNames(models),
-  foundSourcesOnly = false,
   catalogIds = new Set(models.map((model) => folded(model.id)).filter((id): id is string => !!id))
 ): Array<{ modelId: string; source: string; rows: ModelBenchmarkSearchEvidenceInput[] }> {
-  const snapshots: Array<[string, SourceSnapshot]> = [
-    ["artificial-analysis-free", snapshot.aa],
-    ["swe-bench", snapshot.official["swe-bench"]],
-    ["terminal-bench-2.0", snapshot.official["terminal-bench-2.0"]],
-    ["terminal-bench-2.1", snapshot.official["terminal-bench-2.1"]],
-    ["deepswe", snapshot.official.deepswe],
-  ].filter(
-    ([, source]) => !foundSourcesOnly || (source.status === "found" && source.allRows.length > 0)
-  );
+  const snapshots = publishableSourceSnapshots(snapshot);
   const replacements: Array<{
     modelId: string;
     source: string;
@@ -936,7 +933,7 @@ function materializeModelEvidence(
       matchSnapshotForModel(model, source, uniqueName, catalogIds)
     ),
   ];
-  const matches = checks.flatMap((source) => source.matches);
+  const matches = checks.flatMap((source) => (source.status === "found" ? source.matches : []));
   return {
     checks,
     evidenceWrites: matches.length,
@@ -1006,27 +1003,6 @@ async function refreshModelBenchmarkCatalogEvidenceNow(
   if (models.length === 0) throw new Error("Canonical model catalog is empty");
 
   const snapshot = await loadBenchmarkSourceSnapshot(fetchImpl);
-  requireCompleteBenchmarkSnapshot(snapshot);
-
-  const replacements = evidenceSourceReplacements(models, snapshot);
-  const currentIds = new Set(models.map((model) => model.id));
-  const directSources = [
-    "artificial-analysis-free",
-    "swe-bench",
-    "terminal-bench-2.0",
-    "terminal-bench-2.1",
-    "deepswe",
-  ];
-  const obsoleteSources = new Map<string, Set<string>>();
-  for (const row of listAllModelBenchmarkSearchEvidence()) {
-    if (currentIds.has(row.modelId)) continue;
-    const sources = obsoleteSources.get(row.modelId) ?? new Set(directSources);
-    sources.add(row.source);
-    obsoleteSources.set(row.modelId, sources);
-  }
-  for (const [modelId, sources] of obsoleteSources) {
-    for (const source of sources) replacements.push({ modelId, source, rows: [] });
-  }
   const sourceNames = [
     "artificialAnalysis",
     "sweBench",
@@ -1039,23 +1015,9 @@ async function refreshModelBenchmarkCatalogEvidenceNow(
   const canonicalIds = new Set(
     models.map((model) => folded(model.id)).filter((id): id is string => !!id)
   );
-  const result = getDbInstance().transaction(() => {
-    upsertModelBenchmarkSearchIdentities(models);
-    let fitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null = null;
-    const evidenceWrites = replaceModelBenchmarkEvidenceSources(replacements, () => {
-      fitness = publishModelBenchmarkFitnessSnapshot();
-    });
-    if (!fitness) throw new Error("Benchmark fitness snapshot was not published");
-
-    const scoredIds = new Set(
-      fitness.scores
-        .filter(
-          (score) =>
-            typeof score.codingFitness === "number" || typeof score.generalFitness === "number"
-        )
-        .map((score) => folded(score.modelId) ?? "")
-    );
-    const receipts = models.map((model): ReprocessReceipt => {
+  const publishable = publishableSourceSnapshots(snapshot);
+  const receiptList = (scoredIds = new Set<string>()): ReprocessReceipt[] =>
+    models.map((model): ReprocessReceipt => {
       const checks = snapshots.map((source) =>
         matchSnapshotForModel(
           model,
@@ -1073,14 +1035,22 @@ async function refreshModelBenchmarkCatalogEvidenceNow(
           sourceNames.map((name, index) => [
             name,
             {
-              status: checks[index].status,
+              status: snapshots[index].status,
               identityMatch: sourceIdentityMatch(model, snapshots[index], checks[index]),
-              complete: true,
+              complete:
+                snapshots[index].status === "found" || snapshots[index].status === "missing",
               records: records[index],
             },
           ])
         ),
-        evidenceWrites: records.reduce((sum, count) => sum + count, 0),
+        evidenceWrites: records.reduce(
+          (sum, count, index) =>
+            sum +
+            (snapshots[index].status === "found" && snapshots[index].allRows.length > 0
+              ? count
+              : 0),
+          0
+        ),
       };
       receipt.processingStatus = directProcessingStatus(
         receipt,
@@ -1088,6 +1058,52 @@ async function refreshModelBenchmarkCatalogEvidenceNow(
       );
       return receipt;
     });
+
+  if (publishable.length === 0) {
+    return {
+      status: "no_sources",
+      receipts: receiptList(),
+      evidenceWrites: 0,
+      fitness: null,
+    };
+  }
+
+  const replacements = evidenceSourceReplacements(models, snapshot, uniqueNames, canonicalIds);
+  if (publishable.length === snapshots.length) {
+    const currentIds = new Set(models.map((model) => model.id));
+    const directSources = publishable.map(([source]) => source);
+    const obsoleteSources = new Map<string, Set<string>>();
+    for (const row of listAllModelBenchmarkSearchEvidence()) {
+      if (currentIds.has(row.modelId)) continue;
+      const sources = obsoleteSources.get(row.modelId) ?? new Set(directSources);
+      sources.add(row.source);
+      obsoleteSources.set(row.modelId, sources);
+    }
+    for (const [modelId, sources] of obsoleteSources) {
+      for (const source of sources) replacements.push({ modelId, source, rows: [] });
+    }
+  }
+  const result = getDbInstance().transaction(() => {
+    upsertModelBenchmarkSearchIdentities(models);
+    const publication: { fitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null } =
+      {
+        fitness: null,
+      };
+    const evidenceWrites = replaceModelBenchmarkEvidenceSources(replacements, () => {
+      publication.fitness = publishModelBenchmarkFitnessSnapshot();
+    });
+    if (!publication.fitness) throw new Error("Benchmark fitness snapshot was not published");
+    const fitness = publication.fitness;
+
+    const scoredIds = new Set(
+      fitness.scores
+        .filter(
+          (score) =>
+            typeof score.codingFitness === "number" || typeof score.generalFitness === "number"
+        )
+        .map((score) => folded(score.modelId) ?? "")
+    );
+    const receipts = receiptList(scoredIds);
     updateModelBenchmarkSearchIdentityStatuses(
       receipts.map(({ modelId, processingStatus }) => ({
         id: modelId,
@@ -1095,6 +1111,8 @@ async function refreshModelBenchmarkCatalogEvidenceNow(
       }))
     );
     return {
+      status:
+        publishable.length === snapshots.length ? ("complete" as const) : ("partial" as const),
       receipts,
       evidenceWrites,
       fitness: {
@@ -1106,6 +1124,24 @@ async function refreshModelBenchmarkCatalogEvidenceNow(
   })();
   await invalidateModelBenchmarkFitnessCache();
   return result;
+}
+
+async function replaceAndPublishBenchmarkEvidence(
+  replacements: Array<{
+    modelId: string;
+    source: string;
+    rows: ModelBenchmarkSearchEvidenceInput[];
+  }>
+): Promise<ReturnType<typeof publishModelBenchmarkFitnessSnapshot>> {
+  const publication: { fitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null } = {
+    fitness: null,
+  };
+  replaceModelBenchmarkEvidenceSources(replacements, () => {
+    publication.fitness = publishModelBenchmarkFitnessSnapshot();
+  });
+  if (!publication.fitness) throw new Error("Benchmark fitness snapshot was not published");
+  await invalidateModelBenchmarkFitnessCache();
+  return publication.fitness;
 }
 
 async function refreshSearchRun(
@@ -1125,21 +1161,23 @@ async function refreshSearchRun(
     if (direct.checks.every((source) => source.status === "missing")) {
       const hf = await findHuggingFaceEvidence(model, fetchImpl);
       sourceStatus.huggingFace = hf.receipt;
-      if (hf.status !== "error") {
-        replaceModelBenchmarkEvidenceSources([
-          {
-            modelId: model.id,
-            source: "huggingface-eval-results",
-            rows: toEvidenceRows(model.id, hf.evidence),
-          },
-        ]);
-      }
+      const fitness =
+        hf.status === "found" && hf.evidence.length > 0
+          ? await replaceAndPublishBenchmarkEvidence([
+              {
+                modelId: model.id,
+                source: "huggingface-eval-results",
+                rows: toEvidenceRows(model.id, hf.evidence),
+              },
+            ])
+          : null;
       return {
         modelId: model.id,
         normalizationStatus: "not_needed",
         sourceStatus,
-        discoveredEvidence: false,
-        evidenceSetsReplaced: hf.status !== "error",
+        discoveredEvidence: hf.evidence.length > 0,
+        evidenceSetsReplaced: fitness !== null,
+        ...(fitness ? { fitness: fitness.scores } : {}),
         lastError: hf.status === "error" ? asString(hf.receipt.error) : null,
       };
     }
@@ -1152,24 +1190,7 @@ async function refreshSearchRun(
     };
   }
 
-  const completeSweep = direct.checks.every(
-    (source) => source.status === "found" || source.status === "missing"
-  );
-  if (!completeSweep) {
-    const failed = direct.checks.filter(
-      (source) => source.status === "error" || source.status === "incomplete"
-    );
-    return {
-      modelId: model.id,
-      normalizationStatus: "not_started",
-      sourceStatus,
-      discoveredEvidence: false,
-      lastError: failed.length
-        ? failed.map((source) => source.error || source.status).join("; ")
-        : null,
-    };
-  }
-  // AICODE-NOTE: After complete exact misses, require a case-folded exact active catalog ID before any discovery search.
+  // AICODE-NOTE: Complete positive source rows suppress discovery; failed and partial feeds do not establish absence.
   if (direct.checks.some((source) => source.status === "found")) {
     return {
       modelId: model.id,
@@ -1188,53 +1209,87 @@ async function refreshSearchRun(
   sourceStatus.catalogEligibility = catalogEligible
     ? { status: "available" }
     : { status: "unavailable", reason: "model_not_in_active_synced_catalog" };
+  const directErrors = direct.checks
+    .filter((source) => source.status === "error" || source.status === "incomplete")
+    .map((source) => source.error || source.status);
   if (!catalogEligible) {
     return {
       modelId: model.id,
       normalizationStatus: "not_started",
       sourceStatus,
       discoveredEvidence: false,
-      lastError: null,
+      lastError: directErrors.join("; ") || null,
     };
   }
 
-  const [hf, web] = await Promise.all([
-    findHuggingFaceEvidence(model, fetchImpl),
-    searchOllama(model),
-  ]);
+  const hf = await findHuggingFaceEvidence(model, fetchImpl);
   sourceStatus.huggingFace = hf.receipt;
-  sourceStatus.ollamaSearch = web.receipt;
-  const sourceEvidence = [...hf.evidence, ...web.evidence];
-  let evidenceSetsReplaced = false;
-  if (hf.status !== "error") {
-    replaceModelBenchmarkEvidenceSources([
+  if (hf.status === "found" && hf.evidence.some(({ value }) => value !== null)) {
+    const fitness = await replaceAndPublishBenchmarkEvidence([
       {
         modelId: model.id,
         source: "huggingface-eval-results",
         rows: toEvidenceRows(model.id, hf.evidence),
       },
     ]);
-    evidenceSetsReplaced = true;
+    return {
+      modelId: model.id,
+      normalizationStatus: "not_needed",
+      sourceStatus,
+      discoveredEvidence: true,
+      evidenceSetsReplaced: true,
+      fitness: fitness.scores,
+      lastError: directErrors.join("; ") || null,
+    };
   }
-  if (asString(web.receipt.status) !== "error") {
-    replaceModelBenchmarkEvidenceSources([
-      {
-        modelId: model.id,
-        source: "ollama-search",
-        rows: toEvidenceRows(model.id, web.evidence),
-      },
-    ]);
-    evidenceSetsReplaced = true;
+
+  const web = await searchOllama(model);
+  sourceStatus.ollamaSearch = web.receipt;
+  const sourceEvidence = [...hf.evidence, ...web.evidence];
+  const replacements: Array<{
+    modelId: string;
+    source: string;
+    rows: ModelBenchmarkSearchEvidenceInput[];
+  }> = [];
+  if (hf.status === "found" && hf.evidence.length > 0) {
+    replacements.push({
+      modelId: model.id,
+      source: "huggingface-eval-results",
+      rows: toEvidenceRows(model.id, hf.evidence),
+    });
+  }
+  if (web.evidence.length > 0) {
+    replacements.push({
+      modelId: model.id,
+      source: "ollama-search",
+      rows: toEvidenceRows(model.id, web.evidence),
+    });
   }
   const searchRetryAfterAt = asString(web.receipt.retryAfterAt);
   if (searchRetryAfterAt) {
+    let fitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null = null;
+    let publicationError: string | null = null;
+    if (replacements.length > 0) {
+      try {
+        fitness = await replaceAndPublishBenchmarkEvidence(replacements);
+      } catch (error) {
+        publicationError = errorMessage(error);
+      }
+    }
+    if (publicationError) {
+      sourceStatus.fitnessPublication = { status: "error", error: publicationError };
+    }
     return {
       modelId: model.id,
       normalizationStatus: "search_retry_deferred",
       sourceStatus,
-      discoveredEvidence: sourceEvidence.length > 0,
-      evidenceSetsReplaced,
-      lastError: asString(web.receipt.error) ?? "Ollama Search temporarily unavailable",
+      discoveredEvidence: publicationError ? false : sourceEvidence.length > 0,
+      evidenceSetsReplaced: fitness !== null,
+      ...(fitness ? { fitness: fitness.scores } : {}),
+      lastError:
+        [...directErrors, asString(hf.receipt.error), asString(web.receipt.error), publicationError]
+          .filter((error): error is string => !!error)
+          .join("; ") || "Ollama Search temporarily unavailable",
       retryAfterAt: searchRetryAfterAt,
       consumeAttempt: asString(web.receipt.error) !== OLLAMA_SEARCH_NO_CREDENTIALS_ERROR,
     };
@@ -1270,23 +1325,38 @@ async function refreshSearchRun(
     })
   );
   sourceStatus.normalizationProcessor = processorReceipt;
-  if (
-    asString(web.receipt.status) !== "error" &&
-    ["candidate_evidence_unrated", "no_evidence_unrated", "no_search_candidates_unrated"].includes(
-      processor.status
-    )
-  ) {
-    replaceModelBenchmarkEvidenceSources([
-      {
-        modelId: model.id,
-        source: "ollama-search-structured-output",
-        rows: toEvidenceRows(model.id, normalized),
-      },
-    ]);
-    evidenceSetsReplaced = true;
+  if (normalized.length > 0) {
+    const normalizedRows = toEvidenceRows(model.id, normalized);
+    const incomingByKey = new Map<string, ModelBenchmarkSearchEvidenceInput>();
+    const unkeyedRows: ModelBenchmarkSearchEvidenceInput[] = [];
+    for (const row of normalizedRows) {
+      const key = getModelBenchmarkFitnessObservationKey(row);
+      if (key) incomingByKey.set(key, row);
+      else unkeyedRows.push(row);
+    }
+    const acceptedRows = [...incomingByKey.values(), ...unkeyedRows];
+    const updatedKeys = new Set(
+      acceptedRows
+        .map(getModelBenchmarkFitnessObservationKey)
+        .filter((key): key is string => key !== null)
+    );
+    const retained = listModelBenchmarkSearchEvidence(model.id)
+      .filter((row) => row.source === "ollama-search-structured-output")
+      .filter((row) => {
+        const key = getModelBenchmarkFitnessObservationKey(row);
+        return key === null || !updatedKeys.has(key);
+      });
+    replacements.push({
+      modelId: model.id,
+      source: "ollama-search-structured-output",
+      rows: [...retained, ...acceptedRows],
+    });
   }
+  const fitness =
+    replacements.length > 0 ? await replaceAndPublishBenchmarkEvidence(replacements) : null;
   const discovered = [...sourceEvidence, ...normalized];
   const searchErrors = [
+    ...directErrors,
     hf.status === "error" ? asString(hf.receipt.error) : null,
     asString(web.receipt.status) === "error" ? asString(web.receipt.error) : null,
     processor.status === "normalization_timeout_unrated"
@@ -1307,7 +1377,8 @@ async function refreshSearchRun(
     normalizationStatus: processor.status,
     sourceStatus,
     discoveredEvidence: discovered.length > 0,
-    evidenceSetsReplaced,
+    evidenceSetsReplaced: fitness !== null,
+    ...(fitness ? { fitness: fitness.scores } : {}),
     lastError,
     ...(processor.retryAfterAt ? { retryAfterAt: processor.retryAfterAt } : {}),
   };
@@ -1381,19 +1452,19 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
           candidate.modelId,
           materializeModelEvidence(model, snapshot, names, catalogIds)
         );
-        replacements.push(
-          ...evidenceSourceReplacements([model], snapshot, names, true, catalogIds)
-        );
+        replacements.push(...evidenceSourceReplacements([model], snapshot, names, catalogIds));
       }
-      let directFitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null = null;
+      const directPublication: {
+        fitness: ReturnType<typeof publishModelBenchmarkFitnessSnapshot> | null;
+      } = { fitness: null };
       if (replacements.length) {
         replaceModelBenchmarkEvidenceSources(replacements, () => {
-          directFitness = publishModelBenchmarkFitnessSnapshot();
+          directPublication.fitness = publishModelBenchmarkFitnessSnapshot();
         });
         await invalidateModelBenchmarkFitnessCache();
       }
       let scores = toScoreMap(
-        directFitness?.scores ?? (await recomputeModelBenchmarkFitness()).scores
+        directPublication.fitness?.scores ?? (await recomputeModelBenchmarkFitness()).scores
       );
       let completed = 0;
       while (completed < MAX_MODELS_PER_DRAIN) {
@@ -1417,9 +1488,7 @@ export function drainModelBenchmarkSearchQueue(): Promise<void> {
             direct,
             scores.get(run.modelId.toLowerCase())
           );
-          if (outcome.discoveredEvidence || outcome.evidenceSetsReplaced) {
-            scores = toScoreMap((await recomputeModelBenchmarkFitness()).scores);
-          }
+          if (outcome.fitness) scores = toScoreMap(outcome.fitness);
         } catch (error) {
           outcome = outcome
             ? {
