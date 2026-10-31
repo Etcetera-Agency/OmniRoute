@@ -1,8 +1,14 @@
-# Final native implementation tasks
+# Native configuration and acceptance tasks
 
-- [x] Restore all production files to BASE; preserve upstream budgets and guards.
-- [x] Verify saved native timeout1200000 on BASE loop with accelerated650000ms scenario.
-- [x] Verify4 benchmark cases: immediate504, long timeout, queue exhaustion, cooldown.
-- [x] Persist native timeout1200000 through production settings API; verify GET200.
-- [ ] Record final combined regression batch, review and repository correction commit.
-- [ ] Retain actual live benchmark acceptance before archive; no fresh inference run is claimed.
+- [x] Select `comboDefaults.comboTimeoutMs=1200000` through native settings;
+      preserve the native request loop and finite request lifetime.
+- [x] Preserve the 30-attempt default (hard limit 200), existing
+      three-identical-model guard, finite target deadlines, cancellation, and
+      strict-free eligibility.
+- [x] Preserve historical settings and offline regression receipts in
+      `completion.review`.
+- [x] Align proposal, design, tasks, and spec delta with the selected native
+      configuration. Earlier custom-loop claims remain superseded history.
+- [ ] Complete passive runtime acceptance after the authorized release retry;
+      see `openspec/TODO.md` for exact gates and current status.
+- [ ] Archive only after runtime gates and package review are accepted.

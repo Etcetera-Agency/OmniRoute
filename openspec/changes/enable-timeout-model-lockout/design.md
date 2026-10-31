@@ -22,7 +22,7 @@ Completed PATCH200 and verification GET200 on 2026-10-31 without restart or depl
 Canonical parameters are errorCodes403/404/429/502/503/504, base120000ms,
 max1800000ms, maxBackoffSteps10 and exponentialtrue. Secrets remain remote.
 
-## No source extension
+## Historical source-scope receipt (superseded)
 
 Backend/UI defaults, timeout recorder and predicate remain identical to original
 base ceef1b0377. Removed unsupported upstream_response_failed504 exception,

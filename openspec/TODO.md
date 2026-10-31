@@ -17,13 +17,12 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       is unnecessary. Persisted native comboDefaults1200000 via PATCH200/GET200.
 - [x] Final combined fork regression43/43 passed; PR54 restored all production
       source to BASE and live455442b05754 (merge23066b5c22).
-- [ ] Complete user-directed manual audit beyond APInex through TL013/TL014.
-      APInex direct basic and strictSO probes200 with usage.cost_tokens0 prove
-      usablefreeSO model, so missingcatalog/state cannot be calledproofpaid.
-      Verify common catalog/identity/capability/state data across active LLMproviders.
-      Preserve nativeupstreamstrict; inspectfork9ba456643e/modelsDevimport bridge
-      andactualsnapshotfreshness/IDmapping. Responsecostfields are not required.
-- [ ] Resolve live high-SO executable-pool gate before claiming fresh normalization
+- [ ] SUSPENDED / owner-dependent: manual price and structured-output provider
+      tests remain on hold pending the owner's answer about the current probe ban.
+      These tests and any fresh inference are not package-closure gates. Preserve
+      native strict-free policy; do not probe providers or models in this slice.
+- [ ] SUSPENDED / owner-dependent normalization follow-up: resolve live high-SO
+      executable-pool gate only before any separately authorized fresh normalization
       acceptance: smoke3432f08c-8b2c-4e20-b704-7c689ede3a97 returned404 before
       provider dispatch despite9 diagnostic rows for each manage key. Historical
       high-SO diagnostic reasons:6 not-in-catalog,3 state-unknown; zero of those
@@ -32,13 +31,16 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       remain unproven. Never widen strict eligibility to clear this gate.
       Initial PR53 main changes were reverted. Its GitHub image build41209904236 was cancelled before publish/deploy;
       image workflow disabled, live source455442b05754. No local image builds.
-- [x] Activate persistent gateway-only zero envs by authorized app-only restart
+- [x] Historical app-only activation: persistent gateway-only zero envs were set
       using current image and --no-build. Image603b8d65b894 and source455442b05754 unchanged; healthcheck passes,
-      Redis preserved. Benchmark processor bypasses gateway. Native saved
-      lockout/20min settings and gateway envs are now active.
-- [ ] Fresh production benchmark normalization acceptance and package archive
-      remain separate: latest queue runsOct26/27,9 historical normalization timeout
-      rows; no pending/running work or queue reset. Local mocks are not live evidence.
+      Redis preserved. Benchmark processor bypasses gateway. This prior runtime
+      had saved model lockout enabled, combo timeout 1,200,000 ms, and gateway
+      settings at zero. It does not prove settings in the candidate image after
+      the failed protected deployment; 20 minutes is not a models.dev interval.
+- [ ] SUSPENDED / owner-dependent: fresh production benchmark normalization is
+      separate from TL015 source closure and is not a required benchmark/package
+      closure gate. Historical queue runs were Oct 26/27 with 9 normalization
+      timeout rows; no new inference, queue reset, or normalization is authorized.
 - [ ] Separate upstream SDK issue: REQUEST_TIMEOUT_MS=0 converts to one-second
       Stainless timeout. Keep generic override unset; no SDK source change here.
 - [ ] Preserve known baseline debt:720 TypeScript diagnostics/113 files,72 docs
@@ -1153,15 +1155,29 @@ Deferred cross-repository and operations work:
 
 - Local implementation is in `openspec/changes/fix-native-free-evidence-import/` on branch `fix/auto-fallback-request-lifetime-20261031`. Exact provider/model source evidence survives beyond 36 hours with original `fetchedAt`; raw models.dev provider IDs use the existing native mapping. Upstream strict-zero policy, dynamic `openrouter/free` exclusion, static catalog precedence, hard stops, and quota checks remain intact.
 - E013 updated the fork-owned stale-evidence and raw-provider mapping expectations in `tests/unit/autoCombo/strict-zero-cost-filter.test.ts` and `tests/unit/modelsDevZeroCostEvidence.test.ts`. The separate compatible-pricing TTL is removed without changing capability false-veto or unknown behavior.
-- Passive live acceptance remains open because GitHub run `41224296940` published the image but deployment failed with `IMAGE_PULL_FAILED` before app stop. Verify the deployed importer, exact native metadata, and candidate classification after a successful protected deployment. Provider/model inference is explicitly prohibited and is not a required billing-proof gate; unrun inference is a verification limitation. Keep the package unarchived while deployment/passive acceptance remains open.
+- Historical passive run `41224296940` published an image but failed with
+  `IMAGE_PULL_FAILED` before app stop. It is superseded as the latest release
+  status by run `41247447693` below; retain its receipt without treating it as
+  the current deployment failure.
 - Guard decisions are approved under TL015: A2+B1+C1 and current source-label recognition. TL015 owns the related completeness, five-snapshot, all-row, and source-label work; these changes remain outside E013.
 
 - Deferred read-only sync audit: the runtime capture around 17:27Z and the post-failure capture retain `models_dev_zero_price.snapshot.fetchedAt=2026-10-29T23:31:57.808Z`, `model_capabilities.last_synced=2026-10-31T15:36:36.647Z`, and 238 pricing provider rows without a pricing write timestamp. The checked-out writer source at revisions `455442b05754` and E013 `11dda6ef46` preserves source time on cache hits; successful sync can rewrite the snapshot with that same time, and composed read evidence can retain the oldest compatible-source timestamp. That source comparison does not establish which writer the packaged startup loads; see the critical effective-startup gate below. Raw compatible snapshots currently span `2026-10-31T15:38:21.399Z`–`2026-10-31T15:38:23.886Z`. Determine startup rewrite/recomposition and later periodic-timer behavior from passive evidence; these timestamps alone establish neither sync failure nor absence of recalculation. Do not force sync or make provider/model calls.
 
-- Critical effective-startup packaging gate (TL013 artifact audit): `/app/.build/next/server/instrumentation.js` loads base chunk `68236`, whose models.dev writer updates pricing only. The overlay instrumentation/chunk `65453` contains the zero-snapshot writer, but the packaged startup does not load it. Checkout/source SHA alone therefore cannot establish native zero-evidence startup activation. Hold candidate app switch for published main `0bf99c1`/digest `sha256:a5dccc2c0f5892943c5fdfd0db43d3b1205f0299109dc73aebe6d673d1ce98ac` until TL013's bounded packaging fix and effective-bundle regression resolve this gate. Parent coordinates consolidation with TL015 and any single subsequent GitHub build. Do not force sync, invoke providers/models, or dispatch another build independently. The prior source-path comparison does not prove which startup writer ran; preserve the raw DB/source-time observations above without claiming sync failure.
-- Coordinated deployment retry: the exact pull failure was root filesystem exhaustion while registering the Chromium layer. A verified 3159546880-byte idle diagnostic image archive was relocated to `/var/oled` with original path preserved; root now has4.6GB available and auxiliary storage6.9GB. Preserve receipt `/var/oled/omniroute-deploy-diagnostics/e013-space-recovery.json`, all existing rollback pairs and the archive SHA-256 `080176ad3734cfc37ea003e48f5794877a626b74b826cd33443d6b73914663bc`. Recheck storage headroom and perform the standard protected GitHub deployment only after the effective-startup packaging gate is resolved; no retry has tested the recovered space yet.
+- Historical pre-P1 artifact capture found the BASE root entry loading chunk `68236`
+  instead of overlay chunk `65453`; the source-built OVERLAY packaging fix and
+  final-stage COPY correction are now accepted and integrated. This old capture
+  is not OCI/runtime proof. The later run `41247447693` published the selected
+  immutable image but deployment failed before stopping the current app; see the
+  current acceptance record at the end of this file.
+- Preserve the prior storage-recovery receipt, every rollback pair, and the
+  3,159,546,880-byte diagnostic archive at its preserved path. Latest reported
+  free space is 1.41 GB at root and 7.19 GB under `/var/oled`; do not clean up or
+  create a separate storage gate from these figures.
 
-- Superseded passive sync uncertainty: the earlier timestamp captures above remain historical; they did not by themselves establish recalculation. The owner-confirmed live artifact cause and remaining startup decision are recorded under `TL013 startup artifact and APInex strict-output follow-up` below. Do not force sync or make provider/model calls.
+- Superseded passive sync uncertainty: the earlier timestamp captures above
+  remain historical; they did not by themselves establish recalculation. The
+  owner-selected OVERLAY design and current runtime gates are recorded below.
+  Do not force sync or make provider/model calls.
 
 ## TL015 — benchmark source isolation (2026-10-31)
 
@@ -1187,16 +1203,15 @@ Deferred cross-repository and operations work:
       That exact offline test passes 1/1; focused six-file ESLint passes. Production
       source is unchanged; prior unfiltered 68/68 and independent source review stand.
 - [x] Owner accepted source, unfiltered 68/68, independent review, and P3
-      clarification. Feature integration is tracked by
-      [PR57](https://github.com/Etcetera-Agency/OmniRoute/pull/57); current-main PR56
-      history is preserved in the feature branch. Merge completion must be confirmed
-      from the PR and fetched main, not inferred from local checks.
-- [ ] After confirmed PR57 integration, complete the GitHub-only build and
-      protected deployment/passive runtime acceptance. No local build or deployment
-      is part of this slice. Owner correction: the no-space issue was fixed without
-      stopping the app; TL013 owns the separate held startup-artifact fix. These
-      facts do not close deployment/runtime acceptance. Keep the package unarchived
-      until the parent closes these gates.
+      clarification. PR57 is merged and its accepted source is integrated in
+      current main. Task 9 is only the GitHub release, protected deployment, and
+      passive runtime receipt; source/tasks 1–8 are complete.
+- [ ] Task 9 remains open because run `41247447693` built and published the
+      immutable image but protected deployment failed with
+      `COMPOSE_RUNTIME_MISMATCH`. This is not awaiting new source work or parent
+      acceptance of the source. Retry only the existing immutable artifact after
+      the pending owner health-policy answer and parent retry grant; do not start
+      another build. Runtime proof remains distinct from local 68/68/review.
 - Focused core typecheck exits 1 with 712 repository diagnostics, none in the
   three modified production modules. The prior focused ESLint unused `init` finding at
   `tests/unit/modelBenchmarkSearch.test.ts:1525` is resolved by the explicitly
@@ -1218,38 +1233,38 @@ Deferred cross-repository and operations work:
       OVERLAY writer is unused. The native pricing table is lossy (`missing → 0`)
       and cannot replace the unchanged explicit-zero proof getter. The minified-base
       patch was rejected.
-- [x] Owner selected full source-built OVERLAY startup; choice closed. Local
-      packaging delegates official root `server/instrumentation.js` to the
-      selected overlay's compiled entry, preserving its relative chunk tree and
-      official UI. Implementation and offline tests are on isolated branch
-      `fix/source-built-startup`, based on approved source
-      `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. This is not deployed: the old
-      BASE periodic zero-price writer defect remains live until parent review,
-      immutable artifact proof, and authorized deployment.
+- [x] Owner selected full source-built OVERLAY startup; source integration and
+      local review are accepted. Packaging delegates official root
+      `server/instrumentation.js` to the selected overlay's compiled entry,
+      preserving its relative chunk tree and official UI. The integrated source
+      descends from accepted startup commit
+      `276fd8d856d47b2d7d1f447e7bd856e2090caf63` and is present in current main
+      `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`. Runtime proof remains open.
 - [x] P1 confirmed: the final runtime stage discarded the generated root entry.
-      Corrected locally with its explicit merged-backend COPY and a regression
-      applying actual final-stage COPY instructions to a fresh official fixture.
-      RED 1/1 failed; GREEN affected fixture suite 11/11 and native chain 5/5
-      passed. P1 rereview accepted with no findings; local commit authorized.
-      OpenSpec remains open for GitHub real OCI proof and passive acceptance.
-- [ ] Before any production startup/restart, verify existing
-      `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` is effective. Native
-      `initCredentialHealthCheck()` uses it to disable the background credential-
-      health sweep that can send provider test inference; it does not disable
-      explicit manual provider-test routes. This setting is the exact available
-      no-probe guard found in source. Parent authorized its persistent env delta
-      after local review during the already-authorized GitHub deployment. No
-      runtime value was checked or changed in this local correction.
-- [ ] Verify the authorized GitHub OCI artifact contains the delegated root
-      entry and complete source-built overlay dependency tree, bound to the
-      reviewed source SHA. Parent acceptance of this consolidated local receipt
-      precedes the already-authorized GitHub phase; no new owner permission gate
-      is added. Exact SO commit `044bf3e4f78749f0ececafad37bec538bbe011c9` and
-      PR59 audit head `1a9ee3241d0e9171df1747cd5e9e0e3e42931dc2` remain in
-      integration ancestry.
-      Offline fixture proof is not OCI proof. Preserve the artifact receipt.
-      No local or server-image build. Keep the startup OpenSpec package
-      unarchived until its artifact/runtime gates pass.
+      The explicit merged-backend COPY and actual final-stage fixture regression
+      were accepted: historical RED 1/1, GREEN 11/11, native chain 5/5, rereview
+      with no findings. These local receipts do not prove the OCI artifact.
+- [ ] Runtime gates remain open after run `41247447693` published the immutable
+      image and protected deployment failed with `COMPOSE_RUNTIME_MISMATCH`.
+      Verify source/digest/`BUILD_SHA`, the delegated root entry and complete
+      overlay dependency tree, native periodic writer activation, and passive
+      fresh metadata only after an authorized retry. Parent accepted the local
+      source integration; retry still needs the pending owner health-policy
+      answer and parent retry grant. No new build is authorized.
+- [ ] SUSPENDED / owner-dependent startup health policy: the pending owner
+      decision covers manual price/structured-output tests only versus also
+      allowing stock automatic credential-health checks after restart. The
+      earlier `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` environment delta
+      was parent implementation work, not an owner requirement; it was safely
+      reverted and is not a required gate. Do not restart or retry deployment
+      until the owner answer and parent grant arrive.
+- Deferred upstream behavior, not a current fix task: native global
+  `credentialHealthCheck.intervalMinutes=0` suppresses periodic checks but does
+  not prevent the initial credential-health sweep after its 30-second startup
+  delay. Do not investigate or change it in this slice. If the owner selects a
+  policy that disables those automatic startup checks, track the initial-sweep
+  behavior as a separate upstream bug. Per-connection health interval `0` is
+  supported; no bulk writes are authorized or required for 34 connections.
 - A successful native models.dev startup sync is immediate and nonblocking when
   saved `modelsDevSyncEnabled=true` (or `MODELS_DEV_SYNC_ENABLED=1`) and
   `syncCapabilities` defaults true; it writes the raw zero-price snapshot and
@@ -1278,15 +1293,24 @@ Deferred cross-repository and operations work:
 - Reviewer-authorized read-only DB capture at `2026-10-31T19:02:52.118Z` found exact `model_id=deepseek-v4.1-flash`: `structured_output=true` for `provider_id=opencode-go` and `opencode-zen`, false for `alibaba-token-plan` and `ollama-cloud`. All four rows have `last_synced=2026-10-31T15:36:36.647Z`. These are different provider/model tuples, with no same-tuple conflict or inheritance. No requery was performed for this correction.
 - [x] Earlier planned per-connection `GET /api/providers/{connectionId}/models?refresh=true&excludeCustom=true` was unnecessary: the one-time native sync produced fresh source/snapshot/synced receipts for all four active compatible connections. The compatible refresh branch at `route.ts:419` remains catalog-GET-only (OpenAI-compatible up to three URLs; Anthropic-compatible up to 20 pages); no inference call.
 - Owner authorized ordinary stock derived `qtSd` and `auto:discovery` writes during native catalog reimport; completed sync kept hooks enabled and before/after effects are captured below. Persistence uses `notifyQuotaCombosForProvider` (`quotaCombos.ts:237`) and `contextWindowResolver.ts:104`; these local hooks make no provider requests.
-- [x] Captured native source `capabilities.structured_output` presence and exact connection/model IDs, snapshots, synced rows, resolver outcomes, combos, and overrides around the one authorized import. No provider/config additions, full models.dev benchmark refresh, separate queue/search/normalization flow, or chat/completion/model probes. Full-overlay startup selection stays pending independently.
+- [x] Historical capture of native source `capabilities.structured_output`
+      presence and exact IDs, snapshots, synced rows, resolver outcomes, combos,
+      and overrides around the one authorized import. No provider/config
+      additions, benchmark refresh, queue/search/normalization flow, or probes
+      occurred. Startup selection was pending then; owner later selected
+      OVERLAY as recorded below.
 
 - Integrated source checkpoint: local feature commit `5dd353e3ae` merged authorized `origin/main=e7be7311342608661a1b14b989019b441261eeb6` (PR57) with only manual root-doc concatenation; both root histories preserved. Integrated offline Node batch passed 144/144 with zero skips; strict filter 19/19. `npm run typecheck:core` on both a fresh exact-main archive and integrated tree returned exit 2 with the same 712 byte-identical diagnostic lines, zero new diagnostics. No upstream type debt repair or startup change.
 - [x] One-time native sync with the body above completed after standard dashboard auth. It wrote native pricing and the canonical zero snapshot, skipped capability save/benchmark refresh, and imported all four active compatible connections with stock hooks. `PROXY_AUTO_SELECT_ENABLED` is unset/effectively false, so optional OpenAI catalog HEAD path was inactive. No periodic interval started; request-local timers and reconciliation settled. See exact backup and before/after receipts in the acceptance section below.
-- [x] Post-deployment emitted route artifact, DB backup, zero/pricing evidence, all active connection imports, pools/combos/dependent session/LKGP/proxy rows, context overrides, strict-free settings, and settled hooks were captured. Per-connection source/import results were checked. No inference/search/benchmark/normalizer queue. One-time import leaves BASE periodic zero writer unfixed; startup selection independently pending.
+- [x] Historical post-deployment capture recorded emitted routes, protected DB
+      backup, zero/pricing evidence, active connection imports, dependent rows,
+      strict-free settings, and settled hooks. It made no inference, search,
+      benchmark, or normalizer request. The one-time import left the old BASE
+      periodic zero writer unfixed; the owner later selected OVERLAY startup.
 
-## TL013 exact-main deployment and metadata acceptance (2026-10-31)
+## Historical TL013 exact-main deployment and metadata capture (2026-10-31)
 
-- [x] PR58 accepted source `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8` remains fetched `main`. One manual dispatch of workflow `373883666` completed run `41235613024`: ARM64 build, emitted artifact/runtime check, UI parity, immutable publish, and protected deploy job `124641967040` succeeded. Workflow returned to `disabled_manually`. Published image: `ghcr.io/etcetera-agency/omniroute@sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`.
+- [x] Historical PR58 receipt: accepted source `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8` was deployed in run `41235613024`, with successful ARM64 build, artifact/runtime check, UI parity, immutable publish, and protected deploy. Its image remains the old healthy runtime after later run `41247447693` failed before app stop. Workflow `373883666` is disabled. Image: `ghcr.io/etcetera-agency/omniroute@sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`.
 - [x] Runtime is healthy on that digest and exact `BUILD_SHA`; effective emitted route files were verified at `/app/.build/next/omni-overlay/server/app/api/settings/models-dev/route.js` (SHA-256 `478ac4b69471516d19bf2c0a2bd0c739e9f52ae16198cb915d5a65fc5bdcca94`, sync marker present) and `/app/.build/next/omni-overlay/server/app/api/v1/auto-combo/[channel]/candidates/route.js` (SHA-256 `74aa7998236985f8abb65ee6ff8c74bcc3a21ac826c1b234dcf92497909be826`, strict marker present). Old app container exited `2026-10-31T20:00:15.557161245Z` (143); new container started `2026-10-31T20:00:19.138980479Z`, restart count 0 at final read. Redis stayed healthy on original image. BASE startup command remains unchanged. Paired rollback material and 3,159,546,880-byte diagnostic archive remain preserved; no cleanup. Latest root free space was 3,123,126,272 bytes; `/var/oled` free space 7,194,427,392 bytes. The direct restart-gate warning did not reach TL013 before old-app stop.
 - [x] First sync POST returned HTTP 403 before handler execution; original response bytes and correlation ID were not retained. `AUTH_001` with “Invalid management token” is the source response for the invalid-management-bearer branch, not the observed original body or confirmed cause. The API-key/hash mismatch was source diagnosis only; it does not establish why that request failed or rule out other controls. A later standard dashboard login/session, same-origin request, and CSRF header were accepted for the single authorized sync; no new credential, JWT, permission, config, or guard change.
 - [x] Exactly one authorized native POST then completed: `{"action":"sync","dryRun":false,"syncCapabilities":false}`. Response HTTP 200, `success=true`, 9,829 models, 238 providers, 0 capability writes. Existing native sync returned before any periodic start/stop call; `periodicEnabled=false` remains. No retry, inference, provider/model probe, benchmark, search, queue, or normalizer work.
@@ -1297,7 +1321,12 @@ Deferred cross-repository and operations work:
 - Stock bookkeeping settled with no delta: LKG pool rows 32; APInex session history 2; session affinity, proxy assignments/rotation, quota-pool membership, and `qtSd` combos unchanged/empty; `auto:discovery` overrides stayed 0 for both `auto/coding_high_tools:free` and `auto/general_high_so:free`. Hooks remained enabled. Free metadata eligibility is not billing proof.
 - At the initial post-sync capture, the Native Auto candidate endpoint had not yet been called. Current strict-cache refresh invokes `getUsageForProvider(..., { forceRefresh: false })`. Exact active branches show quota/account/catalog metadata reads, including allowed metadata POSTs for AGY/Antigravity; Antigravity model generation requires `forceRefresh === true && creditsMode === "always"`, so candidate refresh cannot reach it. No enrollment, provider probe, or inference ran. The later native-auth candidate evidence is recorded in the continuation below. Historical 9-row diagnostic had 6 `not-in-catalog` and 3 `state-unknown`; `reachable=true && excluded=false` is never an executable count. Historical order for `6dc4` remains unknown.
 - Policy decision resolved by owner: keep this fork's existing `OMNIROUTE_AUTO_BANDS_CONFIG.capabilities.so.unknown=deny`; no config/source change. It is not an upstream native-band setting (`bands/capabilities.ts` is absent upstream); stock combo admission rejects only explicit `structured_output === false`. Explicit false and free-only behavior stay unchanged. APInex's exact enriched raw catalog has no `structured_output` in 44 rows; its exact free/base targets remain unknown and are not structured-output-band eligible. `response_format` is recognized; false is incompatible, null passes. Quality validation checks response body/string/JSONPath, not caller JSON Schema; HTTP 200 invalid JSON/schema has no generic schema-based retry guarantee. This is a current limitation, not validator work; schema validation is future work only if desired and does not block the deny decision. Gemini translates `responseSchema`; Claude adds a prompt instruction; no common all-provider structured-output/schema guarantee exists.
-- BASE periodic zero-writer defect remains open/unfixed. At this audit point, full-OVERLAY startup choice was pending; owner later selected it, as recorded below. PR59 stays open; no merge or required-check bypass. See detailed continuation in `openspec/changes/archive/2026-10-30-generic-compatible-model-metadata/completion.review` and root `completion.review`.
+- Historical state: BASE periodic zero-writer defect was present and the
+  full-OVERLAY startup choice was still pending at that audit point. Owner later
+  selected OVERLAY and source integration is accepted. Prior PR59 status is
+  superseded by the current main/runtime record below; no required-check bypass
+  is implied. See retained review receipts in the archived package and root
+  `completion.review`.
 
 ## TL013 candidate-only acceptance continuation (2026-10-31)
 
@@ -1309,10 +1338,20 @@ Deferred cross-repository and operations work:
 
 ## TL013 startup delta and candidate-only continuation (2026-10-31)
 
-- Current accepted 355 release is deployed; startup selection is an independent pending owner decision: preserve BASE startup with stable integration, or select OVERLAY startup with its alternate bindings. Compiled BASE and OVERLAY register the same 77 orchestration import sites. Only two bindings differ: `modelsDev` (`368236` → `665453`) and cleanup (`539626` → `372844`). Correct the older claim that Arena/Radar/etc. are only additional fork boot. Compiled-chunk orchestration hash `1b59dad7de09159487d809bf0cd0a7c4fa463844b46807a929e0c54016892c1d` is not evidence of leaf-binary equality. Stable entry `instrumentation.ts:18` → `registerNodejs:512` exists in both; no production selective models.dev replacement hook was found. The test callback is not a production seam, and no other normalizer startup hook was found.
+- Historical startup-choice audit, superseded by the owner-selected OVERLAY
+  design above: BASE and OVERLAY shared the same orchestration import sites;
+  only `modelsDev` and cleanup bindings differed. No new production hook is
+  proposed or required.
 - Latest capture window `2026-10-31T20:37:12Z–20:49:32Z`: background/headless-disable vars unset, persisted `modelsDevSyncEnabled=true`, models.dev env vars unset. OVERLAY local timer status `false` does not establish BASE timer status. BASE periodic zero-writer defect remains open; no timer/config/source change.
-- Both BASE and OVERLAY include credential-health flow `instrumentation-node:781` → `credentialHealth/scheduler:191` → `providers/[id]/test:1024` → `validation/specialtyInline:250`; BASE also has the same path at `26509`, OVERLAY at `15464` and `26509`. Current config: health-disable unset; global default 60m; initial delay 30s; active NVIDIA credential; health interval null; refresh backoff absent; leases 0. Source can POST NVIDIA chat with `messages: [{role:"user",content:"test"}]` and `max_tokens:1`. This audit executed/observed no such request; do not claim inference or successful provider health. Preserve native job opt-ins, LiveWS=0, and empty wakeup-batch auto-ping.
-- No new production startup hook or implementation is proposed. Current deployment and metadata sync remain accepted. Candidate reason and logical strict-policy counts are captured above; per-account orderability remains unproven because the endpoint omits safe IDs/order. Startup choice remains independently pending.
+- Historical startup-health capture: both BASE and OVERLAY include the
+  credential-health flow shown above; at that capture health-disable was unset,
+  global default 60m, initial delay 30s, and no request was executed or observed.
+  Current owner policy is still pending; do not treat this historic capture as
+  authorization to restart or run a provider test.
+- No new production startup hook is proposed. Earlier deployment/metadata
+  acceptance and candidate diagnostics remain historical receipts; runtime
+  state is governed by the current run and exact gates below. Do not treat
+  candidate diagnostics as inference or orderability proof.
 
 ## TL013 shared models.dev structured-output fallback (2026-10-31)
 
@@ -1342,10 +1381,70 @@ Deferred cross-repository and operations work:
       `openspec/changes/archive/2026-10-31-fix-modelsdev-structured-output-fallback/`;
       merged shared contract is `openspec/specs/model-capability-resolution/spec.md`.
       Local spec archiving is not deployment or runtime acceptance.
-- [ ] Parent reviews this consolidated local receipt; after acceptance, continue
-      the already-authorized GitHub build/deploy and passive metadata follow-up.
-      No new approval gate applies. No push/build/deploy occurs before acceptance.
+- [x] Parent accepted source integration and the archived SO fallback remains
+      archived. Run `41247447693` already built and published its immutable
+      artifact; protected deployment failed with `COMPOSE_RUNTIME_MISMATCH`.
+      This historical package is not reopened or remerged. Passive runtime proof
+      is tracked by the current E013 release gate below, not by a pending parent
+      source-acceptance step.
 - [ ] SUSPENDED / owner-dependent: historical fresh inference, forced-tool-call,
       and billing acceptance items are currently forbidden and are not required
       to finish fallback metadata. Deferred compatible vision-false preservation
       remains a separate TODO.
+
+## E013 current release and runtime closure status (2026-10-31)
+
+- Accepted source integration `23d71601e2175282cfee4ac8e6d8b018f666411a` includes
+  PR59 audit `1a9ee3241d0e9171df1747cd5e9e0e3e42931dc2`, structured-output source
+  `044bf3e4f78749f0ececafad37bec538bbe011c9`, and source-built startup
+  `276fd8d856d47b2d7d1f447e7bd856e2090caf63`. Canonical GitHub `main` is
+  `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`; its tree matches the accepted
+  integration. TL015 PR57 and source tasks 1–8 are accepted; task 9 is the
+  GitHub release, protected deployment, and passive receipt only.
+- GitHub run `41247447693` built and published immutable image
+  `ghcr.io/etcetera-agency/omniroute@sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+  Protected deployment failed with `COMPOSE_RUNTIME_MISMATCH`,
+  `failed_before_stop=true`, and `candidate_may_mutate=false`; the app was not
+  stopped and no rollback occurred. Existing runtime remains healthy on source
+  `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`, image
+  `ghcr.io/etcetera-agency/omniroute@sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`.
+  Workflow `373883666` is disabled. No new source work or parent source
+  acceptance is pending; any retry is job-only against this immutable artifact.
+- The one `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` env delta was parent
+  implementation work, not an owner requirement. It was safely undone using the
+  protected backup. Restored `.env` SHA-256 is
+  `47172471b491d99700060b2eb54577794ef04726d855a949e4cc2fe036a374d0`; protected
+  flag-copy SHA-256 is
+  `b6b2b7e97a377adc07a8945bea4426149609159935bd432a223921c8760da42b`. Do not
+  infer that this flag is required. The owner decision remains pending: whether
+  the current prohibition covers manual price/structured-output tests only, or
+  also stock automatic credential-health checks after restart. Do not restart
+  or retry until that answer and a parent retry grant.
+- Deferred upstream behavior, outside this slice unless selected by the owner:
+  native global `credentialHealthCheck.intervalMinutes=0` suppresses periodic
+  checks but does not prevent the initial sweep after its 30-second startup
+  delay. Do not investigate or fix it here. Per-connection health interval `0`
+  is supported; no bulk writes are authorized or required for 34 connections.
+- Exact passive runtime gates after any authorized retry:
+  1. Bind reviewed source SHA and immutable image digest to actual runtime
+     `BUILD_SHA`; prove official root `server/instrumentation.js` delegates to
+     the complete source-built overlay dependency tree.
+  2. Prove selected startup runs native models.dev periodic sync with the saved
+     setting enabled, writes a fresh zero-price snapshot, and uses canonical
+     provider `kilocode`.
+  3. Prove APInex configured API base remains exact and the approved free/base model's
+     structured-output capability resolves `true` through native metadata or
+     the approved same-canonical-ID models.dev `true` fallback. Raw APInex
+     absence alone is not the final resolved result.
+  4. Read back strict-free policy, native model lockout enabled with codes
+     `403,404,429,502,503,504`, `comboDefaults.comboTimeoutMs=1200000`, both
+     bridge timeout settings `0`, `REQUEST_TIMEOUT_MS` unset, and models.dev
+     periodic interval at its native 24-hour default.
+  5. Capture passive runtime health and metadata receipts. AA metadata refresh
+     is allowed if configured; it does not authorize inference.
+- Current ban remains: no manual LLM, price/structured-output, normalizer,
+  search, forced-tool, or billing probes. These future owner-dependent actions
+  are SUSPENDED and are not package-closure requirements. No required GitHub checks are configured;
+  that is a repository fact, not a permission gate. Preserve all rollback pairs
+  and the diagnostic archive; do no cleanup. Latest reported free space is
+  1.41 GB at root and 7.19 GB under `/var/oled`.

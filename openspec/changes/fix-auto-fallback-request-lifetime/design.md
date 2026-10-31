@@ -16,8 +16,8 @@ GET settings and assert saved timeout1200000 and modelLockout.enabled=true
 
 Do not change targetTimeoutMs, maxGlobalAttempts, candidate pool, scoring, error
 classification, provider credentials or paid-routing policy. Native first calls
-and retries share the default30 total cap, hard200. Native three-identical-model
-errors still stop;504 is provider-class and does not satisfy that guard.
+and retries share the default30 total cap, hard200. The existing three-identical-
+model error guard remains unchanged; this change adds no error-class semantics.
 
 ## Benchmark boundary
 
@@ -34,11 +34,13 @@ source safety-cap removal is unnecessary. All original production files restored
 
 ## Other regressions
 
-Immediate504 fallback returns candidate evidence; exhausted queue work settles
-with a normalization error; next Auto request skips the cooled tuple. Mock sources
+Immediate504 fallback returns the successful candidate's evidence; exhaustion
+returns the native aggregate failure to the caller and settles queue work with a
+normalization error; the next Auto request skips the cooled tuple. Mock sources
 and models are isolated fixtures, never published as actual benchmark results.
 Call logs attribute the internal-probe key and output tokens; usage_history is
-not separately asserted. Queue stores generic HTTP error, not full aggregate body.
+not separately asserted. Queue stores a generic HTTP error, not the full
+aggregate body.
 
 ## Runtime state
 

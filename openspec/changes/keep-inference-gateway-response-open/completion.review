@@ -1,21 +1,21 @@
-Status: locally implemented; independent review P2 closed; combined fork-owned
-integration acceptance 45/45; unarchived pending external production gates.
-Authorization: parent selected this single transport contract and granted implementation.
+Historical status, superseded by the native configuration receipt appended
+below: prior custom source implementation and 45/45 integration results are
+retained as history, not current requirements. Runtime acceptance remains open.
 
-Current fork-owned acceptance is recorded under EX006 TEST-ONLY migration below.
+Historical fork-owned test evidence is recorded under EX006 TEST-ONLY migration below.
 Historical RED/GREEN sections document earlier fixture state only. In particular,
 tests/unit/runtime-timeouts.test.ts and other tracked upstream tests are restored
 unchanged; those historical runs do not establish current acceptance. No claim is
 made that prior 499 or safety fixtures were repaired or pass now.
 
-Current TL006 combined acceptance: the five fork-owned Node files pass 45/45
+Historical TL006 combined acceptance: the five fork-owned Node files passed 45/45
 with zero failures or skips. This includes the gateway HTTP response, request
 lifetime, lockout, and timeout-policy regressions. Log:
 /tmp/omni-auto-final-fork-node.log. Independent review confirmed all tests are
 discovered by the unchanged top-level unit glob and import no stock test modules.
 Source remains frozen; no claim is made about old 499 or safety fixtures.
 
-Production seams:
+Historical custom-code proposal (superseded):
 
 - src/shared/utils/runtimeTimeouts.ts: add derived inferenceProxyTimeoutMs; reuse
   hasEnvValue and existing validated timeout values. Implicit inference resolves
@@ -186,3 +186,17 @@ getProxyTimeoutMs unchanged. Only response-close cleanup remains in gateway code
 Combined fork suite passes 46/46. Provider defaults unchanged. Initial GitHub run
 41209904236 cancelled without publication/deploy; revised release awaits scope
 clarification. See revised design/spec and root completion.review.
+
+## Selected native gateway configuration (2026-10-31)
+
+This receipt supersedes the derived timeout resolver, route classifier,
+response-close cleanup, and SSE cleanup claims above. The selected change is
+configuration only: `API_BRIDGE_PROXY_TIMEOUT_MS=0` and
+`API_BRIDGE_SERVER_REQUEST_TIMEOUT_MS=0`; `REQUEST_TIMEOUT_MS` remains unset.
+Native timeout resolution, forwarding, cancellation, and SSE handling stay
+unchanged. No new upstream TODO is created for `REQUEST_TIMEOUT_MS`.
+
+The earlier 45/46 test receipts apply to historical custom code and do not prove
+current deployed behavior. This docs-only correction ran no tests. Passive
+runtime acceptance remains open under `openspec/TODO.md`; this package remains
+active and unarchived.

@@ -1,10 +1,10 @@
 # Completion review — enable-timeout-model-lockout
 
-**Status:** Local implementation, fork-owned regression migration, and
-cross-package integration receipts are complete. Production acceptance and
-archive remain open; this package stays unarchived.
+**Historical status, superseded by the native configuration receipt below:**
+The source implementation and regression migration described next are retained
+as history, not current requirements. Production runtime acceptance remains open.
 
-## Change
+## Historical source implementation receipt (superseded)
 
 - Default `ModelLockout.enabled` is now `true`; explicit `false` still disables
   recording. Existing 504 error-code membership, 120-second base cooldown,
@@ -92,7 +92,7 @@ archive remain open; this package stays unarchived.
 - The frozen source diff hash matches the authorized backup
   `/tmp/omni-auto-source-frozen.patch`:
   `f826d4367e29120ca76c72b647b7784e1d12b694b567582137ace983018feaa9`.
-- **Current TL006 combined acceptance:** the five fork-owned Node files pass
+- **Historical TL006 combined acceptance:** the five fork-owned Node files passed
   45/45 with zero failures or skips. The run includes both owned lockout tests;
   log: `/tmp/omni-auto-final-fork-node.log`. Independent review confirmed
   default-on/explicit-off, exact tuple recording, and real Auto filter/expiry
@@ -107,3 +107,18 @@ assigned that check to lifetime phase 2; no correction to
 `requestScopedReplayKey` was made here. This UI slice did not modify the root
 `completion.review` or `openspec/TODO.md`. No commit, push, deploy, restart, or
 archive occurred.
+
+## Selected native configuration (2026-10-31)
+
+This receipt supersedes the source-default, custom 504-recording, and UI-default
+claims above. Production uses the existing native saved setting
+`modelLockout.enabled=true`; the native source/UI default remains `false`.
+Native values remain `errorCodes=[403,404,429,502,503,504]`, base 120000 ms,
+maximum 1800000 ms, 10 exponential steps. HTTP 504 is already included by the
+native setting. No request-scoped 504 exception, recorder change, or UI/source
+default change is selected. Existing tuple scope, cooldown, expiry, and Auto
+filtering remain native.
+
+Historical native settings PATCH/GET and scoped regression receipts above stay
+as evidence; this docs-only correction ran no tests. The package remains active
+and unarchived pending passive runtime acceptance in `openspec/TODO.md`.

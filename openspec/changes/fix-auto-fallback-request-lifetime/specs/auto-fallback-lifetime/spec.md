@@ -29,7 +29,8 @@ No paid or out-of-band fallback SHALL be admitted.
 #### Scenario: Pool exhaustion settles queue
 
 - **WHEN** every admitted normalizer candidate fails
-- **THEN** queue work leaves running state and records normalization failure
+- **THEN** the caller receives the native aggregate OmniRoute failure
+- **AND** queue work leaves running state and records normalization failure
 
 #### Scenario: Native cooldown applies to next selection
 

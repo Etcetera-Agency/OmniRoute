@@ -14,7 +14,7 @@
   unchanged runner discovery and the actual failure -> lockout -> Auto filter
   -> expiry/restoration chain. TL006 makes no production changes.
 
-## Implemented
+## Historical custom-loop implementation receipt (superseded)
 
 - `executeTargetAttempt.ts` counts Auto repeats separately from actual dispatches.
   Every eligible Auto candidate keeps its first attempt, including pools above
@@ -170,3 +170,21 @@ and target-attempt regressions, and local design/tasks/review. Existing TL002
 hunks in the target runner and attempt test are retained. Root TODO/review,
 cooldown defaults/predicates, bridge, and UI edits remain with their owners.
 No commit, deployment, dependency edit, full typecheck, or Vitest run occurs.
+
+## Selected native request lifetime (2026-10-31)
+
+This receipt supersedes the custom repeat accounting, disabled identical-model
+guard, and unbounded Auto lifetime claims above. The selected implementation is
+only the native saved `comboDefaults.comboTimeoutMs=1200000` setting. Native
+Auto retains its 30-attempt default (hard limit 200), existing three-identical-
+model guard, finite target deadlines, cancellation, and native error handling.
+No separate repeat budget, custom retry loop, or new error class is selected.
+Native fallback still returns the next successful candidate response; exhausted
+attempts return the aggregate OmniRoute failure and settle the queue as failed;
+the existing cooldown filter applies on next selection.
+
+The models.dev periodic refresh remains at its native 24-hour default; the
+20-minute value is only the combo request budget. Historical settings and
+offline regression results remain receipts and were not rerun for this docs-only
+correction. Passive runtime proof remains open in `openspec/TODO.md`; this
+package remains active and unarchived.

@@ -24,8 +24,12 @@ admission remains in force. Unknown models must exist in active synced catalog.
 
 ## Acceptance
 
-Fork-owned tests execute actual benchmark processor/queue/Auto paths with mocked
-transport: first504 then normalized result, actual target-timeout fallback beyond
-600000ms but before1200000ms, pool exhaustion settles row, cooling excludes tuple
-on next selection. Native20min configuration passes with original BASE loop.
-No production benchmark inference or scored result is implied by local fixtures.
+Historical fork-owned tests cover the actual processor/queue/Auto paths with
+mocked transport: first candidate 504 followed by next-candidate success whose
+response returns normalized evidence; target-timeout fallback beyond 600000 ms
+but before 1,200,000 ms; exhaustion returning the native aggregate OmniRoute
+failure to the caller while the queue records normalization failure; and
+cooldown excluding the tuple on next selection. The saved 20-minute combo budget
+passed against the native loop. These receipts do not imply production benchmark
+inference or a scored result; no new test run is required for this documentation
+correction.

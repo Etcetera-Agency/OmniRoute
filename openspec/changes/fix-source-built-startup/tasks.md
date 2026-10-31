@@ -17,9 +17,11 @@
        implementation with Code Simplifier.
 6. [x] Update `openspec/TODO.md` and `completion.review` with the selected-but-not-
        live state, exact runtime probe guard, and remaining artifact/runtime gates.
-7. [ ] Parent accepts the local result; then continue the already-authorized
-       GitHub artifact, deployment, and passive runtime phases without a new
-       owner permission gate. Keep this package open until its runtime gates pass.
+7. [x] Parent accepted the local source integration. The GitHub artifact was
+       built and published; protected deployment and passive runtime proof remain
+       open under `openspec/TODO.md`. Any retry uses the existing immutable image
+       and waits for the owner health-policy answer plus parent retry grant; no
+       new source acceptance or build is required.
 8. [x] P1 correction: reproduce final-stage omission using actual runtime COPY
        instructions, copy the generated root entry explicitly, and rerun only
        affected fixture tests/checks. Targeted rereview accepted with no findings.

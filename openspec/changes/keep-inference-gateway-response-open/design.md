@@ -22,8 +22,8 @@ The two environment settings apply to all gateway requests, including receiving
 the incoming request body. Header/keepalive protections remain unchanged. Provider
 fetch default remains 600000ms; readiness remains 80000ms. Auto retains finite per-target deadlines, the upstream shared total-attempt cap and client cancellation.
 
-Do not set the generic REQUEST_TIMEOUT_MS=0: its shared SDK conversion currently
-produces a one-second timeout. Track that separate upstream issue in root TODO.
+Keep `REQUEST_TIMEOUT_MS` unset. The existing generic SDK timeout issue remains
+in root TODO; this package adds no new upstream follow-up.
 
 ## Verification
 

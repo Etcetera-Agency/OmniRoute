@@ -22,6 +22,6 @@ retains official UI; no claim that a fork UI source edit would ship is made.
 
 Production settings PATCH and GET both return200; persisted enabled=true with
 [403,404,429,502,503,504], base120000ms, max1800000ms, steps10, exponentialtrue.
-Use fork-owned tests for native configured504/target-timeout lockout, Auto pool
-exclusion and expiry. Do not modify upstream tests or invent a production504
-source for upstream_response_failed; its verified malformed producer emits502.
+Historical fork-owned tests cover configured native 504/target-timeout lockout,
+Auto pool exclusion, and expiry; their receipts remain in `completion.review`.
+Do not change upstream tests or add an `upstream_response_failed` 504 exception.

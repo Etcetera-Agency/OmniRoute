@@ -3,7 +3,8 @@
 - [x] Remove separate Auto repeat budget and restore native total accounting.
 - [x] Remove gateway response-close cleanup and associated test.
 - [x] Restore upstream timeout resolver and forwarding implementation; use native gateway settings.
-- [ ] Record revised verification and final release evidence before archive.
+- [ ] Complete passive runtime acceptance after the authorized artifact retry;
+      record exact evidence in `openspec/TODO.md` before archive.
 
 Earlier tasks below are historical implementation receipts; rejected source changes
 are superseded by the current design/spec and scope correction above.
