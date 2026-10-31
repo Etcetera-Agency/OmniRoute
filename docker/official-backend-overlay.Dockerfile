@@ -118,6 +118,10 @@ COPY src/lib/db/migrations/ /app/migrations/
 COPY --from=merged-backend \
   /app/.build/next/omni-overlay/server \
   /app/.build/next/omni-overlay/server
+# AICODE-NOTE: The final stage starts from official again; retain the generated startup delegate.
+COPY --from=merged-backend \
+  /app/.build/next/server/instrumentation.js \
+  /app/.build/next/server/instrumentation.js
 COPY --from=merged-backend \
   /app/.build/next/server/app-paths-manifest.json \
   /app/.build/next/server/app-paths-manifest.json

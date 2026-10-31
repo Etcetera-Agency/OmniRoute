@@ -90,6 +90,10 @@ async function makeFixture() {
     path.join(baseServerDir, "app", "page.js"),
     "module.exports = 'official-ui';\n"
   );
+  await fs.writeFile(
+    path.join(baseServerDir, "instrumentation.js"),
+    "module.exports = { register() { globalThis.__officialInstrumentationStarted = true; } };\n"
+  );
   await fs.mkdir(path.join(baseServerDir, "app", "dashboard"), { recursive: true });
   await fs.writeFile(
     path.join(baseServerDir, "app/dashboard/page.js"),
@@ -131,6 +135,18 @@ async function makeFixture() {
   await fs.writeFile(
     path.join(overlayServerDir, chunkPath),
     "module.exports = { runtime: 'overlay' };\n"
+  );
+  await fs.writeFile(
+    path.join(overlayServerDir, "instrumentation.js"),
+    'module.exports = require("./chunks/instrumentation-entry.js");\n'
+  );
+  await fs.writeFile(
+    path.join(overlayServerDir, "chunks/instrumentation-entry.js"),
+    'module.exports = { register: async () => require("../instrumentation-node.js").registerNodejs() };\n'
+  );
+  await fs.writeFile(
+    path.join(overlayServerDir, "instrumentation-node.js"),
+    "exports.registerNodejs = async () => { globalThis.__overlayInstrumentationStartedFrom = __filename; };\n"
   );
   await writeJson(path.join(overlayServerDir, "app-paths-manifest.json"), {
     "/dashboard/stub/page": dashboardStubRoute,
@@ -200,18 +216,115 @@ function mergeFixtureBackend(fixture) {
   });
 }
 
+test("root startup entry loads source-built instrumentation and its overlay dependencies", async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+
+  const previousRuntime = process.env.NEXT_RUNTIME;
+  delete globalThis.__officialInstrumentationStarted;
+  delete globalThis.__overlayInstrumentationStartedFrom;
+  process.env.NEXT_RUNTIME = "nodejs";
+
+  try {
+    await mergeFixtureBackend(fixture);
+    const startup = require(path.join(fixture.baseServerDir, "instrumentation.js"));
+    await startup.register();
+
+    assert.equal(
+      globalThis.__overlayInstrumentationStartedFrom,
+      path.join(fixture.runtimeOverlayServerDir, "instrumentation-node.js")
+    );
+    assert.equal(globalThis.__officialInstrumentationStarted, undefined);
+  } finally {
+    if (previousRuntime === undefined) delete process.env.NEXT_RUNTIME;
+    else process.env.NEXT_RUNTIME = previousRuntime;
+    delete globalThis.__officialInstrumentationStarted;
+    delete globalThis.__overlayInstrumentationStartedFrom;
+  }
+});
+
+test("final Docker runtime COPY contract retains source-built startup and official UI", async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+  const finalDistDir = path.join(fixture.root, "final", ".build", "next");
+  await fs.cp(fixture.baseDistDir, finalDistDir, { recursive: true });
+  await mergeFixtureBackend(fixture);
+
+  const dockerfile = await fs.readFile(
+    new URL("../../../docker/official-backend-overlay.Dockerfile", import.meta.url),
+    "utf8"
+  );
+  const runtimeStage = dockerfile
+    .replace(/\\\r?\n/g, " ")
+    .split(/^FROM \$\{OFFICIAL_IMAGE\} AS runtime\s*$/m);
+  assert.equal(runtimeStage.length, 2, "fixture supports the explicit official runtime stage");
+  const copies = runtimeStage[1]
+    .split(/^FROM\s/m)[0]
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("COPY --from=merged-backend "));
+  assert.ok(copies.length > 0);
+  for (const copy of copies) {
+    const match = /^COPY --from=merged-backend\s+(\S+)\s+(\S+)$/.exec(copy);
+    assert.ok(match, `unsupported runtime COPY layout: ${copy}`);
+    const [, source, destination] = match;
+    const prefix = "/app/.build/next/";
+    assert.ok(source.startsWith(prefix) && destination.startsWith(prefix));
+    const target = path.join(finalDistDir, destination.slice(prefix.length));
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.cp(path.join(fixture.baseDistDir, source.slice(prefix.length)), target, {
+      recursive: true,
+    });
+  }
+
+  delete globalThis.__officialInstrumentationStarted;
+  delete globalThis.__overlayInstrumentationStartedFrom;
+  try {
+    await require(path.join(finalDistDir, "server/instrumentation.js")).register();
+    assert.equal(
+      globalThis.__overlayInstrumentationStartedFrom,
+      path.join(finalDistDir, "omni-overlay/server/instrumentation-node.js")
+    );
+    assert.equal(globalThis.__officialInstrumentationStarted, undefined);
+    for (const file of [
+      "server/app/page.js",
+      "server/pages-manifest.json",
+      "static/dashboard.js",
+      "BUILD_ID",
+      "server/app-paths-manifest.json",
+      "app-path-routes-manifest.json",
+      "server/functions-config-manifest.json",
+      "routes-manifest.json",
+    ]) {
+      assert.deepEqual(
+        await fs.readFile(path.join(finalDistDir, file)),
+        await fs.readFile(path.join(fixture.baseDistDir, file)),
+        file
+      );
+    }
+  } finally {
+    delete globalThis.__officialInstrumentationStarted;
+    delete globalThis.__overlayInstrumentationStartedFrom;
+  }
+});
+
+test("merger fails closed when source-built startup instrumentation is missing", async (t) => {
+  const fixture = await makeFixture();
+  t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
+
+  const baseAppPathsFile = path.join(fixture.baseServerDir, "app-paths-manifest.json");
+  const originalAppPaths = await fs.readFile(baseAppPathsFile, "utf8");
+  await fs.rm(path.join(fixture.overlayServerDir, "instrumentation.js"));
+
+  await assert.rejects(mergeFixtureBackend(fixture), /backend overlay startup instrumentation/i);
+  assert.equal(await fs.readFile(baseAppPathsFile, "utf8"), originalAppPaths);
+});
+
 test("API route bundles load from isolated overlay with their own relative chunks", async (t) => {
   const fixture = await makeFixture();
   t.after(() => fs.rm(fixture.root, { recursive: true, force: true }));
 
-  const {
-    baseDistDir,
-    officialDir,
-    baseServerDir,
-    overlayDistDir,
-    overlayServerDir,
-    runtimeOverlayServerDir,
-  } = fixture;
+  const { baseDistDir, officialDir, baseServerDir, runtimeOverlayServerDir } = fixture;
   const officialUiBundle = await fs.readFile(path.join(baseServerDir, "app/page.js"), "utf8");
   const officialDashboardChunk = await fs.readFile(
     path.join(baseDistDir, "static/dashboard.js"),

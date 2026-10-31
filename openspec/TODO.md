@@ -1218,10 +1218,47 @@ Deferred cross-repository and operations work:
       OVERLAY writer is unused. The native pricing table is lossy (`missing → 0`)
       and cannot replace the unchanged explicit-zero proof getter. The minified-base
       patch was rejected.
-- [ ] Owner startup choice remains pending: preserve BASE plus stable
-      integration, or use the full OVERLAY with its additional catalog and
-      benchmark effects. Deployment remains held until that choice and integration
-      are resolved.
+- [x] Owner selected full source-built OVERLAY startup; choice closed. Local
+      packaging delegates official root `server/instrumentation.js` to the
+      selected overlay's compiled entry, preserving its relative chunk tree and
+      official UI. Implementation and offline tests are on isolated branch
+      `fix/source-built-startup`, based on approved source
+      `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. This is not deployed: the old
+      BASE periodic zero-price writer defect remains live until parent review,
+      immutable artifact proof, and authorized deployment.
+- [x] P1 confirmed: the final runtime stage discarded the generated root entry.
+      Corrected locally with its explicit merged-backend COPY and a regression
+      applying actual final-stage COPY instructions to a fresh official fixture.
+      RED 1/1 failed; GREEN affected fixture suite 11/11 and native chain 5/5
+      passed. P1 rereview accepted with no findings; local commit authorized.
+      OpenSpec remains open for GitHub real OCI proof and passive acceptance.
+- [ ] Before any production startup/restart, verify existing
+      `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` is effective. Native
+      `initCredentialHealthCheck()` uses it to disable the background credential-
+      health sweep that can send provider test inference; it does not disable
+      explicit manual provider-test routes. This setting is the exact available
+      no-probe guard found in source. Parent authorized its persistent env delta
+      after local review during the already-authorized GitHub deployment. No
+      runtime value was checked or changed in this local correction.
+- [ ] Verify the authorized GitHub OCI artifact contains the delegated root
+      entry and complete source-built overlay dependency tree, bound to the
+      reviewed source SHA. Parent coordinates consolidated local acceptance and
+      integration before this already-authorized GitHub phase continues; no new
+      owner permission gate is added. Preserve separate SO commit
+      `044bf3e4f78749f0ececafad37bec538bbe011c9` and open PR59 audit-doc history
+      at `1a9ee324...` during integration.
+      Offline fixture proof is not OCI proof. Preserve the artifact receipt.
+      No local or server-image build. Keep the startup OpenSpec package
+      unarchived until its artifact/runtime gates pass.
+- A successful native models.dev startup sync is immediate and nonblocking when
+  saved `modelsDevSyncEnabled=true` (or `MODELS_DEV_SYNC_ENABLED=1`) and
+  `syncCapabilities` defaults true; it writes the raw zero-price snapshot and
+  asynchronously refreshes public benchmark metadata, including AA only when
+  its API key is available. Saved `false` pauses this whole sync chain. These
+  source behaviors are covered only with offline fixture fetches; current
+  production saved setting and AA key presence remain unverified. The catalog
+  refresh does not claim or drain benchmark-search work, and no normalizer or
+  inference runs in the tested chain.
 - [x] Related TL013 APInex inspection found saved metadata for exact catalog ID
       `free/deepseek-v4.1-flash` has strict-output absent and the resolver returns null;
       a prior strict-JSON HTTP 200 exists. Raw source was not retained, so field
