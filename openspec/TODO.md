@@ -71,7 +71,8 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       `add-modeldev-zero-price-strict-gate` package using exact raw identities,
       durable freshness, and fail-closed matching. Do not weaken existing
       static quota/hard-stop rules or route outside `:free`.
-- [ ] After deployment, verify the exact in-band free/tools pool and one
+- [ ] SUSPENDED / owner-dependent; not a fallback metadata gate: after renewed
+      owner authorization, verify the exact in-band free/tools pool and one
       controlled forced tool call with separate client/provider counts,
       actual model/connection, zero-cost evidence, and no paid/out-of-band
       fallback. If no eligible fresh model remains or a provider rate-limits,
@@ -879,8 +880,9 @@ Deferred cross-repository and operations work:
       over-admits coding-high; the absolute quality error per model is unknown.
       Do not treat capabilities as benchmark results or calibrate from this
       heuristic alone.
-- [ ] Before live acceptance, confirm exact free-tier, in-band, capability-
-      matching candidate rows and complete the controlled forced-tool-call
+- [ ] SUSPENDED / owner-dependent; fresh inference is currently forbidden and
+      is not a fallback metadata gate. With renewed owner authorization, confirm
+      exact free-tier, in-band, capability-matching candidate rows and complete the controlled forced-tool-call
       smoke with separate client request/provider-attempt counts, actual
       model/connection, tool result, route, and zero-cost/no-fallback receipts.
 - [ ] Do not deploy or run model inference until the live strict zero-cost
@@ -1218,10 +1220,9 @@ Deferred cross-repository and operations work:
       OVERLAY writer is unused. The native pricing table is lossy (`missing → 0`)
       and cannot replace the unchanged explicit-zero proof getter. The minified-base
       patch was rejected.
-- [ ] Owner startup choice remains pending: preserve BASE plus stable
-      integration, or use the full OVERLAY with its additional catalog and
-      benchmark effects. Deployment remains held until that choice and integration
-      are resolved.
+- [x] Owner selected full OVERLAY startup. Parent consolidated local acceptance
+      comes first, followed by the already-authorized GitHub build/deploy and
+      passive metadata follow-up. Execution is held until integrated local readiness.
 - [x] Related TL013 APInex inspection found saved metadata for exact catalog ID
       `free/deepseek-v4.1-flash` has strict-output absent and the resolver returns null;
       a prior strict-JSON HTTP 200 exists. Raw source was not retained, so field
@@ -1245,8 +1246,44 @@ Deferred cross-repository and operations work:
 - Reviewer-authorized read-only DB capture at `2026-10-31T19:02:52.118Z` found exact `model_id=deepseek-v4.1-flash`: `structured_output=true` for `provider_id=opencode-go` and `opencode-zen`, false for `alibaba-token-plan` and `ollama-cloud`. All four rows have `last_synced=2026-10-31T15:36:36.647Z`. These are different provider/model tuples, with no same-tuple conflict or inheritance. No requery was performed for this correction.
 - After successful authorized GitHub deployment, reimport catalogs for active existing compatible connections through `GET /api/providers/{connectionId}/models?refresh=true&excludeCustom=true`. The compatible branch at `route.ts:419` fetches catalog GETs only: OpenAI-compatible can try up to three URLs; Anthropic-compatible can fetch up to 20 pages. It makes no inference call. Do not describe replay as one provider request or pure catalog writes.
 - Owner explicitly authorizes ordinary stock derived `qtSd` combo and `auto:discovery` override writes during later native catalog reimport. Before replay, capture a DB backup, current quota-pool membership/config and before-state hidden `qtSd` combos plus `auto:discovery` context-window overrides; compare after-state and verify strict free bands remain unchanged. No extra approval gate applies to stock bookkeeping; do not disable or bypass native hooks. Persistence calls `notifyQuotaCombosForProvider`, which uses a local per-pool serial queue to upsert/prune hidden `qtSd` combos (`quotaCombos.ts:237`). Changed synced rows schedule global context-window reconciliation (`contextWindowResolver.ts:104`), adding/removing `auto:discovery` overrides. These local hooks make no provider requests, but before/after proof of their runtime effects remains required for live acceptance. No hooks were executed here.
-- During authorized replay, capture sanitized native source `capabilities.structured_output` presence/value and exact provider/connection/raw-model IDs; compare snapshot, synced row, resolver, combos, and overrides before/after. Repeat passive GETs without `refresh` only after confirming cached rows exist. Preserve false, true, and absence as observed. No provider/config additions or changes, full models.dev sync/benchmark refresh, separate queue/search/normalization flow, or chat/completion/model probes. Startup full-overlay choice remains pending independently; artifact verification, authorized deployment, before/after hook-effect proof, and reimport acceptance remain open.
+- During authorized replay, capture sanitized native source `capabilities.structured_output` presence/value and exact provider/connection/raw-model IDs; compare snapshot, synced row, resolver, combos, and overrides before/after. Repeat passive GETs without `refresh` only after confirming cached rows exist. Preserve false, true, and absence as observed. No provider/config additions or changes, full models.dev sync/benchmark refresh, separate queue/search/normalization flow, or chat/completion/model probes. Full OVERLAY startup is selected; integrated local acceptance, already-authorized GitHub build/deploy, and passive metadata follow-up remain open.
 
 - Integrated source checkpoint: local feature commit `5dd353e3ae` merged authorized `origin/main=e7be7311342608661a1b14b989019b441261eeb6` (PR57) with only manual root-doc concatenation; both root histories preserved. Integrated offline Node batch passed 144/144 with zero skips; strict filter 19/19. `npm run typecheck:core` on both a fresh exact-main archive and integrated tree returned exit 2 with the same 712 byte-identical diagnostic lines, zero new diagnostics. No upstream type debt repair or startup change.
 - Existing one-time source path is exposed: authenticated `POST /api/settings/models-dev` body `{"action":"sync","dryRun":false,"syncCapabilities":false}`. It writes native pricing plus canonical zero snapshot, skips capability save/benchmark refresh, but still imports every existing active compatible connection and its stock local hooks. No new periodic interval is started; request timeout/backoff timers, local promise maintenance and changed-row reconcile debounce remain. Proxy resolution can update rotation state; opt-in `PROXY_AUTO_SELECT_ENABLED` can additionally HEAD-probe OpenAI's `/v1/models`. Inspect current existing proxy/transport configuration before claiming only intended catalog GETs; no config change or probe is authorized here. Full leaf effects and source locations are in this package's design.
-- Parent-only post-deployment follow-up: verify the effective route/writer artifact, capture DB backup and before/after pricing/zero snapshots, all active connection imports, pools/combos and dependent session/LKGP/proxy rows, context overrides and strict free bands, and wait for stock async hooks to settle. This API may serve a one-time import within existing catalog-resync authorization; no extra approval is needed for ordinary stock local bookkeeping. Per-connection SO proof remains necessary because failed compatible imports are swallowed. No execution now; no inference/search/benchmark or normalizer queue. One-time import leaves the BASE periodic zero writer unfixed and startup selection independently pending.
+- Parent-only post-deployment follow-up: verify the effective route/writer artifact, capture DB backup and before/after pricing/zero snapshots, all active connection imports, pools/combos and dependent session/LKGP/proxy rows, context overrides and strict free bands, and wait for stock async hooks to settle. This API may serve a one-time import within existing catalog-resync authorization; no extra approval is needed for ordinary stock local bookkeeping. Per-connection SO proof remains necessary because failed compatible imports are swallowed. No execution now; no inference/search/benchmark or normalizer queue. Full OVERLAY startup is selected; the parent coordinates integrated local acceptance, already-authorized GitHub build/deploy, and passive metadata follow-up.
+
+## TL013 shared models.dev structured-output fallback (2026-10-31)
+
+- [x] Owner-selected common resolver policy: the exact requested provider,
+      connection, and model's native structured-output boolean wins, including
+      `false`. Only when native value is absent, any models.dev row with the
+      same canonical model ID and explicit `structured_output=true` returns
+      true. Other rows' false/null/absence do not veto; no true evidence remains
+      unknown. `tool_call` is neither evidence nor prerequisite. This selection
+      supersedes the prior no-cross-provider-inheritance statement only for
+      exact same-ID models.dev structured-output fallback. Per-model overrides,
+      APInex gates, paid fallback, and billing gates remain out of scope.
+- [x] Local E013 implementation on
+      `fix/structured-output-modelsdev-fallback`, based on approved main
+      `35535ca87bcdcbb851f0442a67aaf2222ea1d0a8`. Existing resolver now checks
+      build snapshots or the established models.dev all-row cache after native
+      sources. Known `free/<model>` identity uses the exact existing resolver.
+      Unknown remains `null` for the current fail-closed band filter.
+- [x] DATA E013-so-sources: one public models.dev metadata GET and DB capture show exact ID
+      `deepseek-v4.1-flash` declared true by `opencode-go`/`opencode-zen` and
+      false by `alibaba-token-plan`/`ollama-cloud`; raw audit was 23 true and 2
+      false among 25 exact-ID records. This implementation used offline fixtures without repeating the GET or DB
+      capture. Owner selected the policy; DATA E013-so-sources supplied the data.
+      Fresh inference, forced-tool calls, and billing acceptance are currently
+      forbidden and are not metadata completion gates.
+- [x] Strictly validated and locally archived OpenSpec change as
+      `openspec/changes/archive/2026-10-31-fix-modelsdev-structured-output-fallback/`;
+      merged shared contract is `openspec/specs/model-capability-resolution/spec.md`.
+      Local spec archiving is not deployment or runtime acceptance.
+- [ ] Parent consolidated local acceptance/integration first, then the
+      already-authorized GitHub build/deploy and passive metadata follow-up.
+      No new approval gate applies. Execution remains held until local readiness.
+- [ ] SUSPENDED / owner-dependent: historical fresh inference, forced-tool-call,
+      and billing acceptance items are currently forbidden and are not required
+      to finish fallback metadata. Deferred compatible vision-false preservation
+      remains a separate TODO.

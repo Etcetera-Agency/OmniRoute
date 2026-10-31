@@ -18,7 +18,7 @@ import {
   getModelSpec,
   type ModelSpec,
 } from "@/shared/constants/modelSpecs";
-import { getSyncedCapability } from "@/lib/modelsDevSync";
+import { getSyncedCapability, getSyncedCapabilities } from "@/lib/modelsDevSync";
 import { knownReasoningEffortTiers, MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
 import { isModelsDevEffortTiersEnabled } from "@/shared/utils/featureFlags";
 import { getModelContextOverride } from "@/lib/db/modelContextOverrides";
@@ -600,6 +600,20 @@ function getSyncedCapabilityForExactModel(
   for (const candidate of getSyncedCapabilityProviderCandidates(provider)) {
     const found = getSyncedCapability(candidate, model, snapshot?.synced ?? null);
     if (found) return found;
+  }
+  return null;
+}
+
+// AICODE-NOTE: Cross-provider fallback needs exact model ID and explicit models.dev true.
+function getModelsDevStructuredOutputFallback(
+  modelId: string | null,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): boolean | null {
+  if (!modelId) return null;
+
+  const synced = snapshot?.synced ?? getSyncedCapabilities();
+  for (const providerCapabilities of Object.values(synced)) {
+    if (providerCapabilities[modelId]?.structured_output === true) return true;
   }
   return null;
 }
@@ -1253,7 +1267,10 @@ export function getResolvedModelCapabilities(
     supportsVideo,
     supportsMaxTokens: heuristicMaxTokens(lookupKey),
     attachment,
-    structuredOutput: compatibleSourceStructuredOutputOverride ?? synced?.structured_output ?? null,
+    structuredOutput:
+      compatibleSourceStructuredOutputOverride ??
+      synced?.structured_output ??
+      getModelsDevStructuredOutputFallback(isFreePrefixModel ? freeBase : resolved.model, snapshot),
     temperature: synced?.temperature ?? null,
     contextWindow,
     maxInputTokens: (() => {
