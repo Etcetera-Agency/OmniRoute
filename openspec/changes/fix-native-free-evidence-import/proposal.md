@@ -66,5 +66,7 @@ helper.
   hard-stop rules, regardless of imported snapshot age.
 - Focused regression is RED before implementation and GREEN afterward; focused
   checks and strict OpenSpec validation pass.
-- Live provider billing and deployment acceptance remain open and are recorded
-  in `openspec/TODO.md`; no implementation-complete marker is created.
+- Deployment and passive native metadata/candidate acceptance remain open and
+  are recorded in `openspec/TODO.md`; no completion marker is created while
+  these gates remain open. Provider/model inference is prohibited and is not a
+  required billing-proof gate; unrun inference remains a verification limitation.
