@@ -4,17 +4,20 @@
 
 Define provider-agnostic metadata discovery, safe endpoint resolution, current snapshots, explicit compatible pricing, and refresh integration for native compatible nodes.
 
+Final shared structured-output fallback is defined separately in
+[model-capability-resolution](../model-capability-resolution/spec.md). Missing
+compatible declarations remain absent; this adapter does not manufacture a
+native boolean or replace that shared resolution contract.
+
 ## Requirements
 
 ### Requirement: Discover metadata for native compatible nodes
 
-The system SHALL use one provider-agnostic compatible metadata adapter for
-configured nodes whose stored type is `openai-compatible` or
-`anthropic-compatible`. The adapter SHALL preserve exact provider ID,
-connection ID, and raw model ID. It SHALL reuse each protocol's existing
-authentication and fetch behavior and the shared model normalization and
-persistence path. It SHALL NOT infer metadata from names, IDs, suffixes,
-provider branding, canonical provider prices, or free-entitlement labels.
+Configured `openai-compatible` and `anthropic-compatible` nodes SHALL share
+one metadata adapter using existing protocol authentication/fetch and shared
+normalization/persistence. Exact provider, connection, and raw model IDs SHALL
+be retained. The adapter SHALL NOT infer metadata from names, IDs, suffixes,
+branding, canonical provider prices, or free-entitlement labels.
 
 #### Scenario: OpenAI-compatible documented model list
 
@@ -51,6 +54,42 @@ provider branding, canonical provider prices, or free-entitlement labels.
 - **THEN** the response does not activate a provider or make the model
   selectable
 - **AND** existing visibility and per-connection exclusions remain intact
+
+### Requirement: Preserve exact compatible structured-output declarations
+
+A native `capabilities.structured_output` boolean SHALL survive normalization,
+per-connection snapshot, and synced row for the exact provider/connection/raw
+model. Existing higher-priority synced booleans SHALL win. Otherwise the
+existing active-connection reducer SHALL let eligible false veto true,
+resolve eligible true to true, and keep absent compatible declarations unknown.
+
+#### Scenario: Preserve declared structured-output booleans through import
+
+- **GIVEN** the native catalog exporter returns an exact model row with
+  `capabilities.structured_output` set to `true` or `false`
+- **WHEN** that row passes through compatible import, snapshot persistence, synced
+  model persistence, and capability resolution for the same provider, connection,
+  and raw model ID
+- **THEN** the same boolean is available to the resolver
+- **AND** `false` remains authoritative
+- **AND** no other provider, connection, or model ID receives that declaration
+
+#### Scenario: Missing structured-output declaration remains unknown
+
+- **GIVEN** the source row has no boolean at
+  `capabilities.structured_output`
+- **WHEN** compatible metadata is imported and resolved
+- **THEN** no structured-output declaration is added to the snapshot or synced row
+- **AND** the resolver keeps its existing higher-priority result or unknown result
+
+#### Scenario: Preserve current compatible capability precedence
+
+- **GIVEN** an existing higher-priority synced structured-output boolean and a
+  conflicting compatible declaration
+- **WHEN** capability resolution runs
+- **THEN** the existing higher-priority boolean remains the result
+- **AND** absent higher-priority data lets the existing eligible false-veto reducer
+  decide the compatible declaration
 
 ### Requirement: Resolve compatible model endpoint safely
 
@@ -144,18 +183,19 @@ zero.
 - **AND** no previous metadata or price for that ID is reused
 - **AND** unique rows in the complete response still replace the current snapshot
 
-### Requirement: Apply fresh compatible pricing without account leakage
+### Requirement: Apply valid compatible pricing without account leakage
 
-Only fresh snapshots bound to configured nodes, exact connections, and synced
-raw IDs SHALL contribute compatible pricing. Models.dev and operator
-precedence SHALL remain unchanged. Compatible prices and zero evidence SHALL
-apply only when all eligible connections report the same explicit price;
-missing, stale, future-dated, or conflicting evidence is omitted. Strict-zero
-policy and freshness limit remain unchanged.
+Only valid non-future snapshots for configured nodes, exact connections, and
+synced raw IDs SHALL contribute compatible pricing. Age SHALL NOT expire snapshots
+or renew fetchedAt. Models.dev/operator precedence SHALL remain unchanged.
+Every eligible connection SHALL report complete identical explicit input/output
+prices. Missing, malformed, future, or conflicting evidence SHALL be omitted;
+nonzero prices SHALL NOT qualify as zero-price evidence. Strict-zero admission
+SHALL remain unchanged.
 
 #### Scenario: All eligible connections report explicit zero
 
-- **GIVEN** every eligible connection for one provider/raw ID has a fresh
+- **GIVEN** every eligible connection for one provider/raw ID has a valid non-future
   explicit zero/zero price
 - **WHEN** pricing and strict-zero evidence are read
 - **THEN** the existing pricing shape receives zero/zero under the exact
@@ -170,9 +210,9 @@ policy and freshness limit remain unchanged.
 - **THEN** compatible evidence for that provider/raw ID is omitted
 - **AND** no account's price is promoted to another connection
 
-#### Scenario: Source expires independently
+#### Scenario: Invalid source timestamp is rejected independently
 
-- **GIVEN** one compatible snapshot is stale, future-dated, or malformed
+- **GIVEN** one compatible snapshot is future-dated or malformed
 - **WHEN** strict-zero evidence is read
 - **THEN** that snapshot contributes no identities or pricing
 - **AND** any independent valid models.dev evidence retains its own timestamp
@@ -190,7 +230,7 @@ The existing periodic models.dev sync SHALL refresh active compatible node
 metadata through the shared adapter without making models.dev pricing or
 capability writes depend on compatible-node availability. A compatible refresh
 failure SHALL leave its prior snapshot unchanged. A later models.dev pricing
-replacement SHALL merge only current, fresh, owned compatible prices and SHALL
+replacement SHALL merge only current, valid, owned compatible prices and SHALL
 not renew their source timestamps.
 
 #### Scenario: Compatible endpoint fails during periodic sync
@@ -206,4 +246,4 @@ not renew their source timestamps.
 - **GIVEN** a compatible snapshot is current and unambiguous
 - **WHEN** a later models.dev pricing save replaces its namespace
 - **THEN** exact current compatible prices remain represented
-- **AND** compatible source freshness continues to use its original fetch time
+- **AND** compatible source provenance retains its original fetch time without age expiry

@@ -1,0 +1,28 @@
+# Completion review — fix-native-free-evidence-import
+
+## Final parent runtime acceptance and archive receipt (2026-11-01)
+
+Parent accepted deployed source `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`
+and immutable ARM64 image
+`sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+Existing GitHub run `41247447693` attempt 2 succeeded at
+`2026-11-01T00:09:11Z` by retrying only the failed deployment job; no build or
+publish repeated. Workflow `373883666` returned disabled. The owner explicitly
+kept stock automatic credential-health checks. Prior failed-before-stop and
+safe environment undo receipts remain history; their holds are resolved.
+
+Actual root startup delegates into the deployed source-built overlay. Parent
+accepted the fresh native zero-price snapshot at `2026-11-01T00:08:36.277Z`,
+canonical `kilocode`, registered native 24-hour periodic writer, AA metadata
+426 rows, strict-free/native timeout readbacks, APInex free target SO `true`,
+and native false control. Status-route local timer state is a diagnostic
+limitation, not proof that startup periodic work is disabled. No separate base
+APInex runtime GET is claimed. Detailed accepted evidence, protected backup,
+rollback pair, and deferred findings are recorded in root `completion.review`
+and `openspec/TODO.md`.
+
+Prior accepted functional regressions and reviews remain evidence; no source
+or full tests, inference, manual sync, queue, provider/model probes, or runtime
+configuration changes were performed for this documentation closure. Earlier
+custom-source claims and runtime-pending statements remain superseded history.
+The selected delta is merged into living specs before this package is archived.

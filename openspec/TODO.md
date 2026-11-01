@@ -2,6 +2,9 @@
 
 Deferred scope discovered while preparing the Hermes OmniRoute specs.
 
+> Current seven-package closure is recorded in the final E013 runtime acceptance
+> section. Earlier pending runtime/health statements are historical and resolved.
+
 ## Auto fallback incident follow-up
 
 - [x] Use native modelLockout.enabled=true via production API PATCH200/GET200.
@@ -18,7 +21,8 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 - [x] Final combined fork regression43/43 passed; PR54 restored all production
       source to BASE and live455442b05754 (merge23066b5c22).
 - [ ] SUSPENDED / owner-dependent: manual price and structured-output provider
-      tests remain on hold pending the owner's answer about the current probe ban.
+      tests remain banned; the owner resolved the separate startup-health question
+      by keeping stock automatic credential-health checks.
       These tests and any fresh inference are not package-closure gates. Preserve
       native strict-free policy; do not probe providers or models in this slice.
 - [ ] SUSPENDED / owner-dependent normalization follow-up: resolve live high-SO
@@ -1206,7 +1210,8 @@ Deferred cross-repository and operations work:
       clarification. PR57 is merged and its accepted source is integrated in
       current main. Task 9 is only the GitHub release, protected deployment, and
       passive runtime receipt; source/tasks 1–8 are complete.
-- [ ] Task 9 remains open because run `41247447693` built and published the
+- [x] Historical task 9 hold, resolved by accepted attempt 2 on 2026-11-01: it
+      remained open because run `41247447693` built and published the
       immutable image but protected deployment failed with
       `COMPOSE_RUNTIME_MISMATCH`. This is not awaiting new source work or parent
       acceptance of the source. Retry only the existing immutable artifact after
@@ -1249,7 +1254,8 @@ Deferred cross-repository and operations work:
       `sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
       The read-only, network-none filesystem-container receipt and its static-
       only boundary are recorded in the E013 current release section below.
-- [ ] Runtime gates remain open after run `41247447693` published the immutable
+- [x] Historical runtime hold, resolved by accepted attempt 2 on 2026-11-01:
+      runtime gates remained open after run `41247447693` published the immutable
       image and protected deployment failed with `COMPOSE_RUNTIME_MISMATCH`.
       Prove actual app initialization, native periodic writer activation, and
       passive fresh metadata only after an authorized retry. Static artifact
@@ -1257,7 +1263,8 @@ Deferred cross-repository and operations work:
       gate, and no full transitive async-graph walk is required. Parent accepted
       the local source integration; retry still needs the pending owner
       health-policy answer and parent execution grant. No new build is authorized.
-- [ ] SUSPENDED / owner-dependent startup health policy: the pending owner
+- [x] Historical startup health-policy hold, resolved by owner KEEP STOCK
+      on 2026-11-01: the pending owner
       decision covers manual price/structured-output tests only versus also
       allowing stock automatic credential-health checks after restart. The
       earlier `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK=true` environment delta
@@ -1399,7 +1406,7 @@ Deferred cross-repository and operations work:
       to finish fallback metadata. Deferred compatible vision-false preservation
       remains a separate TODO.
 
-## E013 current release and runtime closure status (2026-10-31)
+## Historical E013 pre-runtime closure status (2026-10-31)
 
 - Accepted source integration `23d71601e2175282cfee4ac8e6d8b018f666411a` includes
   PR59 audit `1a9ee3241d0e9171df1747cd5e9e0e3e42931dc2`, structured-output source
@@ -1464,3 +1471,87 @@ Deferred cross-repository and operations work:
   that is a repository fact, not a permission gate. Preserve all rollback pairs
   and the diagnostic archive; do no cleanup. Latest reported free space is
   1.41 GB at root and 7.19 GB under `/var/oled`.
+
+## E013 final runtime acceptance and seven-package archive (2026-11-01)
+
+- [x] Parent accepted actual source/OCI/server/BUILD_SHA
+      `dcc79e26476434ef0e0bcb5d49be50798c58c0fd` on immutable ARM64 image
+      `sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+      Existing run `41247447693` failed-deploy-job-only attempt 2 succeeded
+      `2026-11-01T00:09:11Z`; no build/publish repeated. Workflow `373883666`
+      returned disabled. Actual root delegate/overlay startup, healthy app with
+      restarts 0, unchanged original Redis, and protected projection passed.
+- [x] Owner health question RESOLVED: KEEP STOCK automatic checks. No disable
+      env flag, DB schedule changes, or new guard is needed. Attempt-1 failure
+      before stop, protected baseline/env undo, and hashes above remain history.
+      Manual price/SO/provider/model inference/probes remain banned.
+- [x] Native config readbacks accepted: strict-free; saved lockout true with
+      native 403/404/429/502/503/504, 120000/1800000 ms, 10 exponential steps;
+      combo request budget 1200000 ms; bridge envs zero; generic REQUEST_TIMEOUT_MS
+      unset; models.dev enabled with normal native 24-hour periodic interval.
+- [x] Actual initial startup synced 9829 pricing/10233 capabilities/238 providers;
+      zero snapshot `2026-11-01T00:08:36.277Z` has canonical kilocode/no kilo.
+      Startup registration/logs and same immediate/periodic closure were accepted
+      despite the separate status-route module reporting local timer false.
+      AA metadata 426 rows captured 00:08:39–40Z; key presence only, no value.
+- [x] APInex actual free target SO true and native-false Ollama control accepted.
+      Raw 44-row APInex native absence is preserved. E013 GET+DB evidence is now
+      27 models.dev rows, 25 true/2 false; older 25-row counts remain historical.
+      Shared absent-native ANY-exact-canonical-true fallback is already merged;
+      no duplicate archive, native backfill, tool inference, or per-model override.
+      Base ID is not listed; no separate base runtime GET is claimed or required.
+- [x] TL015 actual package `fix-benchmark-source-isolation`: source/tasks 1–8,
+      PR57, 68/68, reviews accepted; task 9 release/deploy/passive receipt now met.
+      Production normalization TODOs remain separate owner-dependent suspended
+      work, never a benchmark or metadata package closure gate.
+- [x] Transaction `41247447693-2` succeeded complete, no rollback needed.
+      Protected C1 backup is
+      `/opt/apps/omniroute-deploy-diagnostics/transactions/41247447693-2/pre-deploy.sqlite`,
+      SHA-256 `c1ec83a8db5e8056f835c25e0b97ee2a1f5360c13f86d614b935539a58253a6d`;
+      backup/live integrity passed. Current rollback pair is image
+      `sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`
+      plus C1. Preserve all pairs, protected archive and /var/oled symlink;
+      no cleanup. Reported root 1.32 GB and /var/oled 7.20 GB are not a new gate.
+
+The complete parent-accepted receipt, including module IDs and startup log times,
+is in root `completion.review`. Runtime stays at DCC while documentation main may
+advance. Previous 151ae021/8e6bc2 documentation history is preserved. First-three
+functional deltas remain intact; no models.dev interval requirement enters the
+Auto lifetime spec. Living specs are reconciled before moving the seven packages.
+
+### Archived owned packages
+
+- [enable-timeout-model-lockout](changes/archive/2026-11-01-enable-timeout-model-lockout/proposal.md)
+- [fix-auto-fallback-request-lifetime](changes/archive/2026-11-01-fix-auto-fallback-request-lifetime/proposal.md)
+- [keep-inference-gateway-response-open](changes/archive/2026-11-01-keep-inference-gateway-response-open/proposal.md)
+- [fix-native-free-evidence-import](changes/archive/2026-11-01-fix-native-free-evidence-import/proposal.md)
+- [fix-compatible-structured-output-handoff](changes/archive/2026-11-01-fix-compatible-structured-output-handoff/proposal.md)
+- [fix-source-built-startup](changes/archive/2026-11-01-fix-source-built-startup/proposal.md)
+- [fix-benchmark-source-isolation](changes/archive/2026-11-01-fix-benchmark-source-isolation/proposal.md)
+
+### Deferred scope retained after metadata/package acceptance
+
+- [ ] DEFERRED native global `resilienceSettings.credentialHealthCheck.intervalMinutes=0`
+      does not prevent the initial sweep after 30 seconds. Owner keeps stock
+      health; this is not fixed and is not a current requirement to fix.
+- [ ] OPTIONAL future status diagnostic improvement: route module 393226 local
+      timer differs from startup module 665453. A truthful process/global status
+      could be considered separately; no new registry, heap inspection, 24-hour
+      wait, source fix, or global-disable gate is required for this release.
+- [ ] Inventory follow-up only: 15 older
+      `/opt/apps/omniroute-deploy-diagnostics/status/*.json` success receipts lack
+      local image-content inventory. No pre-release baseline exists, so do not
+      attribute them to this release. This is not a cleanup mandate. Preserve
+      current rollback image 6a456abf...fd07253/C1 and every protected artifact.
+- [ ] SUSPENDED / owner-dependent: historical inference, forced-tool, billing,
+      manual price/SO probes, and production normalization remain outside this
+      closure. Historical 6dc4 pool/order/process cause and pool>1 remain unknown.
+
+### Documentation verification
+
+- [x] Docs closure checks: seven original deltas preserved byte-for-byte;
+      seven scoped archives and eight living specs strictly valid; repository
+      doc-links 191 docs/1249 links and changed-link checks 11 targets pass;
+      scoped formatting/docs-sync/diff checks pass. Code Simplifier reviewed
+      the documentation before commit. Logs: `/tmp/e013-docs-closure-20261101/`.
+      Normal hooks are required; no source/full tests or runtime actions ran.

@@ -1,6 +1,6 @@
 # Completion review: Auto bands and SystemOne implementation checkpoint
 
-> Current status is in the final `E013 current release and runtime review` section; earlier owner-choice, parent-acceptance, and deployment statements are historical and superseded.
+> Current status is in the final `E013 final runtime acceptance and documentation closure` section; earlier owner-choice, parent-acceptance, and deployment statements are historical and superseded.
 
 ## TL333 deployed runtime and native acceptance update (2026-10-30)
 
@@ -1576,9 +1576,9 @@ A4 pre-commit: exact minimal source review ACCEPT; Code Simplifier no useful saf
   `2026-10-31T11:50:12Z`; Kev docs are already on main in PR24. Workflow
   `373883666` remains disabled with no active or queued run.
 - Three packages are locally implemented and strictly valid:
-  [lockout](openspec/changes/enable-timeout-model-lockout/completion.review),
-  [Auto lifetime](openspec/changes/fix-auto-fallback-request-lifetime/completion.review),
-  [gateway](openspec/changes/keep-inference-gateway-response-open/completion.review).
+  [lockout](openspec/changes/archive/2026-11-01-enable-timeout-model-lockout/completion.review),
+  [Auto lifetime](openspec/changes/archive/2026-11-01-fix-auto-fallback-request-lifetime/completion.review),
+  [gateway](openspec/changes/archive/2026-11-01-keep-inference-gateway-response-open/completion.review).
 - Lockout defaults on while preserving explicit `false` and exact-tuple 504
   cooldown. UI load, reset and save match. Auto dispatches every eligible first
   candidate, including pools over 200; repeats are bounded, no implicit Auto
@@ -2356,7 +2356,7 @@ NODE_PATH=/srv/projects/hermes/.worktrees/omniroute-ind206-build-provenance-reco
 - The first docs-only audit merge commit `44c9b4758f` preceded Husky wrapper initialization in this new worktree; no bypass flag was used, but that invocation had no pre-commit wrapper. `npm run prepare` initialized ignored local wrappers before SO integration. The normal pre-commit then passed on commit `34364de317` (lint-staged, manifest, docs-sync, any-budget, tracked-artifacts, and attribution checks); final startup merge commit also uses normal hooks.
 - No provider/catalog/API request, inference, build, push, deployment, production config change, or restart occurred. `OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK` remains unverified and unchanged locally; root TODO keeps that pre-startup gate plus immutable OCI and passive runtime acceptance open. Parent review of this consolidated local receipt is next; existing GitHub authorization remains held until then.
 
-## E013 current release and runtime review (2026-10-31)
+## Historical E013 pre-runtime release review (2026-10-31)
 
 - Accepted source integration `23d71601e2175282cfee4ac8e6d8b018f666411a`
   contains PR59 audit `1a9ee3241d0e9171df1747cd5e9e0e3e42931dc2`, structured-
@@ -2429,3 +2429,152 @@ owner health-policy answer and parent execution grant. This post-commit docs-onl
 receipt changes no source or production state; no test, API, model, restart,
 deployment, or retry was performed. Code Simplifier reviewed this scoped
 follow-up documentation diff before its local commit.
+
+## E013 final runtime acceptance and documentation closure (2026-11-01)
+
+Parent accepted the final source, artifact, and passive runtime evidence and
+authorized living-spec reconciliation, seven package archives, and a docs-only
+feature PR/normal merge. This acceptance supersedes earlier runtime-pending,
+health-choice, and mandatory-disable statements; all earlier receipts remain
+historical. Runtime source stays `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`;
+subsequent documentation commits are not the deployed source.
+
+### Release, environment undo, and rollback evidence
+
+- Run `41247447693` attempt 1 built/verified/published immutable ARM64 image
+  `ghcr.io/etcetera-agency/omniroute@sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`
+  for source `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`. Deployment failed
+  before stopping the app with `COMPOSE_RUNTIME_MISMATCH` from the parent-chosen
+  health environment delta; `candidate_may_mutate=false`, no stop or rollback.
+- The single own environment delta was safely undone. Restored baseline SHA-256
+  `47172471b491d99700060b2eb54577794ef04726d855a949e4cc2fe036a374d0`, owner/group
+  `984:980`, mode `600`; protected changed-flag copy SHA-256
+  `b6b2b7e97a377adc07a8945bea4426149609159935bd432a223921c8760da42b` is retained.
+  Full protected baseline projection passed. The health-disable flag was a
+  parent implementation choice, not an owner requirement.
+- Owner resolved the health policy: KEEP STOCK automatic credential-health
+  checks. No disable environment flag, DB schedule change, or new health guard
+  is selected. Manual price/SO/provider/model inference and probes remain banned.
+- Parent granted failed-deployment-job-only retry of the same existing run.
+  Attempt 2 succeeded at `2026-11-01T00:09:11Z`; build and publish did not repeat.
+  Workflow `373883666` returned `disabled_manually`. Transaction
+  `41247447693-2` is SUCCEEDED/complete; rollback was unnecessary.
+- Actual OCI/source/server/BUILD_SHA identify the release source `dcc79e...`.
+  The official root delegate resolves the actual overlay entry. App healthy,
+  restart count 0; Redis original image/start unchanged; full protected
+  projection passed. Static artifact acceptance and actual startup acceptance
+  are both complete. No arbitrary new image-env variable or full transitive
+  async-graph walk is a closure requirement.
+- New protected backup:
+  `/opt/apps/omniroute-deploy-diagnostics/transactions/41247447693-2/pre-deploy.sqlite`,
+  SHA-256 `c1ec83a8db5e8056f835c25e0b97ee2a1f5360c13f86d614b935539a58253a6d`.
+  Backup/live integrity passed. Current rollback pair remains old image
+  `sha256:6a456abf3c4ae5ccb52e157172768f3e1a365b80233df3e8be7e81b07fd07253`
+  plus this C1 backup. Protected archive and `/var/oled` symlink remain preserved;
+  no cleanup. Reported free space: root 1.32 GB, `/var/oled` 7.20 GB; no new gate.
+
+### Accepted native configuration and metadata
+
+- Strict-free remains enabled. Native saved lockout is enabled with codes
+  `403,404,429,502,503,504`, base 120000 ms, max 1800000 ms, 10 exponential steps;
+  source/backend/UI defaults remain false and native recorder predicates stay
+  unchanged. Combo request budget is 1200000 ms, gateway timeout envs are zero,
+  and `REQUEST_TIMEOUT_MS` is unset. Models.dev is enabled at its normal native
+  24-hour interval; 20 minutes belongs only to combo request lifetime.
+- Startup initial sync: 9,829 pricing models, 10,233 capability models, 238
+  providers. Actual zero snapshot `2026-11-01T00:08:36.277Z` uses canonical
+  `kilocode`, with no raw `kilo`. AA key presence was confirmed without recording
+  its value; 426 AA metadata evidence rows were captured at 00:08:39–40Z.
+- Actual Auto target APInex `free/deepseek-v4.1-flash` resolves SO `true` by
+  metadata GET; exact native-false Ollama control remains false. APInex raw
+  `$.models` has 44 rows without a native SO declaration; no native backfill or
+  per-model override occurred. Current E013 GET+DB evidence has 27 models.dev
+  rows, 25 true/2 false; the older 25-row, 23 true/2 false capture remains
+  historical E013 evidence, not owner-supplied data.
+- Own exact native true/false wins. Only absent native SO uses ANY explicit
+  models.dev true for the same canonical ID across hosts, even if other hosts
+  are false. Without true, result stays unknown and existing fork bands deny.
+  Tool calling is neither SO proof nor prerequisite. Strict-free admission,
+  quota/hard stops, scoring, and paid fallback policy are unchanged. This shared
+  contract was already merged; its archived package is not reopened/remerged.
+- APInex base `deepseek-v4.1-flash` is NOT LISTED, not a demonstrated unknown
+  resolved result. No existing exact base resolver API is asserted. Existing
+  exact native free-to-base canonicalization maps both IDs to the same canonical
+  model. Actual free-target true, native-false control, and accepted local
+  27 Node/49 Vitest evidence suffice; no separate base runtime GET, new API, or
+  paid exposure is required or claimed.
+
+### Periodic startup proof and status diagnostic limitation
+
+- Living server container PID 35 / host PID 2189762 started at 00:08:29Z;
+  listener port 20128, launcher PID 21. Logs:
+  `00:08:31.431441908Z Starting periodic sync every 86400s`;
+  `00:08:37.047100699Z Initial sync complete: 9829 pricing, 10233 capabilities, 238 providers`.
+  Stop-log count 0. Parent accepted periodic registration with fresh atomic
+  zero-snapshot evidence and the prior native five-test receipt; no 24-hour wait,
+  heap inspection, global registry, or source change is required.
+- The status GET returning false is explained by independent module state:
+  route module `853847` → module `393226` / chunk `99988.js` reports its local
+  `Y !== null` with Y null. Startup instrumentation module `658256` / chunk
+  `58256` → module `665453` / chunk `65453` initializes timer `ab=setInterval`.
+  The same webpack runtime caches by module ID, so these modules have independent
+  state. Startup immediate and periodic work share closure
+  `d → W(syncModelsDev) → I(saveModelsDevPricing)`, including the atomic zero
+  writer. Status-module false does not mean process-wide periodic sync disabled.
+
+### Functional contracts and accepted prior source verification
+
+Original lockout 504 and eligible synthetic target-timeout recording, excluded
+request/cancel failures, exact cooled tuple, unlocked siblings, and expiry remain
+intact without an upstream_response_failed exception. Auto retains successful
+next-candidate response, aggregate failure plus queue normalization failure,
+cooldown on next selection, strict-free unknown-model normalization, native
+30-attempt default (hard limit 200), existing three-identical-model guard, and
+finite 20-minute/cancel bounds.
+The Auto lifetime delta adds no models.dev interval requirement. Gateway uses
+native bridge zero settings and unset generic timeout, without custom resolver,
+cancel, or SSE-cleanup code.
+
+Accepted source ancestry: SO `044bf3e4f78749f0ececafad37bec538bbe011c9`, startup
+`276fd8d856d47b2d7d1f447e7bd856e2090caf63`, integration
+`23d71601e2175282cfee4ac8e6d8b018f666411a`. Prior combined guarded Node 43/43,
+Vitest 49/49, SO 27 Node, P1 assembly 11, native startup 5, and reviews/rereviews
+remain accepted. TL015 PR57/tasks 1–8 and local 68/68 are accepted; task 9 is now
+met by GitHub release/protected deployment/passive receipt. No inference, queue,
+normalizer, forced-tool, billing test, or production normalization is a package
+closure gate. Historical incident 6dc4 pool/order/process root cause and pool
+size greater than one remain unproven; no new root-cause claim is made.
+
+This docs executor performed no source tests, model/provider calls, inference,
+manual sync, queue trigger, runtime config change, build, restart, or deployment.
+Runtime evidence above is the parent's accepted receipt, not a repeated probe.
+Release worker `01a193fd` remains closed; this single executor performs only
+bounded documentation closure. Parent retains final whole-goal acceptance.
+
+### Documentation closure verification
+
+- Seven selected deltas remain byte-identical to docs head
+  `8e6bc2e5a6ce363ac676cab08fb7767900f106c2`; all original first-three functional
+  scenarios are preserved. Existing archived generic metadata/SO fallback and
+  living `model-capability-resolution` are unchanged. The accepted compatible
+  native-boolean contract is split into focused living requirements to meet
+  strict validator length limits; all scenarios and precedence remain intact.
+- Cached OpenSpec 1.16.0 strict checks: seven scoped change deltas valid, seven
+  archives passed/zero failed, eight affected/referenced living specs valid.
+  Scoped archive validation uses a temporary docs-only OpenSpec store; its
+  compatible target living spec is seeded for the MODIFIED delta.
+- `npm run check:doc-links`: 191 docs, 1249 internal links, zero broken.
+  `python3 /tmp/e013-docs-closure-20261101/changed-links.py`: 44 changed/moved
+  files or sections, 11 internal targets, zero broken. Archive moves updated
+  the three actual root review links and the root archive index.
+- Scoped Prettier check, docs-sync, and diff whitespace checks passed. No source
+  or full tests ran. Check logs are under `/tmp/e013-docs-closure-20261101/`:
+  `archives.log`, `scoped-target.log`, `living.log`, `links.log`, `format.log`.
+- Code Simplifier reviewed the final documentation diff before the local commit:
+  no behavior changes, no source edits, no duplicate shared fallback merge,
+  complete historical receipts retained. Normal commit hooks remain required;
+  commit-time output is captured in `commit.log` in that log directory.
+
+Executor thread: `E013-docs — Согласование OpenSpec`,
+`01a19424-e2f8-7921-b08e-f164f5b5ef1c`. No redelegation occurred. This records
+bounded docs/package closure; the parent performs final whole-goal acceptance.

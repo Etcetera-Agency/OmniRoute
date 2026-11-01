@@ -1,0 +1,217 @@
+# Completion review: Auto fallback request lifetime
+
+## Current TL006 test boundary (2026-10-31)
+
+- Current fork-owned lifetime regression path:
+  `tests/unit/auto-fallback-request-lifetime.test.ts`.
+- Upstream stock test files were restored byte-for-byte to BASE. Historical
+  Node counts below are diagnostic only, not current acceptance. In particular,
+  the old 499 cancellation and safety-stop results used temporary fixture edits
+  and are not claimed for the restored files.
+- The current five-file fork-owned Node acceptance passed 45/45 with zero
+  failures or skips after migration; log:
+  `/tmp/omni-auto-final-fork-node.log`. The independent review verified the
+  unchanged runner discovery and the actual failure -> lockout -> Auto filter
+  -> expiry/restoration chain. TL006 makes no production changes.
+
+## Historical custom-loop implementation receipt (superseded)
+
+- `executeTargetAttempt.ts` counts Auto repeats separately from actual dispatches.
+  Every eligible Auto candidate keeps its first attempt, including pools above
+  200; the configured/hard cap applies to inner, whole-set, and cooldown repeats.
+  Non-Auto still uses the existing total-dispatch cap.
+- `comboAttemptLoop.ts` preserves Auto failure outcomes across set retries and
+  omits the implicit ten-minute request timer only for Auto without a positive
+  request deadline. Explicit positive deadlines, finite resolved target
+  timeouts, client cancellation, and the existing Non-Auto safety timer remain.
+- Auto does not stop on a three-error model streak. Existing request-global
+  terminal handling remains. The uncooled same-raw-model sibling after an
+  upstream 504 is covered by the Auto routing regression.
+- One concise `AICODE-NOTE` marks the first-attempt/repeat policy at the target
+  attempt seam. No copied upstream module, compatibility shim, new setting,
+  scoring change, or public interface change was added.
+
+## Historical verification (before stock-test restoration)
+
+Commands and counts in this section record earlier diagnostic runs. They are
+not current TL006 acceptance because upstream stock tests were subsequently
+restored byte-for-byte to BASE. The old 499 and safety-stop runs included
+temporary fixture edits; no current pass claim is made for those files.
+
+- Focused lifetime command:
+  `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/auto-fallback-request-lifetime.test.ts`
+  — 19/19 passed.
+- Combined Node routing command covering target attempts, loop/timer cleanup,
+  identical-error streak, homogeneous/heterogeneous input-bound stops, attempt
+  caps, cooldown wait, target timeout standards, Auto pool/lockout construction,
+  and Auto free-tier metadata — 84/84 passed (previous 83 plus one empty-content regression):
+  `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/unit/combo/execute-target-attempt.test.ts tests/unit/combo/combo-attempt-loop.test.ts tests/unit/combo-loop-safety-timer-cleanup.test.ts tests/unit/combo-loop-safety-timer-leak-11804.test.ts tests/unit/combo-identical-error-streak.test.ts tests/unit/combo-input-bound-failure-8375.test.ts tests/unit/combo-input-bound-heterogeneous-8375.test.ts tests/unit/combo-max-global-attempts-config.test.ts tests/unit/combo-remaining-overflow-budget-15289.test.ts tests/unit/combo-model-lock-pre-dispatch-wait-16319.test.ts tests/unit/combo/combo-target-timeout-standards.test.ts tests/unit/auto-combo-credentialed-model-pool.test.ts tests/unit/auto-best-free-tier-filter.test.ts`.
+  The real Auto pool test
+  `a timeout lockout narrows the next Auto build and expires back into
+eligibility` passed. The unchanged Non-Auto total-budget suite passed.
+- `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/combo-499-abort.test.ts`
+  — 7/7 passed. The fallback-wait fixture now sets the delay under
+  `settings.comboDefaults`, disables same-target retries and model lockout for
+  this case, uses isolated provider IDs, and asserts no second dispatch after
+  abort.
+- `node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit tests/unit/combo-safety-stop.test.ts`
+  — 51/51 passed after setting `modelLockout.enabled=false` explicitly in
+  the safety fixture. Parent clean baseline was already 51/51; feature before
+  fixture isolation was 32/51. The 19 failures were fixture contamination from
+  inherited enabled model lockout and reused model tuples. The earlier
+  pre-existing attribution is withdrawn; no production Non-Auto bypass was added.
+- Retained valid strict-free Vitest command:
+  `./node_modules/.bin/vitest run --config vitest.mcp.config.ts tests/unit/autoCombo/suffixComposition-4517.test.ts tests/unit/autoCombo/free-regime-not-read-by-predicate.test.ts tests/unit/autoCombo/strict-zero-cost-connection-safety.test.ts`
+  passed 25/25 across the three listed files. The separate UI regressions passed
+  3/3. `auto-best-free-tier-filter.test.ts` passes in the Node batch. These
+  unchanged test files were not rerun during TL006 migration.
+- Strict OpenSpec validation:
+  `COREPACK_ENABLE_PROJECT_SPEC=0 pnpm dlx @fission-ai/openspec validate fix-auto-fallback-request-lifetime --strict --no-interactive`
+  — valid.
+- Formatting and lint:
+  `./node_modules/.bin/prettier --check` on the three production files, lifetime
+  test, and local design/tasks/spec — passed after formatting the scoped files.
+  The local `completion.review` uses the Markdown parser because its extension
+  is `.review`.
+  `./node_modules/.bin/eslint --no-warn-ignored --suppressions-location config/quality/eslint-suppressions.json`
+  on the three production files and lifetime test — passed.
+  `git diff --check` on scoped changes — passed.
+- Code Simplifier reviewed the production slice. The explicit repeat reservation
+  marker is retained because it prevents an inner retry from consuming the same
+  repeat twice; no smaller behavior-preserving change was identified.
+- Final typecheck comparison: exit 2, same 720 diagnostics across 113 files as
+  BASE, new 0/removed 0; normalized messages match except chatCore TS2322 union
+  display ordering. The earlier introduced TS2339 was corrected by narrowing
+  the discriminated union before `.result`. Evidence is recorded in root
+  `completion.review`; this is baseline debt, not a green project typecheck.
+
+## Ownership and remaining gates
+
+- The public outer HTTP response lifetime was implemented in the separate
+  gateway package and cross-package verified by the current five-file 45/45
+  fork-owned run.
+- Historical safety-stop and 499 runs reported 51/51 and 7/7 respectively
+  with temporary fixture edits; these are not current acceptance after stock
+  test restoration. Final full typecheck comparison remains with IND005;
+  strict-free Vitest remains with its separate owner.
+- Root `completion.review` and `openspec/TODO.md` now hold the consolidated
+  local receipt and remaining external release/live/archive gates. The old
+  499/safety runs are not current gates after stock-test restoration; no pass
+  claim is made for those fixtures.
+- TL002's cooldown and model-lockout edits and IND004's bridge edits were
+  preserved. The changed upstream seams are `AttemptLoopState`,
+  `executeTargetAttempt` dispatch/retry accounting, and
+  `dispatchWithCooldownRetry` set/deadline/error-stop policy. Future upstream
+  edits at those seams will require manual reconciliation; no upgrade-conflict
+  guarantee is made.
+
+## Historical corrective continuation (before stock-test restoration)
+
+The prior pre-existing safety-failure attribution was withdrawn based on
+historical runs: clean baseline passed 51/51, and feature before fixture
+correction passed 32/51. Temporary safety-fixture isolation then reported
+51/51. The upstream test file was later restored; this remains diagnostic
+evidence, not a current pass claim. One genuine new TS2339 in the
+empty-content repeat-budget branch was addressed by narrowing before `.result`.
+Baseline typecheck is 720 errors/113 files; feature was 721/114. Full comparison
+remains with IND005; no full typecheck or Vitest is run in this correction.
+
+- [x] Isolate safety fixture and restore 51/51 without changing Non-Auto policy.
+- [x] Add meaningful empty-content/repeat-budget RED cases, fix union branch,
+      and verify later success plus complete all-failure aggregate.
+- [x] Run lifetime, affected routing batch, 499, safety, scoped lint/format,
+      Code Simplifier review, and strict package validation.
+
+### Corrective RED and GREEN evidence
+
+Before the production correction, the lifetime/attempt/safety command ran
+102 tests: 101 passed and one failed. The new target-runner assertion
+`exhausted empty-content retry must return the normal failed-target outcome`
+observed `undefined` instead of `null` (`/tmp/ex002-corrective-red.log`). The
+public empty-content cases already reached later success and preserved aggregate
+identities/errors; the direct assertion exposes the invalid union branch.
+
+`handleEmptyContentRetry` records last error/status, `comboErrors` with
+`empty_content`, recorded attempts, and failure trust before returning its
+retry decision. Exhausted repeat budget now returns `null` without overwriting
+that state; a permitted repeat continues, and `.result` is accessed only on the
+non-retry union member. The direct regression verifies the recorded error,
+status, model, actual dispatch count, and unchanged exhausted repeat count.
+
+Focused lifetime tests also now assert actual scored first-pass order for
+whole-set repeats instead of assuming input order among equally scored models.
+The identical-error fixture emits three model-classified failures before the
+fourth distinct dispatch succeeds, regardless of scored tie order. The 32/max30
+and >200 winner-by-model-identity regressions remain intact.
+
+Code Simplifier reviewed this corrective production branch: explicit narrowing,
+one budget check, and `return null` are sufficient. No cast, new abstraction,
+journal, scheduler, production Non-Auto change, or cooldown/bridge change.
+
+Corrective RED command:
+`node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/unit/auto-fallback-request-lifetime.test.ts tests/unit/combo/execute-target-attempt.test.ts tests/unit/combo-safety-stop.test.ts`.
+The GREEN commands are the four exact Node commands in Verification above;
+results are 19/19, 84/84, 7/7, and 51/51 (161 passing tests total). Logs:
+`/tmp/ex002-corrective-lifetime.log`, `/tmp/ex002-corrective-batch.log`,
+`/tmp/ex002-corrective-499.log`, `/tmp/ex002-corrective-safety.log`.
+
+Corrective lint command (exit 0):
+`./node_modules/.bin/eslint --no-warn-ignored --suppressions-location config/quality/eslint-suppressions.json open-sse/services/combo/executeTargetAttempt.ts tests/unit/combo-safety-stop.test.ts tests/unit/auto-fallback-request-lifetime.test.ts tests/unit/combo/execute-target-attempt.test.ts`.
+
+Corrective formatting commands (exit 0):
+`./node_modules/.bin/prettier --check open-sse/services/combo/executeTargetAttempt.ts tests/unit/combo-safety-stop.test.ts tests/unit/auto-fallback-request-lifetime.test.ts tests/unit/combo/execute-target-attempt.test.ts openspec/changes/fix-auto-fallback-request-lifetime/design.md openspec/changes/fix-auto-fallback-request-lifetime/tasks.md`
+and
+`./node_modules/.bin/prettier --parser markdown --check openspec/changes/fix-auto-fallback-request-lifetime/completion.review`.
+Scoped `git diff --check` and the strict OpenSpec command above pass.
+
+At the time of the historical corrective phase, writes were limited to `executeTargetAttempt.ts`'s
+empty-content discriminated-union branch, the safety fixture setting, lifetime
+and target-attempt regressions, and local design/tasks/review. Existing TL002
+hunks in the target runner and attempt test are retained. Root TODO/review,
+cooldown defaults/predicates, bridge, and UI edits remain with their owners.
+No commit, deployment, dependency edit, full typecheck, or Vitest run occurs.
+
+## Selected native request lifetime (2026-10-31)
+
+This receipt supersedes the custom repeat accounting, disabled identical-model
+guard, and unbounded Auto lifetime claims above. The selected implementation is
+only the native saved `comboDefaults.comboTimeoutMs=1200000` setting. Native
+Auto retains its 30-attempt default (hard limit 200), existing three-identical-
+model guard, finite target deadlines, cancellation, and native error handling.
+No separate repeat budget, custom retry loop, or new error class is selected.
+Native fallback still returns the next successful candidate response; exhausted
+attempts return the aggregate OmniRoute failure and settle the queue as failed;
+the existing cooldown filter applies on next selection.
+
+The models.dev periodic refresh remains at its native 24-hour default; the
+20-minute value is only the combo request budget. Historical settings and
+offline regression results remain receipts and were not rerun for this docs-only
+correction. Passive runtime proof remains open in `openspec/TODO.md`; this
+package remains active and unarchived.
+
+## Final parent runtime acceptance and archive receipt (2026-11-01)
+
+Parent accepted deployed source `dcc79e26476434ef0e0bcb5d49be50798c58c0fd`
+and immutable ARM64 image
+`sha256:52d86f2c8b9847088a5e2b37ac7c5a82a429a6f1ff22f6cfed5014ab140407e7`.
+Existing GitHub run `41247447693` attempt 2 succeeded at
+`2026-11-01T00:09:11Z` by retrying only the failed deployment job; no build or
+publish repeated. Workflow `373883666` returned disabled. The owner explicitly
+kept stock automatic credential-health checks. Prior failed-before-stop and
+safe environment undo receipts remain history; their holds are resolved.
+
+Actual root startup delegates into the deployed source-built overlay. Parent
+accepted the fresh native zero-price snapshot at `2026-11-01T00:08:36.277Z`,
+canonical `kilocode`, registered native 24-hour periodic writer, AA metadata
+426 rows, strict-free/native timeout readbacks, APInex free target SO `true`,
+and native false control. Status-route local timer state is a diagnostic
+limitation, not proof that startup periodic work is disabled. No separate base
+APInex runtime GET is claimed. Detailed accepted evidence, protected backup,
+rollback pair, and deferred findings are recorded in root `completion.review`
+and `openspec/TODO.md`.
+
+Prior accepted functional regressions and reviews remain evidence; no source
+or full tests, inference, manual sync, queue, provider/model probes, or runtime
+configuration changes were performed for this documentation closure. Earlier
+custom-source claims and runtime-pending statements remain superseded history.
+The selected delta is merged into living specs before this package is archived.
