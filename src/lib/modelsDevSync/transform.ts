@@ -169,6 +169,7 @@ export const MODELS_DEV_PROVIDER_MAP: Record<string, string[]> = {
   longcat: ["lc", "longcat"],
   pollinations: ["pol", "pollinations"],
   cloudflare: ["cf"],
+  "cloudflare-workers-ai": ["cloudflare-ai", "cf"],
   scaleway: ["scw"],
   ollama: ["ollamacloud", "ollama-cloud"],
   blackbox: ["bb", "blackbox"],

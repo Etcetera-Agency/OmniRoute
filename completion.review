@@ -2,6 +2,12 @@
 
 > Current status is in the final `E013 final runtime acceptance and documentation closure` section; earlier owner-choice, parent-acceptance, and deployment statements are historical and superseded.
 
+## Cloudflare Workers AI models.dev capability mapping (2026-11-03)
+
+- Map models.dev provider `cloudflare-workers-ai` to OmniRoute `cloudflare-ai` and alias `cf`. Synced capability rows then resolve for the configured Cloudflare provider under canonical and alias IDs.
+- Capability values remain sourced from models.dev sync; this patch does not add manual capability rows or infer flags from unrelated model families.
+- Production acceptance: main overlay workflow publishes the immutable full-SHA image, updates `:main`, deploys that digest, and records healthy deployment status. After deployment, confirm synced rows are available under `cloudflare-ai` and `cf`.
+
 ## TL333 deployed runtime and native acceptance update (2026-10-30)
 
 - Current main source `455442b057542c857425d986853745b16e244543` passed GitHub
