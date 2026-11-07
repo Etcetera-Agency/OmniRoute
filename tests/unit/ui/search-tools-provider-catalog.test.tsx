@@ -18,7 +18,10 @@ vi.mock("next/link", () => ({
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-function makeSearchProvider(id: string, status: SearchProviderCatalogItem["status"] = "configured"): SearchProviderCatalogItem {
+function makeSearchProvider(
+  id: string,
+  status: SearchProviderCatalogItem["status"] = "configured"
+): SearchProviderCatalogItem {
   return {
     id,
     name: id.charAt(0).toUpperCase() + id.slice(1),
@@ -31,7 +34,10 @@ function makeSearchProvider(id: string, status: SearchProviderCatalogItem["statu
   };
 }
 
-function makeFetchProvider(id: string, status: SearchProviderCatalogItem["status"] = "configured"): SearchProviderCatalogItem {
+function makeFetchProvider(
+  id: string,
+  status: SearchProviderCatalogItem["status"] = "configured"
+): SearchProviderCatalogItem {
   return {
     id,
     name: id.charAt(0).toUpperCase() + id.slice(1),
@@ -45,32 +51,52 @@ function makeFetchProvider(id: string, status: SearchProviderCatalogItem["status
 }
 
 const SEARCH_PROVIDERS: SearchProviderCatalogItem[] = [
-  "serper", "bing", "google", "brave", "tavily", "exa",
-  "you", "kagi", "searxng", "duckduckgo", "perplexity", "jina-search",
+  "serper",
+  "bing",
+  "google",
+  "brave",
+  "tavily",
+  "exa",
+  "you",
+  "kagi",
+  "searxng",
+  "duckduckgo",
+  "perplexity",
+  "jina-search",
 ].map((id) => makeSearchProvider(id));
 
 const FETCH_PROVIDERS: SearchProviderCatalogItem[] = [
-  "firecrawl", "jina-reader", "tavily-search",
+  "firecrawl",
+  "jina-reader",
+  "tavily-search",
 ].map((id) => makeFetchProvider(id));
+
+FETCH_PROVIDERS.push({
+  ...makeFetchProvider("mdream"),
+  costPerQuery: 0,
+  freeMonthlyQuota: null,
+  fetchFormats: ["markdown"],
+});
 
 const ALL_PROVIDERS = [...SEARCH_PROVIDERS, ...FETCH_PROVIDERS];
 
 // ── Import component after mocks ──────────────────────────────────────────────
 
-const { default: ProviderCatalog } = await import(
-  "../../../src/app/(dashboard)/dashboard/search-tools/components/ProviderCatalog"
-);
+const { default: ProviderCatalog } =
+  await import("../../../src/app/(dashboard)/dashboard/search-tools/components/ProviderCatalog");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
-function renderCatalog(fetchResp: { providers: SearchProviderCatalogItem[] } = { providers: ALL_PROVIDERS }): HTMLDivElement {
+function renderCatalog(
+  fetchResp: { providers: SearchProviderCatalogItem[] } = { providers: ALL_PROVIDERS }
+): HTMLDivElement {
   globalThis.fetch = vi.fn(() =>
     Promise.resolve({
       ok: true,
       json: () => Promise.resolve(fetchResp),
-    } as Response),
+    } as Response)
   );
 
   const el = document.createElement("div");
@@ -97,7 +123,9 @@ async function waitForCatalog(el: HTMLDivElement): Promise<void> {
 
 describe("ProviderCatalog", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(() => {
@@ -114,21 +142,30 @@ describe("ProviderCatalog", () => {
     expect(el.querySelector("[data-testid='catalog-loading']")).toBeTruthy();
   });
 
-  it("renders 12 search + 3 fetch providers after load", async () => {
+  it("renders 12 search + 4 fetch providers after load", async () => {
     const el = renderCatalog();
     await waitForCatalog(el);
 
     const cards = el.querySelectorAll("[data-testid^='provider-card-']");
-    expect(cards.length).toBe(15);
+    expect(cards.length).toBe(16);
 
     const searchCards = [...cards].filter((c) =>
-      SEARCH_PROVIDERS.some((p) => c.getAttribute("data-testid") === `provider-card-${p.id}`),
+      SEARCH_PROVIDERS.some((p) => c.getAttribute("data-testid") === `provider-card-${p.id}`)
     );
     const fetchCards = [...cards].filter((c) =>
-      FETCH_PROVIDERS.some((p) => c.getAttribute("data-testid") === `provider-card-${p.id}`),
+      FETCH_PROVIDERS.some((p) => c.getAttribute("data-testid") === `provider-card-${p.id}`)
     );
     expect(searchCards.length).toBe(12);
-    expect(fetchCards.length).toBe(3);
+    expect(fetchCards.length).toBe(4);
+  });
+
+  it("shows Mdream's zero cost without inventing a monthly quota", async () => {
+    const el = renderCatalog();
+    await waitForCatalog(el);
+
+    const card = el.querySelector("[data-testid='provider-card-mdream']");
+    expect(card?.textContent).toContain("$0.0000");
+    expect(card?.textContent).not.toContain("/mo");
   });
 
   it("renders 'configured' status badge for configured providers", async () => {
@@ -195,7 +232,7 @@ describe("ProviderCatalog", () => {
     });
 
     const cards = el.querySelectorAll("[data-testid^='provider-card-']");
-    expect(cards.length).toBe(3);
+    expect(cards.length).toBe(4);
   });
 
   it("shows error state when fetch fails", async () => {

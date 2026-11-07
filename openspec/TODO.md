@@ -5,6 +5,28 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 > Current seven-package closure is recorded in the final E013 runtime acceptance
 > section. Earlier pending runtime/health statements are historical and resolved.
 
+## Mdream web-fetch hosted acceptance
+
+- [ ] After an approved merge/deployment, make one controlled public HTTPS
+      `/v1/web/fetch` request with `provider: mdream` and no Mdream connection.
+      Record the HTTP result, provider ID and Markdown body. The raw hosted
+      probe does not verify OmniRoute routing or deployed availability. Keep
+      `costPerQuery` at zero per the hosted homepage and monthly quota null until
+      a numeric allowance is published. Use the Git-based image workflow only;
+      never build the image on the host. No push without owner approval.
+- [x] Off-host probe on 2026-11-07: 10 sequential direct HTTP GETs to
+      `https://mdream.dev/example.com/` without browser-style headers returned
+      Cloudflare 403 `browser_signature_banned` (533 bytes). A second set of 10
+      sequential GETs with the tested Chrome 131 User-Agent, Accept,
+      Accept-Language, Referer, Sec-Fetch and Upgrade-Insecure-Requests headers
+      all returned 200 Markdown (31 bytes). The successful run took about 32 s,
+      roughly 19 requests/minute including response latency; neither run exposed
+      `RateLimit*`, `X-RateLimit*` or `Retry-After`. Headers were tested as a
+      group, not individually. This verifies a small raw hosted conversion
+      sample, but does not establish an RPM ceiling or unlimited usage.
+- [ ] RPM ceiling and hosted redirect behavior remain unknown; do not describe
+      Mdream as unlimited. No more rate probing is planned in this change.
+
 ## Auto fallback incident follow-up
 
 - [x] Use native modelLockout.enabled=true via production API PATCH200/GET200.
@@ -47,7 +69,9 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       timeout rows; no new inference, queue reset, or normalization is authorized.
 - [ ] Separate upstream SDK issue: REQUEST_TIMEOUT_MS=0 converts to one-second
       Stainless timeout. Keep generic override unset; no SDK source change here.
-- [ ] Preserve known baseline debt:720 TypeScript diagnostics/113 files,72 docs
+- [ ] Preserve known baseline debt: current 2026-11-07 `typecheck:core` reported
+      712 TypeScript diagnostics across112 files; none reference Mdream-changed
+      files. Prior snapshot was 720 diagnostics/113 files. Also preserve72 docs
       strict drifts and unrelated invalid packages. Do not repair upstream tests.
       Historical302249ms failure fits effective310000ms default; pool and stop
       cause remain unknown. No scoring or paid fallback changes.

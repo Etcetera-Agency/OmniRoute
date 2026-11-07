@@ -36,11 +36,11 @@ async function seedConnection(
   });
 }
 
-function postWebFetch(body: Record<string, unknown>) {
+function postWebFetch(body: Record<string, unknown>, extraHeaders: Record<string, string> = {}) {
   return webFetchRoute.POST(
     new Request("http://localhost/api/v1/web/fetch", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...extraHeaders },
       body: JSON.stringify({ url: "https://example.com", ...body }),
     })
   );
@@ -271,4 +271,91 @@ test("auto-select returns 400 when no web-fetch provider is configured", async (
 
   assert.equal(response.status, 400);
   assert.ok((body.error?.message ?? "").includes("No credentials configured"));
+});
+
+test("explicit Mdream works without a connection and forwards no caller credentials", async () => {
+  let upstreamUrl = "";
+  let upstreamHeaders: Headers | undefined;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    upstreamUrl = String(url);
+    upstreamHeaders = new Headers((init as RequestInit).headers);
+    return new Response("# public markdown", { status: 200 });
+  };
+
+  try {
+    const response = await postWebFetch(
+      { provider: "mdream" },
+      {
+        Authorization: "Bearer caller-secret",
+        Cookie: "session=caller-secret",
+        "x-hermes-data-class": "public",
+      }
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.provider, "mdream");
+    assert.equal(upstreamUrl, "https://mdream.dev/example.com/");
+    assert.equal(upstreamHeaders!.get("authorization"), null);
+    assert.equal(upstreamHeaders!.get("cookie"), null);
+    assert.equal(upstreamHeaders!.get("x-hermes-data-class"), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Mdream sensitive-health requests are rejected before upstream I/O", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    return new Response("unexpected");
+  };
+
+  try {
+    const response = await postWebFetch(
+      { provider: "mdream" },
+      { "x-hermes-data-class": "sensitive-health" }
+    );
+    assert.equal(response.status, 400);
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Mdream is not selected by auto-routing", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    return new Response("unexpected");
+  };
+
+  try {
+    const response = await postWebFetch({});
+    assert.equal(response.status, 400);
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("explicit Mdream failure never falls back to configured providers", async () => {
+  await seedConnection("jina-reader", { apiKey: "jina-key" });
+  const originalFetch = globalThis.fetch;
+  const requestedUrls: string[] = [];
+  globalThis.fetch = async (url) => {
+    requestedUrls.push(String(url));
+    return new Response("upstream failure", { status: 503 });
+  };
+
+  try {
+    const response = await postWebFetch({ provider: "mdream" });
+    assert.equal(response.status, 503);
+    assert.deepEqual(requestedUrls, ["https://mdream.dev/example.com/"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

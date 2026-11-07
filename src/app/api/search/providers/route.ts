@@ -14,14 +14,14 @@ import {
 import * as log from "@/sse/utils/logger";
 
 // ---------------------------------------------------------------------------
-// Fetch provider metadata (hardcoded — no registry for these 4)
+// Fetch provider metadata (hardcoded; there is no provider registry)
 // ---------------------------------------------------------------------------
 
 interface FetchProviderDef {
   id: string;
   name: string;
   costPerQuery: number;
-  freeMonthlyQuota: number;
+  freeMonthlyQuota: number | null;
   fetchFormats: string[];
 }
 
@@ -73,6 +73,13 @@ const FETCH_PROVIDERS: FetchProviderDef[] = [
     name: "Parallel Extract",
     costPerQuery: 0.001,
     freeMonthlyQuota: 0,
+    fetchFormats: ["markdown"],
+  },
+  {
+    id: "mdream",
+    name: "Mdream",
+    costPerQuery: 0,
+    freeMonthlyQuota: null,
     fetchFormats: ["markdown"],
   },
 ];
@@ -172,12 +179,14 @@ export async function GET(request: Request) {
     );
 
     // -----------------------------------------------------------------------
-    // 2. Build fetch providers (4 hardcoded)
+    // 2. Build fetch providers (8 hardcoded)
     // -----------------------------------------------------------------------
     const fetchProviderStatuses = await Promise.all(
-      FETCH_PROVIDERS.map((fp) =>
-        resolveProviderStatus(fp.id, false).then((status) => ({ fp, status }))
-      )
+      FETCH_PROVIDERS.map(async (fp) => ({
+        fp,
+        status:
+          fp.id === "mdream" ? ("configured" as const) : await resolveProviderStatus(fp.id, false),
+      }))
     );
 
     const fetchItems: SearchProviderCatalogItem[] = fetchProviderStatuses.map(({ fp, status }) => ({

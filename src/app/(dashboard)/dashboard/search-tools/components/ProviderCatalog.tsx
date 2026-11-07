@@ -93,7 +93,7 @@ function ProviderCard({
         <span>
           <span className="font-medium text-text-main">${item.costPerQuery.toFixed(4)}</span>/query
         </span>
-        {item.freeMonthlyQuota > 0 && (
+        {item.freeMonthlyQuota !== null && item.freeMonthlyQuota > 0 && (
           <span>
             Free{" "}
             <span className="font-medium text-text-main">

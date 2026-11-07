@@ -47,6 +47,19 @@ test("SearchProviderCatalogItemSchema: valid fetch provider parses", () => {
   }
 });
 
+test("SearchProviderCatalogItemSchema: null quota represents an unpublished allowance", () => {
+  const result = SearchProviderCatalogItemSchema.safeParse({
+    id: "mdream",
+    name: "Mdream",
+    kind: "fetch",
+    costPerQuery: 0,
+    freeMonthlyQuota: null,
+    fetchFormats: ["markdown"],
+    status: "configured",
+  });
+  assert.ok(result.success);
+});
+
 test("SearchProviderCatalogItemSchema: status 'missing' is valid", () => {
   const item = {
     id: "bing",

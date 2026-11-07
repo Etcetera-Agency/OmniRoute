@@ -5,13 +5,13 @@ import { z } from "zod";
 export const SearchProviderCatalogItemSchema = z.object({
   id: z.string(),
   name: z.string(),
-  /** "search" para os 20 search providers; "fetch" para firecrawl/jina-reader/tavily-search/tinyfish/nimble-search/anysearch-search. */
+  /** "search" for search providers; "fetch" for web-content providers, including Mdream. */
   kind: z.enum(["search", "fetch"]),
   costPerQuery: z.number().nonnegative(),
-  freeMonthlyQuota: z.number().int().nonnegative(),
+  freeMonthlyQuota: z.number().int().nonnegative().nullable(),
   searchTypes: z.array(z.string()).optional(), // só search
   fetchFormats: z.array(z.string()).optional(), // só fetch
-  /** "configured" = creds presentes; "missing" = sem creds; "rate_limited" = todas as keys em cooldown. */
+  /** "configured" = credentials or keyless-ready; "missing" = no usable access; "rate_limited" = all keys in cooldown. */
   status: z.enum(["configured", "missing", "rate_limited"]),
   /** Link para configurar provider. */
   configureHref: z.string().default("/dashboard/providers"),

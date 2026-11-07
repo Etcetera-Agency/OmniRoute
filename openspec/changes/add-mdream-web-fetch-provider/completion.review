@@ -1,0 +1,29 @@
+# Completion Review: Mdream web-fetch provider
+
+## Review fixes
+
+- Code Simplifier removed the stale fetch-provider count, combined a duplicate dynamic test import and corrected nullable-quota test labels; runtime behavior is unchanged.
+- Kept Mdream in URL-to-Markdown fetch, explicit-only and keyless. No model IDs, hosted `minimal` mode, search registration, automatic selection or fallback were added.
+- Catalog price is `0` per the hosted homepage; monthly quota stays `null` because no numeric allowance is published. All three UI quota displays now tolerate an unknown quota, including the scrape configuration pane.
+- Independent source reviews rejected the unsupported monthly allowance, clarified that the hosted URL drops the source scheme, removed a runtime-workflow item from the product spec, and identified the scrape-pane null-quota consumer. Those findings are reflected in the package and code.
+- Targets are restricted to public HTTPS because the hosted path drops the source scheme. Secret query names and `sensitive-health` are rejected before upstream I/O. Mdream logs use only the hostname.
+- Direct probe without browser-style headers returned 10/10 Cloudflare 403 `browser_signature_banned`. A second direct HTTP probe using the fixed Chrome 131/User-Agent, Accept, Accept-Language, Referer, Sec-Fetch and Upgrade-Insecure-Requests headers returned 10/10 Markdown 200 (31 bytes per response). The full header set was tested together; the required individual fields and RPM ceiling remain unknown. No browser process or browser-control MCP was used.
+- Added the tested fixed header set to the HTTP executor. Caller credentials/cookies are not forwarded. The executor remains Markdown-only, has one 20-second deadline, sanitizes errors, and clears its timer.
+- Code Simplifier review removed an unnecessary one-off catalog `noAuth` field; the status is now derived directly for the Mdream entry. The test assertions were corrected for the provider's keyless `configured` status and URL trailing slash.
+
+## Verification
+
+- Focused Node suites: 93/93 passed across the Mdream executor, handler, route/fallback, schemas and catalog.
+- Route/fallback rerun after simplifying credential assertions: 11/11 passed.
+- Focused UI suites: 12/12 passed; Mdream shows zero cost and no monthly quota in the catalog and scrape pane.
+- `openspec validate add-mdream-web-fetch-provider --strict`: passed.
+- `git diff --check`: passed.
+- Focused Prettier check: passed after formatting the changed README row and Mdream files.
+- `npm run typecheck:core`: reports 712 TypeScript diagnostics across 112 files. None reference Mdream-changed files; detailed baseline remains in `openspec/TODO.md`.
+- `npm run check:docs-all`: blocked by the repository's 72 strict documentation drifts, already tracked in `openspec/TODO.md`.
+- Scoped ESLint with the repository suppression file passed. Running without suppressions reports 10 unused-import errors in unchanged imports at the top of `src/shared/validation/schemas/apiV1.ts`; no reported error is in the Mdream changes.
+- No image was built on the host, and no deployment was performed.
+
+## Remaining acceptance
+
+Raw hosted conversion succeeded at a modest observed rate, but that does not establish an RPM ceiling, unlimited usage, or OmniRoute's deployed `/v1/web/fetch` behavior. After an owner-approved merge/deployment, make one controlled keyless route request and record its HTTP result and Markdown body. Then merge the spec delta and archive the change. Both steps remain open in `openspec/TODO.md` and `tasks.md`.

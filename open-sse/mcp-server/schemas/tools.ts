@@ -534,11 +534,13 @@ export const webFetchInput = z.object({
       "nimble-search",
       "anysearch-search",
       "parallel-search",
+      "mdream",
     ])
     .optional()
     .describe(
       "Specific fetch provider to use (default: first available). " +
-        "context7 expects a library reference URL (context7.com/<owner>/<repo>) and is explicit-only."
+        "context7 expects a library reference URL (context7.com/<owner>/<repo>) and is explicit-only. " +
+        "Mdream is keyless, explicit-only and Markdown-only."
     ),
   format: z
     .enum(["markdown", "html", "links", "screenshot"])
@@ -581,7 +583,7 @@ export const webFetchOutput = z.object({
 export const webFetchTool: McpToolDefinition<typeof webFetchInput, typeof webFetchOutput> = {
   name: "omniroute_web_fetch",
   description:
-    "Fetches and extracts content from a URL using OmniRoute's web fetch gateway. Supports multiple providers (Firecrawl, Jina Reader, Tavily, TinyFish, Context7 library docs) with automatic failover. Returns the page content as markdown, HTML, links, or screenshot, along with metadata.",
+    "Fetches and extracts URL content using OmniRoute's web-fetch gateway. Mdream is keyless, explicit-only and Markdown-only; it is excluded from automatic selection and failover. Other providers support their documented output formats and failover behavior.",
   inputSchema: webFetchInput,
   outputSchema: webFetchOutput,
   scopes: ["execute:search"],
