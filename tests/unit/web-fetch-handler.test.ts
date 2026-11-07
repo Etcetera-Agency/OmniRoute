@@ -163,3 +163,37 @@ test("handleWebFetch passes depth and wait_for_selector to firecrawl", async () 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("handleWebFetch dispatches keyless Mdream Markdown fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  let upstreamUrl = "";
+  let upstreamHeaders: Headers | undefined;
+
+  globalThis.fetch = async (url, init) => {
+    upstreamUrl = String(url);
+    upstreamHeaders = new Headers((init as RequestInit).headers);
+    return new Response("# fetched markdown", { status: 200 });
+  };
+
+  try {
+    const result = await handleWebFetch(
+      { url: "https://example.com/page?x=1", format: "markdown", include_metadata: true },
+      {},
+      "mdream"
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(upstreamUrl, "https://mdream.dev/example.com/page?x=1");
+    assert.equal(upstreamHeaders?.get("accept"), "text/markdown, text/plain;q=0.9");
+    assert.deepEqual(result.data, {
+      provider: "mdream",
+      url: "https://example.com/page?x=1",
+      content: "# fetched markdown",
+      links: [],
+      metadata: { title: null, description: null },
+      screenshot_url: null,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

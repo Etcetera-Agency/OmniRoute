@@ -76,17 +76,18 @@ export default function SearchToolsConfigPane({
                 ${selectedProvider.costPerQuery.toFixed(4)}/query
               </span>
             </div>
-            {selectedProvider.freeMonthlyQuota > 0 && (
-              <div>
-                {`${t("freeQuota")}: `}
-                <span className="text-text-main font-medium">
-                  {selectedProvider.freeMonthlyQuota >= 1000
-                    ? `${(selectedProvider.freeMonthlyQuota / 1000).toFixed(0)}k`
-                    : selectedProvider.freeMonthlyQuota}
-                  /mo
-                </span>
-              </div>
-            )}
+            {selectedProvider.freeMonthlyQuota !== null &&
+              selectedProvider.freeMonthlyQuota > 0 && (
+                <div>
+                  {`${t("freeQuota")}: `}
+                  <span className="text-text-main font-medium">
+                    {selectedProvider.freeMonthlyQuota >= 1000
+                      ? `${(selectedProvider.freeMonthlyQuota / 1000).toFixed(0)}k`
+                      : selectedProvider.freeMonthlyQuota}
+                    /mo
+                  </span>
+                </div>
+              )}
             <div className="flex items-center gap-1">
               {`${t("status")}: `}
               <span

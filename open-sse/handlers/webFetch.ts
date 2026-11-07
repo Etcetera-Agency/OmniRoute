@@ -2,8 +2,7 @@
  * Web Fetch Handler
  *
  * Handles POST /v1/web/fetch requests.
- * Dispatches to a web-fetch provider executor (Firecrawl, Jina Reader, Tavily, or TinyFish).
- * Also AnySearch extract for free public fetch, and Parallel Extract (markdown only).
+ * Dispatches to the registered fetch provider executor, including keyless Markdown-only providers.
  *
  * Request format:
  * {
@@ -25,6 +24,7 @@ import { tinyfishFetch } from "../executors/tinyfish-fetch.ts";
 import { nimbleFetch } from "../executors/nimble-fetch.ts";
 import { anysearchFetch } from "../executors/anysearch-fetch.ts";
 import { parallelFetch } from "../executors/parallel-fetch.ts";
+import { mdreamFetch } from "../executors/mdream-fetch.ts";
 
 export type WebFetchFormat = "markdown" | "html" | "links" | "screenshot";
 
@@ -38,7 +38,8 @@ export interface WebFetchRequest {
     | "context7"
     | "nimble-search"
     | "anysearch-search"
-    | "parallel-search";
+    | "parallel-search"
+    | "mdream";
   format?: WebFetchFormat;
   depth?: 0 | 1 | 2;
   wait_for_selector?: string;
@@ -76,6 +77,7 @@ export const WEB_FETCH_PROVIDERS = Object.freeze([
   "context7",
   "nimble-search",
   "parallel-search",
+  "mdream",
 ] as const);
 // Derived from the array — adding a provider to WEB_FETCH_PROVIDERS
 // automatically widens the union; they cannot drift apart.
@@ -90,7 +92,7 @@ export type WebFetchProviderId = (typeof WEB_FETCH_PROVIDERS)[number];
  * All repo consumers go through TypeScript, which is the threat model here.
  */
 export const EXPLICIT_ONLY_WEB_FETCH_PROVIDERS: ReadonlySet<WebFetchProviderId> =
-  new Set<WebFetchProviderId>(["context7"]);
+  new Set<WebFetchProviderId>(["context7", "mdream"]);
 
 /**
  * Providers whose upstream serves a usable anonymous tier, so an explicit
@@ -99,7 +101,7 @@ export const EXPLICIT_ONLY_WEB_FETCH_PROVIDERS: ReadonlySet<WebFetchProviderId> 
  * Compile-time protection only (see the note above on ReadonlySet).
  */
 export const ANONYMOUS_CAPABLE_WEB_FETCH_PROVIDERS: ReadonlySet<WebFetchProviderId> =
-  new Set<WebFetchProviderId>(["context7"]);
+  new Set<WebFetchProviderId>(["context7", "mdream"]);
 
 /**
  * Execute a web fetch request against the specified (or auto-selected) provider.
@@ -193,6 +195,9 @@ export async function handleWebFetch(
           includeMetadata,
           credentials,
         });
+
+      case "mdream":
+        return await mdreamFetch({ url: req.url, format, includeMetadata });
 
       default: {
         const _exhaustive: never = provider;

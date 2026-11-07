@@ -319,7 +319,19 @@ export async function POST(request: Request) {
   const target = await resolveWebFetchTarget(body.provider, scope.allowedConnections);
   if (!target.ok) return target.response;
 
-  log.info("WEB_FETCH", `${target.provider} | ${body.url} | format=${body.format}`);
+  if (
+    target.provider === "mdream" &&
+    request.headers.get("x-hermes-data-class") === "sensitive-health"
+  ) {
+    return errorResponse(
+      HTTP_STATUS.BAD_REQUEST,
+      "Mdream does not accept sensitive-health content"
+    );
+  }
+
+  const targetForLog =
+    target.provider === "mdream" ? new URL(body.url).hostname || "invalid-host" : body.url;
+  log.info("WEB_FETCH", `${target.provider} | ${targetForLog} | format=${body.format}`);
 
   const {
     result,

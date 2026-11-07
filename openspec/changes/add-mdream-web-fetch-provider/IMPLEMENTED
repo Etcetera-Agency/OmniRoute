@@ -1,0 +1,2 @@
+Local implementation and focused checks completed on 2026-11-07.
+Deployment-level `/v1/web/fetch` acceptance remains open; see `openspec/TODO.md`.

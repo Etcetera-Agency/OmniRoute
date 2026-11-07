@@ -2,7 +2,7 @@
  * Integration tests for GET /api/search/providers — extended catalog (F4).
  *
  * Tests:
- * - Returns 28 items total (21 search + 7 fetch providers).
+ * - Returns 29 items total (21 search + 8 fetch providers).
  * - Each item carries the correct `kind` field.
  * - Status reflects actual DB credential state:
  *   - "configured"  when an active, non-rate-limited connection exists.
@@ -52,7 +52,7 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // google-pse, linkup, searchapi, youcom, searxng, ollama, zai, jina-search, anysearch-search,
 // context7 (#11140), duckduckgo-free, x-search, xquik-search, parallel-search.
 const EXPECTED_SEARCH_COUNT = 21;
-const EXPECTED_FETCH_COUNT = 7;
+const EXPECTED_FETCH_COUNT = 8;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 
 // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ test("search-providers-catalog: returns 401 for unauthenticated requests when au
   assert.ok(!bodyStr.includes(" at /"), "error body must not contain stack trace");
 });
 
-test("search-providers-catalog: returns 28 providers (21 search + 7 fetch)", async () => {
+test("search-providers-catalog: returns 29 providers (21 search + 8 fetch)", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
 
@@ -186,13 +186,16 @@ test("search-providers-catalog: every item has a valid kind value", async () => 
   }
 });
 
-test("search-providers-catalog: status=missing when no DB credentials exist", async () => {
-  // No connections seeded — all providers should be "missing"
+test("search-providers-catalog: keyless fetch providers are configured without credentials", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
   const body = await res.json();
 
   for (const item of body.providers) {
+    if (item.id === "mdream") {
+      assert.equal(item.status, "configured");
+      continue;
+    }
     assert.equal(
       item.status,
       "missing",
@@ -219,7 +222,8 @@ test("search-providers-catalog: status=configured when active credentials seeded
 
   // Other providers (no creds) should still be "missing"
   const missingItems = body.providers.filter(
-    (p: { id: string; status: string }) => p.id !== "serper-search" && p.id !== "perplexity-search"
+    (p: { id: string; status: string }) =>
+      p.id !== "serper-search" && p.id !== "perplexity-search" && p.id !== "mdream"
   );
   for (const item of missingItems) {
     assert.equal(item.status, "missing", `${item.id} should be 'missing'`);
@@ -294,6 +298,7 @@ test("search-providers-catalog: fetch providers have correct metadata", async ()
   assert.ok(ids.includes("nimble-search"), "nimble-search must be present");
   assert.ok(ids.includes("anysearch-search"), "anysearch-search must be present");
   assert.ok(ids.includes("parallel-search"), "parallel-search must be present");
+  assert.equal(ids.filter((id: string) => id === "mdream").length, 1);
 
   const firecrawl = fetchProviders.find((p: { id: string }) => p.id === "firecrawl");
   assert.equal(firecrawl.name, "Firecrawl");
@@ -325,6 +330,13 @@ test("search-providers-catalog: fetch providers have correct metadata", async ()
     tinyfish.fetchFormats.includes("markdown"),
     "tinyfish fetchFormats must include markdown"
   );
+
+  const mdream = fetchProviders.find((p: { id: string }) => p.id === "mdream");
+  assert.equal(mdream.name, "Mdream");
+  assert.deepEqual(mdream.fetchFormats, ["markdown"]);
+  assert.equal(mdream.costPerQuery, 0);
+  assert.equal(mdream.freeMonthlyQuota, null);
+  assert.equal(mdream.status, "configured");
 });
 
 test("search-providers-catalog: search providers have correct fields", async () => {

@@ -178,7 +178,7 @@ mistake metadata shrink estimates for provider token receipts.
 | Tool                    | Scopes           | Description                                                                                                                          |
 | ----------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `omniroute_tool_search` | `read:tools`     | Keyword search across the registered MCP tools; returns compact one-line signatures for token-efficient discovery                    |
-| `omniroute_web_fetch`   | `execute:search` | Fetch and extract a URL's content through the web-fetch gateway (Firecrawl, Jina Reader, Tavily, TinyFish) with automatic failover   |
+| `omniroute_web_fetch`   | `execute:search` | URL content fetch; Mdream is keyless, explicit-only, Markdown-only and never fails over                                              |
 | `omniroute_web_search`  | `execute:search` | Web search through the search gateway (Serper, Brave, Perplexity, Exa, Tavily, Google PSE, Linkup, SearchAPI, SearXNG) with failover |
 
 ### Skills & Catalog Tools

@@ -23,7 +23,7 @@ const {
 } = await import("../../open-sse/handlers/webFetch.ts");
 const { context7Fetch, parseContext7LibraryUrl, isValidContext7LibraryId } =
   await import("../../open-sse/executors/context7-fetch.ts");
-const { webSearchInput, webFetchInput } =
+const { webSearchInput, webFetchInput, webFetchTool } =
   await import("../../open-sse/mcp-server/schemas/tools.ts");
 const { SEARCH_VALIDATOR_CONFIGS } =
   await import("../../src/lib/providers/validation/searchProviders.ts");
@@ -100,8 +100,11 @@ test("web-fetch routing policies pin context7 as explicit-only and anonymous-cap
       "context7",
       "nimble-search",
       "parallel-search",
+      "mdream",
     ]
   );
+  assert.ok(EXPLICIT_ONLY_WEB_FETCH_PROVIDERS.has("mdream"));
+  assert.ok(ANONYMOUS_CAPABLE_WEB_FETCH_PROVIDERS.has("mdream"));
 });
 
 test("handleSearch context7 without a key sends no Authorization header", async () => {
@@ -583,6 +586,12 @@ test("MCP schemas expose context7 on web_search and web_fetch", () => {
     provider: "context7",
   });
   assert.equal(fetchOk.success, true, "web_fetch must accept provider=context7");
+});
+
+test("MCP web_fetch accepts explicit Mdream provider", () => {
+  const result = webFetchInput.safeParse({ url: "https://example.com", provider: "mdream" });
+  assert.equal(result.success, true);
+  assert.match(webFetchTool.description, /Mdream.*explicit-only.*Markdown-only/i);
 });
 
 test("context7 validator probes the search endpoint with Bearer auth", () => {
