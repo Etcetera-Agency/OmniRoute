@@ -1638,10 +1638,10 @@ paths:
         This route is opt-in and returns the unknown-route 404 response unless
         `OMNIROUTE_SYSTEMONE` is `1` or `true`. When enabled, it applies the standard
         OmniRoute API-key model policy to `systemone/<model>` (or `systemone/auto` when
-        omitted). The raw JSON request body is limited to 1 MiB total; this is a byte limit
-        for the whole body, not a per-field string limit. Additional top-level properties
-        are accepted but are not forwarded upstream. The upstream order and models are
-        configured through the `OMNIROUTE_SYSTEMONE_*` environment variables.
+        omitted). Automatic routing tries Laya, TypeSafe, then OpenRouter; an explicit model
+        selects its upstream. The raw JSON request body is limited to 1 MiB total; this is a
+        byte limit for the whole body, not a per-field string limit. Additional top-level
+        properties are accepted but are not forwarded upstream.
       security:
         - BearerAuth: []
       requestBody:
@@ -1739,6 +1739,15 @@ paths:
             Vary:
               schema: { type: string }
               description: Includes Origin when the shared CORS policy applies.
+    get:
+      tags: [SystemOne]
+      summary: List decisions-capable models
+      description: Decisions entries from the unified model catalog.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Model list (same shape as GET /api/v1/models)."
 
   /api/v1/ws:
     get:
@@ -14894,50 +14903,6 @@ paths:
       responses:
         "200":
           description: OK
-  /api/v1/systemone:
-    post:
-      tags: [Decisions]
-      summary: System One typed decisions
-      description: >-
-        One `state` plus typed `questions` (`noul` / `choice` / `score`); the
-        backend is selected by the model id — `typesafe/jev-*` or a bare
-        `jev-*` alias routes natively to api.typesafe.ai, `openrouter/<vendor>/
-        <model>` routes to OpenRouter's alpha decisions endpoint. Answers,
-        probabilities and usage (tokens, cost) pass through untouched.
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [state, questions]
-              properties:
-                model:
-                  type: string
-                state:
-                  description: Decision context — a string or an object map.
-                questions:
-                  type: object
-      responses:
-        "200":
-          description: >-
-            Upstream passthrough: `{ model, answers, usage }` with calibrated
-            probabilities. Carries the `X-OmniRoute-*` cost-telemetry headers.
-        "400":
-          description: Unknown decisions model or invalid body.
-        "401":
-          description: Missing or invalid gateway API key / provider credentials.
-    get:
-      tags: [Decisions]
-      summary: List decisions-capable models
-      description: Decisions entries from the unified model catalog.
-      security:
-        - BearerAuth: []
-      responses:
-        "200":
-          description: Model list (same shape as GET /api/v1/models).
   /api/v1/video-bridge/drilldown:
     delete:
       tags:
