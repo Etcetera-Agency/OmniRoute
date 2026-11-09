@@ -2609,3 +2609,9 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
   documentation refresh and specifically lists `llm.txt` among 330 mirrors,
   with drift counts and required reconciliation.
 - After the review update, staged files passed `git diff --cached --check`; no commit was made.
+
+### EX013 overlay Next runtime mismatch
+
+- Production candidate `1f01e71ccdfd896e3cdfea46b408053fc537ecde` compiled the overlay with Next 16.4.2 while the pinned official runtime used 16.3.8. The emitted route handler omitted `supportsDynamicResponse`, which the older runtime interpreted as static generation; dynamic routes including `/api/health/ping` and providers failed with `DYNAMIC_SERVER_USAGE`.
+- Pinned compiler dependencies to 16.3.8. The builder stamps its actual Next version into the server tree and packaging requires an exact match with the official runtime. Separately produced prebuilt exports must supply this compiler-generated stamp; missing or mismatched stamps fail closed. The verifier now requires HTTP 200 from the dynamic health endpoint on the direct UI listener.
+- Targeted verifier and workflow policy tests passed (18 tests); `git diff --check` passed. No image build or production change performed. GitHub image build and actual dynamic-route smoke remain pending; see `openspec/TODO.md`.

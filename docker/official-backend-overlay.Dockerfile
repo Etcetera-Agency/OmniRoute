@@ -51,6 +51,7 @@ RUN mkdir -p /app/data \
   && npm run build:backend \
   && OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" NEXT_DIST_DIR=.build/backend-overlay node scripts/build/write-build-sha.mjs \
   && cp /app/.build/backend-overlay/standalone/BUILD_SHA /app/.build/backend-overlay/server/BUILD_SHA \
+  && node -p "require('next/package.json').version" > /app/.build/backend-overlay/server/NEXT_VERSION \
   && test -s /app/.build/backend-overlay/server/app-paths-manifest.json \
   && test -s /app/.build/backend-overlay/app-path-routes-manifest.json \
   && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \
@@ -65,6 +66,8 @@ RUN node scripts/build/bundle-model-benchmark-search-reprocess.mjs
 # Adapter for a separately compiled backend export. This stage is selected
 # only when BACKEND_ARTIFACT_STAGE=prebuilt-backend; BuildKit prunes the
 # backend-builder stage, so packaging does not compile a second time.
+# The exported server must include NEXT_VERSION from the compiler environment;
+# the runtime comparison below rejects missing or incompatible artifacts.
 FROM scratch AS prebuilt-backend
 COPY --from=backend_export /server /app/.build/backend-overlay/server
 COPY --from=backend_export /server/BUILD_SHA /app/.build/backend-overlay/server/BUILD_SHA
@@ -87,6 +90,8 @@ COPY --from=selected-backend --chown=node:node \
   /app/.build/backend-overlay/server \
   /app/.build/next/omni-overlay/server
 COPY scripts/build/write-build-sha.mjs /app/scripts/build/write-build-sha.mjs
+# AICODE-NOTE: Overlay route bundles require the same Next runtime used to compile them.
+RUN test "$(cat /app/.build/next/omni-overlay/server/NEXT_VERSION)" = "$(node -p "require('next/package.json').version")"
 # AICODE-NOTE: This gate covers both compiled and prebuilt selected server trees.
 RUN OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" NEXT_DIST_DIR=.build/next/omni-overlay \
   node scripts/build/write-build-sha.mjs --verify-server

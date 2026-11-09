@@ -185,3 +185,12 @@ test("backend builder compiles once without running unit tests", () => {
     "!tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs",
   ]);
 });
+
+
+test("overlay packages only backend artifacts built with the runtime Next version", () => {
+  const [builder, prebuilt] = dockerfile.split("FROM scratch AS prebuilt-backend");
+  assert.match(builder, /require\('next\/package\.json'\)\.version.*server\/NEXT_VERSION/);
+  assert.match(prebuilt, /COPY --from=backend_export \/server \/app\/\.build\/backend-overlay\/server/);
+  assert.match(prebuilt, /cat \/app\/\.build\/next\/omni-overlay\/server\/NEXT_VERSION/);
+  assert.match(prebuilt, /node -p.*require\('next\/package\.json'\)\.version/);
+});

@@ -156,6 +156,8 @@ export function verifyCandidateEvidence(evidence, expected) {
   );
   requireEvidence(candidate.dashboardStatus === 200, "candidate dashboard did not return HTTP 200");
 
+  requireEvidence(candidate.dynamicApiStatus === 200, "dynamic /api/health/ping did not return HTTP 200");
+
   const api = candidate.apiResponse;
   requireEvidence(
     api?.port === DIRECT_UI_PORT && api.path === DIRECT_UI_API_PATH,
@@ -605,11 +607,16 @@ async function smokeCandidate(candidate) {
     } catch {
       body = null;
     }
+    const dynamicApi = await fetch(`${baseUrl}/api/health/ping`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    await dynamicApi.arrayBuffer();
     const browserSmoke = runBrowserSmoke(container);
 
     return {
       healthStatus: "healthy",
       dashboardStatus: dashboard.status,
+      dynamicApiStatus: dynamicApi.status,
       browserSmoke,
       apiResponse: {
         port: DIRECT_UI_PORT,
@@ -677,6 +684,7 @@ export async function verifyImages(options) {
       baseDigest: candidateLabels["org.opencontainers.image.base.digest"],
       sqlite,
       dashboardStatus: runtime.dashboardStatus,
+      dynamicApiStatus: runtime.dynamicApiStatus,
       browserSmoke: runtime.browserSmoke,
       apiPath: runtime.apiResponse.path,
       apiPort: runtime.apiResponse.port,

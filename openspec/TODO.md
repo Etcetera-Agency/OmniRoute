@@ -1605,3 +1605,7 @@ Auto lifetime spec. Living specs are reconciled before moving the seven packages
       scoped formatting/docs-sync/diff checks pass. Code Simplifier reviewed
       the documentation before commit. Logs: `/tmp/e013-docs-closure-20261101/`.
       Normal hooks are required; no source/full tests or runtime actions ran.
+
+### EX013 overlay runtime recovery
+
+- [ ] Build the corrected overlay in authorized GitHub CI, verify the actual image's Next version and direct dynamic `/api/health/ping` response, then verify authenticated providers after any separately authorized production deployment. Preserve existing production data and rollback artifacts. Separately generated prebuilt backend exports must include their compiler-derived `server/NEXT_VERSION`; verify that producer and packaging path before using such an export.

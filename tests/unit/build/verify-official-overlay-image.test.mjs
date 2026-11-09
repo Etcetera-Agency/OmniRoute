@@ -63,6 +63,7 @@ function makeEvidence() {
       sqlite: { ok: true, version: "3.53.4", queryResult: 1 },
       healthStatus: "healthy",
       dashboardStatus: 200,
+      dynamicApiStatus: 200,
       apiResponse: {
         status: 401,
         path: "/api/v1/models",
@@ -517,6 +518,10 @@ test("verifier rejects native SQLite, health, dashboard, and direct UI API dispa
   const dashboardFailure = makeEvidence();
   dashboardFailure.candidate.dashboardStatus = 500;
   assert.throws(() => verifyCandidateEvidence(dashboardFailure, EXPECTED), /dashboard/i);
+
+  const dynamicFailure = makeEvidence();
+  dynamicFailure.candidate.dynamicApiStatus = 500;
+  assert.throws(() => verifyCandidateEvidence(dynamicFailure, EXPECTED), /dynamic.*health\/ping/i);
 
   const dispatchFailure = makeEvidence();
   dispatchFailure.candidate.apiResponse.body.error.code = "ROUTE_MISSING";
