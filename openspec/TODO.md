@@ -5,6 +5,25 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
 > Current seven-package closure is recorded in the final E013 runtime acceptance
 > section. Earlier pending runtime/health statements are historical and resolved.
 
+## Future upstream migration numbering
+
+- [ ] Before each upstream update, reconcile migration numbers against the fork
+      ledger: fork migrations occupy 197–229, including upstream 213–225
+      renumbered to 217–229. Assign new upstream migrations unused fork IDs and
+      update all version references; rehearse upgrades against a production-data
+      copy before deployment. Do not renumber already deployed fork migrations.
+
+## Upstream v3.8.53 translation refresh
+
+- [ ] Refresh translated documentation against the merged English sources and
+      reconcile `.i18n-state.json` using the translation pipeline; preserve
+      fork-specific content and do not adopt stale mirrors as current. The merge
+      retained 330 fork mirrors for `QUALITY_GATES.md`, `REPOSITORY_MAP.md`,
+      `API_REFERENCE.md`, `ENVIRONMENT.md`, and `llm.txt`. The drift check at
+      merge time found 7 changed sources, 281 stale targets, and 64 changed
+      targets across 10,032 targets. Re-run the drift check and docs validation
+      after refresh; counts may change with subsequent edits.
+
 ## Mdream web-fetch hosted acceptance
 
 - [ ] After an approved merge/deployment, make one controlled public HTTPS

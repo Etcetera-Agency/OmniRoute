@@ -46,12 +46,12 @@ test("a fresh database carries the provider-reported cost columns and marker", (
   assert.ok(usageColumns.includes("provider_credits"), "provider_credits column missing");
   assert.ok(usageColumns.includes("provider_cost_usd"), "provider_cost_usd column missing");
   const marker = db
-    .prepare("SELECT version FROM _omniroute_migrations WHERE version = '212'")
+    .prepare("SELECT version FROM _omniroute_migrations WHERE version = '215'")
     .get() as { version: string } | undefined;
-  assert.equal(marker?.version, "212");
+  assert.equal(marker?.version, "215");
 });
 
-test("212 upgrades an existing usage_history without inventing costs", () => {
+test("215 upgrades an existing usage_history without inventing costs", () => {
   const db = core.getDbInstance();
   db.prepare(
     `INSERT INTO usage_history (provider, model, tokens_input, tokens_output, timestamp)
@@ -61,7 +61,7 @@ test("212 upgrades an existing usage_history without inventing costs", () => {
   // Replay against the pre-migration shape.
   db.exec("ALTER TABLE usage_history DROP COLUMN provider_credits");
   db.exec("ALTER TABLE usage_history DROP COLUMN provider_cost_usd");
-  db.prepare("DELETE FROM _omniroute_migrations WHERE version = '212'").run();
+  db.prepare("DELETE FROM _omniroute_migrations WHERE version = '215'").run();
   core.resetDbInstance();
   const upgraded = core.getDbInstance();
 
@@ -81,7 +81,7 @@ test("212 upgrades an existing usage_history without inventing costs", () => {
   );
 });
 
-test("212 is skipped, not re-run, when the columns already exist (old 206 number)", () => {
+test("215 is skipped, not re-run, when the columns already exist (old 212 number)", () => {
   const db = core.getDbInstance();
   db.prepare(
     `INSERT INTO usage_history (provider, model, provider_cost_usd, timestamp)
@@ -89,15 +89,15 @@ test("212 is skipped, not re-run, when the columns already exist (old 206 number
   ).run();
 
   // A DB that applied this file under its pre-renumber version has the columns but
-  // no '212' marker; a bare ADD COLUMN re-run would throw "duplicate column name".
-  db.prepare("DELETE FROM _omniroute_migrations WHERE version = '212'").run();
+  // no '215' marker; a bare ADD COLUMN re-run would throw "duplicate column name".
+  db.prepare("DELETE FROM _omniroute_migrations WHERE version = '215'").run();
   core.resetDbInstance();
   const reopened = core.getDbInstance();
 
   const marker = reopened
-    .prepare("SELECT version FROM _omniroute_migrations WHERE version = '212'")
+    .prepare("SELECT version FROM _omniroute_migrations WHERE version = '215'")
     .get() as { version: string } | undefined;
-  assert.equal(marker?.version, "212");
+  assert.equal(marker?.version, "215");
   assert.deepEqual(reopened.prepare("SELECT provider_cost_usd FROM usage_history").all(), [
     { provider_cost_usd: 0.5 },
   ]);

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "vitest";
-import { classifyTier } from "../../../open-sse/services/tierResolver";
+import {
+  classifyTier,
+  clearTierCache,
+  setTierPricingSnapshot,
+} from "../../../open-sse/services/tierResolver";
 import {
   buildAutoCandidateFilter,
   parseAutoSuffix,
@@ -67,5 +71,37 @@ describe("auto quality bands preserve upstream suffix identity", () => {
       reasoningPro(reasoningCandidate),
       classifyTier(reasoningCandidate.provider, reasoningCandidate.model).tier === "premium"
     );
+  });
+});
+
+describe("free band pricing evidence", () => {
+  afterEach(() => {
+    setTierPricingSnapshot(null);
+    clearTierCache();
+  });
+
+  it("matches bare and catalog-prefixed OpenCode prices and rejects paid output", () => {
+    process.env.OMNIROUTE_AUTO_BANDS = "1";
+    setTierPricingSnapshot({
+      "opencode-zen": { "opencode/mimo-v2.6-flash-free": { input: 0, output: 2 } },
+    });
+    clearTierCache();
+    const filter = buildAutoCandidateFilter("coding_low", "free");
+    assert.ok(filter);
+    for (const model of ["mimo-v2.6-flash-free", "opencode/mimo-v2.6-flash-free"]) {
+      const assignment = classifyTier("opencode-zen", model);
+      assert.equal(assignment.hasFreeTier, false);
+      assert.equal(filter({ provider: "opencode-zen", model }), false);
+    }
+  });
+
+  it("accepts a catalogued free model and rejects an unknown paid model", () => {
+    process.env.OMNIROUTE_AUTO_BANDS = "1";
+    setTierPricingSnapshot({});
+    clearTierCache();
+    for (const model of ["mimo-v2.6-flash-free", "opencode/mimo-v2.6-flash-free"]) {
+      assert.equal(classifyTier("opencode-zen", model).hasFreeTier, true);
+    }
+    assert.equal(classifyTier("opencode-zen", "unknown-paid-model").hasFreeTier, false);
   });
 });

@@ -2,7 +2,7 @@
  * Integration tests for GET /api/search/providers — extended catalog (F4).
  *
  * Tests:
- * - Returns 29 items total (21 search + 8 fetch providers).
+ * - Returns 30 items total (22 search + 8 fetch providers).
  * - Each item carries the correct `kind` field.
  * - Status reflects actual DB credential state:
  *   - "configured"  when an active, non-rate-limited connection exists.
@@ -48,10 +48,10 @@ const route = await import("../../src/app/api/search/providers/route.ts");
 // Constants
 // ---------------------------------------------------------------------------
 
-// 21 search-kind providers: serper, brave, perplexity, exa, tavily, nimble-search, firecrawl,
+// 22 search-kind providers: serper, brave, perplexity, exa, tavily, nimble-search, firecrawl,
 // google-pse, linkup, searchapi, youcom, searxng, ollama, zai, jina-search, anysearch-search,
-// context7 (#11140), duckduckgo-free, x-search, xquik-search, parallel-search.
-const EXPECTED_SEARCH_COUNT = 21;
+// context7 (#11140), duckduckgo-free, x-search, xquik-search, parallel-search, kimi-search.
+const EXPECTED_SEARCH_COUNT = 22;
 const EXPECTED_FETCH_COUNT = 8;
 const EXPECTED_TOTAL = EXPECTED_SEARCH_COUNT + EXPECTED_FETCH_COUNT;
 
@@ -138,7 +138,7 @@ test("search-providers-catalog: returns 401 for unauthenticated requests when au
   assert.ok(!bodyStr.includes(" at /"), "error body must not contain stack trace");
 });
 
-test("search-providers-catalog: returns 29 providers (21 search + 8 fetch)", async () => {
+test("search-providers-catalog: returns 30 providers (22 search + 8 fetch)", async () => {
   const req = await buildAuthRequest();
   const res = await route.GET(req);
 

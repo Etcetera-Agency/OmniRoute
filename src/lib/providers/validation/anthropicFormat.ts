@@ -10,14 +10,13 @@ import {
   joinBaseUrlAndPath,
 } from "@omniroute/open-sse/services/claudeCodeCompatible.ts";
 import { getDefaultExecutor } from "@omniroute/open-sse/executors/defaultResolver.ts";
-import { isForbiddenCustomHeaderName } from "@/shared/constants/upstreamHeaders";
 import {
   buildCompatibleModelsUrl,
   normalizeAnthropicBaseUrl,
   normalizeClaudeCodeCompatibleBaseUrl,
 } from "@/shared/utils/compatibleProviderUrls";
 import { addModelsSuffix } from "./urlHelpers";
-import { applyCustomUserAgent } from "./headers";
+import { applyCustomUserAgent, mergeConnectionCustomHeaders } from "./headers";
 import { toValidationErrorResult, validationRead, validationWrite } from "./transport";
 
 export async function validateAnthropicLikeProvider({
@@ -188,31 +187,6 @@ async function readBodyPrefix(
   return text.slice(0, maxBytes);
 }
 
-/**
- * Add the connection's `providerSpecificData.customHeaders` the way the chat path does
- * (open-sse/handlers/chatCore/upstreamExecuteHeaders.ts): auth and hop-by-hop names are
- * skipped, CR/LF/NUL is dropped, and a header already set is never replaced.
- */
-function mergeConnectionCustomHeaders(
-  headers: Record<string, string>,
-  providerSpecificData: unknown
-): void {
-  const customHeaders =
-    providerSpecificData && typeof providerSpecificData === "object"
-      ? (providerSpecificData as { customHeaders?: unknown }).customHeaders
-      : undefined;
-  if (!customHeaders || typeof customHeaders !== "object" || Array.isArray(customHeaders)) return;
-  for (const [name, value] of Object.entries(customHeaders as Record<string, unknown>)) {
-    const trimmed = name.trim();
-    if (!trimmed || typeof value !== "string") continue;
-    if (isForbiddenCustomHeaderName(trimmed)) continue;
-    if (/[\r\n\0]/.test(trimmed) || /[\r\n\0]/.test(value)) continue;
-    const lower = trimmed.toLowerCase();
-    if (Object.keys(headers).some((existing) => existing.toLowerCase() === lower)) continue;
-    headers[trimmed] = value;
-  }
-}
-
 export async function validateClaudeOAuthInline({
   apiKey,
   modelId,
@@ -279,6 +253,7 @@ export async function validateAnthropicCompatibleProvider({
     },
     providerSpecificData
   );
+  mergeConnectionCustomHeaders(headers, providerSpecificData);
 
   // Step 1: Best-effort GET /models probe. /models is NOT part of the Anthropic API spec
   // and many compatible proxies either 404, 401, or 403 on /models even with a valid key —
@@ -351,6 +326,7 @@ export async function validateClaudeCodeCompatibleProvider({
     buildClaudeCodeCompatibleHeaders(apiKey, false),
     providerSpecificData
   );
+  mergeConnectionCustomHeaders(defaultHeaders, providerSpecificData);
 
   try {
     const modelsRes = await validationRead(joinClaudeCodeCompatibleUrl(baseUrl, modelsPath), {
@@ -377,8 +353,11 @@ export async function validateClaudeCodeCompatibleProvider({
   try {
     const messagesRes = await validationWrite(joinClaudeCodeCompatibleUrl(baseUrl, chatPath), {
       method: "POST",
-      headers: applyCustomUserAgent(
-        buildClaudeCodeCompatibleHeaders(apiKey, true, sessionId),
+      headers: mergeConnectionCustomHeaders(
+        applyCustomUserAgent(
+          buildClaudeCodeCompatibleHeaders(apiKey, true, sessionId),
+          providerSpecificData
+        ),
         providerSpecificData
       ),
       body: JSON.stringify(payload),

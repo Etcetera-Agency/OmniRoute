@@ -12,7 +12,7 @@ const nonEmptyInstructionTextSchema = z.string().refine((value) => value.trim().
   message: "must be a non-empty string",
 });
 const positiveSafeIntegerSchema = z
-  .number({ invalid_type_error: "must be a positive safe integer" })
+  .number({ error: "must be a positive safe integer" })
   .int("must be a positive safe integer")
   .min(1, "must be a positive safe integer")
   .max(Number.MAX_SAFE_INTEGER, "must be a positive safe integer");

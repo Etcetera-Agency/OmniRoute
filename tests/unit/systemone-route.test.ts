@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSystemOnePostHandler, OPTIONS } from "../../src/app/api/v1/systemone/route.ts";
+import {
+  createSystemOnePostHandler,
+  isUpstreamSystemOneModel,
+  OPTIONS,
+} from "../../src/app/api/v1/systemone/route.ts";
 import { loadSystemOneConfig } from "../../open-sse/services/systemOne/config.ts";
 import type {
   SystemOneDispatchResult,
@@ -29,6 +33,19 @@ function postRequest(body: unknown, headers: Record<string, string> = {}): Reque
     body: JSON.stringify(body),
   });
 }
+
+test("SystemOne model routing uses fork chain only when model is omitted", () => {
+  assert.equal(isUpstreamSystemOneModel(undefined), false);
+  assert.equal(isUpstreamSystemOneModel(""), true);
+  assert.equal(isUpstreamSystemOneModel(null), true);
+  assert.equal(isUpstreamSystemOneModel("auto"), true);
+  assert.equal(isUpstreamSystemOneModel("systemone/auto"), true);
+  assert.equal(isUpstreamSystemOneModel("laya/laya-browser-v19s"), true);
+  assert.equal(isUpstreamSystemOneModel("typesafe/jev-1.13"), true);
+  assert.equal(isUpstreamSystemOneModel("jev-latest"), true);
+  assert.equal(isUpstreamSystemOneModel("openrouter/inception/mercury-decide:free"), true);
+  assert.equal(isUpstreamSystemOneModel("openai/gpt-6"), true);
+});
 
 function attempt(overrides: Partial<SystemOneAttempt> = {}): SystemOneAttempt {
   return {

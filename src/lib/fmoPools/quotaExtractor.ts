@@ -45,7 +45,17 @@ export const defaultQuotaExtractorDeps: QuotaExtractorDeps = {
   },
   handleChatCore: async (args) => {
     const { handleChatCore } = await import("@omniroute/open-sse/handlers/chatCore.ts");
-    return handleChatCore(args);
+    return handleChatCore({
+      ...args,
+      onCredentialsRefreshed: undefined,
+      onRequestSuccess: undefined,
+      onStreamFailure: undefined,
+      onDisconnect: undefined,
+      clientRawRequest: undefined,
+      connectionId: undefined,
+      userAgent: undefined,
+      comboName: undefined,
+    });
   },
   isEnabled: isQuotaExtractorEnabled,
   selectExtractorModel,

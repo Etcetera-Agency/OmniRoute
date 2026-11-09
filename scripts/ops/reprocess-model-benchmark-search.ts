@@ -1,3 +1,5 @@
+export {};
+
 const runtimeCheck = process.argv.includes("--check-runtime");
 process.env.DATA_DIR = runtimeCheck ? "/tmp/model-benchmark-search-runtime-check" : "/app/data";
 console.log = (...args) => console.error(...args);
