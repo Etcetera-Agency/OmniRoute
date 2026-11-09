@@ -2584,3 +2584,28 @@ bounded documentation closure. Parent retains final whole-goal acceptance.
 Executor thread: `E013-docs — Согласование OpenSpec`,
 `01a19424-e2f8-7921-b08e-f164f5b5ef1c`. No redelegation occurred. This records
 bounded docs/package closure; the parent performs final whole-goal acceptance.
+
+### EX013 OpenAPI correction review
+
+- `docs/openapi.yaml` now has one `/api/v1/systemone` path with POST, GET, and
+  OPTIONS. The duplicate legacy POST was removed; the detailed fork POST
+  contract and GET model-catalog operation remain.
+- Review correction preserved all OPTIONS 204 CORS headers
+  (`Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`,
+  `Access-Control-Allow-Origin`, `Vary`) under OPTIONS. GET has no copied
+  preflight headers.
+- YAML parse, `npm run prebuild:docs`, and `git diff --check` passed.
+  `npm run check:openapi-routes` still reports the unrelated missing
+  `/api/tools/traffic-inspector/capture-modes/tls-intercept` route. Follow-up
+  is recorded in `openspec/TODO.md`.
+
+### EX013 commit-hook baseline verification
+
+- Read-only `HEAD` comparison using docs-sync mirror rule confirms all 66
+  tracked `docs/i18n/*/llm.txt` mirrors differ from root `llm.txt` (66/66)
+  before this worktree's changes. This reproduces reported pre-existing
+  docs-sync blocker without modifying the worktree.
+- No new TODO item needed: `openspec/TODO.md` already tracks v3.8.53 translated
+  documentation refresh and specifically lists `llm.txt` among 330 mirrors,
+  with drift counts and required reconciliation.
+- After the review update, staged files passed `git diff --cached --check`; no commit was made.

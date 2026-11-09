@@ -13,6 +13,13 @@ Deferred scope discovered while preparing the Hermes OmniRoute specs.
       update all version references; rehearse upgrades against a production-data
       copy before deployment. Do not renumber already deployed fork migrations.
 
+## OpenAPI routes check baseline
+
+- [ ] Add or document the missing `/api/tools/traffic-inspector/capture-modes/tls-intercept`
+      route before expecting `npm run check:openapi-routes` to pass. The check currently
+      reports this documented path as having no real route; unrelated to SystemOne's
+      duplicate OpenAPI path correction.
+
 ## Upstream v3.8.53 translation refresh
 
 - [ ] Refresh translated documentation against the merged English sources and
