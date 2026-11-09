@@ -19,7 +19,7 @@
 import type { AutoVariant } from "./autoPrefix";
 import { classifyTier } from "../tierResolver";
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
-import { isVisionModelId } from "@/shared/constants/visionModels";
+import { isTextOnlyChatTransport, isVisionModelId } from "@/shared/constants/visionModels";
 import { isVisionBridgeForcedModel } from "@/shared/constants/visionBridgeDefaults";
 import { buildBandCheck, isBandsEnabled, parseBandCategory } from "./bands";
 
@@ -152,6 +152,7 @@ export function buildAutoCandidateFilter(
 
   if (category === "vision" || category === "multimodal") {
     checks.push((c) => {
+      if (isTextOnlyChatTransport(c.provider)) return false;
       if (c.resolvedSupportsVision !== undefined) {
         // #vision-pool: same bridge exclusion as the on-demand path below —
         // registry entries whose catalog overstates vision support are forced
@@ -188,7 +189,16 @@ export function buildAutoCandidateFilter(
     });
   }
   if (tier === "free") {
-    checks.push((c) => safeClassifyTier(c) === "free");
+    checks.push((c) => {
+      try {
+        const assignment = classifyTier(c.provider, c.model);
+        return (
+          assignment.tier === "free" && (!parseBandCategory(category) || assignment.hasFreeTier)
+        );
+      } catch {
+        return false;
+      }
+    });
   }
   if (tier === "pro") {
     checks.push((c) => safeClassifyTier(c) === "premium");

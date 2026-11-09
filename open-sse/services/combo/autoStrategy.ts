@@ -21,6 +21,8 @@
  */
 
 import { isRecord } from "./comboData.ts";
+import { logger } from "../../utils/logger.ts";
+import { sanitizeErrorMessage } from "../../utils/error.ts";
 import type {
   AutoProviderCandidate,
   ComboLike,
@@ -56,6 +58,13 @@ import {
   matchesRoutingTags,
   resolveRequestRoutingTags,
 } from "../../../src/domain/tagRouter.ts";
+import {
+  type ActiveConnectionRecord,
+  expandTargetsWithinConnectionScope,
+  groupConnectionsByProvider,
+  normalizeAutoConnectionScope,
+  permittedActiveConnections,
+} from "./autoConnectionScope.ts";
 
 // Quota Share soft-policy deprioritization factor (B17).
 // When a candidate has quotaSoftPenalty === true, its auto-combo score is
@@ -470,8 +479,14 @@ function sanitizeAutoCustomModels(rawModels: unknown): AutoCustomModel[] {
 export async function expandAutoComboCandidatePool(
   eligibleTargets: ResolvedComboTarget[],
   combo:
-    { name?: string; models?: unknown; autoConfig?: unknown; config?: unknown } | null | undefined
+    { name?: string; models?: unknown; autoConfig?: unknown; config?: unknown } | null | undefined,
+  apiKeyAllowedConnectionIds: string[] | null = null
 ): Promise<ResolvedComboTarget[]> {
+  const connectionScope = normalizeAutoConnectionScope(apiKeyAllowedConnectionIds);
+  if (connectionScope) {
+    return expandRestrictedAutoComboCandidatePool(eligibleTargets, combo, connectionScope);
+  }
+
   for (let index = eligibleTargets.length - 1; index >= 0; index -= 1) {
     const target = eligibleTargets[index];
     if (isCommonChatGptWebRetiredProviderId(target.providerId || target.provider)) {
@@ -479,42 +494,7 @@ export async function expandAutoComboCandidatePool(
     }
   }
 
-  const localAutoConfig =
-    (combo?.autoConfig as Record<string, unknown> | undefined) ||
-    (isRecord((combo?.config as Record<string, unknown>)?.auto)
-      ? ((combo?.config as Record<string, unknown>).auto as Record<string, unknown>)
-      : null) ||
-    (combo?.config as Record<string, unknown> | undefined) ||
-    {};
-
-  const freeBand = combo?.name?.match(/^auto\/([^:]+):free$/);
-  if (freeBand && parseBandId(freeBand[1])) {
-    // AICODE-NOTE: new free-band targets are already policy-filtered; never expand them to the catalog.
-    return eligibleTargets;
-  }
-
-  if (Array.isArray(localAutoConfig?.candidatePool) && localAutoConfig.candidatePool.length > 0)
-    return eligibleTargets;
-
-  // #15546: `auto/subscription` promises plan-included capacity only. An empty
-  // pool must stay empty (fail closed) rather than widen to the paid catalog.
-  if (localAutoConfig?.failClosedWhenEmpty === true) return eligibleTargets;
-
-  // #COMBO-REF: if the combo references other combos via kind:"combo-ref" entries,
-  // the resolved eligibleTargets already represent the operator's intended pool.
-  // Expanding to ALL providers would defeat the purpose of the combo-ref constraint
-  // (e.g. an "auto" combo delegating to a "priority" sub-combo should not pull in
-  // every model from every active provider).
-  // When the operator has populated the combo's models[] (the common
-  // case for combos created through the dashboard multi-model editor
-  // with strategy=auto), the explicit list IS the candidate pool.
-  // Expansion to every active provider's catalog would silently
-  // override the operator's intent and inject models the operator
-  // never approved. Only fall through to the full-catalog expansion
-  // when the operator has not pre-populated a models[] (pure-auto
-  // combos that want to score every model).
-  const explicitModels = combo?.models;
-  if (Array.isArray(explicitModels) && explicitModels.length > 0) return eligibleTargets;
+  if (hasOperatorDefinedAutoPool(resolveLocalAutoConfig(combo), combo)) return eligibleTargets;
 
   try {
     const allConnections = await getCachedProviderPoolConnections({ isActive: true });
@@ -593,6 +573,185 @@ export async function expandAutoComboCandidatePool(
   }
 
   return eligibleTargets;
+}
+
+const autoPoolLog = logger("COMBO_AUTO");
+
+type AutoComboLike = { autoConfig?: unknown; config?: unknown } | null | undefined;
+
+function resolveLocalAutoConfig(combo: AutoComboLike): Record<string, unknown> {
+  return (
+    (combo?.autoConfig as Record<string, unknown> | undefined) ||
+    (isRecord((combo?.config as Record<string, unknown>)?.auto)
+      ? ((combo?.config as Record<string, unknown>).auto as Record<string, unknown>)
+      : null) ||
+    (combo?.config as Record<string, unknown> | undefined) ||
+    {}
+  );
+}
+
+function isRetiredAutoProviderId(providerId: unknown): boolean {
+  return (
+    isMicrosoftDesignerWebRetiredProviderId(providerId) ||
+    isRuntimeRetiredProviderId(providerId) ||
+    isCommonChatGptWebRetiredProviderId(providerId)
+  );
+}
+
+/**
+ * Resolve the active connections an API key may use, grouped by provider.
+ * Returns `null` when the lookup fails: authorization scope is not a
+ * best-effort optimization, so the caller must return no candidates instead of
+ * falling back to an unscoped catalog target. The failure is logged (message
+ * sanitized) so an empty pool is diagnosable rather than silent.
+ */
+async function loadPermittedConnectionsByProvider(
+  connectionScope: ReadonlySet<string>
+): Promise<Map<string, ActiveConnectionRecord[]> | null> {
+  try {
+    const allConnections = (await getCachedProviderPoolConnections({
+      isActive: true,
+    })) as Array<Record<string, unknown>>;
+    const permitted = permittedActiveConnections(allConnections, connectionScope).filter(
+      (connection) => !isRetiredAutoProviderId(connection.provider)
+    );
+    return groupConnectionsByProvider(permitted);
+  } catch (error) {
+    autoPoolLog.warn(
+      "Restricted auto pool: active connection lookup failed; returning no candidates",
+      {
+        scopeSize: connectionScope.size,
+        error: sanitizeErrorMessage(error instanceof Error ? error.message : String(error)),
+      }
+    );
+    return null;
+  }
+}
+
+/** Chat-selectable, non-hidden model ids a restricted provider contributes to the pool. */
+async function resolveRestrictedProviderModelIds(
+  providerId: string,
+  hiddenModels: ReadonlySet<string> | undefined
+): Promise<string[]> {
+  const [syncedModelsRaw, customModelsRaw] = await Promise.all([
+    getSyncedAvailableModels(providerId),
+    getCustomModels(providerId),
+  ]);
+  const syncedModels = filterChatSelectableModels(providerId, syncedModelsRaw);
+  const customModels = filterChatSelectableModels(
+    providerId,
+    Array.isArray(customModelsRaw)
+      ? customModelsRaw.filter(
+          (model): model is { id: string; supportedEndpoints?: string[] } =>
+            isRecord(model) && typeof model.id === "string" && model.id.length > 0
+        )
+      : []
+  );
+  const userVisibleIds = new Set<string>();
+  for (const model of [...syncedModels, ...customModels]) {
+    if (model.id && !hiddenModels?.has(model.id)) userVisibleIds.add(model.id);
+  }
+  if (userVisibleIds.size > 0) return Array.from(userVisibleIds);
+  return filterChatSelectableModels(providerId, getProviderModels(providerId))
+    .map((model) => model.id)
+    .filter((modelId) => !hiddenModels?.has(modelId));
+}
+
+function pushConnectionBoundTargets(
+  scopedTargets: ResolvedComboTarget[],
+  seenTargets: Set<string>,
+  providerId: string,
+  modelIds: readonly string[],
+  providerConnections: readonly ActiveConnectionRecord[]
+): void {
+  for (const modelId of modelIds) {
+    const modelStr = `${providerId}/${modelId}`;
+    for (const connection of providerConnections) {
+      const identity = `${modelStr}\0${connection.id}`;
+      if (seenTargets.has(identity)) continue;
+      seenTargets.add(identity);
+      scopedTargets.push({
+        kind: "model",
+        stepId: modelStr,
+        executionKey: `${modelStr}@${connection.id}`,
+        provider: providerId,
+        providerId,
+        modelStr,
+        weight: 1,
+        connectionId: connection.id,
+        allowedConnectionIds: [connection.id],
+        authType: typeof connection.authType === "string" ? connection.authType : null,
+        label: null,
+      });
+    }
+  }
+}
+
+/**
+ * True when the combo's own configuration already defines the candidate pool,
+ * so the full active-provider catalog must NOT be appended: an explicit
+ * `candidatePool`, a `failClosedWhenEmpty` pool (#15546: `auto/subscription`
+ * promises plan-included capacity only and fails closed when empty), or a
+ * populated `models[]`.
+ */
+function hasOperatorDefinedAutoPool(
+  localAutoConfig: Record<string, unknown>,
+  combo: AutoComboLike
+): boolean {
+  const freeBand = (combo as { name?: string } | null | undefined)?.name?.match(
+    /^auto\/([^:]+):free$/
+  );
+  if (freeBand && parseBandId(freeBand[1])) return true;
+  if (Array.isArray(localAutoConfig.candidatePool) && localAutoConfig.candidatePool.length > 0) {
+    return true;
+  }
+  if (localAutoConfig.failClosedWhenEmpty === true) return true;
+  const explicitModels = (combo as Record<string, unknown> | null | undefined)?.models;
+  return Array.isArray(explicitModels) && explicitModels.length > 0;
+}
+
+async function expandRestrictedAutoComboCandidatePool(
+  eligibleTargets: ResolvedComboTarget[],
+  combo: AutoComboLike,
+  connectionScope: ReadonlySet<string>
+): Promise<ResolvedComboTarget[]> {
+  const connectionsByProvider = await loadPermittedConnectionsByProvider(connectionScope);
+  if (!connectionsByProvider) return [];
+
+  const nonRetiredTargets = eligibleTargets.filter(
+    (target) => !isRetiredAutoProviderId(target.providerId || target.provider)
+  );
+  const scopedTargets = expandTargetsWithinConnectionScope(
+    nonRetiredTargets,
+    connectionsByProvider,
+    connectionScope
+  );
+  if (hasOperatorDefinedAutoPool(resolveLocalAutoConfig(combo), combo)) return scopedTargets;
+
+  const seenTargets = new Set(
+    scopedTargets.map((target) => `${target.modelStr}\0${target.connectionId ?? ""}`)
+  );
+  const hiddenModelsMap = getHiddenModelsByProvider();
+  for (const [providerId, providerConnections] of connectionsByProvider) {
+    try {
+      const modelIds = await resolveRestrictedProviderModelIds(
+        providerId,
+        hiddenModelsMap.get(providerId)
+      );
+      pushConnectionBoundTargets(
+        scopedTargets,
+        seenTargets,
+        providerId,
+        modelIds,
+        providerConnections
+      );
+    } catch {
+      // One provider's model inventory is best-effort. The already-scoped
+      // explicit targets and every other permitted provider remain available.
+      continue;
+    }
+  }
+  return scopedTargets;
 }
 
 /**

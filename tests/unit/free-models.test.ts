@@ -27,6 +27,16 @@ test("isFreeModel: catalog membership works when called with the provider alias"
   assert.equal(isFreeModel("ollamacloud", { id: "deepseek-v4-pro" }), true);
 });
 
+test("isFreeModel: OpenCode Zen catalog matches served bare IDs without granting paid models", () => {
+  for (const provider of ["opencode", "opencode-zen"]) {
+    assert.equal(isFreeModel(provider, { id: "mimo-v2.6-flash-free" }), true);
+    assert.equal(isFreeModel(provider, { id: "opencode/mimo-v2.6-flash-free" }), true);
+    assert.equal(isFreeModel(provider, { id: "mimo-v2.5-free" }), false);
+    assert.equal(isFreeModel(provider, { id: "gpt-5" }), false);
+  }
+  assert.equal(isFreeModel("opencode-go", { id: "mimo-v2.6-flash-free" }), false);
+});
+
 test("isFreeModel: model id ending in :free is free", () => {
   assert.equal(isFreeModel("openrouter", { id: "deepseek/deepseek-r1:free" }), true);
 });
@@ -57,8 +67,9 @@ test("isFreeModel: a model id listed in the free catalog for that provider is fr
   assert.equal(isFreeModel(sample.provider, { id: sample.modelId }), true);
 });
 
-test("isFreeModel: NVIDIA GPT OSS 120B remains in the reviewed trial catalog", () => {
-  assert.equal(isFreeModel("nvidia", { id: "openai/gpt-oss-120b" }), true);
+test("isFreeModel: NVIDIA's retired GPT OSS 120B left the trial catalog (#18418)", () => {
+  assert.equal(isFreeModel("nvidia", { id: "openai/gpt-oss-120b" }), false);
+  assert.equal(isFreeModel("nvidia", { id: "nvidia/nemotron-3.5-super-vl-120b-a12b" }), true);
 });
 
 test("selectModelsForImport: passthrough when importFreeOnly is false", () => {

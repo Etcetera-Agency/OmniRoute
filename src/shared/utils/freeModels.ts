@@ -74,7 +74,9 @@ export function providerHasFreeModels(providerId: string | undefined | null): bo
   if (typeof providerId !== "string") return false;
   return (
     PROVIDERS_WITH_FREE_MODELS.has(providerId) ||
-    PROVIDERS_WITH_FREE_MODELS.has(resolveProviderId(providerId))
+    PROVIDERS_WITH_FREE_MODELS.has(
+      providerId === "opencode" ? "opencode-zen" : resolveProviderId(providerId)
+    )
   );
 }
 
@@ -91,9 +93,12 @@ export interface FreeModelCandidate {
 /** Shipped-catalog entry for this provider (id or alias): trusted on its own. */
 export function isCatalogFreeModel(provider: string, modelId: unknown): boolean {
   if (typeof modelId !== "string") return false;
+  const canonicalProvider = provider === "opencode" ? "opencode-zen" : resolveProviderId(provider);
+  const catalogIds = FREE_MODEL_IDS_BY_PROVIDER.get(canonicalProvider);
   return (
     FREE_MODEL_IDS_BY_PROVIDER.get(provider)?.has(modelId) === true ||
-    FREE_MODEL_IDS_BY_PROVIDER.get(resolveProviderId(provider))?.has(modelId) === true
+    catalogIds?.has(modelId) === true ||
+    (canonicalProvider === "opencode-zen" && catalogIds?.has(`opencode/${modelId}`) === true)
   );
 }
 

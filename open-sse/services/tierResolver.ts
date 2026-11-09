@@ -89,6 +89,9 @@ function lookupSnapshot(provider: string, model: string): DbPrice | null {
   const pLower = (provider || "").toLowerCase();
   const mLower = (model || "").toLowerCase();
   const modelKeys = [mLower];
+  if (providerKeysFor(pLower).includes("opencode-zen")) {
+    modelKeys.push(mLower.startsWith("opencode/") ? mLower.slice(9) : `opencode/${mLower}`);
+  }
   const hyphenModel = mLower.replace(/\./g, "-");
   if (hyphenModel !== mLower) modelKeys.push(hyphenModel);
   for (const p of providerKeysFor(pLower)) {
@@ -231,7 +234,7 @@ export function classifyTier(provider: string, model: string): TierAssignment {
     ? {
         inputCostPer1M: dbPrice.input,
         outputCostPer1M: dbPrice.output,
-        isFree: dbPrice.input === 0,
+        isFree: dbPrice.input === 0 && dbPrice.output === 0,
         freeQuotaLimit: fallbackPricing.freeQuotaLimit,
       }
     : fallbackPricing;
@@ -346,7 +349,7 @@ export async function classifyTierAsync(provider: string, model: string): Promis
         reason: `DB cost-based: $${input}/M input`,
         costPer1MInput: input,
         costPer1MOutput: out,
-        hasFreeTier: input === 0,
+        hasFreeTier: input === 0 && out === 0,
         freeQuotaLimit: sync.freeQuotaLimit,
       };
       tierCache.set(cacheKey(provider, model), assignment);

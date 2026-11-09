@@ -372,7 +372,7 @@ describe("auto quality-band candidate-pool integration", () => {
   });
 
   it("keeps keyless OpenCode free models in the real free-tier and low-band intersection", async () => {
-    const freeInRange = "mimo-v2.5-free";
+    const freeInRange = "mimo-v2.6-flash-free";
     const freeOutOfRange = "big-pickle";
     const paidModel = "openai/gpt-4.1";
 
@@ -417,7 +417,7 @@ describe("auto quality-band candidate-pool integration", () => {
 
   it("preserves plain upstream auto/coding:free with bands disabled", async () => {
     process.env.OMNIROUTE_AUTO_BANDS = "0";
-    const keylessModel = "mimo-v2.5-free";
+    const keylessModel = "mimo-v2.6-flash-free";
     const paidModel = "openai/gpt-4.1";
     setUserFitnessOverride(keylessModel, "coding", 0.95);
     setUserFitnessOverride(paidModel, "coding", 0.5);

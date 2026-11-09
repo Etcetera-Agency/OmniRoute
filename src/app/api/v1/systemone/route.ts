@@ -8,6 +8,7 @@ import { createErrorResponse } from "@/lib/api/errorResponse";
 import { saveCallLog } from "@/lib/usage/callLogs";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
+import { createSystemOneRouteHandlers } from "@/app/api/v1/_shared/systemOneRoute";
 import {
   dispatchSystemOneRequest,
   type SystemOneAttempt,
@@ -191,8 +192,37 @@ export function createSystemOnePostHandler(
   };
 }
 
-export const POST = createSystemOnePostHandler();
+const forkPost = createSystemOnePostHandler();
+const upstreamHandlers = createSystemOneRouteHandlers("/v1/systemone");
 
-export async function OPTIONS(): Promise<Response> {
+export function isUpstreamSystemOneModel(model: unknown): boolean {
+  return model !== undefined;
+}
+
+export const POST = async (request: Request): Promise<Response> => {
+  const body = (await request
+    .clone()
+    .json()
+    .catch(() => null)) as { model?: unknown; questions?: unknown; state?: unknown } | null;
+  // The fork chain is the default only when model is omitted. Every explicit
+  // model follows the upstream model resolver and credential scoping.
+  const questions = body?.questions;
+  const hasForkRequestShape =
+    body !== null &&
+    typeof body === "object" &&
+    body.state !== undefined &&
+    questions !== null &&
+    typeof questions === "object" &&
+    Object.keys(questions).length > 0;
+  if (!hasForkRequestShape || isUpstreamSystemOneModel(body?.model)) {
+    return upstreamHandlers.POST(request);
+  }
+  return forkPost(request);
+};
+
+export const GET = upstreamHandlers.GET;
+export const dynamic = "force-dynamic";
+
+export function OPTIONS(): Response {
   return handleCorsOptions();
 }
