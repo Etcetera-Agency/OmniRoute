@@ -1,6 +1,7 @@
 "use client";
 
 import Icon from "@/shared/components/Icon";
+import Link from "next/link";
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import {
@@ -842,6 +843,21 @@ function ProvidersPageContent() {
     connections
   );
   const visibleWebFetchEntries = resolveVisibleWebFetchEntries(webFetchEntries, activeCategory);
+  const showMdream =
+    (!activeCategory || activeCategory === "webfetch") &&
+    !modelSearchQuery &&
+    (!activeServiceKind || activeServiceKind === "webFetch") &&
+    "mdream".includes(searchQuery.trim().toLowerCase());
+  const mdreamCard = (
+    <Link href="/dashboard/search-tools?tab=scrape&provider=mdream" className="group">
+      <Card padding="xs" className="h-full hover:bg-bg-subtle hover:border-primary/40">
+        <div className="flex flex-col gap-2">
+          <span className="font-semibold">Mdream</span>
+          <span className="text-xs text-text-muted">Web Fetch · Markdown · No API key</span>
+        </div>
+      </Card>
+    </Link>
+  );
 
   const compactProviderEntries = buildCompactProviderEntriesForPage({
     activeCategory,
@@ -989,11 +1005,12 @@ function ProvidersPageContent() {
           )}
 
         {isCompactProviderDisplay ? (
-          compactProviderEntries.length > 0 ? (
+          compactProviderEntries.length > 0 || showMdream ? (
             <div
               className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3"
               data-testid="provider-compact-grid"
             >
+              {showMdream && mdreamCard}
               {compactProviderEntries.map((entry) => (
                 <HighlightableProviderCard
                   key={`compact-${entry.providerId}`}
@@ -1443,19 +1460,23 @@ function ProvidersPageContent() {
             )}
 
             {/* Web Fetch Providers */}
-            {showSection("webfetch") && visibleWebFetchEntries.length > 0 && (
+            {showSection("webfetch") && (visibleWebFetchEntries.length > 0 || showMdream) && (
               <div className="flex flex-col gap-4">
                 <SectionHeader
                   title={
                     <span className="flex items-center gap-2">
                       {t("webFetchProvidersHeading")}{" "}
                       <CategoryDot category="webfetch" size="md" label={t("webFetchTooltip")} />
-                      <ProviderCountBadge {...countConfigured(webFetchEntriesAll)} />
+                      <ProviderCountBadge
+                        configured={countConfigured(webFetchEntriesAll).configured + 1}
+                        total={webFetchEntriesAll.length + 1}
+                      />
                     </span>
                   }
                   description={t("webFetchProvidersDesc")}
                 />
                 <ProviderCardGrid>
+                  {showMdream && mdreamCard}
                   {visibleWebFetchEntries.map(
                     ({ providerId, provider, stats, displayAuthType, toggleAuthType }) => (
                       <HighlightableProviderCard

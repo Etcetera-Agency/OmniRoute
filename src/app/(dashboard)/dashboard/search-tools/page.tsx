@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import SearchToolsClient from "./SearchToolsClient";
 
 export default function SearchToolsPage() {
-  return <SearchToolsClient />;
+  return (
+    <Suspense>
+      <SearchToolsClient />
+    </Suspense>
+  );
 }

@@ -4,6 +4,10 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 vi.mock("next-intl", () => ({
@@ -160,6 +164,14 @@ describe("SearchToolsClient (Studio)", () => {
       el.remove();
     }
     document.body.innerHTML = "";
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("opens Mdream in the scrape tab from the provider link", () => {
+    window.history.replaceState({}, "", "/?tab=scrape&provider=mdream");
+    const el = renderClient();
+    expect(el.querySelector("[data-testid='config-pane']")?.getAttribute("data-tab")).toBe("scrape");
+    expect(el.querySelector("[data-testid='config-pane']")?.getAttribute("data-provider")).toBe("mdream");
   });
 
   it("renders the Studio with topbar", () => {
