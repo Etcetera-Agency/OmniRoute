@@ -109,7 +109,7 @@ function requireMigrationVerifier() {
   return verifier.verifyCandidateMigrations;
 }
 
-test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
+test("verifier accepts a healthy ARM64 fork UI image", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
 });

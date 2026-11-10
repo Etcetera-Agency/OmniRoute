@@ -2620,3 +2620,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - Build the fork UI and API together as one standalone Next tree; retain the pinned official runtime OS and configuration. The image gate requires standalone assembly and checks the fork dashboard, static files, migrations, provenance, SQLite and browser behavior.
 - Targeted verifier tests passed (14). The legacy merger test could not run without installed Next dependencies. No image build or deployment was run locally; ARM64 image and browser acceptance remain pending in GitHub.
+
+### Fork image preflight
+
+- Added read-only ARM64 preflight on same-repository pull requests to main and manual dispatch. Pull requests check out and label the head SHA; no registry write, secrets or deploy job is available.
+- Inspected standalone launcher dependencies and official runtime inheritance. Updated obsolete overlay policy assertions; 28 focused tests passed with existing local dependencies. GitHub image execution remains pending.
