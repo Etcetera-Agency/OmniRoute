@@ -69,13 +69,11 @@ jobs:
           cache-from: type=gha,scope=omni-overlay-main-arm64
           cache-to: type=gha,scope=omni-overlay-main-arm64,mode=min,ignore-error=true
 
-      - name: Verify image behavior and official UI parity
+      - name: Verify image behavior and fork UI integrity
         run: |
           set -euo pipefail
-          docker pull --platform linux/arm64 "$OFFICIAL_IMAGE"
           node scripts/ci/verify-official-overlay-image.mjs \
             --candidate "$CANDIDATE_IMAGE" \
-            --official "$OFFICIAL_IMAGE" \
             --source "$SOURCE_REPOSITORY" \
             --revision "$GITHUB_SHA" \
             --base-digest "$OFFICIAL_BASE_DIGEST"

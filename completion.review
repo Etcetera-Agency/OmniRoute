@@ -2615,3 +2615,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 - Production candidate `1f01e71ccdfd896e3cdfea46b408053fc537ecde` compiled the overlay with Next 16.4.2 while the pinned official runtime used 16.3.8. The emitted route handler omitted `supportsDynamicResponse`, which the older runtime interpreted as static generation; dynamic routes including `/api/health/ping` and providers failed with `DYNAMIC_SERVER_USAGE`.
 - Pinned compiler dependencies to 16.3.8. The builder stamps its actual Next version into the server tree and packaging requires an exact match with the official runtime. Separately produced prebuilt exports must supply this compiler-generated stamp; missing or mismatched stamps fail closed. The verifier now requires HTTP 200 from the dynamic health endpoint on the direct UI listener.
 - Targeted verifier and workflow policy tests passed (18 tests); `git diff --check` passed. No image build or production change performed. GitHub image build and actual dynamic-route smoke remain pending; see `openspec/TODO.md`.
+
+### Unified fork UI image
+
+- Build the fork UI and API together as one standalone Next tree; retain the pinned official runtime OS and configuration. The image gate requires standalone assembly and checks the fork dashboard, static files, migrations, provenance, SQLite and browser behavior.
+- Targeted verifier tests passed (14). The legacy merger test could not run without installed Next dependencies. No image build or deployment was run locally; ARM64 image and browser acceptance remain pending in GitHub.

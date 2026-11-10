@@ -435,13 +435,19 @@ export async function main() {
           { cwd: projectRoot, env: process.env, stdio: "inherit" }
         );
         if (basePathWrite.status !== 0) {
+          if (process.env.OMNIROUTE_STRICT_STANDALONE === "1") {
+            throw new Error("Failed to write BUILD_OMNIROUTE_BASE_PATH sentinel");
+          }
           console.warn(
             "[build-next-isolated] Non-fatal error writing BUILD_OMNIROUTE_BASE_PATH sentinel"
           );
         }
       } catch (assembleErr) {
+        if (process.env.OMNIROUTE_STRICT_STANDALONE === "1") throw assembleErr;
         console.warn("[build-next-isolated] Non-fatal error assembling standalone:", assembleErr);
       }
+    } else if (result.code === 0 && shouldBuildStandalone() && process.env.OMNIROUTE_STRICT_STANDALONE === "1") {
+      throw new Error("Next build did not produce standalone output");
     } else if (result.code === 0 && !shouldBuildStandalone()) {
       console.log(
         "[build-next-isolated] Skipped standalone packaging (standalone disabled for fast compile)"

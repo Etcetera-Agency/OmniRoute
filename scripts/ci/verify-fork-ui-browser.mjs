@@ -1,0 +1,58 @@
+import { chromium } from "playwright";
+
+const baseUrl = process.env.UI_BASE_URL || "http://127.0.0.1:20128";
+const password = process.env.INITIAL_PASSWORD;
+if (!password) throw new Error("INITIAL_PASSWORD is required");
+
+const browser = await chromium.launch({
+  headless: false,
+  args: ["--no-sandbox", "--disable-dev-shm-usage"],
+});
+try {
+  const page = await browser.newPage();
+  const failures = [];
+  let staticResponses = 0;
+  page.on("pageerror", (error) => failures.push(`page error: ${error.message}`));
+  page.on("requestfailed", (request) => {
+    const url = new URL(request.url());
+    if (url.origin === baseUrl && (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/api/auth/"))) {
+      failures.push(`request failed: ${url.pathname}`);
+    }
+  });
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (url.origin !== baseUrl) return;
+    if (url.pathname.startsWith("/_next/static/")) staticResponses++;
+    if ((url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/api/auth/")) && response.status() >= 400) {
+      failures.push(`HTTP ${response.status()}: ${url.pathname}`);
+    }
+  });
+
+  await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
+  await page.locator('input[type="password"]').fill(password);
+  const loginResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/auth/login" && response.request().method() === "POST"
+  );
+  await page.locator('button[type="submit"]').click();
+  const login = await loginResponse;
+  if (!login.ok() || !(await login.json()).success) throw new Error("login API failed");
+  await page.waitForURL("**/dashboard", { timeout: 30000 });
+  await page.goto(`${baseUrl}/dashboard/providers`, { waitUntil: "domcontentloaded" });
+  const card = page.getByRole("link", { name: /Mdream.*Web Fetch.*Markdown.*No API key/i });
+  await card.waitFor({ state: "visible", timeout: 30000 });
+  await card.click();
+  await page.getByTestId("scrape-tab").waitFor({ state: "visible", timeout: 30000 });
+  await page.waitForFunction(() => {
+    const pane = document.querySelector('[data-testid="search-tools-config-pane"]');
+    return [...(pane?.querySelectorAll("select") || [])].some((select) => select.value === "mdream" && [...select.options].some((option) => option.value === "mdream"));
+  });
+  const version = await page.request.get(`${baseUrl}/api/system/version`);
+  if (!version.ok() || (await version.json()).current !== "3.8.53") {
+    throw new Error("running UI version is not 3.8.53");
+  }
+  if (!staticResponses) throw new Error("no Next static assets loaded");
+  if (failures.length) throw new Error(failures.join("; "));
+  console.log(JSON.stringify({ ok: true, version: "3.8.53", staticResponses }));
+} finally {
+  await browser.close();
+}
