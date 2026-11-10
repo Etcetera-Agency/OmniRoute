@@ -20,7 +20,7 @@ vi.mock("@/store/notificationStore", () => ({
 const { default: ProviderRetryDelaySelect } =
   await import("@/app/(dashboard)/dashboard/providers/[id]/components/ProviderRetryDelaySelect");
 
-it("explains and disables connection cooldown for keyless Web Fetch", async () => {
+it("enables the standard retry delay control for Mdream", async () => {
   (
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,13 +29,8 @@ it("explains and disables connection cooldown for keyless Web Fetch", async () =
   const container = document.createElement("div");
   const root = createRoot(container);
   try {
-    await act(async () =>
-      root.render(<ProviderRetryDelaySelect providerId="mdream" keylessOnly />)
-    );
-    expect(container.textContent).toContain(
-      "Retry delay does not apply to keyless Web Fetch requests."
-    );
-    expect(container.querySelector("select")?.disabled).toBe(true);
+    await act(async () => root.render(<ProviderRetryDelaySelect providerId="mdream" />));
+    expect(container.querySelector("select")?.disabled).toBe(false);
   } finally {
     await act(async () => root.unmount());
     globalThis.fetch = previous;

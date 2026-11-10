@@ -2669,3 +2669,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 - The inline playground uses the dashboard-session Web Fetch endpoint and never loads API keys for Mdream. Its sole format is Markdown. The no-auth card no longer advertises an API-key category.
 - The provider proxy now wraps real Mdream outbound calls. Focused tests observed a proxy CONNECT and confirmed fail-closed behavior for unavailable provider proxy pools, including when a global proxy exists. The existing connection-based Retry delay cannot affect synthetic no-auth Web Fetch; its control is shown disabled with an explanation instead of persisting an ineffective setting.
 - 63 focused Node tests and 3 UI tests passed. The updated ARM64 browser preflight is prepared but cannot run without a push; the real integrated production UI remains unverified.
+
+### Mdream retry delay
+
+- The standard Retry delay now controls Mdream rate-limit recovery using the existing no-auth model-lockout and resilience override mechanisms, without creating a connection record or a separate configuration. A real upstream Retry-After takes precedence; Auto uses existing backoff.
+- Focused tests cover 429, suppression of repeated upstream calls, expiry and recovery, and upstream header precedence. The lockout is in-process like the existing model lockout; an isolated process test confirms it is not shared across processes and does not survive restart. The currently deployed image uses one app process and both route bundles reference the same webpack runtime, but the new build has not been tested across routes.

@@ -58,11 +58,9 @@ try {
   await page.getByText("Mdream is available without an API key and returns Markdown.").waitFor();
   await page.getByText("No authentication required").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Provider Proxy" }).waitFor({ state: "visible" });
-  await page
-    .getByText("Retry delay does not apply to keyless Web Fetch requests.")
-    .waitFor({ state: "visible" });
-  if (!(await page.getByRole("combobox", { name: "Retry delay" }).isDisabled())) {
-    throw new Error("Keyless retry delay must not be editable without a working cooldown");
+  await page.getByRole("combobox", { name: "Retry delay" }).waitFor({ state: "visible" });
+  if (await page.getByRole("combobox", { name: "Retry delay" }).isDisabled()) {
+    throw new Error("Mdream retry delay must be editable");
   }
   for (const name of [
     "Param Filters",

@@ -634,9 +634,7 @@ export default function ProviderDetailPageClient() {
           providerName={providerInfo?.name || providerId}
         />
       )}
-      {!isUpstreamProxyProvider && (
-        <ProviderRetryDelaySelect providerId={providerId} keylessOnly={isKeylessOnly} />
-      )}
+      {!isUpstreamProxyProvider && <ProviderRetryDelaySelect providerId={providerId} />}
       {isKeylessOnly && (
         <Card>
           <div className="mb-4 flex items-center gap-2">
