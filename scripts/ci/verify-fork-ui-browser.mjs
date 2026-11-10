@@ -47,10 +47,16 @@ try {
   await card.waitFor({ state: "visible", timeout: 30000 });
   await card.click();
   await page.getByTestId("scrape-tab").waitFor({ state: "visible", timeout: 30000 });
-  await page.waitForFunction(() => {
-    const pane = document.querySelector('[data-testid="search-tools-config-pane"]');
-    return [...(pane?.querySelectorAll("select") || [])].some((select) => select.value === "mdream" && [...select.options].some((option) => option.value === "mdream"));
-  });
+  // The provider control is Radix, not a native select. Exercise its visible value
+  // and change handler, then confirm the scrape form receives the selection.
+  const provider = page.getByTestId("search-tools-config-pane").getByRole("combobox").first();
+  await provider.getByText("Mdream", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  await provider.click();
+  await page.getByRole("option", { name: /auto/i }).click();
+  await provider.click();
+  await page.getByRole("option", { name: "Mdream", exact: true }).click();
+  await provider.getByText("Mdream", { exact: true }).waitFor({ state: "visible" });
+  await page.getByTestId("scrape-tab").getByText("Provider:").getByText("mdream", { exact: true }).waitFor({ state: "visible" });
   const version = await page.request.get(`${baseUrl}/api/system/version`);
   if (!version.ok() || (await version.json()).current !== "3.8.53") {
     throw new Error("running UI version is not 3.8.53");

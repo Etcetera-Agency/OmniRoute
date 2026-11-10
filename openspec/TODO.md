@@ -1614,3 +1614,4 @@ Auto lifetime spec. Living specs are reconciled before moving the seven packages
 - Run the fork image preflight on a same-repository pull request and review its ARM64 browser and runtime results before merge. Manual dispatch requires the workflow to exist on the default branch.
 - Verify the pinned official 3.8.53-web base against runtime configuration, native dependencies and full fork image acceptance on GitHub ARM64.
 - Confirm the browser login session and remaining UI checks in the next ARM64 preflight after fixing the navigation race.
+- Confirm Radix provider selection and scrape-form state in the next GitHub ARM64 browser preflight.

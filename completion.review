@@ -2640,3 +2640,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - GitHub preflight 42808994899 built the ARM64 image but browser navigation discarded the login response body. The smoke now checks successful HTTP status, dashboard navigation and the issued auth_token cookie without reading the discarded body.
 - Browser script syntax and 14 verifier tests passed; GitHub browser acceptance remains pending.
+
+### Mdream selector smoke
+
+- Preflight 42811149240 reached the scrape screen after authenticated login. Its selector assertion timed out because the provider control renders a Radix combobox, not a native select.
+- The browser smoke now verifies the visible Mdream selection, switches to Auto and back through the actual options, and checks the scrape form receives Mdream. Syntax and 14 verifier tests pass; GitHub browser acceptance remains pending.
