@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import type { SearchProviderCatalogItem } from "@/shared/schemas/searchTools";
 import type { PlaygroundState } from "@/lib/playground/codeExport";
 
@@ -31,8 +32,13 @@ const DEFAULT_CONFIG: ConfigState = {
 };
 
 export default function SearchToolsClient() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("search");
-  const [configState, setConfigState] = useState<ConfigState>(DEFAULT_CONFIG);
+  const searchParams = useSearchParams();
+  const isMdreamLink =
+    searchParams.get("tab") === "scrape" && searchParams.get("provider") === "mdream";
+  const [activeTab, setActiveTab] = useState<ActiveTab>(isMdreamLink ? "scrape" : "search");
+  const [configState, setConfigState] = useState<ConfigState>(
+    isMdreamLink ? { ...DEFAULT_CONFIG, provider: "mdream" } : DEFAULT_CONFIG
+  );
   const [catalogProviders, setCatalogProviders] = useState<SearchProviderCatalogItem[]>([]);
   const [legacyProviders, setLegacyProviders] = useState<SearchProvider[]>([]);
   // Metrics shared across tabs (updated by active tab)
@@ -92,7 +98,12 @@ export default function SearchToolsClient() {
       {/* Main area: tab content + config pane */}
       <div className="flex flex-1 overflow-hidden">
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto" role="tabpanel" id={`tabpanel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
+        <div
+          className="flex-1 overflow-y-auto"
+          role="tabpanel"
+          id={`tabpanel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+        >
           {activeTab === "search" && (
             <SearchTab
               configState={configState}
