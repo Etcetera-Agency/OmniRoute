@@ -2680,3 +2680,7 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - Mdream rate limits use SQLite provider state shared across routes, processes, and restarts. Updates serialize and preserve the longest overlapping cooldown; an earlier successful request cannot clear a newer rate limit. The standard retry delay and upstream Retry-After precedence remain unchanged.
 - The dashboard, client and built-in Web Fetch skill share cooldown state; the skill also honors the provider disable and proxy assignment. 71 focused Node tests and 3 UI tests passed, including cross-process routing, concurrent updates, expiry and recovery. Built-image verification remains pending authorized preflight.
+
+### Mdream image cooldown acceptance
+
+- The isolated ARM64 image preflight now checks a controlled upstream 429 across dashboard and authenticated client routes before and after a container restart. Its temporary volume is removed with the candidate; the normal browser extraction still reaches the real Mdream service. Fourteen verifier tests passed; image acceptance awaits GitHub.
