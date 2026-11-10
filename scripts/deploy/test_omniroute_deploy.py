@@ -33,6 +33,16 @@ VALID_RECORD = ("%s %s %s %s\n" % (DIGEST, SOURCE_SHA, RUN_ID, ATTEMPT)).encode(
 KEY = RUN_ID + "-" + ATTEMPT
 
 
+class BaseDigestContractTest(unittest.TestCase):
+    def test_deploy_helper_matches_published_image_base(self):
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        workflow = os.path.join(root, ".github", "workflows", "omni-overlay-image.yml")
+        with open(workflow, "r") as handle:
+            published = next(line.split(": ", 1)[1].strip() for line in handle if line.strip().startswith("OFFICIAL_BASE_DIGEST: "))
+        self.assertEqual(DEPLOY.OFFICIAL_BASE_DIGEST, published)
+        self.assertEqual(published, "sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63")
+
+
 class FakeStore(object):
     def __init__(self, root):
         self.root = root
