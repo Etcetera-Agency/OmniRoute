@@ -2635,3 +2635,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - Per owner direction, pinned the Docker Hub 3.8.53-web image digest in the Dockerfile, production workflow and preflight. The fork still supplies the complete UI/API and exact migration set.
 - Targeted workflow and verifier tests passed (18). ARM64 image build and runtime acceptance remain pending on GitHub.
+
+### Browser login response race
+
+- GitHub preflight 42808994899 built the ARM64 image but browser navigation discarded the login response body. The smoke now checks successful HTTP status, dashboard navigation and the issued auth_token cookie without reading the discarded body.
+- Browser script syntax and 14 verifier tests passed; GitHub browser acceptance remains pending.

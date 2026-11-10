@@ -35,8 +35,13 @@ try {
   );
   await page.locator('button[type="submit"]').click();
   const login = await loginResponse;
-  if (!login.ok() || !(await login.json()).success) throw new Error("login API failed");
+  if (!login.ok()) throw new Error("login API failed");
   await page.waitForURL("**/dashboard", { timeout: 30000 });
+  // Navigation can discard the response body; the session cookie proves login completed.
+  const cookies = await page.context().cookies(baseUrl);
+  if (!cookies.some((cookie) => cookie.name === "auth_token" && cookie.value)) {
+    throw new Error("login did not establish a dashboard session");
+  }
   await page.goto(`${baseUrl}/dashboard/providers`, { waitUntil: "domcontentloaded" });
   const card = page.getByRole("link", { name: /Mdream.*Web Fetch.*Markdown.*No API key/i });
   await card.waitFor({ state: "visible", timeout: 30000 });
