@@ -2630,3 +2630,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - The official base's source tree survived Docker COPY and entered the standalone build, adding migration 197_proxy_subscription_core_config.sql. Builders now remove inherited application files before copying the fork; the runtime replaces the assembled migration directory exactly.
 - Targeted workflow and verifier tests passed (18). The pinned 3.8.52 base remains in use: changing to the newly available 3.8.53-web base requires separate runtime configuration and native dependency acceptance, not inferred from its tag.
+
+### Official 3.8.53 runtime base
+
+- Per owner direction, pinned the Docker Hub 3.8.53-web image digest in the Dockerfile, production workflow and preflight. The fork still supplies the complete UI/API and exact migration set.
+- Targeted workflow and verifier tests passed (18). ARM64 image build and runtime acceptance remain pending on GitHub.

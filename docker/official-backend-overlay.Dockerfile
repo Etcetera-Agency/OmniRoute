@@ -1,5 +1,5 @@
-ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
-ARG OFFICIAL_BASE_DIGEST=sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
+ARG OFFICIAL_IMAGE=docker.io/diegosouzapw/omniroute@sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
+ARG OFFICIAL_BASE_DIGEST=sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
 
 # Install lockfile-resolved dependencies once for both the backend compiler
 # and the browser-capable runtime target.
@@ -9,7 +9,7 @@ ARG OFFICIAL_BASE_DIGEST
 USER root
 WORKDIR /app
 
-RUN test "$OFFICIAL_IMAGE" = "ghcr.io/diegosouzapw/omniroute@$OFFICIAL_BASE_DIGEST"
+RUN test "$OFFICIAL_IMAGE" = "docker.io/diegosouzapw/omniroute@$OFFICIAL_BASE_DIGEST"
 
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1

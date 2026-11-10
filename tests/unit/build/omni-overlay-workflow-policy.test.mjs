@@ -100,7 +100,7 @@ test("fork overlay image workflow runs only on canonical main or manual dispatch
   assert.ok(/org\.opencontainers\.image\.base\.digest/.test(build.with.labels));
   assert.ok(
     dockerfile.includes(
-      "ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c"
+      "ARG OFFICIAL_IMAGE=docker.io/diegosouzapw/omniroute@sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63"
     ),
     "backend overlay must remain based on the verified official image digest"
   );

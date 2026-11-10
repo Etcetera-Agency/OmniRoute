@@ -18,7 +18,7 @@ jobs:
     env:
       SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       CANDIDATE_IMAGE: omniroute-fork:preflight-${{ github.event.pull_request.head.sha || github.sha }}
-      OFFICIAL_BASE_DIGEST: sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
+      OFFICIAL_BASE_DIGEST: sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
       SOURCE_REPOSITORY: https://github.com/Etcetera-Agency/OmniRoute
     steps:
       - name: Checkout selected revision
