@@ -699,7 +699,12 @@ function ProvidersPageContent() {
     connections
   );
 
-  const searchProviderEntriesAll = buildStaticProviderEntries("search", getProviderStats);
+  const searchProviderCatalogAll = buildStaticProviderEntries("search", getProviderStats);
+  const searchProviderEntriesAll = searchProviderCatalogAll.filter(
+    (entry) =>
+      !entry.provider.keylessOnly ||
+      (entry.provider.serviceKinds as string[] | undefined)?.includes("webSearch")
+  );
   const searchProviderEntries = filterConfiguredProviderEntries(
     searchProviderEntriesAll,
     effectiveShowConfiguredOnly,
@@ -787,7 +792,7 @@ function ProvidersPageContent() {
     ...apiKeyProviderEntriesAll,
     ...webCookieProviderEntriesAll,
     ...localProviderEntriesAll,
-    ...searchProviderEntriesAll,
+    ...searchProviderCatalogAll,
     ...audioProviderEntriesAll,
     ...cloudAgentProviderEntriesAll,
     ...upstreamProxyEntriesAll,
