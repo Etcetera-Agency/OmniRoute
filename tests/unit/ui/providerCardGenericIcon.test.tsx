@@ -31,7 +31,15 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-function renderCard(providerId: string, provider: { apiType?: string; iconUrl?: string } = {}) {
+function renderCard(
+  providerId: string,
+  provider: {
+    apiType?: string;
+    iconUrl?: string;
+    keylessOnly?: boolean;
+    serviceKinds?: string[];
+  } = {}
+) {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -73,6 +81,13 @@ describe("ProviderCard — compatible-provider generic icon", () => {
       "/providers/cli-generic.svg"
     );
     expect(rendered.querySelector('[data-provider-icon="dynamic"]')).toBeNull();
+  });
+
+  it("shows keyless Mdream as a provider without a fake connection toggle", () => {
+    const rendered = renderCard("mdream", { keylessOnly: true, serviceKinds: ["webFetch"] });
+    expect(rendered.textContent).toContain("No API key required");
+    expect(rendered.querySelector('a[href="/dashboard/providers/mdream"]')).not.toBeNull();
+    expect(rendered.querySelector('[role="switch"]')).toBeNull();
   });
 
   it("preserves an operator-supplied icon URL instead of replacing it with the generic asset", () => {

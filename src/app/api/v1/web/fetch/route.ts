@@ -28,6 +28,7 @@ import {
 import * as log from "@/sse/utils/logger";
 import { getProviderCredentialsWithQuotaPreflight } from "@/sse/services/auth";
 import { resolveClientApiKey } from "@/sse/services/clientApiKeyResolver";
+import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { enforceApiKeyPolicyWithScope } from "@/app/api/v1/_shared/keyScopedRoute";
 import {
   keyAdmitsKeylessProviders,
@@ -304,7 +305,14 @@ export async function POST(request: Request) {
   // invalid keys so anonymous access works the same as all other client
   // APIs (#7785).
   const { apiKey: apiKeyRaw, valid: apiKeyValid } = await resolveClientApiKey(request);
-  if (isRequireApiKeyEnabled() && !apiKeyRaw) {
+  if (
+    isRequireApiKeyEnabled() &&
+    !apiKeyRaw &&
+    !(
+      new URL(request.url).pathname === "/api/search/fetch" &&
+      (await isDashboardSessionAuthenticated(request))
+    )
+  ) {
     return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Authentication required");
   }
   if (isRequireApiKeyEnabled() && apiKeyRaw && !apiKeyValid) {

@@ -35,6 +35,7 @@ export const ProviderSchema = z.object({
   oauthProviderId: z.string().min(1).optional(),
   serviceKinds: z.array(z.enum(SERVICE_KIND_VALUES)),
   noAuth: z.boolean().optional(),
+  keylessOnly: z.boolean().optional(),
   anonymousFallback: z.boolean().optional(),
   managedAccount: z.boolean().optional(),
 });
