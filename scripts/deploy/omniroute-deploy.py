@@ -25,7 +25,7 @@ from collections import namedtuple
 
 IMAGE_REPOSITORY = "ghcr.io/etcetera-agency/omniroute"
 SOURCE_REPOSITORY = "https://github.com/Etcetera-Agency/OmniRoute"
-OFFICIAL_BASE_DIGEST = "sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c"
+OFFICIAL_BASE_DIGEST = "sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63"
 PUBLIC_MAIN_API = "https://api.github.com/repos/etcetera-agency/omniroute/git/ref/heads/main"
 PRODUCTION_CONFIG = "/etc/omniroute-deploy/production.json"
 PRODUCTION_COMPOSE_ROOT = "/etc/omniroute-deploy/compose"
