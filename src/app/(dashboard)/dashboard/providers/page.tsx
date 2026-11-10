@@ -98,7 +98,11 @@ type DashboardProviderEntry = ProviderEntry<DashboardProviderInfo>;
 
 function countConfigured<T>(entries: ProviderEntry<T>[]) {
   return {
-    configured: entries.filter((entry) => Number(entry.stats?.total || 0) > 0).length,
+    configured: entries.filter(
+      (entry) =>
+        (entry.provider as { keylessOnly?: boolean }).keylessOnly ||
+        Number(entry.stats?.total || 0) > 0
+    ).length,
     total: entries.length,
   };
 }
@@ -843,22 +847,6 @@ function ProvidersPageContent() {
     connections
   );
   const visibleWebFetchEntries = resolveVisibleWebFetchEntries(webFetchEntries, activeCategory);
-  const showMdream =
-    (!activeCategory || activeCategory === "webfetch") &&
-    !modelSearchQuery &&
-    (!activeServiceKind || activeServiceKind === "webFetch") &&
-    "mdream".includes(searchQuery.trim().toLowerCase());
-  const mdreamCard = (
-    <Link href="/dashboard/search-tools?tab=scrape&provider=mdream" className="group">
-      <Card padding="xs" className="h-full hover:bg-bg-subtle hover:border-primary/40">
-        <div className="flex flex-col gap-2">
-          <span className="font-semibold">Mdream</span>
-          <span className="text-xs text-text-muted">Web Fetch · Markdown · No API key</span>
-        </div>
-      </Card>
-    </Link>
-  );
-
   const compactProviderEntries = buildCompactProviderEntriesForPage({
     activeCategory,
     showFreeOnly,
@@ -1005,12 +993,11 @@ function ProvidersPageContent() {
           )}
 
         {isCompactProviderDisplay ? (
-          compactProviderEntries.length > 0 || showMdream ? (
+          compactProviderEntries.length > 0 ? (
             <div
               className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3"
               data-testid="provider-compact-grid"
             >
-              {showMdream && mdreamCard}
               {compactProviderEntries.map((entry) => (
                 <HighlightableProviderCard
                   key={`compact-${entry.providerId}`}
@@ -1460,7 +1447,7 @@ function ProvidersPageContent() {
             )}
 
             {/* Web Fetch Providers */}
-            {showSection("webfetch") && (visibleWebFetchEntries.length > 0 || showMdream) && (
+            {showSection("webfetch") && visibleWebFetchEntries.length > 0 && (
               <div className="flex flex-col gap-4">
                 <SectionHeader
                   title={
@@ -1468,15 +1455,14 @@ function ProvidersPageContent() {
                       {t("webFetchProvidersHeading")}{" "}
                       <CategoryDot category="webfetch" size="md" label={t("webFetchTooltip")} />
                       <ProviderCountBadge
-                        configured={countConfigured(webFetchEntriesAll).configured + 1}
-                        total={webFetchEntriesAll.length + 1}
+                        configured={countConfigured(webFetchEntriesAll).configured}
+                        total={webFetchEntriesAll.length}
                       />
                     </span>
                   }
                   description={t("webFetchProvidersDesc")}
                 />
                 <ProviderCardGrid>
-                  {showMdream && mdreamCard}
                   {visibleWebFetchEntries.map(
                     ({ providerId, provider, stats, displayAuthType, toggleAuthType }) => (
                       <HighlightableProviderCard

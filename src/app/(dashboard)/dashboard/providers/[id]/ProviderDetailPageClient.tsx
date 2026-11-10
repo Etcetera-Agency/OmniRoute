@@ -580,6 +580,31 @@ export default function ProviderDetailPageClient() {
     );
   }
 
+  if (providerId === "mdream") {
+    return (
+      <div className="flex flex-col gap-8">
+        <ProviderPageHeader
+          providerId={providerId}
+          providerInfo={{ ...providerInfo, website: providerHeaderWebsite }}
+          connectionsCount={0}
+          isOpenAICompatible={false}
+          isAnthropicProtocolCompatible={false}
+          onOpenTutorial={() => setShowTutorialModal(true)}
+          t={t}
+        />
+        <Card>
+          <p>Mdream is available without an API key and returns Markdown.</p>
+          <Link
+            href="/dashboard/search-tools?tab=scrape&provider=mdream"
+            className="text-primary underline"
+          >
+            Open Web Fetch
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <ProviderPageHeader

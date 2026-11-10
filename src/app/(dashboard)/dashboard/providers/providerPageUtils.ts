@@ -519,7 +519,10 @@ export function filterConfiguredProviderEntries<TProvider>(
     // are always usable and appear unconditionally in the /v1/models catalog, so
     // they must not be hidden by the configured-only filter (#3290).
     filtered = filtered.filter(
-      (entry) => entry.displayAuthType === "no-auth" || Number(entry.stats?.total || 0) > 0
+      (entry) =>
+        entry.displayAuthType === "no-auth" ||
+        (entry.provider as { keylessOnly?: boolean }).keylessOnly === true ||
+        Number(entry.stats?.total || 0) > 0
     );
   }
 

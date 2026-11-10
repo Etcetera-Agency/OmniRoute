@@ -1617,3 +1617,4 @@ Auto lifetime spec. Living specs are reconciled before moving the seven packages
 - Confirm Radix provider selection and scrape-form state in the next GitHub ARM64 browser preflight.
 - Confirm the dashboard route-group manifest check and full image gate in the next GitHub ARM64 preflight.
 - Install the reviewed deployment helper on production with a preserved rollback copy, verify its checksum and ownership, then verify the 3.8.53 image deployment and authenticated UI.
+- Verify Mdream's regular provider card, keyless detail, dashboard-authorized extraction and preserved `/v1` boundary in GitHub ARM64 preflight and production after an explicitly approved merge/deployment.

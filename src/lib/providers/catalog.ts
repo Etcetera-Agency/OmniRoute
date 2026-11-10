@@ -55,6 +55,7 @@ export interface ProviderCatalogMetadata {
   /** Backend OAuth provider ID when one dashboard card fronts both auth modes. */
   oauthProviderId?: string;
   hiddenFromDashboard?: boolean;
+  keylessOnly?: boolean;
   /** Optional operator-supplied remote icon URL (#2166) for compatible provider nodes. */
   iconUrl?: string;
   /** Optional registration/API-key URL hints rendered as links on the provider detail page (#9270). */

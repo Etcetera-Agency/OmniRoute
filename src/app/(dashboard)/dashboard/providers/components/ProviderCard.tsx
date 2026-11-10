@@ -80,6 +80,7 @@ interface ProviderCardProps {
     deprecated?: boolean;
     deprecationReason?: string;
     hasFree?: boolean;
+    keylessOnly?: boolean;
     freeNote?: string;
     subscriptionRisk?: boolean;
     /** Which risk copy variant to show in the details dialog (#10261). Falls back
@@ -612,21 +613,25 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                   </Badge>
                 ) : (
                   <>
-                    {getStatusDisplay(
-                      connected,
-                      error,
-                      Number(stats.warning || 0),
-                      stats.errorCode,
-                      t,
-                      codexServiceTierChip,
-                      Number(stats.warning || 0) > 0
-                        ? {
-                            warningMaxFailures: Number(stats.warningMaxFailures || 0),
-                            warningLastFailureRelative: stats.warningLastFailureRelative ?? null,
-                            onActivate: handleWarningBadgeActivate,
-                          }
-                        : undefined,
-                      devinAgenticAuthenticated
+                    {provider.keylessOnly ? (
+                      <span>No API key required</span>
+                    ) : (
+                      getStatusDisplay(
+                        connected,
+                        error,
+                        Number(stats.warning || 0),
+                        stats.errorCode,
+                        t,
+                        codexServiceTierChip,
+                        Number(stats.warning || 0) > 0
+                          ? {
+                              warningMaxFailures: Number(stats.warningMaxFailures || 0),
+                              warningLastFailureRelative: stats.warningLastFailureRelative ?? null,
+                              onActivate: handleWarningBadgeActivate,
+                            }
+                          : undefined,
+                        devinAgenticAuthenticated
+                      )
                     )}
                     {stats.expiryStatus === "expired" && (
                       <Badge variant="error" size="sm" dot>
@@ -645,16 +650,17 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {(Number(stats.total || 0) > 0 || authType === "no-auth") && (
-                  <div onClick={handleToggle}>
-                    <Toggle
-                      size="xs"
-                      checked={!allDisabled}
-                      onChange={undefined}
-                      title={allDisabled ? t("enableProvider") : t("disableProvider")}
-                    />
-                  </div>
-                )}
+                {!provider.keylessOnly &&
+                  (Number(stats.total || 0) > 0 || authType === "no-auth") && (
+                    <div onClick={handleToggle}>
+                      <Toggle
+                        size="xs"
+                        checked={!allDisabled}
+                        onChange={undefined}
+                        title={allDisabled ? t("enableProvider") : t("disableProvider")}
+                      />
+                    </div>
+                  )}
                 {isLlmProvider && (
                   <Button
                     size="sm"

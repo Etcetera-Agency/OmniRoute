@@ -49,16 +49,15 @@ export function useScrapeFetch(): UseScrapeFetch {
       if (opts.full_page !== undefined) body.full_page = opts.full_page;
       if (opts.provider) body.provider = opts.provider;
 
-      const res = await globalThis.fetch("/v1/web/fetch", {
+      const res = await globalThis.fetch("/api/search/fetch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       const latencyMs = Date.now() - start;
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json().catch(() => null);
         setState({
           result: null,
           loading: false,
@@ -68,6 +67,7 @@ export function useScrapeFetch(): UseScrapeFetch {
         return;
       }
 
+      const data = await res.json();
       // Normalise to ScrapeResult shape
       const result: ScrapeResult = {
         provider: data.provider ?? "",

@@ -2655,3 +2655,9 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - The installed production helper and repository copy both pinned the former official base; they reject the 3.8.53 candidate before deployment. The helper now requires the same 3.8.53 digest as the publishing workflow, with a contract test preventing drift.
 - All 59 deployment-helper tests passed. Updating the repository does not install the helper on the server; the root-owned server copy must be updated and verified before the production workflow deploys the new image.
+
+### Dashboard web fetch and Mdream provider
+
+- Production dashboard POST to `/v1/web/fetch` was blocked by the intentional Traefik allowlist; the API alias also required an API key despite a dashboard session. Mdream's upstream returned Markdown successfully from the production container.
+- Dashboard extraction now uses a management-class endpoint requiring a validated dashboard session and existing origin/CSRF guard. The client API retains its existing API-key requirement. Mdream appears through the regular provider catalog and detail page as keyless, without a synthetic connection or toggle; it remains explicit-only in routing.
+- 29 focused Node tests passed. The existing local UI dependency tree lacks `@radix-ui/react-select`, so the targeted UI suite could not fully start. GitHub ARM64 preflight exercises the provider card, detail, selection and public example extraction; production acceptance remains pending.
