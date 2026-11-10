@@ -99,6 +99,7 @@ export default function ProviderPlaygroundPanel({ providerId }: { providerId: st
       <h2 className="text-lg font-semibold">{providerText(t, "playgroundTitle", "Playground")}</h2>
       <ServiceKindTabs
         kinds={playgroundableKinds}
+        showSingle={providerId === "mdream"}
         activeKind={activeKind}
         onSelect={setActiveKind}
       />

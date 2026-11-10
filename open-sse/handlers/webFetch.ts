@@ -59,6 +59,7 @@ export interface WebFetchResult {
   success: boolean;
   status?: number;
   error?: string;
+  retryAfter?: string | null;
   data?: WebFetchResponse;
 }
 

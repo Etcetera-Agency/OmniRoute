@@ -78,6 +78,19 @@ export const NOAUTH_PROVIDERS = {
     freeNote: "Free video generation — VEO 3.1, Seedance. 6 requests/hour.",
     authHint: "No auth required. Rate limited to 6 requests/hour per IP.",
   },
+  mdream: {
+    id: "mdream",
+    alias: "mdream",
+    name: "Mdream",
+    icon: "language",
+    color: "#5468E7",
+    textIcon: "MD",
+    website: "https://mdream.dev",
+    hasFree: true,
+    keylessOnly: true,
+    noAuth: true,
+    serviceKinds: ["webFetch"],
+  },
   auggie: {
     id: "auggie",
     alias: "aug",
@@ -186,7 +199,7 @@ export const NOAUTH_PROVIDERS = {
 // upstream path runs through OmniRoute's proxy-aware global fetch. Providers
 // with browser, WebSocket, direct dispatcher, media, or local CLI paths stay
 // hidden until those paths can guarantee the configured provider proxy.
-export const NOAUTH_PROVIDER_PROXY_SUPPORTED = new Set<string>();
+export const NOAUTH_PROVIDER_PROXY_SUPPORTED = new Set<string>(["mdream"]);
 
 export function supportsNoAuthProviderProxy(providerId: string): boolean {
   return NOAUTH_PROVIDER_PROXY_SUPPORTED.has(providerId);

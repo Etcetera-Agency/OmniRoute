@@ -23,16 +23,23 @@ interface ServiceKindTabsProps {
   activeKind: ServiceKind;
   onSelect: (kind: ServiceKind) => void;
   className?: string;
+  showSingle?: boolean;
 }
 
 /**
  * Horizontal tab-strip for switching between provider service kinds
  * (embedding, image, tts, etc.) — the kit capsule tabs via the SegmentedControl adapter.
  */
-export function ServiceKindTabs({ kinds, activeKind, onSelect, className }: ServiceKindTabsProps) {
+export function ServiceKindTabs({
+  kinds,
+  activeKind,
+  onSelect,
+  className,
+  showSingle = false,
+}: ServiceKindTabsProps) {
   const t = useTranslations("media");
 
-  if (kinds.length <= 1) return null;
+  if (kinds.length === 0 || (kinds.length === 1 && !showSingle)) return null;
 
   return (
     <SegmentedControl

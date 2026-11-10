@@ -93,3 +93,18 @@ export function hasBlockingProxyAssignmentForProvider(providerId: string): boole
     return false;
   }
 }
+
+/** A dead provider-specific pool must not silently fall back to global egress. */
+export function hasUnavailableProviderProxyPool(providerId: string): boolean {
+  const db = getDbInstance();
+  if (!isGlobalProxyEnabled(db)) return false;
+  const result = db
+    .prepare(
+      `SELECT
+       EXISTS(SELECT 1 FROM proxy_assignments WHERE scope = 'provider' AND scope_id = ?) AS assigned,
+       EXISTS(SELECT 1 FROM proxy_assignments a JOIN proxy_registry p ON p.id = a.proxy_id
+              WHERE a.scope = 'provider' AND a.scope_id = ? AND ${PROXY_ALIVE_PREDICATE}) AS alive`
+    )
+    .get(providerId, providerId) as { assigned: number; alive: number };
+  return result.assigned === 1 && result.alive === 0;
+}

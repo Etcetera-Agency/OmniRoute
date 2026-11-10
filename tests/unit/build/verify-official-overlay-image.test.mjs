@@ -262,15 +262,13 @@ test("runtime image config preflight rejects bad user, Xvfb entrypoint, and serv
   );
 });
 
-test("smoke startup enables init and uses isolated tmpfs writable by the image default user", () => {
+test("smoke uses isolated persistent data and a scoped preflight upstream", () => {
   const { buildSmokeContainerArguments } = requireSmokeHelpers();
   const args = buildSmokeContainerArguments("candidate:image", "smoke-test");
-  const tmpfsIndex = args.indexOf("--tmpfs");
-
-  assert.equal(args.includes("--init"), true, "Xvfb readiness requires init before the app starts");
-  assert.notEqual(tmpfsIndex, -1);
-  assert.equal(args[tmpfsIndex + 1], "/app/data:rw,nosuid,nodev,noexec,mode=1777");
-  assert.equal(args.includes("--mount"), false);
+  assert.equal(args.includes("--init"), true);
+  assert.ok(args.includes("type=volume,source=smoke-test-data,target=/app/data"));
+  assert.ok(args.some((arg) => arg.endsWith("target=/tmp/mdream-preflight-upstream.cjs,readonly")));
+  assert.ok(args.includes("NODE_OPTIONS=--require=/tmp/mdream-preflight-upstream.cjs"));
   assert.equal(args.includes("--user"), false);
   assert.equal(args.at(-1), "candidate:image");
 });

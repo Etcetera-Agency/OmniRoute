@@ -460,8 +460,12 @@ export function buildSmokeContainerArguments(candidate, container) {
     container,
     "--publish",
     "127.0.0.1::20128",
-    "--tmpfs",
-    "/app/data:rw,nosuid,nodev,noexec,mode=1777",
+    "--mount",
+    `type=volume,source=${container}-data,target=/app/data`,
+    "--mount",
+    `type=bind,source=${path.resolve(path.dirname(SCRIPT_PATH), "mdream-preflight-upstream.cjs")},target=/tmp/mdream-preflight-upstream.cjs,readonly`,
+    "--env",
+    "NODE_OPTIONS=--require=/tmp/mdream-preflight-upstream.cjs",
     "--env",
     "DATA_DIR=/app/data",
     "--env",
@@ -582,6 +586,11 @@ async function smokeCandidate(candidate) {
     const browserSmoke = runBrowserSmoke(container);
     docker(["cp", path.resolve(path.dirname(SCRIPT_PATH), "verify-fork-ui-browser.mjs"), `${container}:/app/verify-fork-ui-browser.mjs`]);
     docker(["exec", container, "xvfb-run", "-a", "node", "/app/verify-fork-ui-browser.mjs"]);
+    docker(["cp", path.resolve(path.dirname(SCRIPT_PATH), "verify-mdream-cooldown.mjs"), `${container}:/app/verify-mdream-cooldown.mjs`]);
+    docker(["exec", container, "node", "/app/verify-mdream-cooldown.mjs", "before"]);
+    docker(["restart", container]);
+    await waitForHealth(baseUrl, container);
+    docker(["exec", container, "node", "/app/verify-mdream-cooldown.mjs", "after"]);
 
     return {
       healthStatus: "healthy",
@@ -595,7 +604,10 @@ async function smokeCandidate(candidate) {
         body,
       },
     };
-  }, [() => (containerId ? docker(["rm", "--force", containerId]) : undefined)]);
+  }, [
+    () => (containerId ? docker(["rm", "--force", containerId]) : undefined),
+    () => docker(["volume", "rm", "--force", `${container}-data`]),
+  ]);
 }
 
 export async function verifyImages(options) {

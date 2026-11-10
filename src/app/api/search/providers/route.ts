@@ -5,6 +5,7 @@ import {
 } from "@omniroute/open-sse/config/searchRegistry.ts";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { getProviderCredentials } from "@/sse/services/auth";
+import { isNoAuthProviderBlockedBySettings } from "@/sse/services/noAuthProviderSettings";
 import { isAllRateLimitedCredentials } from "@/app/api/v1/_shared/rateLimit";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error.ts";
 import {
@@ -185,7 +186,11 @@ export async function GET(request: Request) {
       FETCH_PROVIDERS.map(async (fp) => ({
         fp,
         status:
-          fp.id === "mdream" ? ("configured" as const) : await resolveProviderStatus(fp.id, false),
+          fp.id === "mdream"
+            ? (await isNoAuthProviderBlockedBySettings("mdream"))
+              ? ("missing" as const)
+              : ("configured" as const)
+            : await resolveProviderStatus(fp.id, false),
       }))
     );
 

@@ -1,4 +1,4 @@
-import { buildErrorBody } from "../utils/error.ts";
+import { buildErrorBody, parseRetryAfterHeader } from "../utils/error.ts";
 import type { WebFetchFormat, WebFetchResult } from "../handlers/webFetch.ts";
 import { parseAndValidatePublicUrl } from "../../src/shared/network/outboundUrlGuard.ts";
 
@@ -77,7 +77,11 @@ export async function mdreamFetch({
       signal: controller.signal,
     });
 
-    if (!response.ok) return fail(response.status, "Mdream request failed");
+    if (!response.ok) {
+      const result = fail(response.status, "Mdream request failed");
+      if (response.status === 429) result.retryAfter = parseRetryAfterHeader(response.headers);
+      return result;
+    }
 
     const content = (await response.text()).trim();
     if (!content) return fail(502, "Mdream returned empty content");

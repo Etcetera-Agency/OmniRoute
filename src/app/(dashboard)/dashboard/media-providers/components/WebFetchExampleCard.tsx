@@ -16,12 +16,6 @@ interface Props {
   providerId: string;
 }
 
-/**
- * NOTE: /api/v1/web/fetch does not exist in the current codebase.
- * This card is included for forward compatibility with Phase 3 (webFetch
- * providers). The Run button will return a 404 error until the endpoint is
- * implemented.
- */
 const ENDPOINT_PATH = "/api/v1/web/fetch";
 
 const FORMAT_OPTIONS = ["markdown", "html", "links", "screenshot"] as const;
@@ -39,8 +33,26 @@ function extractError(data: unknown): string | null {
 }
 
 export function WebFetchExampleCard({ providerId }: Props) {
-  const t = useTranslations("miniPlayground");
+  if (providerId === "mdream") return <WebFetchPlayground providerId={providerId} />;
+  return <KeyedWebFetchPlayground providerId={providerId} />;
+}
+
+function KeyedWebFetchPlayground({ providerId }: Props) {
   const { apiKey, keys } = useApiKey();
+  return (
+    <WebFetchPlayground
+      providerId={providerId}
+      playgroundKeyId={resolvePlaygroundKeyId(apiKey, keys)}
+    />
+  );
+}
+
+function WebFetchPlayground({
+  providerId,
+  playgroundKeyId,
+}: Props & { playgroundKeyId?: string | null }) {
+  const t = useTranslations("miniPlayground");
+  const isMdream = providerId === "mdream";
 
   const [url, setUrl] = useState<string>("https://example.com");
   const [format, setFormat] = useState<FetchFormat>("markdown");
@@ -49,7 +61,10 @@ export function WebFetchExampleCard({ providerId }: Props) {
   const [result, setResult] = useState<{ data: unknown; latencyMs: number } | undefined>();
   const [error, setError] = useState<string | null>(null);
 
-  const buildBody = () => ({ url, provider: providerId, format, depth });
+  const buildBody = () =>
+    isMdream
+      ? { url, provider: providerId, format: "markdown" }
+      : { url, provider: providerId, format, depth };
 
   const curlSnippet = buildCurl({
     endpoint:
@@ -72,11 +87,10 @@ export function WebFetchExampleCard({ providerId }: Props) {
       // apiKey as a Bearer token (it is not a real credential; see #9935).
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "x-connection-id": providerId,
       };
-      const playgroundKeyId = resolvePlaygroundKeyId(apiKey, keys);
+      if (!isMdream) headers["x-connection-id"] = providerId;
       if (playgroundKeyId) headers[PLAYGROUND_KEY_ID_HEADER] = playgroundKeyId;
-      const res = await fetch(ENDPOINT_PATH, {
+      const res = await fetch(isMdream ? "/api/search/fetch" : ENDPOINT_PATH, {
         method: "POST",
         credentials: "same-origin",
         headers,
@@ -116,20 +130,22 @@ export function WebFetchExampleCard({ providerId }: Props) {
         placeholder="https://example.com/article"
       />
       {/* Format + Depth row */}
-      <div className="grid grid-cols-2 gap-2">
-        <Select
-          label={t("format")}
-          value={format}
-          onChange={(e) => setFormat(e.target.value as FetchFormat)}
-          options={FORMAT_OPTIONS.map((f) => ({ value: f, label: f }))}
-        />
-        <Select
-          label={t("depth")}
-          value={depth}
-          onChange={(e) => setDepth(Number(e.target.value))}
-          options={DEPTH_OPTIONS.map((d) => ({ value: String(d), label: String(d) }))}
-        />
-      </div>
+      {!isMdream && (
+        <div className="grid grid-cols-2 gap-2">
+          <Select
+            label={t("format")}
+            value={format}
+            onChange={(e) => setFormat(e.target.value as FetchFormat)}
+            options={FORMAT_OPTIONS.map((f) => ({ value: f, label: f }))}
+          />
+          <Select
+            label={t("depth")}
+            value={depth}
+            onChange={(e) => setDepth(Number(e.target.value))}
+            options={DEPTH_OPTIONS.map((d) => ({ value: String(d), label: String(d) }))}
+          />
+        </div>
+      )}
     </PlaygroundCard>
   );
 }

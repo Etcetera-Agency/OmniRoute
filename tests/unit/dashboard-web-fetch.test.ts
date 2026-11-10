@@ -64,7 +64,7 @@ test("dashboard fetch is protected by management origin and session policy", asy
 test("Mdream appears as keyless in the regular Web Fetch provider catalog", async () => {
   const { buildStaticProviderEntries, filterConfiguredProviderEntries } =
     await import("../../src/app/(dashboard)/dashboard/providers/providerPageUtils.ts");
-  const entries = buildStaticProviderEntries("search", () => ({ total: 0 }) as never);
+  const entries = buildStaticProviderEntries("no-auth", () => ({ total: 0 }) as never);
   const mdream = entries.find((entry) => entry.providerId === "mdream");
   assert.ok(mdream);
   assert.equal((mdream.provider as { keylessOnly?: boolean }).keylessOnly, true);

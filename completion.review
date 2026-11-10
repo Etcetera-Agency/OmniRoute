@@ -2662,3 +2662,27 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 - Dashboard extraction now uses a management-class endpoint requiring a validated dashboard session and existing origin/CSRF guard. The client API retains its existing API-key requirement. Mdream appears through the regular provider catalog and detail page as keyless, without a synthetic connection or toggle; it remains explicit-only in routing.
 - 29 focused Node tests passed. The existing local UI dependency tree lacks `@radix-ui/react-select`, so the targeted UI suite could not fully start. GitHub ARM64 preflight exercises the provider card, detail, selection and public example extraction; production acceptance remains pending.
 - The Mdream catalog entry is excluded from the Search section because it only supports Web Fetch; the regular Web Fetch entry and configured-only filter retain it without inventing a connection.
+
+### Mdream standard no-auth provider detail
+
+- Reused the Auggie no-auth provider catalog and standard detail layout. Mdream now has a real enable/disable control, Connections/Provider Proxy, Web Fetch Playground and the standard lower sections; no credential or connection row is fabricated.
+- The inline playground uses the dashboard-session Web Fetch endpoint and never loads API keys for Mdream. Its sole format is Markdown. The no-auth card no longer advertises an API-key category.
+- The provider proxy now wraps real Mdream outbound calls. Focused tests observed a proxy CONNECT and confirmed fail-closed behavior for unavailable provider proxy pools, including when a global proxy exists. The existing connection-based Retry delay cannot affect synthetic no-auth Web Fetch; its control is shown disabled with an explanation instead of persisting an ineffective setting.
+- 63 focused Node tests and 3 UI tests passed. The updated ARM64 browser preflight is prepared but cannot run without a push; the real integrated production UI remains unverified.
+
+### Mdream retry delay
+
+- The standard Retry delay now controls Mdream rate-limit recovery using the existing no-auth model-lockout and resilience override mechanisms, without creating a connection record or a separate configuration. A real upstream Retry-After takes precedence; Auto uses existing backoff.
+- Focused tests cover 429, suppression of repeated upstream calls, expiry and recovery, and upstream header precedence. The lockout is in-process like the existing model lockout; an isolated process test confirms it is not shared across processes and does not survive restart. The currently deployed image uses one app process and both route bundles reference the same webpack runtime, but the new build has not been tested across routes.
+
+
+### Persistent Mdream cooldown
+
+- Mdream rate limits use SQLite provider state shared across routes, processes, and restarts. Updates serialize and preserve the longest overlapping cooldown; an earlier successful request cannot clear a newer rate limit. The standard retry delay and upstream Retry-After precedence remain unchanged.
+- The dashboard, client and built-in Web Fetch skill share cooldown state; the skill also honors the provider disable and proxy assignment. 71 focused Node tests and 3 UI tests passed, including cross-process routing, concurrent updates, expiry and recovery. Built-image verification remains pending authorized preflight.
+
+### Mdream image cooldown acceptance
+
+- The isolated ARM64 image preflight now checks a controlled upstream 429 across dashboard and authenticated client routes before and after a container restart. Its temporary volume is removed with the candidate; the normal browser extraction still reaches the real Mdream service. Fourteen verifier tests passed; image acceptance awaits GitHub.
+
+- The first ARM64 preflight built successfully but exposed that Next replaces the test fetch interceptor; the isolated hook now remains in place across that replacement. The test must pass in a new image run before acceptance.
