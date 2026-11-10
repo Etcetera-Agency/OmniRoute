@@ -160,6 +160,9 @@ test("routine test and check workflows remain manual-dispatch only", () => {
 test("fork builder packages one complete standalone tree", () => {
   assert.match(dockerfile, /npm ci /);
   assert.match(dockerfile, /OMNIROUTE_STRICT_STANDALONE=1/);
+  const builder = dockerfile.split("FROM backend-dependencies AS backend-builder")[1].split("FROM backend-dependencies AS operator-builder")[0];
+  assert.ok(builder.indexOf("RUN find /app -mindepth 1") < builder.indexOf("COPY . ./"));
+  assert.match(dockerfile, /RUN rm -rf \/app\/migrations\nCOPY --chown=node:node src\/lib\/db\/migrations\//);
   assert.ok(dockerfile.includes("npm run build "));
   assert.match(dockerfile, /COPY --from=backend-builder --chown=node:node \/app\/\.build\/next\/standalone\/ \/app\//);
   assert.doesNotMatch(dockerfile, /npm run build:backend|FROM scratch AS prebuilt-backend/);

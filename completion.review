@@ -2625,3 +2625,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - Added read-only ARM64 preflight on same-repository pull requests to main and manual dispatch. Pull requests check out and label the head SHA; no registry write, secrets or deploy job is available.
 - Inspected standalone launcher dependencies and official runtime inheritance. Updated obsolete overlay policy assertions; 28 focused tests passed with existing local dependencies. GitHub image execution remains pending.
+
+### Preflight migration contamination
+
+- The official base's source tree survived Docker COPY and entered the standalone build, adding migration 197_proxy_subscription_core_config.sql. Builders now remove inherited application files before copying the fork; the runtime replaces the assembled migration directory exactly.
+- Targeted workflow and verifier tests passed (18). The pinned 3.8.52 base remains in use: changing to the newly available 3.8.53-web base requires separate runtime configuration and native dependency acceptance, not inferred from its tag.

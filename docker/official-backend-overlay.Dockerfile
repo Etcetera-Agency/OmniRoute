@@ -35,6 +35,9 @@ RUN test -f package-lock.json \
 
 # Build one fork UI and API tree with a shared Next build identity.
 FROM backend-dependencies AS backend-builder
+# AICODE-NOTE: The official image can contain source files absent from the fork.
+# Remove them before COPY so stale routes and migrations cannot enter the build.
+RUN find /app -mindepth 1 -maxdepth 1 ! -name node_modules -exec rm -rf {} +
 COPY . ./
 ARG OMNIROUTE_BUILD_SHA
 ENV NODE_OPTIONS=--max-old-space-size=12288
@@ -52,6 +55,7 @@ RUN mkdir -p /app/data \
 # AICODE-NOTE: Separate operator bundle lets prebuilt backend packaging skip another Next build.
 # AICODE-NOTE: Split queue-only normalization so direct operator doesn't resolve Bedrock SDK.
 FROM backend-dependencies AS operator-builder
+RUN find /app -mindepth 1 -maxdepth 1 ! -name node_modules -exec rm -rf {} +
 COPY . ./
 RUN node scripts/build/bundle-model-benchmark-search-reprocess.mjs
 
@@ -62,6 +66,8 @@ USER root
 RUN rm -rf /app/.build/next /app/node_modules /app/migrations /app/dev /app/public
 COPY --from=backend-builder --chown=node:node /app/.build/next/standalone/ /app/
 COPY --from=backend-builder --chown=node:node /app/node_modules/better-sqlite3/ /app/node_modules/better-sqlite3/
+# AICODE-NOTE: The standalone tree may already carry migrations; replace it exactly.
+RUN rm -rf /app/migrations
 COPY --chown=node:node src/lib/db/migrations/ /app/migrations/
 ENV OMNIROUTE_MIGRATIONS_DIR=/app/migrations
 COPY --from=operator-builder \
