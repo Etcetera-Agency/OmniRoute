@@ -2684,3 +2684,5 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 ### Mdream image cooldown acceptance
 
 - The isolated ARM64 image preflight now checks a controlled upstream 429 across dashboard and authenticated client routes before and after a container restart. Its temporary volume is removed with the candidate; the normal browser extraction still reaches the real Mdream service. Fourteen verifier tests passed; image acceptance awaits GitHub.
+
+- The first ARM64 preflight built successfully but exposed that Next replaces the test fetch interceptor; the isolated hook now remains in place across that replacement. The test must pass in a new image run before acceptance.

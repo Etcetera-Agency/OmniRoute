@@ -1619,4 +1619,4 @@ Auto lifetime spec. Living specs are reconciled before moving the seven packages
 - Install the reviewed deployment helper on production with a preserved rollback copy, verify its checksum and ownership, then verify the 3.8.53 image deployment and authenticated UI.
 - Verify Mdream's regular provider card, keyless detail, dashboard-authorized extraction and preserved `/v1` boundary in GitHub ARM64 preflight and production after an explicitly approved merge/deployment.
 - Run the updated ARM64 browser preflight and verify the integrated Mdream provider detail, proxy and real extraction after explicit permission to push and deploy.
-- Run the prepared persistent Mdream cooldown and restart checks in the authorized ARM64 preflight.
+- Rerun the corrected persistent Mdream cooldown and restart checks in ARM64 preflight after Next fetch replacement defeated the first test hook.
