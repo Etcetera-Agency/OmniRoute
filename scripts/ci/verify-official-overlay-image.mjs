@@ -174,7 +174,7 @@ export function verifyCandidateEvidence(evidence, expected) {
   requireEvidence(typeof candidate.ui?.buildId === "string" && candidate.ui.buildId.length > 0, "UI BUILD_ID is missing");
   requireEvidence(candidate.ui.staticFiles?.length > 0, "UI static assets are missing");
   requireEvidence(Object.keys(candidate.ui.pagesManifest ?? {}).length > 0, "UI pages manifest is empty");
-  requireEvidence(Object.keys(candidate.ui.nonApiAppPaths ?? {}).some((route) => route.startsWith("/dashboard")), "UI dashboard route is missing");
+  requireEvidence(Object.keys(candidate.ui.nonApiAppPaths ?? {}).some((route) => /\/dashboard(?:\/|$)/.test(route)), "UI dashboard route is missing");
 
 }
 

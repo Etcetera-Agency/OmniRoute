@@ -43,7 +43,7 @@ function makeUi() {
     ],
     pagesManifest: { "/_error": "pages/404.js", "/_app": "pages/_app.js" },
     nonApiAppPaths: {
-      "/dashboard/page": "app/dashboard/page.js",
+      "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
       "/": "app/page.js",
     },
   };

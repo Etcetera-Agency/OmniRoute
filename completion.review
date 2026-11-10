@@ -2645,3 +2645,8 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - Preflight 42811149240 reached the scrape screen after authenticated login. Its selector assertion timed out because the provider control renders a Radix combobox, not a native select.
 - The browser smoke now verifies the visible Mdream selection, switches to Auto and back through the actual options, and checks the scrape form receives Mdream. Syntax and 14 verifier tests pass; GitHub browser acceptance remains pending.
+
+### Dashboard route group verification
+
+- Preflight 42813567267 passed the authenticated Mdream browser flow, then rejected the valid Next manifest key `/(dashboard)/dashboard/page`. The manifest check now recognizes the dashboard path segment inside route groups; its fixture models the source route layout.
+- All 14 verifier tests pass; final GitHub preflight remains pending.
