@@ -43,7 +43,7 @@ function makeUi() {
     ],
     pagesManifest: { "/_error": "pages/404.js", "/_app": "pages/_app.js" },
     nonApiAppPaths: {
-      "/dashboard/page": "app/dashboard/page.js",
+      "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
       "/": "app/page.js",
     },
   };
@@ -109,7 +109,7 @@ function requireMigrationVerifier() {
   return verifier.verifyCandidateMigrations;
 }
 
-test("verifier accepts a healthy ARM64 overlay that preserves official UI", () => {
+test("verifier accepts a healthy ARM64 fork UI image", () => {
   const verifyCandidateEvidence = requireVerifier();
   assert.doesNotThrow(() => verifyCandidateEvidence(makeEvidence(), EXPECTED));
 });
@@ -293,7 +293,7 @@ test("build SHA preflight reads in a bounded, isolated, read-only one-shot conta
   assert.equal(args.at(-2), "-e");
   assert.equal(
     args.at(-1),
-    "const fs=require('node:fs');const p='/app/.build/next/omni-overlay/server/BUILD_SHA';process.stdout.write(fs.readFileSync(p).toString('base64'));"
+    "const fs=require('node:fs');const p='/app/BUILD_SHA';process.stdout.write(fs.readFileSync(p).toString('base64'));"
   );
 });
 
@@ -544,22 +544,16 @@ test("verifier rejects native SQLite, health, dashboard, and direct UI API dispa
   assert.throws(() => verifyCandidateEvidence(wrongPort, EXPECTED), /direct UI listener/i);
 });
 
-test("verifier rejects any official UI build, static, page, or non-API route drift", () => {
-  const verifyCandidateEvidence = requireVerifier();
-
-  const buildIdDrift = makeEvidence();
-  buildIdDrift.candidate.ui.buildId = "fork-build-id";
-  assert.throws(() => verifyCandidateEvidence(buildIdDrift, EXPECTED), /BUILD_ID/i);
-
-  const staticDrift = makeEvidence();
-  staticDrift.candidate.ui.staticFiles[0].sha256 = "sha256:changed";
-  assert.throws(() => verifyCandidateEvidence(staticDrift, EXPECTED), /static/i);
-
-  const pagesDrift = makeEvidence();
-  pagesDrift.candidate.ui.pagesManifest["/_error"] = "pages/fork-error.js";
-  assert.throws(() => verifyCandidateEvidence(pagesDrift, EXPECTED), /pages manifest/i);
-
-  const routeDrift = makeEvidence();
-  routeDrift.candidate.ui.nonApiAppPaths["/dashboard/page"] = "app/fork-dashboard.js";
-  assert.throws(() => verifyCandidateEvidence(routeDrift, EXPECTED), /non-API app paths/i);
+test("verifier rejects incomplete fork UI", () => {
+  const verify = requireVerifier();
+  for (const [field, value, message] of [
+    ["buildId", "", /BUILD_ID/i],
+    ["staticFiles", [], /static/i],
+    ["pagesManifest", {}, /pages manifest/i],
+    ["nonApiAppPaths", {}, /dashboard route/i],
+  ]) {
+    const evidence = makeEvidence();
+    evidence.candidate.ui[field] = value;
+    assert.throws(() => verify(evidence, EXPECTED), message);
+  }
 });

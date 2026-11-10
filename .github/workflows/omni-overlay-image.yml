@@ -33,8 +33,8 @@ jobs:
     env:
       CANDIDATE_IMAGE: omniroute-overlay:verify-${{ github.sha }}
       FORK_IMAGE: ghcr.io/etcetera-agency/omniroute
-      OFFICIAL_IMAGE: ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
-      OFFICIAL_BASE_DIGEST: sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
+      OFFICIAL_IMAGE: docker.io/diegosouzapw/omniroute@sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
+      OFFICIAL_BASE_DIGEST: sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
       SOURCE_REPOSITORY: https://github.com/Etcetera-Agency/OmniRoute
     concurrency:
       group: omni-overlay-main-publisher
@@ -69,13 +69,11 @@ jobs:
           cache-from: type=gha,scope=omni-overlay-main-arm64
           cache-to: type=gha,scope=omni-overlay-main-arm64,mode=min,ignore-error=true
 
-      - name: Verify image behavior and official UI parity
+      - name: Verify image behavior and fork UI integrity
         run: |
           set -euo pipefail
-          docker pull --platform linux/arm64 "$OFFICIAL_IMAGE"
           node scripts/ci/verify-official-overlay-image.mjs \
             --candidate "$CANDIDATE_IMAGE" \
-            --official "$OFFICIAL_IMAGE" \
             --source "$SOURCE_REPOSITORY" \
             --revision "$GITHUB_SHA" \
             --base-digest "$OFFICIAL_BASE_DIGEST"

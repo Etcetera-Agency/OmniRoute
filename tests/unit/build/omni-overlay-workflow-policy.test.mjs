@@ -100,7 +100,7 @@ test("fork overlay image workflow runs only on canonical main or manual dispatch
   assert.ok(/org\.opencontainers\.image\.base\.digest/.test(build.with.labels));
   assert.ok(
     dockerfile.includes(
-      "ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c"
+      "ARG OFFICIAL_IMAGE=docker.io/diegosouzapw/omniroute@sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63"
     ),
     "backend overlay must remain based on the verified official image digest"
   );
@@ -157,40 +157,33 @@ test("routine test and check workflows remain manual-dispatch only", () => {
   }
 });
 
-test("backend builder compiles once without running unit tests", () => {
-  const builder = dockerfile.split("FROM scratch AS prebuilt-backend")[0];
-  const install = builder.indexOf("npm ci ");
-  const compile = builder.indexOf("npm run build:backend");
-
-  assert.ok(install >= 0, "backend builder installs its pinned dependencies");
-  assert.ok(
-    builder.includes(
-      'RUN test "$OFFICIAL_IMAGE" = "ghcr.io/diegosouzapw/omniroute@$OFFICIAL_BASE_DIGEST"'
-    ),
-    "build rejects a base image that differs from the labelled pinned digest"
-  );
-  assert.ok(compile > install, "backend compile starts after dependencies install");
-  assert.doesNotMatch(builder, /(?:node\s+--test|npm\s+run\s+test)/);
-  assert.equal(builder.match(/npm run build:backend/g)?.length, 1);
-
-  const dockerignore = fs.readFileSync(path.join(root, ".dockerignore"), "utf8");
-  assert.match(dockerignore, /^tests$/m, "the Docker context excludes unit tests");
-  const testReincludes = dockerignore
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("!tests"));
-  assert.deepEqual(testReincludes, [
-    "!tests/",
-    "!tests/unit/",
-    "!tests/unit/build/",
-    "!tests/unit/build/model-benchmark-search-runtime-resolution.test.mjs",
-  ]);
+test("fork builder packages one complete standalone tree", () => {
+  assert.match(dockerfile, /npm ci /);
+  assert.match(dockerfile, /OMNIROUTE_STRICT_STANDALONE=1/);
+  const builder = dockerfile.split("FROM backend-dependencies AS backend-builder")[1].split("FROM backend-dependencies AS operator-builder")[0];
+  assert.ok(builder.indexOf("RUN find /app -mindepth 1") < builder.indexOf("COPY . ./"));
+  assert.match(dockerfile, /RUN rm -rf \/app\/migrations\nCOPY --chown=node:node src\/lib\/db\/migrations\//);
+  assert.ok(dockerfile.includes("npm run build "));
+  assert.match(dockerfile, /COPY --from=backend-builder --chown=node:node \/app\/\.build\/next\/standalone\/ \/app\//);
+  assert.doesNotMatch(dockerfile, /npm run build:backend|FROM scratch AS prebuilt-backend/);
 });
 
-
-test("overlay packages only backend artifacts built with the runtime Next version", () => {
-  const [builder, prebuilt] = dockerfile.split("FROM scratch AS prebuilt-backend");
-  assert.match(builder, /require\('next\/package\.json'\)\.version.*server\/NEXT_VERSION/);
-  assert.match(prebuilt, /COPY --from=backend_export \/server \/app\/\.build\/backend-overlay\/server/);
-  assert.match(prebuilt, /cat \/app\/\.build\/next\/omni-overlay\/server\/NEXT_VERSION/);
-  assert.match(prebuilt, /node -p.*require\('next\/package\.json'\)\.version/);
+test("preflight uses the selected head and cannot publish or deploy", () => {
+  const preflight = yaml.load(fs.readFileSync(path.join(root, ".github/workflows/omni-fork-image-preflight.yml"), "utf8"));
+  assert.deepEqual(Object.keys(preflight.on), ["workflow_dispatch", "pull_request"]);
+  assert.deepEqual(preflight.on.pull_request.branches, ["main"]);
+  assert.deepEqual(preflight.permissions, { contents: "read" });
+  const job = preflight.jobs.preflight;
+  assert.equal(job["runs-on"], "ubuntu-24.04-arm");
+  assert.equal(job.environment, undefined);
+  assert.match(job.if, /head\.repo\.full_name == github\.repository/);
+  assert.equal(job.env.SOURCE_SHA, "${{ github.event.pull_request.head.sha || github.sha }}");
+  const checkout = job.steps.find((step) => step.uses?.includes("actions/checkout@"));
+  assert.equal(checkout.with.ref, job.env.SOURCE_SHA);
+  assert.equal(checkout.with["persist-credentials"], false);
+  const build = job.steps.find((step) => step.uses?.includes("docker/build-push-action@"));
+  assert.equal(build.with.load, true);
+  assert.notEqual(build.with.push, true);
+  assert.ok(job.steps.some((step) => step.run?.includes("verify-official-overlay-image.mjs")));
+  assert.doesNotMatch(JSON.stringify(preflight), /secrets\.|docker login|docker push|deploy-main-image/);
 });

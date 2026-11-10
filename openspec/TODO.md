@@ -1609,3 +1609,10 @@ Auto lifetime spec. Living specs are reconciled before moving the seven packages
 ### EX013 overlay runtime recovery
 
 - [ ] Build the corrected overlay in authorized GitHub CI, verify the actual image's Next version and direct dynamic `/api/health/ping` response, then verify authenticated providers after any separately authorized production deployment. Preserve existing production data and rollback artifacts. Separately generated prebuilt backend exports must include their compiler-derived `server/NEXT_VERSION`; verify that producer and packaging path before using such an export.
+
+- Verify the unified fork UI image on the GitHub ARM64 runner, including authenticated browser, migrations, runtime configuration and production deployment acceptance before closing this work.
+- Run the fork image preflight on a same-repository pull request and review its ARM64 browser and runtime results before merge. Manual dispatch requires the workflow to exist on the default branch.
+- Verify the pinned official 3.8.53-web base against runtime configuration, native dependencies and full fork image acceptance on GitHub ARM64.
+- Confirm the browser login session and remaining UI checks in the next ARM64 preflight after fixing the navigation race.
+- Confirm Radix provider selection and scrape-form state in the next GitHub ARM64 browser preflight.
+- Confirm the dashboard route-group manifest check and full image gate in the next GitHub ARM64 preflight.

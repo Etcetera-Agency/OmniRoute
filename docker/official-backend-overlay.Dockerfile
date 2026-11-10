@@ -1,6 +1,5 @@
-ARG OFFICIAL_IMAGE=ghcr.io/diegosouzapw/omniroute@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
-ARG OFFICIAL_BASE_DIGEST=sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
-ARG BACKEND_ARTIFACT_STAGE=backend-builder
+ARG OFFICIAL_IMAGE=docker.io/diegosouzapw/omniroute@sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
+ARG OFFICIAL_BASE_DIGEST=sha256:3e0c119abc8e280f99bd3f3db9a37913caf07e397b465caa1f56bf4feb271e63
 
 # Install lockfile-resolved dependencies once for both the backend compiler
 # and the browser-capable runtime target.
@@ -10,13 +9,13 @@ ARG OFFICIAL_BASE_DIGEST
 USER root
 WORKDIR /app
 
-RUN test "$OFFICIAL_IMAGE" = "ghcr.io/diegosouzapw/omniroute@$OFFICIAL_BASE_DIGEST"
+RUN test "$OFFICIAL_IMAGE" = "docker.io/diegosouzapw/omniroute@$OFFICIAL_BASE_DIGEST"
 
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV OMNIROUTE_USE_TURBOPACK=0
 ENV OMNIROUTE_MITM_STUB=1
-ENV NEXT_DIST_DIR=.build/backend-overlay
+ENV NEXT_DIST_DIR=.build/next
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
@@ -34,111 +33,43 @@ RUN test -f package-lock.json \
       && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild --force_build=1) \
   && node -e "require('better-sqlite3')(':memory:').close()"
 
-# Build the fork's API bundles against the exact Next.js and Node versions in
-# the verified official image. NEXT_DIST_DIR isolates this output from its UI.
+# Build one fork UI and API tree with a shared Next build identity.
 FROM backend-dependencies AS backend-builder
+# AICODE-NOTE: The official image can contain source files absent from the fork.
+# Remove them before COPY so stale routes and migrations cannot enter the build.
+RUN find /app -mindepth 1 -maxdepth 1 ! -name node_modules -exec rm -rf {} +
 COPY . ./
 ARG OMNIROUTE_BUILD_SHA
-RUN OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" NEXT_DIST_DIR=.build/backend-overlay node scripts/build/write-build-sha.mjs --validate-only
-
-# AICODE-NOTE: build-next-isolated preserves inherited NODE_OPTIONS.
-# Keep the 12-GiB override in backend-builder only.
 ENV NODE_OPTIONS=--max-old-space-size=12288
-# AICODE-NOTE: Install dev dependencies first; run Next prerender in production mode.
 ENV NODE_ENV=production
-
+ENV OMNIROUTE_STRICT_STANDALONE=1
 RUN mkdir -p /app/data \
-  && npm run build:backend \
-  && OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" NEXT_DIST_DIR=.build/backend-overlay node scripts/build/write-build-sha.mjs \
-  && cp /app/.build/backend-overlay/standalone/BUILD_SHA /app/.build/backend-overlay/server/BUILD_SHA \
-  && node -p "require('next/package.json').version" > /app/.build/backend-overlay/server/NEXT_VERSION \
-  && test -s /app/.build/backend-overlay/server/app-paths-manifest.json \
-  && test -s /app/.build/backend-overlay/app-path-routes-manifest.json \
-  && test -s /app/.build/backend-overlay/server/functions-config-manifest.json \
-  && test -s /app/.build/backend-overlay/routes-manifest.json
+  && OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" node scripts/build/write-build-sha.mjs --validate-only \
+  && npm run build \
+  && OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" node scripts/build/write-build-sha.mjs \
+  && test -s /app/.build/next/standalone/server.js \
+  && test -s /app/.build/next/standalone/.build/next/BUILD_ID \
+  && test -s /app/.build/next/standalone/.build/next/server/app-paths-manifest.json \
+  && test -d /app/.build/next/standalone/.build/next/static
 
 # AICODE-NOTE: Separate operator bundle lets prebuilt backend packaging skip another Next build.
 # AICODE-NOTE: Split queue-only normalization so direct operator doesn't resolve Bedrock SDK.
 FROM backend-dependencies AS operator-builder
+RUN find /app -mindepth 1 -maxdepth 1 ! -name node_modules -exec rm -rf {} +
 COPY . ./
 RUN node scripts/build/bundle-model-benchmark-search-reprocess.mjs
 
-# Adapter for a separately compiled backend export. This stage is selected
-# only when BACKEND_ARTIFACT_STAGE=prebuilt-backend; BuildKit prunes the
-# backend-builder stage, so packaging does not compile a second time.
-# The exported server must include NEXT_VERSION from the compiler environment;
-# the runtime comparison below rejects missing or incompatible artifacts.
-FROM scratch AS prebuilt-backend
-COPY --from=backend_export /server /app/.build/backend-overlay/server
-COPY --from=backend_export /server/BUILD_SHA /app/.build/backend-overlay/server/BUILD_SHA
-COPY --from=backend_export \
-  /app-path-routes-manifest.json \
-  /app/.build/backend-overlay/app-path-routes-manifest.json
-COPY --from=backend_export /routes-manifest.json /app/.build/backend-overlay/routes-manifest.json
-
-# Resolve the chosen source through FROM, where Dockerfile ARG expansion is
-# supported consistently; the following COPY instructions stay static.
-FROM ${BACKEND_ARTIFACT_STAGE} AS selected-backend
-
-# Merge in a temporary stage so the final stage can inherit the official
-# runtime configuration (user, environment, entrypoint, and command) unchanged.
-FROM ${OFFICIAL_IMAGE} AS merged-backend
-USER root
-ARG OMNIROUTE_BUILD_SHA
-
-COPY --from=selected-backend --chown=node:node \
-  /app/.build/backend-overlay/server \
-  /app/.build/next/omni-overlay/server
-COPY scripts/build/write-build-sha.mjs /app/scripts/build/write-build-sha.mjs
-# AICODE-NOTE: Overlay route bundles require the same Next runtime used to compile them.
-RUN test "$(cat /app/.build/next/omni-overlay/server/NEXT_VERSION)" = "$(node -p "require('next/package.json').version")"
-# AICODE-NOTE: This gate covers both compiled and prebuilt selected server trees.
-RUN OMNIROUTE_BUILD_SHA="$OMNIROUTE_BUILD_SHA" NEXT_DIST_DIR=.build/next/omni-overlay \
-  node scripts/build/write-build-sha.mjs --verify-server
-COPY --from=selected-backend \
-  /app/.build/backend-overlay/routes-manifest.json \
-  /tmp/omni-overlay-routes-manifest.json
-COPY --from=selected-backend \
-  /app/.build/backend-overlay/app-path-routes-manifest.json \
-  /tmp/omni-overlay-app-path-routes-manifest.json
-COPY scripts/build/merge-official-backend-overlay.mjs /app/.merge-official-backend-overlay.mjs
-
-RUN node /app/.merge-official-backend-overlay.mjs \
-    --base-dist /app/.build/next \
-    --overlay-server /app/.build/next/omni-overlay/server \
-    --overlay-routes /tmp/omni-overlay-routes-manifest.json \
-    --overlay-app-path-routes /tmp/omni-overlay-app-path-routes-manifest.json \
-    --runtime-overlay-server /app/.build/next/omni-overlay/server \
-  && rm -f \
-    /tmp/omni-overlay-routes-manifest.json \
-    /tmp/omni-overlay-app-path-routes-manifest.json \
-    /app/.merge-official-backend-overlay.mjs
-
-# The published filesystem starts from the verified official image. Replace
-# its migrations with the fork set, then copy the backend subtree/manifests.
+# Keep the official OS packages and runtime configuration; replace its entire
+# application tree so no UI, server, dependency, or manifest crosses builds.
 FROM ${OFFICIAL_IMAGE} AS runtime
-# AICODE-NOTE: migrationRunner resolves /app/migrations before bundled source paths.
+USER root
+RUN rm -rf /app/.build/next /app/node_modules /app/migrations /app/dev /app/public
+COPY --from=backend-builder --chown=node:node /app/.build/next/standalone/ /app/
+COPY --from=backend-builder --chown=node:node /app/node_modules/better-sqlite3/ /app/node_modules/better-sqlite3/
+# AICODE-NOTE: The standalone tree may already carry migrations; replace it exactly.
 RUN rm -rf /app/migrations
-COPY src/lib/db/migrations/ /app/migrations/
-COPY --from=merged-backend \
-  /app/.build/next/omni-overlay/server \
-  /app/.build/next/omni-overlay/server
-# AICODE-NOTE: The final stage starts from official again; retain the generated startup delegate.
-COPY --from=merged-backend \
-  /app/.build/next/server/instrumentation.js \
-  /app/.build/next/server/instrumentation.js
-COPY --from=merged-backend \
-  /app/.build/next/server/app-paths-manifest.json \
-  /app/.build/next/server/app-paths-manifest.json
-COPY --from=merged-backend \
-  /app/.build/next/app-path-routes-manifest.json \
-  /app/.build/next/app-path-routes-manifest.json
-COPY --from=merged-backend \
-  /app/.build/next/server/functions-config-manifest.json \
-  /app/.build/next/server/functions-config-manifest.json
-COPY --from=merged-backend \
-  /app/.build/next/routes-manifest.json \
-  /app/.build/next/routes-manifest.json
+COPY --chown=node:node src/lib/db/migrations/ /app/migrations/
+ENV OMNIROUTE_MIGRATIONS_DIR=/app/migrations
 COPY --from=operator-builder \
   /app/dist/ops/ \
   /app/scripts/ops/

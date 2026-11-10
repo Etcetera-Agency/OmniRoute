@@ -85,20 +85,6 @@ export async function withCleanup(action, cleanups) {
 // AICODE-NOTE: Nested verification stages retain primary and cleanup errors so
 // later cleanup failures cannot hide earlier image-check failures.
 
-function canonicalJson(value) {
-  if (Array.isArray(value)) return value.map(canonicalJson);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, canonicalJson(value[key])])
-  );
-}
-
-function staticFileMap(files) {
-  return files.map(({ path: filePath, sha256 }) => `${filePath}\0${sha256}`).sort();
-}
-
 function diagnosticRuntimeValue(value) {
   if (!Array.isArray(value)) return diagnosticTag(value);
   const items = value.slice(0, 8).map(diagnosticTag);
@@ -121,8 +107,7 @@ export function verifyCandidateRuntimeConfiguration(config) {
 
 export function verifyCandidateEvidence(evidence, expected) {
   const candidate = evidence?.candidate;
-  const official = evidence?.official;
-  requireEvidence(candidate && official, "candidate and official image evidence are required");
+  requireEvidence(candidate, "candidate image evidence is required");
   requireEvidence(candidate.architecture === "arm64", "candidate image must be ARM64");
 
   const labels = candidate.labels ?? {};
@@ -186,29 +171,11 @@ export function verifyCandidateEvidence(evidence, expected) {
     "candidate headed Playwright Chromium smoke failed, ran as root, or did not close on about:blank"
   );
 
-  requireEvidence(candidate.ui?.buildId === official.ui?.buildId, "official UI BUILD_ID changed");
-  requireEvidence(
-    candidate.ui.staticFiles?.length > 0 &&
-      isDeepStrictEqual(
-        staticFileMap(candidate.ui.staticFiles),
-        staticFileMap(official.ui.staticFiles ?? [])
-      ),
-    "official UI static assets changed"
-  );
-  requireEvidence(
-    isDeepStrictEqual(
-      canonicalJson(candidate.ui.pagesManifest),
-      canonicalJson(official.ui.pagesManifest)
-    ),
-    "official UI pages manifest changed"
-  );
-  requireEvidence(
-    isDeepStrictEqual(
-      canonicalJson(candidate.ui.nonApiAppPaths),
-      canonicalJson(official.ui.nonApiAppPaths)
-    ),
-    "official non-API app paths changed"
-  );
+  requireEvidence(typeof candidate.ui?.buildId === "string" && candidate.ui.buildId.length > 0, "UI BUILD_ID is missing");
+  requireEvidence(candidate.ui.staticFiles?.length > 0, "UI static assets are missing");
+  requireEvidence(Object.keys(candidate.ui.pagesManifest ?? {}).length > 0, "UI pages manifest is empty");
+  requireEvidence(Object.keys(candidate.ui.nonApiAppPaths ?? {}).some((route) => /\/dashboard(?:\/|$)/.test(route)), "UI dashboard route is missing");
+
 }
 
 export function verifyCandidateMigrations(candidateFiles, sourceFiles) {
@@ -252,12 +219,11 @@ function parseArguments(argv) {
     index += 1;
   }
 
-  for (const name of ["candidate", "official", "source", "revision", "base-digest"]) {
+  for (const name of ["candidate", "source", "revision", "base-digest"]) {
     if (!options[name]) throw new Error(`required option missing: --${name}`);
   }
   return {
     candidate: options.candidate,
-    official: options.official,
     source: options.source,
     revision: options.revision,
     baseDigest: options["base-digest"],
@@ -511,6 +477,8 @@ export function buildSmokeContainerArguments(candidate, container) {
     "--env",
     "REQUIRE_API_KEY=true",
     "--env",
+    "OMNIROUTE_NO_UPDATE_NOTIFIER=true",
+    "--env",
     "INITIAL_PASSWORD",
     candidate,
   ];
@@ -519,7 +487,7 @@ export function buildSmokeContainerArguments(candidate, container) {
 export function buildBuildShaCheckArguments(candidate) {
   const script =
     "const fs=require('node:fs');" +
-    "const p='/app/.build/next/omni-overlay/server/BUILD_SHA';" +
+    "const p='/app/BUILD_SHA';" +
     "process.stdout.write(fs.readFileSync(p).toString('base64'));";
   return [
     "run",
@@ -612,6 +580,8 @@ async function smokeCandidate(candidate) {
     });
     await dynamicApi.arrayBuffer();
     const browserSmoke = runBrowserSmoke(container);
+    docker(["cp", path.resolve(path.dirname(SCRIPT_PATH), "verify-fork-ui-browser.mjs"), `${container}:/app/verify-fork-ui-browser.mjs`]);
+    docker(["exec", container, "xvfb-run", "-a", "node", "/app/verify-fork-ui-browser.mjs"]);
 
     return {
       healthStatus: "healthy",
@@ -664,7 +634,6 @@ export async function verifyImages(options) {
     const sqlite = runNativeSqliteCheck(options.candidate);
     const runtime = await smokeCandidate(options.candidate);
     const candidateUi = await extractUi(options.candidate, "candidate", tempRoot);
-    const officialUi = await extractUi(options.official, "official", tempRoot);
     const evidence = {
       candidate: {
         architecture: candidateMetadata.Architecture,
@@ -674,7 +643,6 @@ export async function verifyImages(options) {
         ...runtime,
         ui: candidateUi,
       },
-      official: { ui: officialUi },
     };
     verifyCandidateEvidence(evidence, expected);
     return {
