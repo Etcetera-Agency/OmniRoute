@@ -29,6 +29,12 @@ import * as log from "@/sse/utils/logger";
 import { getProviderCredentialsWithQuotaPreflight } from "@/sse/services/auth";
 import { resolveClientApiKey } from "@/sse/services/clientApiKeyResolver";
 import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
+import { isNoAuthProviderBlockedBySettings } from "@/sse/services/noAuthProviderSettings";
+import {
+  hasBlockingProxyAssignmentForProvider,
+  hasUnavailableProviderProxyPool,
+  resolveProxyForProvider,
+} from "@/lib/db/proxies";
 import { enforceApiKeyPolicyWithScope } from "@/app/api/v1/_shared/keyScopedRoute";
 import {
   keyAdmitsKeylessProviders,
@@ -324,6 +330,10 @@ export async function POST(request: Request) {
   const scope = await enforceApiKeyPolicyWithScope(request, "web-fetch");
   if (scope.rejection) return scope.rejection;
 
+  if (body.provider === "mdream" && (await isNoAuthProviderBlockedBySettings("mdream"))) {
+    return errorResponse(HTTP_STATUS.FORBIDDEN, "Mdream provider is disabled");
+  }
+
   // Resolve provider + credentials (explicit provider never falls back; #8297)
   const target = await resolveWebFetchTarget(body.provider, scope.allowedConnections);
   if (!target.ok) return target.response;
@@ -342,24 +352,50 @@ export async function POST(request: Request) {
     target.provider === "mdream" ? new URL(body.url).hostname || "invalid-host" : body.url;
   log.info("WEB_FETCH", `${target.provider} | ${targetForLog} | format=${body.format}`);
 
-  const {
-    result,
-    provider: finalProvider,
-    poolExhausted,
-  } = await executeWithFallback(
-    {
-      url: body.url,
-      format: body.format,
-      depth: body.depth as 0 | 1 | 2,
-      wait_for_selector: body.wait_for_selector,
-      include_metadata: body.include_metadata,
-    },
-    target.provider,
-    target.credentials,
-    !target.isExplicit,
-    target.tried,
-    scope.allowedConnections
-  );
+  const execute = () =>
+    executeWithFallback(
+      {
+        url: body.url,
+        format: body.format,
+        depth: body.depth as 0 | 1 | 2,
+        wait_for_selector: body.wait_for_selector,
+        include_metadata: body.include_metadata,
+      },
+      target.provider,
+      target.credentials,
+      !target.isExplicit,
+      target.tried,
+      scope.allowedConnections
+    );
+  let execution: WebFetchExecutionResult;
+  if (target.provider === "mdream") {
+    try {
+      if (hasUnavailableProviderProxyPool("mdream")) {
+        return errorResponse(
+          HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Assigned provider proxy is unavailable"
+        );
+      }
+      const proxy = await resolveProxyForProvider("mdream");
+      if (!proxy && hasBlockingProxyAssignmentForProvider("mdream")) {
+        return errorResponse(
+          HTTP_STATUS.SERVICE_UNAVAILABLE,
+          "Assigned provider proxy is unavailable"
+        );
+      }
+      if (proxy) {
+        const { runWithProxyContext } = await import("@omniroute/open-sse/utils/proxyFetch.ts");
+        execution = await runWithProxyContext(proxy, execute);
+      } else {
+        execution = await execute();
+      }
+    } catch {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "Provider proxy is unavailable");
+    }
+  } else {
+    execution = await execute();
+  }
+  const { result, provider: finalProvider, poolExhausted } = execution;
 
   if (poolExhausted) {
     return unavailableResponse(

@@ -140,9 +140,13 @@ function useRetryDelayOverrides(providerId: string) {
 
 interface ProviderRetryDelaySelectProps {
   providerId: string;
+  keylessOnly?: boolean;
 }
 
-export default function ProviderRetryDelaySelect({ providerId }: ProviderRetryDelaySelectProps) {
+export default function ProviderRetryDelaySelect({
+  providerId,
+  keylessOnly = false,
+}: ProviderRetryDelaySelectProps) {
   const t = useTranslations("providers");
   const { overrides, loaded, saving, handleChange } = useRetryDelayOverrides(providerId);
 
@@ -165,13 +169,18 @@ export default function ProviderRetryDelaySelect({ providerId }: ProviderRetryDe
               "How long a connection rests after a rate-limit error when the provider does not say when to retry. Auto uses the built-in backoff; a reset time sent by the provider always wins."
             )}
           </p>
+          {keylessOnly && (
+            <p className="text-sm text-text-muted">
+              Retry delay does not apply to keyless Web Fetch requests.
+            </p>
+          )}
         </div>
         <Select
           aria-label={title}
           compact
           className="w-auto shrink-0"
           value={selected}
-          disabled={!loaded || saving}
+          disabled={!loaded || saving || keylessOnly}
           options={[
             { value: RETRY_DELAY_AUTO, label: providerText(t, "retryDelayAuto", "Auto") },
             ...optionSeconds.map((seconds) => ({

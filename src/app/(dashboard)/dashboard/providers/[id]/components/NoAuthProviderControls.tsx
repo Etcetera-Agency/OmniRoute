@@ -16,6 +16,7 @@ interface NoAuthProviderControlsProps {
   providerName: string;
   providerProxy?: { host?: string | null } | null;
   onConfigureProviderProxy: () => void;
+  showProviderProxy?: boolean;
 }
 
 export default function NoAuthProviderControls({
@@ -23,6 +24,7 @@ export default function NoAuthProviderControls({
   providerName,
   providerProxy,
   onConfigureProviderProxy,
+  showProviderProxy = true,
 }: NoAuthProviderControlsProps) {
   const noAuthT = useTranslations("noAuthProvider");
   const notify = useNotificationStore();
@@ -124,22 +126,23 @@ export default function NoAuthProviderControls({
 
   const accountProviderName = ACCOUNT_PROVIDER_NAMES[providerId];
   const host = providerProxy?.host;
-  const providerProxyControl = supportsNoAuthProviderProxy(providerId) ? (
-    <Button
-      variant="ghost"
-      size="sm"
-      icon="vpn_lock"
-      onClick={onConfigureProviderProxy}
-      className={`h-auto min-h-0 gap-1 rounded px-2 py-1 text-xs font-medium ${
-        host
-          ? "bg-warning/15 text-warning hover:bg-warning/25"
-          : "bg-bg-subtle text-text-muted/50 hover:bg-bg-subtle hover:text-text-muted"
-      }`}
-      title={host ? t("providerProxyTitleConfigured", { host }) : t("providerProxyConfigureHint")}
-    >
-      <span className="max-w-30 truncate">{host || t("providerProxy")}</span>
-    </Button>
-  ) : null;
+  const providerProxyControl =
+    showProviderProxy && supportsNoAuthProviderProxy(providerId) ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        icon="vpn_lock"
+        onClick={onConfigureProviderProxy}
+        className={`h-auto min-h-0 gap-1 rounded px-2 py-1 text-xs font-medium ${
+          host
+            ? "bg-warning/15 text-warning hover:bg-warning/25"
+            : "bg-bg-subtle text-text-muted/50 hover:bg-bg-subtle hover:text-text-muted"
+        }`}
+        title={host ? t("providerProxyTitleConfigured", { host }) : t("providerProxyConfigureHint")}
+      >
+        <span className="max-w-30 truncate">{host || t("providerProxy")}</span>
+      </Button>
+    ) : null;
 
   if (accountProviderName) {
     return (

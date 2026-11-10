@@ -2662,3 +2662,10 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 - Dashboard extraction now uses a management-class endpoint requiring a validated dashboard session and existing origin/CSRF guard. The client API retains its existing API-key requirement. Mdream appears through the regular provider catalog and detail page as keyless, without a synthetic connection or toggle; it remains explicit-only in routing.
 - 29 focused Node tests passed. The existing local UI dependency tree lacks `@radix-ui/react-select`, so the targeted UI suite could not fully start. GitHub ARM64 preflight exercises the provider card, detail, selection and public example extraction; production acceptance remains pending.
 - The Mdream catalog entry is excluded from the Search section because it only supports Web Fetch; the regular Web Fetch entry and configured-only filter retain it without inventing a connection.
+
+### Mdream standard no-auth provider detail
+
+- Reused the Auggie no-auth provider catalog and standard detail layout. Mdream now has a real enable/disable control, Connections/Provider Proxy, Web Fetch Playground and the standard lower sections; no credential or connection row is fabricated.
+- The inline playground uses the dashboard-session Web Fetch endpoint and never loads API keys for Mdream. Its sole format is Markdown. The no-auth card no longer advertises an API-key category.
+- The provider proxy now wraps real Mdream outbound calls. Focused tests observed a proxy CONNECT and confirmed fail-closed behavior for unavailable provider proxy pools, including when a global proxy exists. The existing connection-based Retry delay cannot affect synthetic no-auth Web Fetch; its control is shown disabled with an explanation instead of persisting an ineffective setting.
+- 63 focused Node tests and 3 UI tests passed. The updated ARM64 browser preflight is prepared but cannot run without a push; the real integrated production UI remains unverified.

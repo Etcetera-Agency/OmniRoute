@@ -34,6 +34,7 @@ import { isProxyRegistryStatus } from "@/shared/constants/proxyRegistryStatus";
 export {
   hasBlockingProxyAssignment,
   hasBlockingProxyAssignmentForProvider,
+  hasUnavailableProviderProxyPool,
 } from "./proxies/guards";
 export { extractRelayAuth, redactProxySecrets } from "./proxies/mappers";
 export { addProxiesToScopePool } from "./proxySubscriptions";

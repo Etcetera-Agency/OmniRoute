@@ -9,13 +9,24 @@ import type { ProviderMessageTranslator } from "../providerPageHelpers";
 interface SearchProviderCardProps {
   providerId: string;
   t: ProviderMessageTranslator;
+  keylessOnly?: boolean;
 }
 
-export default function SearchProviderCard({ providerId, t }: SearchProviderCardProps) {
+export default function SearchProviderCard({
+  providerId,
+  t,
+  keylessOnly = false,
+}: SearchProviderCardProps) {
   return (
     <Card>
-      <h2 className="text-lg font-semibold mb-4">{t("searchProvider")}</h2>
-      <p className="text-sm text-text-muted">{t("searchProviderDesc")}</p>
+      <h2 className="text-lg font-semibold mb-4">
+        {keylessOnly ? "Web Fetch Provider" : t("searchProvider")}
+      </h2>
+      <p className="text-sm text-text-muted">
+        {keylessOnly
+          ? "Mdream is available without an API key and returns Markdown."
+          : t("searchProviderDesc")}
+      </p>
       {providerId === "perplexity-search" && (
         <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-info/10 border border-info/20">
           <Icon name="link" size={14} className="text-info" />

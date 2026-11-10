@@ -1618,3 +1618,5 @@ Auto lifetime spec. Living specs are reconciled before moving the seven packages
 - Confirm the dashboard route-group manifest check and full image gate in the next GitHub ARM64 preflight.
 - Install the reviewed deployment helper on production with a preserved rollback copy, verify its checksum and ownership, then verify the 3.8.53 image deployment and authenticated UI.
 - Verify Mdream's regular provider card, keyless detail, dashboard-authorized extraction and preserved `/v1` boundary in GitHub ARM64 preflight and production after an explicitly approved merge/deployment.
+- Define and implement effective rate-limit cooldown for keyless Web Fetch before enabling the Mdream Retry delay control; the existing Auggie-style synthetic no-auth connection cannot carry connection cooldown state.
+- Run the updated ARM64 browser preflight and verify the integrated Mdream provider detail, proxy and real extraction after explicit permission to push and deploy.

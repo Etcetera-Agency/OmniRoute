@@ -273,6 +273,7 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
   const tc = useTranslations("common");
   const tp = useTranslations("miniPlayground");
   const router = useRouter();
+  const cardCategory = provider.keylessOnly ? "no-auth" : authType;
   const kindLabel = (kind: string) => {
     const entry = KIND_LABEL_KEYS[kind];
     return entry ? providerText(t, entry.key, entry.fallback) : kind;
@@ -555,9 +556,9 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                   />
                 )}
                 <CategoryDot
-                  category={CARD_DOT_CATEGORIES.has(authType) ? authType : "apikey"}
+                  category={CARD_DOT_CATEGORIES.has(cardCategory) ? cardCategory : "apikey"}
                   hasFree={provider.hasFree === true}
-                  label={dotLabels[authType] || t("apiKeyLabel")}
+                  label={dotLabels[cardCategory] || t("apiKeyLabel")}
                   freeLabel={t("hasFreeTooltip")}
                   announce
                 />

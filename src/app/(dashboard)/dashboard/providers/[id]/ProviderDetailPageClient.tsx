@@ -286,6 +286,7 @@ export default function ProviderDetailPageClient() {
     providerInfo?.website,
     referralUrl
   );
+  const isKeylessOnly = providerInfo?.keylessOnly === true;
   const oauthProviderId = resolveProviderOAuthBackendId(providerId, providerInfo);
   const providerSupportsOAuth =
     providerInfo?.toggleAuthType === "oauth" ||
@@ -580,31 +581,6 @@ export default function ProviderDetailPageClient() {
     );
   }
 
-  if (providerId === "mdream") {
-    return (
-      <div className="flex flex-col gap-8">
-        <ProviderPageHeader
-          providerId={providerId}
-          providerInfo={{ ...providerInfo, website: providerHeaderWebsite }}
-          connectionsCount={0}
-          isOpenAICompatible={false}
-          isAnthropicProtocolCompatible={false}
-          onOpenTutorial={() => setShowTutorialModal(true)}
-          t={t}
-        />
-        <Card>
-          <p>Mdream is available without an API key and returns Markdown.</p>
-          <Link
-            href="/dashboard/search-tools?tab=scrape&provider=mdream"
-            className="text-primary underline"
-          >
-            Open Web Fetch
-          </Link>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-8">
       <ProviderPageHeader
@@ -642,6 +618,7 @@ export default function ProviderDetailPageClient() {
           providerId={providerId}
           providerName={providerInfo?.name || providerId}
           providerProxy={proxyConfig?.providers?.[providerId]}
+          showProviderProxy={!isKeylessOnly}
           onConfigureProviderProxy={() =>
             setProxyTarget({
               level: "provider",
@@ -651,14 +628,45 @@ export default function ProviderDetailPageClient() {
           }
         />
       )}
-      {!isUpstreamProxyProvider && !isFreeNoAuth && (
+      {!isKeylessOnly && !isUpstreamProxyProvider && !isFreeNoAuth && (
         <AnonymousFallbackToggle
           providerId={providerId}
           providerName={providerInfo?.name || providerId}
         />
       )}
-      {!isUpstreamProxyProvider && <ProviderRetryDelaySelect providerId={providerId} />}
-      {!isUpstreamProxyProvider && (!isFreeNoAuth || providerSupportsPat) && (
+      {!isUpstreamProxyProvider && (
+        <ProviderRetryDelaySelect providerId={providerId} keylessOnly={isKeylessOnly} />
+      )}
+      {isKeylessOnly && (
+        <Card>
+          <div className="mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold">{t("connections")}</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="vpn_lock"
+              onClick={() =>
+                setProxyTarget({
+                  level: "provider",
+                  id: providerId,
+                  label: providerInfo.name || providerId,
+                })
+              }
+              title={
+                proxyConfig?.providers?.[providerId]
+                  ? t("providerProxyTitleConfigured", {
+                      host: proxyConfig.providers[providerId].host || t("configured"),
+                    })
+                  : t("providerProxyConfigureHint")
+              }
+            >
+              {proxyConfig?.providers?.[providerId]?.host || t("providerProxy")}
+            </Button>
+          </div>
+          <p className="text-sm text-text-muted">No connection or API key is required.</p>
+        </Card>
+      )}
+      {!isKeylessOnly && !isUpstreamProxyProvider && (!isFreeNoAuth || providerSupportsPat) && (
         <Card>
           <ProviderAccountRoutingCard
             providerKey={providerId}
@@ -903,7 +911,9 @@ export default function ProviderDetailPageClient() {
       )}
 
       {/* Search provider info */}
-      {isSearchProvider && <SearchProviderCard providerId={providerId} t={t} />}
+      {isSearchProvider && (
+        <SearchProviderCard providerId={providerId} t={t} keylessOnly={isKeylessOnly} />
+      )}
 
       {/* Playground + param filters — extracted to components/ProviderExtraPanels.tsx (#6649) */}
       <ProviderExtraPanels providerId={providerId} />

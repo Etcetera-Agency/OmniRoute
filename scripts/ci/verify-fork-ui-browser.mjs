@@ -51,34 +51,34 @@ try {
     throw new Error("login did not establish a dashboard session");
   }
   await page.goto(`${baseUrl}/dashboard/providers`, { waitUntil: "domcontentloaded" });
-  const card = page.getByRole("link", { name: /Mdream.*No API key required/i });
+  const card = page.getByRole("link", { name: /Mdream.*No API key required/i }).last();
   await card.waitFor({ state: "visible", timeout: 30000 });
   await card.click();
   await page.waitForURL("**/dashboard/providers/mdream");
   await page.getByText("Mdream is available without an API key and returns Markdown.").waitFor();
-  await page.getByRole("link", { name: "Open Web Fetch" }).click();
-  await page.getByTestId("scrape-tab").waitFor({ state: "visible", timeout: 30000 });
-  // The provider control is Radix, not a native select. Exercise its visible value
-  // and change handler, then confirm the scrape form receives the selection.
-  const provider = page.getByTestId("search-tools-config-pane").getByRole("combobox").first();
-  await provider.getByText("Mdream", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
-  await provider.click();
-  await page.getByRole("option", { name: /auto/i }).click();
-  await provider.click();
-  await page.getByRole("option", { name: "Mdream", exact: true }).click();
-  await provider.getByText("Mdream", { exact: true }).waitFor({ state: "visible" });
+  await page.getByText("No authentication required").waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "Provider Proxy" }).waitFor({ state: "visible" });
   await page
-    .getByTestId("scrape-tab")
-    .getByText("Provider:")
-    .getByText("mdream", { exact: true })
+    .getByText("Retry delay does not apply to keyless Web Fetch requests.")
     .waitFor({ state: "visible" });
-  await page.getByTestId("url-input").fill("https://example.com/");
+  if (!(await page.getByRole("combobox", { name: "Retry delay" }).isDisabled())) {
+    throw new Error("Keyless retry delay must not be editable without a working cooldown");
+  }
+  for (const name of [
+    "Param Filters",
+    "Web Tool Interception",
+    "Expose in Claude Code (claude/…)",
+  ]) {
+    await page.getByRole("heading", { name, exact: true }).waitFor({ state: "visible" });
+  }
+  await page.getByRole("tab", { name: "Web Fetch" }).waitFor({ state: "visible" });
+  await page.getByRole("textbox", { name: "URL" }).fill("https://example.com/");
   const extraction = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/api/search/fetch" &&
       response.request().method() === "POST"
   );
-  await page.getByTestId("scrape-button").click();
+  await page.getByRole("button", { name: /Run/ }).click();
   if (!(await extraction).ok()) throw new Error("Mdream extraction request failed");
   await page
     .getByText("Example Domain", { exact: false })

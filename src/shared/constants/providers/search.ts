@@ -62,18 +62,6 @@ export const SEARCH_PROVIDERS = {
     authHint: "API key from app.tavily.com (format: tvly-...)",
     serviceKinds: ["webSearch", "webFetch"],
   },
-  mdream: {
-    id: "mdream",
-    alias: "mdream",
-    name: "Mdream",
-    icon: "language",
-    color: "#5468E7",
-    textIcon: "MD",
-    website: "https://mdream.dev",
-    hasFree: true,
-    keylessOnly: true,
-    serviceKinds: ["webFetch"],
-  },
   "anysearch-search": {
     id: "anysearch-search",
     alias: "anysearch",
