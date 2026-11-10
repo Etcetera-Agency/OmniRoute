@@ -44,6 +44,11 @@ test("no-auth provider disable blocks Mdream without an upstream request", async
   try {
     const response = await route.POST(request());
     assert.equal(response.status, 403);
+    const skill = await import("../../src/lib/skills/webFetchExecution.ts");
+    await assert.rejects(
+      skill.executeWebFetch({ provider: "mdream", url: "https://example.com/" }),
+      { statusCode: 403 }
+    );
     assert.equal(calls, 0);
   } finally {
     globalThis.fetch = originalFetch;
@@ -96,6 +101,11 @@ test("an unavailable assigned proxy fails closed without direct egress", async (
   try {
     const response = await route.POST(request());
     assert.equal(response.status, 503);
+    const skill = await import("../../src/lib/skills/webFetchExecution.ts");
+    await assert.rejects(
+      skill.executeWebFetch({ provider: "mdream", url: "https://example.com/" }),
+      { statusCode: 503 }
+    );
     assert.equal(calls, 0);
   } finally {
     globalThis.fetch = originalFetch;

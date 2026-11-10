@@ -2674,3 +2674,9 @@ bounded docs/package closure; the parent performs final whole-goal acceptance.
 
 - The standard Retry delay now controls Mdream rate-limit recovery using the existing no-auth model-lockout and resilience override mechanisms, without creating a connection record or a separate configuration. A real upstream Retry-After takes precedence; Auto uses existing backoff.
 - Focused tests cover 429, suppression of repeated upstream calls, expiry and recovery, and upstream header precedence. The lockout is in-process like the existing model lockout; an isolated process test confirms it is not shared across processes and does not survive restart. The currently deployed image uses one app process and both route bundles reference the same webpack runtime, but the new build has not been tested across routes.
+
+
+### Persistent Mdream cooldown
+
+- Mdream rate limits use SQLite provider state shared across routes, processes, and restarts. Updates serialize and preserve the longest overlapping cooldown; an earlier successful request cannot clear a newer rate limit. The standard retry delay and upstream Retry-After precedence remain unchanged.
+- The dashboard, client and built-in Web Fetch skill share cooldown state; the skill also honors the provider disable and proxy assignment. 71 focused Node tests and 3 UI tests passed, including cross-process routing, concurrent updates, expiry and recovery. Built-image verification remains pending authorized preflight.

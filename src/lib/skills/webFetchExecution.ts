@@ -1,3 +1,10 @@
+import { isNoAuthProviderBlockedBySettings } from "@/sse/services/noAuthProviderSettings";
+import {
+  hasUnavailableProviderProxyPool,
+  hasBlockingProxyAssignmentForProvider,
+  resolveProxyForProvider,
+} from "@/lib/db/proxies";
+import { mdreamCooldownRemaining, settleMdreamCooldown } from "@/lib/search/mdreamCooldown";
 /**
  * webFetchExecution.ts — resolves credentials for a web-fetch provider and dispatches
  * to handleWebFetch(), mirroring src/lib/search/executeWebSearch.ts. Consumed by the
@@ -142,17 +149,45 @@ export async function executeWebFetch(input: ExecuteWebFetchInput): Promise<WebF
 
   const { provider, credentials } = await resolveProviderAndCredentials(input);
 
-  const result = await handleWebFetch(
-    {
-      url: input.url,
-      format: input.format,
-      depth: input.depth,
-      wait_for_selector: input.wait_for_selector,
-      include_metadata: input.include_metadata,
-    },
-    credentials,
-    provider
-  );
+  const startedAt = Date.now();
+  if (provider === "mdream" && (await isNoAuthProviderBlockedBySettings("mdream"))) {
+    throw new WebFetchExecutionError("Mdream provider is disabled", 403);
+  }
+  if (provider === "mdream" && mdreamCooldownRemaining(startedAt) > 0) {
+    throw new WebFetchExecutionError("Mdream is rate limited", 429);
+  }
+
+  const execute = () =>
+    handleWebFetch(
+      {
+        url: input.url,
+        format: input.format,
+        depth: input.depth,
+        wait_for_selector: input.wait_for_selector,
+        include_metadata: input.include_metadata,
+      },
+      credentials,
+      provider
+    );
+  let result;
+  if (provider === "mdream") {
+    if (hasUnavailableProviderProxyPool("mdream")) {
+      throw new WebFetchExecutionError("Assigned provider proxy is unavailable", 503);
+    }
+    const proxy = await resolveProxyForProvider("mdream");
+    if (!proxy && hasBlockingProxyAssignmentForProvider("mdream")) {
+      throw new WebFetchExecutionError("Assigned provider proxy is unavailable", 503);
+    }
+    if (proxy) {
+      const { runWithProxyContext } = await import("@omniroute/open-sse/utils/proxyFetch.ts");
+      result = await runWithProxyContext(proxy, execute);
+    } else {
+      result = await execute();
+    }
+    await settleMdreamCooldown(result, startedAt);
+  } else {
+    result = await execute();
+  }
 
   if (!result.success || !result.data) {
     throw new WebFetchExecutionError(result.error || "Web fetch failed", result.status || 502);

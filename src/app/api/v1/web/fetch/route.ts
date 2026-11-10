@@ -30,14 +30,7 @@ import { getProviderCredentialsWithQuotaPreflight } from "@/sse/services/auth";
 import { resolveClientApiKey } from "@/sse/services/clientApiKeyResolver";
 import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { isNoAuthProviderBlockedBySettings } from "@/sse/services/noAuthProviderSettings";
-import { getCachedSettings } from "@/lib/db/readCache";
-import { resolveResilienceSettings } from "@/lib/resilience/settings";
-import {
-  checkFallbackError,
-  clearModelLock,
-  getModelLockoutInfo,
-  recordModelLockoutFailure,
-} from "@omniroute/open-sse/services/accountFallback.ts";
+import { mdreamCooldownRemaining, settleMdreamCooldown } from "@/lib/search/mdreamCooldown";
 import {
   hasBlockingProxyAssignmentForProvider,
   hasUnavailableProviderProxyPool,
@@ -63,10 +56,6 @@ const CORS_HEADERS = {
 };
 
 const WEB_FETCH_PROVIDERS = SHARED_WEB_FETCH_PROVIDERS;
-// AICODE-NOTE: Reuse the existing no-auth lockout key; no connection row is created.
-const MDREAM_CONNECTION = "noauth";
-const MDREAM_OPERATION = "web-fetch";
-
 // Providers that only understand their own URL shape (context7 takes a library
 // reference like context7.com/reactjs/react.dev, not a generic web URL). They
 // must be requested explicitly and never win auto-selection for arbitrary URLs.
@@ -345,20 +334,21 @@ export async function POST(request: Request) {
     return errorResponse(HTTP_STATUS.FORBIDDEN, "Mdream provider is disabled");
   }
 
-  if (body.provider === "mdream") {
-    const lock = getModelLockoutInfo("mdream", MDREAM_CONNECTION, MDREAM_OPERATION);
-    if (lock && lock.remainingMs > 0) {
-      return unavailableResponse(
-        HTTP_STATUS.RATE_LIMITED,
-        "Mdream is rate limited",
-        Math.ceil(lock.remainingMs / 1000)
-      );
-    }
-  }
-
   // Resolve provider + credentials (explicit provider never falls back; #8297)
   const target = await resolveWebFetchTarget(body.provider, scope.allowedConnections);
   if (!target.ok) return target.response;
+
+  const startedAt = Date.now();
+  if (target.provider === "mdream") {
+    const remainingMs = mdreamCooldownRemaining(startedAt);
+    if (remainingMs > 0) {
+      return unavailableResponse(
+        HTTP_STATUS.RATE_LIMITED,
+        "Mdream is rate limited",
+        Math.ceil(remainingMs / 1000)
+      );
+    }
+  }
 
   if (
     target.provider === "mdream" &&
@@ -421,32 +411,14 @@ export async function POST(request: Request) {
 
   if (target.provider === "mdream") {
     if (!result.success && result.status === HTTP_STATUS.RATE_LIMITED) {
-      const fallback = checkFallbackError(429, null, 0, null, "mdream");
-      const configured = resolveResilienceSettings(await getCachedSettings()).providerQuotaOverrides
-        .mdream?.rateLimitCooldownSeconds;
-      const hintedMs = result.retryAfter ? new Date(result.retryAfter).getTime() - Date.now() : 0;
-      const exactCooldownMs = hintedMs > 0 ? hintedMs : configured ? configured * 1000 : undefined;
-      const lock = recordModelLockoutFailure(
-        "mdream",
-        MDREAM_CONNECTION,
-        MDREAM_OPERATION,
-        "rate_limit_exceeded",
-        429,
-        fallback.cooldownMs,
-        null,
-        {
-          exactCooldownMs,
-          exactCooldownIsUpstreamReset: hintedMs > 0,
-          scope: "exact",
-        }
-      );
+      const remainingMs = await settleMdreamCooldown(result, startedAt);
       return unavailableResponse(
         HTTP_STATUS.RATE_LIMITED,
         result.error ?? "Mdream is rate limited",
-        Math.ceil(lock.cooldownMs / 1000)
+        Math.ceil(remainingMs / 1000)
       );
     }
-    if (result.success) clearModelLock("mdream", MDREAM_CONNECTION, MDREAM_OPERATION);
+    if (result.success) await settleMdreamCooldown(result, startedAt);
   }
 
   if (poolExhausted) {
